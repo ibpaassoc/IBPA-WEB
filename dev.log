@@ -1,0 +1,30 @@
+
+> ibpa-web-local@0.1.0 dev
+> concurrently -n backend,web -c cyan,green "cd app/backend && cross-env PORT=3004 FRONTEND_URL=http://localhost:3002 DASHBOARD_URL=http://localhost:3002 BACKEND_URL=http://localhost:3004 ALLOWED_ORIGINS=http://localhost:3002 npm run dev" "cd app/web && cross-env PORT=3002 NEXT_PUBLIC_API_URL=http://localhost:3004 NEXT_PUBLIC_BACKEND_URL=http://localhost:3004 BACKEND_URL=http://localhost:3004 NEXT_PUBLIC_SITE_URL=http://localhost:3002 NEXT_PUBLIC_LANDING_URL=http://localhost:3002 NEXT_PUBLIC_DASHBOARD_URL=http://localhost:3002 npm run dev"
+
+[backend] 
+[backend] > backend@0.1.0 dev
+[backend] > tsx watch src/dev-server.ts
+[backend] 
+[web] 
+[web] > web@0.1.0 dev
+[web] > next dev --disable-source-maps
+[web] 
+[backend] ◇ injected env (0) from apps\backend\.env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+[backend] ◇ injected env (23) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+[web] ▲ Next.js 16.1.6 (Turbopack)
+[web] - Local:         http://localhost:3002
+[web] - Network:       http://172.20.20.20:3002
+[web] - Environments: .env.local
+[web] 
+[web] ✓ Starting...
+[backend] Backend listening at port 3004
+[web] ✓ Ready in 1882ms
+[web]  GET /robots.txt 200 in 991ms (compile: 935ms, render: 57ms)
+[web] ○ Compiling /robots.txt ...
+[web] 
+[web] [35m
+[web] [Clerk]:[0m Your application is running with your claimed keys.
+[web] You can safely remove the [35m.clerk/[0m from your project.
+[web] 
+[web]  GET / 200 in 8.1s (compile: 6.1s, proxy.ts: 384ms, render: 1617ms)
