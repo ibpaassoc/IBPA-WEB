@@ -5,6 +5,14 @@ node_modules/
 .next/
 out/
 
+# build
+build/
+dist/
+
+# prisma
+prisma/generated/
+*.db
+
 # env files
 .env
 .env.local
@@ -17,8 +25,15 @@ pnpm-debug.log*
 
 # OS
 .DS_Store
+Thumbs.db
 
 # misc
 coverage/
-dist/
-build/
+*.pem
+
+# vercel
+.vercel/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
