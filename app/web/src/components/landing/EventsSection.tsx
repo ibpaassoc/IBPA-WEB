@@ -11,6 +11,7 @@ interface EventItem {
   name: string;
   location: string;
   img: string;
+  aspect: number;
   description: string;
   href: string;
 }
@@ -24,6 +25,8 @@ type ContentItem = {
   title: string;
   body: string;
   coverImage?: string | null;
+  coverAspect?: number | null;
+  cover_aspect?: number | null;
   ctaUrl?: string | null;
   createdAt: string;
 };
@@ -93,6 +96,7 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
     name: item.title,
     location: copy.siteLabel,
     img: item.coverImage || "/events/teora-event.webp",
+    aspect: item.coverAspect ?? item.cover_aspect ?? 16 / 9,
     description: item.body,
     href: item.ctaUrl || "/events",
   }));
@@ -129,7 +133,7 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
           {events.map((event, i) => (
             <div key={i} className="group overflow-hidden rounded-[44px] border border-white bg-[#F0F8FF]/30 transition-[background-color,box-shadow,border-color] duration-300 hover:bg-white hover:shadow-2xl">
               <div className="grid lg:grid-cols-[0.96fr_1.04fr]">
-              <div className="relative h-72 overflow-hidden lg:h-full lg:min-h-[540px]">
+              <div className="relative overflow-hidden" style={{ aspectRatio: event.aspect }}>
                 <ImageWithFallback 
                   src={event.img} 
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]" 

@@ -18,7 +18,8 @@ type AdminUploadZoneProps = {
   label: string;
   helperText: string;
   buttonText: string;
-  onUploaded: (url: string) => void;
+  prepareFile?: (file: File) => Promise<{ file: File; aspect?: number | null } | null>;
+  onUploaded: (url: string, metadata?: { aspect?: number | null }) => void;
   onError?: (message: string) => void;
   onFileSelected?: (file: File) => void;
 };
@@ -29,6 +30,7 @@ export function AdminUploadZone({
   label,
   helperText,
   buttonText,
+  prepareFile,
   onUploaded,
   onError,
   onFileSelected,
@@ -42,7 +44,12 @@ export function AdminUploadZone({
       if (!file) return;
       setIsUploading(true);
       try {
-        const result = await uploadFiles(endpoint, { files: [file] });
+        const prepared = prepareFile ? await prepareFile(file) : { file };
+        if (!prepared) {
+          return;
+        }
+
+        const result = await uploadFiles(endpoint, { files: [prepared.file] });
         const uploaded = result?.[0] as
           | { ufsUrl?: string; url?: string; serverData?: { url?: string } }
           | undefined;
@@ -52,7 +59,7 @@ export function AdminUploadZone({
           throw new Error("Upload completed, but no file URL was returned.");
         }
 
-        onUploaded(url);
+        onUploaded(url, { aspect: prepared.aspect });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Upload failed.";
         onError?.(message);
@@ -60,7 +67,7 @@ export function AdminUploadZone({
         setIsUploading(false);
       }
     },
-    [endpoint, onError, onUploaded],
+    [endpoint, onError, onUploaded, prepareFile],
   );
 
     const handleInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {

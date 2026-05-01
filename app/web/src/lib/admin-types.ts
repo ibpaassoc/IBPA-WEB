@@ -46,6 +46,8 @@ export type AdminContentItem = {
   title: string;
   body: string;
   coverImage?: string | null;
+  coverAspect?: number | null;
+  cover_aspect?: number | null;
   eventAddress?: string | null;
   eventAllDay?: boolean;
   eventDate?: string | null;

@@ -1,4 +1,4 @@
-import { boolean, jsonb, pgTable, uuid, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, jsonb, pgTable, uuid, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const cardRequests = pgTable("card_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -51,6 +51,7 @@ export const contentItems = pgTable("content_items", {
   title: varchar("title", { length: 255 }).notNull(),
   body: text("body").notNull(),
   coverImage: text("cover_image"),
+  coverAspect: doublePrecision("cover_aspect"),
   eventAddress: text("event_address"),
   eventAllDay: boolean("event_all_day").notNull().default(false),
   eventDate: timestamp("event_date"),

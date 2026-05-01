@@ -1,27 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CalendarDays,
-  Loader2,
-  Newspaper,
-  Pencil,
-  Plus,
-  Save,
-  Trash2,
-} from "lucide-react";
+import { CalendarDays, Loader2, Newspaper, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { genUploader } from "uploadthing/client";
-
 import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import { ImageCropperModal } from "@/components/admin/ImageCropperModal";
 import type { AdminContentItem } from "@/lib/admin-types";
-import type { OurFileRouter } from "@/app/api/uploadthing/core";
-
-const { uploadFiles } = genUploader<OurFileRouter>({
-  url: "/api/uploadthing",
-  package: "@uploadthing/react",
-});
 
 type ContentType = "news" | "events";
 
@@ -31,6 +15,7 @@ type FormState = {
   title: string;
   body: string;
   coverImage: string;
+  coverAspect: number | null;
   eventAddress: string;
   eventAllDay: boolean;
   eventDate: string;
@@ -47,6 +32,7 @@ const emptyForm: FormState = {
   title: "",
   body: "",
   coverImage: "",
+  coverAspect: 16 / 9,
   eventAddress: "",
   eventAllDay: false,
   eventDate: "",
@@ -58,6 +44,10 @@ const emptyForm: FormState = {
   publishToDashboard: false,
 };
 
+function normalizeCoverAspect(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 16 / 9;
+}
+
 function normalizeForm(value?: Partial<FormState>): FormState {
   return {
     id: value?.id,
@@ -65,6 +55,7 @@ function normalizeForm(value?: Partial<FormState>): FormState {
     title: value?.title ?? "",
     body: value?.body ?? "",
     coverImage: value?.coverImage ?? "",
+    coverAspect: normalizeCoverAspect(value?.coverAspect),
     eventAddress: value?.eventAddress ?? "",
     eventAllDay: Boolean(value?.eventAllDay),
     eventDate: value?.eventDate ?? "",
@@ -77,6 +68,26 @@ function normalizeForm(value?: Partial<FormState>): FormState {
   };
 }
 
+function getCoverAspect(item: Pick<AdminContentItem, "coverAspect" | "cover_aspect">) {
+  return normalizeCoverAspect(item.coverAspect ?? item.cover_aspect);
+}
+
+function formatCoverAspectLabel(value: number | null | undefined) {
+  const aspect = normalizeCoverAspect(value);
+  if (Math.abs(aspect - 16 / 9) < 0.01) return "16:9";
+  if (Math.abs(aspect - 4 / 3) < 0.01) return "4:3";
+  if (Math.abs(aspect - 1) < 0.01) return "1:1";
+  if (Math.abs(aspect - 3 / 4) < 0.01) return "3:4";
+  return aspect.toFixed(2);
+}
+
+function buildContentPayload(form: FormState) {
+  return {
+    ...form,
+    coverAspect: normalizeCoverAspect(form.coverAspect),
+  };
+}
+
 export default function ContentPage() {
   const [items, setItems] = useState<AdminContentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,66 +95,65 @@ export default function ContentPage() {
   const [filter, setFilter] = useState<ContentType>("news");
   const [form, setForm] = useState<FormState>(emptyForm);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [cropRequest, setCropRequest] = useState<{
+    file: File;
+    resolve: (value: { file: File; aspect?: number | null } | null) => void;
+  } | null>(null);
 
-  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
-  const [cropModalOpen, setCropModalOpen] = useState(false);
-
-  const loadItems = useCallback(
-    async ({ silent = false }: { silent?: boolean } = {}) => {
-      if (!silent) setLoading(true);
-
-      try {
-        const res = await fetch("/api/admin/content", { cache: "no-store" });
-        const data = await res.json();
-
-        if (!res.ok) throw new Error(data?.error || "Failed to load content");
-
-        setItems(
-          Array.isArray(data.items)
-            ? data.items.map((item: AdminContentItem) => ({
-                ...item,
-                title: item.title ?? "",
-                body: item.body ?? "",
-                coverImage: item.coverImage ?? "",
-                eventAddress: item.eventAddress ?? "",
-                eventAllDay: Boolean(item.eventAllDay),
-                eventDate: item.eventDate
-                  ? new Date(item.eventDate).toISOString().slice(0, 16)
-                  : "",
-                eventEndDate: item.eventEndDate
-                  ? new Date(item.eventEndDate).toISOString().slice(0, 16)
-                  : "",
-                ctaUrl: item.ctaUrl ?? "",
-                ctaLabel: item.ctaLabel ?? "Open Link",
-                isPinned: Boolean(item.isPinned),
-                publishToSite: Boolean(item.publishToSite),
-                publishToDashboard: Boolean(item.publishToDashboard),
-              }))
-            : [],
-        );
-
-        setLastSyncedAt(new Date().toISOString());
-      } catch (error: any) {
-        if (!silent) toast.error(error.message || "Failed to load content");
-      } finally {
-        setLoading(false);
+  const loadItems = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    try {
+      const res = await fetch("/api/admin/content", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to load content");
+      setItems(
+        Array.isArray(data.items)
+          ? data.items.map((item: AdminContentItem) => ({
+              ...item,
+              title: item.title ?? "",
+              body: item.body ?? "",
+              coverImage: item.coverImage ?? "",
+              coverAspect: getCoverAspect(item),
+              eventAddress: item.eventAddress ?? "",
+              eventAllDay: Boolean(item.eventAllDay),
+              eventDate: item.eventDate ? new Date(item.eventDate).toISOString().slice(0, 16) : "",
+              eventEndDate: item.eventEndDate ? new Date(item.eventEndDate).toISOString().slice(0, 16) : "",
+              ctaUrl: item.ctaUrl ?? "",
+              ctaLabel: item.ctaLabel ?? "Open Link",
+              isPinned: Boolean(item.isPinned),
+              publishToSite: Boolean(item.publishToSite),
+              publishToDashboard: Boolean(item.publishToDashboard),
+            }))
+          : [],
+      );
+      setLastSyncedAt(new Date().toISOString());
+    } catch (error: any) {
+      if (!silent) {
+        toast.error(error.message || "Failed to load content");
       }
-    },
-    [],
-  );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      return;
+    }
 
     const intervalId = window.setInterval(() => {
       void loadItems({ silent: true });
     }, 30000);
 
-    const handleFocus = () => void loadItems({ silent: true });
+    const handleFocus = () => {
+      void loadItems({ silent: true });
+    };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -166,33 +176,26 @@ export default function ContentPage() {
     [filter, items],
   );
 
-  const resetForm = () => {
-    setForm(normalizeForm({ ...emptyForm, type: filter }));
-  };
+  const resetForm = () => setForm(normalizeForm({ ...emptyForm, type: filter }));
 
   const handleEdit = (item: AdminContentItem) => {
-    setForm(
-      normalizeForm({
-        id: item.id,
-        type: item.type === "events" ? "events" : "news",
-        title: item.title ?? "",
-        body: item.body ?? "",
-        coverImage: item.coverImage ?? "",
-        eventAddress: item.eventAddress ?? "",
-        eventAllDay: Boolean(item.eventAllDay),
-        eventDate: item.eventDate
-          ? new Date(item.eventDate).toISOString().slice(0, 16)
-          : "",
-        eventEndDate: item.eventEndDate
-          ? new Date(item.eventEndDate).toISOString().slice(0, 16)
-          : "",
-        ctaUrl: item.ctaUrl ?? "",
-        ctaLabel: item.ctaLabel ?? "Open Link",
-        isPinned: Boolean(item.isPinned),
-        publishToSite: Boolean(item.publishToSite),
-        publishToDashboard: Boolean(item.publishToDashboard),
-      }),
-    );
+    setForm(normalizeForm({
+      id: item.id,
+      type: item.type === "events" ? "events" : "news",
+      title: item.title ?? "",
+      body: item.body ?? "",
+      coverImage: item.coverImage ?? "",
+      coverAspect: getCoverAspect(item),
+      eventAddress: item.eventAddress ?? "",
+      eventAllDay: Boolean(item.eventAllDay),
+      eventDate: item.eventDate ? new Date(item.eventDate).toISOString().slice(0, 16) : "",
+      eventEndDate: item.eventEndDate ? new Date(item.eventEndDate).toISOString().slice(0, 16) : "",
+      ctaUrl: item.ctaUrl ?? "",
+      ctaLabel: item.ctaLabel ?? "Open Link",
+      isPinned: Boolean(item.isPinned),
+      publishToSite: Boolean(item.publishToSite),
+      publishToDashboard: Boolean(item.publishToDashboard),
+    }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -224,26 +227,34 @@ export default function ContentPage() {
     }
 
     setSaving(true);
-
     try {
-      const url = form.id
-        ? `/api/admin/content/${form.id}`
-        : "/api/admin/content";
-
+      const url = form.id ? `/api/admin/content/${form.id}` : "/api/admin/content";
       const method = form.id ? "PATCH" : "POST";
-
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(buildContentPayload(form)),
       });
-
       const data = await res.json();
-
       if (!res.ok) throw new Error(data?.error || "Failed to save content");
 
       toast.success(form.id ? "Content updated" : "Content created");
-      await loadItems();
+      if (data?.item) {
+        const savedItem = data.item as AdminContentItem;
+        setItems((prev) => {
+          const normalizedItem = {
+            ...savedItem,
+            coverImage: savedItem.coverImage ?? "",
+            coverAspect: getCoverAspect(savedItem),
+          };
+          const exists = prev.some((item) => item.id === savedItem.id);
+          return exists
+            ? prev.map((item) => (item.id === savedItem.id ? { ...item, ...normalizedItem } : item))
+            : [normalizedItem, ...prev];
+        });
+      } else {
+        await loadItems();
+      }
       resetForm();
     } catch (error: any) {
       toast.error(error.message || "Failed to save content");
@@ -252,21 +263,48 @@ export default function ContentPage() {
     }
   };
 
+  const prepareCoverImage = useCallback((file: File) => {
+    return new Promise<{ file: File; aspect?: number | null } | null>((resolve) => {
+      setCropRequest({ file, resolve });
+    });
+  }, []);
+
+  const handleCropApply = (croppedFile: File, aspect: number) => {
+    cropRequest?.resolve({ file: croppedFile, aspect });
+    setCropRequest(null);
+  };
+
+  const handleCropCancel = () => {
+    cropRequest?.resolve(null);
+    setCropRequest(null);
+  };
+
+  const handleCoverUploaded = async (url: string, aspect?: number | null) => {
+    const nextAspect = normalizeCoverAspect(aspect ?? form.coverAspect);
+
+    setForm((prev) => ({
+      ...prev,
+      coverImage: url,
+      coverAspect: nextAspect,
+    }));
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === form.id ? { ...item, coverImage: url, coverAspect: nextAspect } : item,
+      ),
+    );
+
+    toast.success("Image uploaded. Click Save/Update to publish the new cover ratio.");
+  };
+
   const handleDelete = async (id: string) => {
     if (!window.confirm("Delete this content item?")) return;
 
     try {
-      const res = await fetch(`/api/admin/content/${id}`, {
-        method: "DELETE",
-      });
-
+      const res = await fetch(`/api/admin/content/${id}`, { method: "DELETE" });
       const data = await res.json();
-
       if (!res.ok) throw new Error(data?.error || "Failed to delete content");
-
       toast.success("Content deleted");
       await loadItems();
-
       if (form.id === id) resetForm();
     } catch (error: any) {
       toast.error(error.message || "Failed to delete content");
@@ -277,24 +315,16 @@ export default function ContentPage() {
     <main className="mx-auto max-w-7xl px-4 py-8 lg:py-9">
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="font-anton text-3xl uppercase tracking-tighter lg:text-[2rem]">
-            Контент
-          </h1>
+          <h1 className="text-3xl uppercase tracking-tighter font-anton lg:text-[2rem]">Контент</h1>
           <p className="mt-1.5 text-sm font-light text-slate-500">
             Публикация новостей и событий для сайта и личного кабинета.
           </p>
-
           {lastSyncedAt && (
             <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">
-              Last sync{" "}
-              {new Date(lastSyncedAt).toLocaleTimeString("en-US", {
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              Last sync {new Date(lastSyncedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
             </p>
           )}
         </div>
-
         <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
           <button
             type="button"
@@ -303,15 +333,12 @@ export default function ContentPage() {
               setForm((prev) => normalizeForm({ ...prev, type: "news" }));
             }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-[10px] font-bold uppercase tracking-[0.18em] transition-all ${
-              filter === "news"
-                ? "bg-black text-white"
-                : "text-slate-400 hover:text-slate-700"
+              filter === "news" ? "bg-black text-white" : "text-slate-400 hover:text-slate-700"
             }`}
           >
             <Newspaper className="h-4 w-4" />
             News
           </button>
-
           <button
             type="button"
             onClick={() => {
@@ -319,9 +346,7 @@ export default function ContentPage() {
               setForm((prev) => normalizeForm({ ...prev, type: "events" }));
             }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-[10px] font-bold uppercase tracking-[0.18em] transition-all ${
-              filter === "events"
-                ? "bg-black text-white"
-                : "text-slate-400 hover:text-slate-700"
+              filter === "events" ? "bg-black text-white" : "text-slate-400 hover:text-slate-700"
             }`}
           >
             <CalendarDays className="h-4 w-4" />
@@ -341,7 +366,6 @@ export default function ContentPage() {
                 One cover image, one title, one main text, one CTA link.
               </p>
             </div>
-
             <button
               type="button"
               onClick={resetForm}
@@ -355,33 +379,21 @@ export default function ContentPage() {
           <form onSubmit={handleSave} className="space-y-5">
             <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Type
-                </label>
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Type</label>
                 <select
                   value={form.type}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      type: e.target.value as ContentType,
-                    }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value as ContentType }))}
                   className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
                 >
                   <option value="news">News</option>
                   <option value="events">Events</option>
                 </select>
               </div>
-
               <div>
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  CTA Button Label
-                </label>
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-400">CTA Button Label</label>
                 <input
                   value={form.ctaLabel}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, ctaLabel: e.target.value }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, ctaLabel: e.target.value }))}
                   className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
                   placeholder="Open Link"
                 />
@@ -389,28 +401,20 @@ export default function ContentPage() {
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Title
-              </label>
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Title</label>
               <input
                 value={form.title}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, title: e.target.value }))
-                }
+                onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
                 placeholder="Headline"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Main Text
-              </label>
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Main Text</label>
               <textarea
                 value={form.body}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, body: e.target.value }))
-                }
+                onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
                 rows={10}
                 className="mt-2 w-full resize-y rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
                 placeholder="Main content text..."
@@ -418,14 +422,10 @@ export default function ContentPage() {
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                CTA Link
-              </label>
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">CTA Link</label>
               <input
                 value={form.ctaUrl}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, ctaUrl: e.target.value }))
-                }
+                onChange={(e) => setForm((prev) => ({ ...prev, ctaUrl: e.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
                 placeholder="https://..."
               />
@@ -437,83 +437,53 @@ export default function ContentPage() {
                   <input
                     type="checkbox"
                     checked={form.eventAllDay}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        eventAllDay: e.target.checked,
-                      }))
-                    }
+                    onChange={(e) => setForm((prev) => ({ ...prev, eventAllDay: e.target.checked }))}
                     className="h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
                   />
                   Hide time and use dates only
                 </label>
-
-                <div className="grid gap-5 md:grid-cols-3">
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                      Event Date
-                    </label>
-                    <input
-                      type={form.eventAllDay ? "date" : "datetime-local"}
-                      value={form.eventDate}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          eventDate: e.target.value,
-                        }))
-                      }
-                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                      End Date
-                    </label>
-                    <input
-                      type={form.eventAllDay ? "date" : "datetime-local"}
-                      value={form.eventEndDate}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          eventEndDate: e.target.value,
-                        }))
-                      }
-                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                      Address
-                    </label>
-                    <input
-                      value={form.eventAddress}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          eventAddress: e.target.value,
-                        }))
-                      }
-                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
-                      placeholder="City, venue, or full address"
-                    />
-                  </div>
+              <div className="grid gap-5 md:grid-cols-3">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Event Date</label>
+                  <input
+                    type={form.eventAllDay ? "date" : "datetime-local"}
+                    value={form.eventDate}
+                    onChange={(e) => setForm((prev) => ({ ...prev, eventDate: e.target.value }))}
+                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
+                  />
                 </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">End Date</label>
+                  <input
+                    type={form.eventAllDay ? "date" : "datetime-local"}
+                    value={form.eventEndDate}
+                    onChange={(e) => setForm((prev) => ({ ...prev, eventEndDate: e.target.value }))}
+                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Address</label>
+                  <input
+                    value={form.eventAddress}
+                    onChange={(e) => setForm((prev) => ({ ...prev, eventAddress: e.target.value }))}
+                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition-all focus:border-[#72A0C1]"
+                    placeholder="City, venue, or full address"
+                  />
+                </div>
+              </div>
               </div>
             )}
 
             <div className="rounded-[24px] border border-slate-100 bg-[#F8FAFC] p-5">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Cover Image
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Upload a single image for the card cover or drag it into the
-                  area below.
-                </p>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Cover Image</p>
+                  <p className="mt-1 text-xs text-slate-400">Upload a single image for the card cover or drag it into the area below.</p>
+                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    Current ratio: {formatCoverAspectLabel(form.coverAspect)}
+                  </p>
+                </div>
               </div>
-
               <div className="mt-4">
                 <AdminUploadZone
                   endpoint="contentImageUploader"
@@ -521,28 +491,14 @@ export default function ContentPage() {
                   label="Drag & drop an image here"
                   helperText="PNG, JPG, WEBP up to 8MB"
                   buttonText="Choose file"
-                  onFileSelected={(file) => {
-                    const localUrl = URL.createObjectURL(file);
-                    setImageToCrop(localUrl);
-                    setCropModalOpen(true);
-                  }}
-                  onUploaded={(url) => {
-                    setForm((prev) => ({ ...prev, coverImage: url }));
-                    toast.success("Image uploaded");
-                  }}
-                  onError={(message) =>
-                    toast.error(`Upload error: ${message}`)
-                  }
+                  prepareFile={prepareCoverImage}
+                  onUploaded={(url, metadata) => void handleCoverUploaded(url, metadata?.aspect)}
+                  onError={(message) => toast.error(`Upload error: ${message}`)}
                 />
               </div>
-
               {form.coverImage && (
-                <div className="mt-4 aspect-video overflow-hidden rounded-[20px] border border-slate-200">
-                  <img
-                    src={form.coverImage}
-                    alt="Cover preview"
-                    className="h-full w-full object-cover"
-                  />
+                <div className="mt-4 overflow-hidden rounded-[20px] border border-slate-200" style={{ aspectRatio: form.coverAspect ?? 16 / 9 }}>
+                  <img src={form.coverImage} alt="Cover preview" className="h-full w-full object-cover" />
                 </div>
               )}
             </div>
@@ -552,42 +508,25 @@ export default function ContentPage() {
                 <input
                   type="checkbox"
                   checked={form.isPinned}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      isPinned: e.target.checked,
-                    }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, isPinned: e.target.checked }))}
                   className="h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
                 />
                 Pin this item
               </label>
-
               <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-medium text-slate-700">
                 <input
                   type="checkbox"
                   checked={form.publishToSite}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      publishToSite: e.target.checked,
-                    }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, publishToSite: e.target.checked }))}
                   className="h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
                 />
                 Publish on website
               </label>
-
               <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-medium text-slate-700">
                 <input
                   type="checkbox"
                   checked={form.publishToDashboard}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      publishToDashboard: e.target.checked,
-                    }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, publishToDashboard: e.target.checked }))}
                   className="h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
                 />
                 Publish in dashboard
@@ -600,16 +539,8 @@ export default function ContentPage() {
                 disabled={saving}
                 className="inline-flex items-center gap-2 rounded-2xl bg-black px-8 py-4 text-sm font-bold uppercase tracking-widest text-white transition-all hover:bg-[#72A0C1] hover:shadow-xl hover:shadow-[#72A0C1]/20 disabled:opacity-50"
               >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {saving
-                  ? "Saving..."
-                  : form.id
-                    ? "Update Item"
-                    : "Publish Item"}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saving ? "Saving..." : form.id ? "Update Item" : "Publish Item"}
               </button>
             </div>
           </form>
@@ -617,12 +548,8 @@ export default function ContentPage() {
 
         <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-slate-900">
-              Published Queue
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Manage existing {filter} entries.
-            </p>
+            <h2 className="text-xl font-bold text-slate-900">Published Queue</h2>
+            <p className="mt-1 text-sm text-slate-400">Manage existing {filter} entries.</p>
           </div>
 
           {loading ? (
@@ -636,31 +563,18 @@ export default function ContentPage() {
           ) : (
             <div className="space-y-4">
               {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="overflow-hidden rounded-[24px] border border-slate-100 bg-[#F8FAFC]"
-                >
+                <div key={item.id} className="overflow-hidden rounded-[24px] border border-slate-100 bg-[#F8FAFC]">
                   {item.coverImage && (
-                    <div className="aspect-video overflow-hidden rounded-[28px]">
-                        <img
-                            src={item.coverImage}
-                            alt={item.title}
-                            className="h-full w-full object-cover"
-                        />
+                    <div style={{ aspectRatio: item.coverAspect ?? 16 / 9 }}>
+                      <img src={item.coverImage} alt={item.title} className="h-full w-full object-cover" />
                     </div>
                   )}
-
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                          {item.type}
-                        </p>
-                        <h3 className="mt-2 text-lg font-bold text-slate-900">
-                          {item.title}
-                        </h3>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{item.type}</p>
+                        <h3 className="mt-2 text-lg font-bold text-slate-900">{item.title}</h3>
                       </div>
-
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -669,7 +583,6 @@ export default function ContentPage() {
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
-
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
@@ -680,72 +593,29 @@ export default function ContentPage() {
                       </div>
                     </div>
 
-                    <p className="mt-3 line-clamp-4 text-sm leading-relaxed text-slate-500">
-                      {item.body}
-                    </p>
-
-                    {item.type === "events" &&
-                      (item.eventDate || item.eventAddress) && (
-                        <div className="mt-4 space-y-1 text-xs text-slate-500">
-                          {item.eventDate && (
-                            <p>
-                              <span className="font-semibold text-slate-700">
-                                Start:
-                              </span>{" "}
-                              {item.eventAllDay
-                                ? new Date(item.eventDate).toLocaleDateString()
-                                : new Date(item.eventDate).toLocaleString()}
-                            </p>
-                          )}
-
-                          {item.eventEndDate && (
-                            <p>
-                              <span className="font-semibold text-slate-700">
-                                End:
-                              </span>{" "}
-                              {item.eventAllDay
-                                ? new Date(
-                                    item.eventEndDate,
-                                  ).toLocaleDateString()
-                                : new Date(
-                                    item.eventEndDate,
-                                  ).toLocaleString()}
-                            </p>
-                          )}
-
-                          {item.eventAddress && (
-                            <p>
-                              <span className="font-semibold text-slate-700">
-                                Address:
-                              </span>{" "}
-                              {item.eventAddress}
-                            </p>
-                          )}
-
-                          {item.eventAllDay && (
-                            <p>
-                              <span className="font-semibold text-slate-700">
-                                Format:
-                              </span>{" "}
-                              Date only
-                            </p>
-                          )}
-                        </div>
-                      )}
-
+                    <p className="mt-3 line-clamp-4 text-sm leading-relaxed text-slate-500">{item.body}</p>
+                    {item.type === "events" && (item.eventDate || item.eventAddress) && (
+                      <div className="mt-4 space-y-1 text-xs text-slate-500">
+                        {item.eventDate && <p><span className="font-semibold text-slate-700">Start:</span> {item.eventAllDay ? new Date(item.eventDate).toLocaleDateString() : new Date(item.eventDate).toLocaleString()}</p>}
+                        {item.eventEndDate && <p><span className="font-semibold text-slate-700">End:</span> {item.eventAllDay ? new Date(item.eventEndDate).toLocaleDateString() : new Date(item.eventEndDate).toLocaleString()}</p>}
+                        {item.eventAddress && <p><span className="font-semibold text-slate-700">Address:</span> {item.eventAddress}</p>}
+                        {item.eventAllDay && <p><span className="font-semibold text-slate-700">Format:</span> Date only</p>}
+                      </div>
+                    )}
                     <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                        Cover {formatCoverAspectLabel(item.coverAspect)}
+                      </span>
                       {item.isPinned && (
                         <span className="rounded-full bg-[#72A0C1] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">
                           Pinned
                         </span>
                       )}
-
                       {item.publishToSite && (
                         <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
                           Website
                         </span>
                       )}
-
                       {item.publishToDashboard && (
                         <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
                           Dashboard
@@ -759,48 +629,14 @@ export default function ContentPage() {
           )}
         </section>
       </div>
-
-      <ImageCropperModal
-        open={cropModalOpen}
-        imageSrc={imageToCrop}
-        aspect={16 / 9}
-        onClose={() => {
-          setCropModalOpen(false);
-          setImageToCrop(null);
-        }}
-        onApply={async (file) => {
-          try {
-            const result = await uploadFiles("contentImageUploader", {
-              files: [file],
-            });
-
-            const uploaded = result?.[0] as
-              | {
-                  ufsUrl?: string;
-                  url?: string;
-                  serverData?: { url?: string };
-                }
-              | undefined;
-
-            const url =
-              uploaded?.serverData?.url || uploaded?.ufsUrl || uploaded?.url;
-
-            if (!url) {
-              throw new Error("Upload completed, but no file URL was returned.");
-            }
-
-            setForm((prev) => ({ ...prev, coverImage: url }));
-            toast.success("Cropped image uploaded");
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : "Upload failed.";
-            toast.error(`Upload error: ${message}`);
-          } finally {
-            setCropModalOpen(false);
-            setImageToCrop(null);
-          }
-        }}
-      />
+      {cropRequest && (
+        <ImageCropperModal
+          file={cropRequest.file}
+          defaultAspect={form.coverAspect ?? 16 / 9}
+          onApply={handleCropApply}
+          onCancel={handleCropCancel}
+        />
+      )}
     </main>
   );
 }
