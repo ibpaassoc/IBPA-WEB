@@ -38,7 +38,6 @@ const FIELD_LABELS: Record<string, string> = {
   state: "Регион/Штат",
   zipCode: "Почтовый индекс",
   country: "Страна",
-  currentPosition: "Текущая должность",
   yearsExperience: "Стаж работы (лет)",
   professionalDesc: "Профессиональное резюме",
   workSetting: "Место работы (тип)",

@@ -13,7 +13,6 @@ const EDITABLE_APPLICATION_FIELDS = [
   "country",
   "city",
   "citizenship",
-  "currentPosition",
   "yearsExperience",
   "educationDesc",
   "professionalDesc",
@@ -68,6 +67,25 @@ function pickEditableApplicationFields(source: Record<string, unknown>) {
   }
 
   return next;
+}
+
+function textValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : typeof item === "number" ? String(item) : ""))
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return "";
 }
 
 async function ensureUserRecord(
@@ -385,6 +403,7 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
         applicationPayload && typeof applicationPayload === "object" ? applicationPayload as Record<string, unknown> : {},
       ),
     };
+    const nextSpecialization = textValue(nextApplicationPayload.specialization);
 
     if (latestPaidOrder) {
       await db
@@ -400,7 +419,7 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
       await db.update(users).set({
         imageUrl: imageUrl ?? existing.imageUrl,
         bio,
-        specialization: specialization || (nextApplicationPayload.specialization as string) || existing.specialization,
+        specialization: specialization || nextSpecialization || existing.specialization,
         experienceYears: experienceYears || (nextApplicationPayload.yearsExperience as string) || existing.experienceYears,
         education: education || (nextApplicationPayload.educationDesc as string) || existing.education,
         instagramUrl: instagramUrl || (nextApplicationPayload.instagramLink as string) || existing.instagramUrl,
@@ -416,7 +435,7 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
         lastName: clerkUser.lastName || "",
         imageUrl: imageUrl ?? null,
         bio,
-        specialization: specialization || (nextApplicationPayload.specialization as string) || null,
+        specialization: specialization || nextSpecialization || null,
         experienceYears: experienceYears || (nextApplicationPayload.yearsExperience as string) || null,
         education: education || (nextApplicationPayload.educationDesc as string) || null,
         instagramUrl: instagramUrl || (nextApplicationPayload.instagramLink as string) || null,

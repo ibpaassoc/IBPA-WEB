@@ -49,7 +49,6 @@ type FormData = {
   state?: string;
   zipCode?: string;
   country: string;
-  currentPosition: string;
   yearsExperience: string;
   professionalDesc: string;
   workSetting: string;
@@ -169,7 +168,6 @@ const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }
   state: { en: "State / Region", ru: "Штат / регион", uk: "Штат / регіон" },
   zipCode: { en: "ZIP / Postal code", ru: "ZIP / индекс", uk: "ZIP / індекс" },
   country: { en: "Country", ru: "Страна", uk: "Країна" },
-  currentPosition: { en: "Expert role in the industry", ru: "Экспертная роль в индустрии", uk: "Експертна роль в індустрії" },
   yearsExperience: { en: "Years of experience", ru: "Опыт работы", uk: "Досвід роботи" },
   professionalDesc: { en: "Professional description", ru: "Профессиональное описание", uk: "Професійний опис" },
   workSetting: { en: "Work setting", ru: "Формат работы", uk: "Формат роботи" },
@@ -311,8 +309,8 @@ function getStepFields(step: number, category: MembershipCategory): (keyof FormD
         : ["firstName", "lastName", "email", "phone", "citizenship", "city", "country"];
     case 2:
       return includesSubcategorySection(category)
-        ? ["currentPosition", "specialization", "specializationOther", "yearsExperience", "professionalDesc", "workSetting"]
-        : ["currentPosition", "yearsExperience", "professionalDesc", "workSetting"];
+        ? ["specialization", "specializationOther", "yearsExperience", "professionalDesc", "workSetting"]
+        : ["yearsExperience", "professionalDesc", "workSetting"];
     case 3:
       return requiresLicenseNumber(category) ? ["educationDesc", "hasLicense", "licenseNumber"] : ["educationDesc", "hasLicense"];
     case 4:
@@ -883,16 +881,6 @@ export default function ApplyPage() {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Экспертная роль в индустрии" : isUk ? "Експертна роль в індустрії" : "Expert role in the industry"} *</label>
-                    <select {...register("currentPosition", { required: isRu ? "Выберите экспертную роль." : isUk ? "Оберіть експертну роль." : "Select your expert role." })} className="form-input appearance-none">
-                      <option value="">{isRu ? "Выберите роль" : isUk ? "Оберіть роль" : "Select role"}</option>
-                      <option value="Expert">{isRu ? "Эксперт" : isUk ? "Експерт" : "Expert"}</option>
-                      <option value="Educator">{isRu ? "Преподаватель" : isUk ? "Викладач" : "Educator"}</option>
-                      <option value="Specialist">{isRu ? "Специалист" : isUk ? "Фахівець" : "Specialist"}</option>
-                    </select>
-                    {renderFieldError("currentPosition")}
-                  </div>
                   {includesSubcategorySection(selectedCategory) && (
                     <div className="md:col-span-2 rounded-[24px] border border-[#B9D9EB]/50 bg-white/80 p-5">
                       <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#708090]">

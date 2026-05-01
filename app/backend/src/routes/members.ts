@@ -26,6 +26,10 @@ type MemberRecord = {
   applicationPayload: unknown;
 };
 
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
 function textValue(value: unknown): string {
   if (typeof value === "string") {
     return value.trim();
@@ -76,14 +80,17 @@ function toPublicMember(record: MemberRecord) {
   const payload = asPayload(record.applicationPayload);
   const firstName = firstNonEmpty(record.firstName, payload.firstName, record.fullName.split(" ")[0]);
   const lastName = firstNonEmpty(record.lastName, payload.lastName);
-  const specialization = firstNonEmpty(
-    payload.specialization,
-    payload.currentPosition,
-    record.specialization,
-    payload.bizType,
-    payload.brandType,
-    payload.educatorRole,
-  );
+  const applicationSpecializations = stringArray(payload.specialization);
+  const specializationOther = firstNonEmpty(payload.specializationOther);
+  const profileSpecialization = firstNonEmpty(record.specialization);
+  const businessSpecialization = firstNonEmpty(payload.bizType, payload.brandType);
+  const specializations = uniqueStrings([
+    ...applicationSpecializations,
+    ...(specializationOther ? [specializationOther] : []),
+    ...(applicationSpecializations.length === 0 && profileSpecialization ? [profileSpecialization] : []),
+    ...(applicationSpecializations.length === 0 && !profileSpecialization && businessSpecialization ? [businessSpecialization] : []),
+  ]);
+  const specialization = specializations.join(", ");
   const achievementSummary = firstNonEmpty(
     payload.achievementsDesc,
     joinIfTruthy([payload.competitionName, payload.competitionYear, payload.competitionResult]),
@@ -117,6 +124,7 @@ function toPublicMember(record: MemberRecord) {
     membershipCategory: record.membershipCategory || "",
     applicantType: record.applicantType || "",
     title: specialization || "IBPA Member",
+    specializations,
     description,
     experience,
     location,

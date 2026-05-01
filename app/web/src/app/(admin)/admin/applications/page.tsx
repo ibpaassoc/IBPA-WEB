@@ -44,7 +44,6 @@ const FIELD_LABELS: Record<string, string> = {
   state: "Регион/Штат",
   zipCode: "Почтовый индекс",
   country: "Страна",
-  currentPosition: "Текущая должность",
   yearsExperience: "Стаж работы (лет)",
   professionalDesc: "Профессиональное резюме",
   workSetting: "Место работы (тип)",
@@ -106,7 +105,7 @@ function buildSections(order: AdminOrder) {
   const sections = [
     {
       title: "Итоговое резюме",
-      fields: ["membershipCategory", "applicantType", "currentPosition", "yearsExperience", "workSetting"],
+      fields: ["membershipCategory", "applicantType", "specialization", "specializationOther", "yearsExperience", "workSetting"],
     },
     {
       title: "Контактные данные",

@@ -194,7 +194,6 @@ async function sendAdminNewApplicationEmail(params: {
     ["Country", typeof application?.country === "string" ? application.country : null],
     ["Subcategory / Specialization", specializationSummary],
     ["Other Specialization", typeof application?.specializationOther === "string" ? application.specializationOther : null],
-    ["Current Position", typeof application?.currentPosition === "string" ? application.currentPosition : null],
     ["Experience", typeof application?.yearsExperience === "string" ? application.yearsExperience : null],
     ["Achievements", typeof application?.achievementsDesc === "string" ? application.achievementsDesc : null],
     ["Competition", competitionSummary || null],

@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { buildSystemNotifications, normalizeNotifications, type DashboardNotification } from "@/lib/notifications";
 import { getLandingOrigin } from "@/lib/public-urls";
-import { getLocation, getMasterRole, getProfileBadges, getSnapshotItems, type CombinedProfileData } from "@/lib/application-profile";
+import { getLocation, getSpecializationDisplay, getProfileBadges, getSnapshotItems, type CombinedProfileData } from "@/lib/application-profile";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 
 interface Certificate {
@@ -419,8 +419,8 @@ export default function DashboardPage() {
       membershipCategory: (primaryCertificate?.membershipCategory || profileData.membershipCategory || null) as CombinedProfileData["membershipCategory"],
       applicantType: primaryCertificate?.applicantType || profileData.applicantType,
       specialization:
+        (Array.isArray(activeApplicationPayload.specialization) && activeApplicationPayload.specialization.filter(Boolean).join(", ")) ||
         (typeof activeApplicationPayload.specialization === "string" && activeApplicationPayload.specialization) ||
-        (typeof activeApplicationPayload.currentPosition === "string" && activeApplicationPayload.currentPosition) ||
         profileData.specialization ||
         null,
       experienceYears:
@@ -448,7 +448,7 @@ export default function DashboardPage() {
     }),
     [activeApplicationPayload, primaryCertificate, profileData],
   );
-  const masterRole = getMasterRole(mergedProfileData);
+  const specializationDisplay = getSpecializationDisplay(mergedProfileData);
   const locationDisplay = getLocation(mergedProfileData);
   const snapshotItems = getSnapshotItems(mergedProfileData);
   const profileTags = getProfileBadges(mergedProfileData, primaryCertificate?.status || "pending", membershipCategoryLabel);
@@ -459,7 +459,7 @@ export default function DashboardPage() {
   
   const quickStats = [
     { label: "Member Since", value: memberSinceDisplay },
-    { label: "Role", value: masterRole },
+    { label: "Specialization", value: specializationDisplay },
     { label: "Location", value: locationDisplay },
   ];
   
@@ -889,7 +889,7 @@ export default function DashboardPage() {
                               ))}
                             </div>
 
-                            {(mergedProfileData.bio || mergedProfileData.instagramUrl || mergedProfileData.experienceYears || masterRole || locationDisplay) && (
+                            {(mergedProfileData.bio || mergedProfileData.instagramUrl || mergedProfileData.experienceYears || specializationDisplay || locationDisplay) && (
                               <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {mergedProfileData.bio && (
                                   <div>
@@ -906,10 +906,10 @@ export default function DashboardPage() {
                                       </a>
                                     </div>
                                   )}
-                                  {(mergedProfileData.experienceYears || masterRole || locationDisplay) && (
+                                  {(mergedProfileData.experienceYears || specializationDisplay || locationDisplay) && (
                                     <div>
                                       <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/45 mb-1">Professional Info</p>
-                                      <p className="text-xs text-white/80">{masterRole}</p>
+                                      <p className="text-xs text-white/80">{specializationDisplay}</p>
                                       <p className="mt-1 text-xs text-white/60">{locationDisplay}</p>
                                     </div>
                                   )}
@@ -1378,4 +1378,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
