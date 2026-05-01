@@ -98,7 +98,7 @@ export const NewsSection = async ({ locale }: NewsSectionProps) => {
         <div className="grid gap-12 md:grid-cols-2">
           {newsItems.map((news, i) => (
             <Link key={i} href="/news" className="group block space-y-6 cursor-pointer" aria-label={news.title}>
-              <div className="aspect-[4/3] overflow-hidden rounded-[40px] relative">
+              <div className="aspect-video overflow-hidden rounded-[40px]">
                 <ImageWithFallback 
                   src={news.img} 
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.05]" 
