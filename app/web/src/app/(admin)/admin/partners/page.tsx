@@ -3,7 +3,7 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Pencil, Plus, Save, Trash2, Handshake } from "lucide-react";
 import { toast } from "sonner";
-import { AdminUploadZone } from "@/components/AdminUploadZone";
+import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import type { AdminContentItem } from "@/lib/admin-types";
 
 type PartnerForm = {

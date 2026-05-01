@@ -22,7 +22,7 @@ import {
 import { Order, OrderStatus } from "@/lib/types";
 import { AdminClient } from "@/lib/admin-types";
 import { toast } from "sonner";
-import { AdminUploadZone } from "@/components/AdminUploadZone";
+import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 
 // Reusing field labels from applications page for the questionnaire tab
 const FIELD_LABELS: Record<string, string> = {

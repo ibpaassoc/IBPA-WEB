@@ -94,7 +94,7 @@ export default function NewsPage() {
           ) : renderedUpdates.length ? (
             renderedUpdates.map((item) => (
               <article key={item.title} className="overflow-hidden rounded-[40px] border border-slate-200/80 bg-white shadow-[0_18px_54px_rgba(15,23,42,0.06)]">
-                <div className="aspect-[4/3] overflow-hidden rounded-[40px]">
+                <div className="aspect-[16/9] overflow-hidden rounded-[40px]">
                   <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
                 </div>
                 <div className="p-8">

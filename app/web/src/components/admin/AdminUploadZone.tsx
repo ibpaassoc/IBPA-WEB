@@ -20,6 +20,7 @@ type AdminUploadZoneProps = {
   buttonText: string;
   onUploaded: (url: string) => void;
   onError?: (message: string) => void;
+  onFileSelected?: (file: File) => void;
 };
 
 export function AdminUploadZone({
@@ -30,6 +31,7 @@ export function AdminUploadZone({
   buttonText,
   onUploaded,
   onError,
+  onFileSelected,
 }: AdminUploadZoneProps) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -61,18 +63,32 @@ export function AdminUploadZone({
     [endpoint, onError, onUploaded],
   );
 
-  const handleInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    await handleFile(file);
-    event.target.value = "";
-  };
+    const handleInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
 
-  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(false);
-    const file = event.dataTransfer.files?.[0];
-    await handleFile(file);
-  };
+        if (onFileSelected) {
+            onFileSelected(file);
+        } else {
+            await handleFile(file);
+        }
+
+        event.target.value = "";
+    };
+
+    const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        setIsDragging(false);
+
+        const file = event.dataTransfer.files?.[0];
+        if (!file) return;
+
+        if (onFileSelected) {
+            onFileSelected(file);
+        } else {
+            await handleFile(file);
+        }
+    };
 
   return (
     <div
