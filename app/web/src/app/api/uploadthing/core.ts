@@ -36,6 +36,34 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ file }) => {
       return { uploadedBy: "landing-applicant", url: file.url };
     }),
+  trainerEducationPlanUploader: f({
+    pdf: { maxFileSize: "8MB", maxFileCount: 1 },
+    "application/msword": { maxFileSize: "8MB", maxFileCount: 1 },
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { maxFileSize: "8MB", maxFileCount: 1 },
+  })
+    .middleware(async () => {
+      return { uploadedBy: "landing-applicant" };
+    })
+    .onUploadComplete(async ({ file }) => {
+      return { uploadedBy: "landing-applicant", url: file.url };
+    }),
+  trainerCertificateUploader: f({
+    pdf: { maxFileSize: "8MB", maxFileCount: 1 },
+    image: { maxFileSize: "8MB", maxFileCount: 1 },
+  })
+    .middleware(async () => {
+      return { uploadedBy: "landing-applicant" };
+    })
+    .onUploadComplete(async ({ file }) => {
+      return { uploadedBy: "landing-applicant", url: file.url };
+    }),
+  trainerProofUploader: f({ image: { maxFileSize: "8MB", maxFileCount: 10 } })
+    .middleware(async () => {
+      return { uploadedBy: "landing-applicant" };
+    })
+    .onUploadComplete(async ({ file }) => {
+      return { uploadedBy: "landing-applicant", url: file.url };
+    }),
   avatarUploader: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
     .middleware(async () => {
       const { userId } = await auth();

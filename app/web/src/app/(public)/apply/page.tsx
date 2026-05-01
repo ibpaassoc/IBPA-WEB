@@ -36,6 +36,9 @@ import { useI18n } from "@/lib/i18n";
 
 type FormData = {
   portfolioImages: string[];
+  trainerEducationPlanFiles: string[];
+  trainerCertificateFiles: string[];
+  trainerExperienceProofFiles: string[];
   membershipCategory: MembershipCategory;
   applicantType: string;
   firstName: string;
@@ -155,6 +158,9 @@ const ConfirmStep = dynamic(
 
 const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }> = {
   portfolioImages: { en: "Portfolio images", ru: "Фото работ", uk: "Фото робіт" },
+  trainerEducationPlanFiles: { en: "Education Plan / Методичка", ru: "Методичка / план обучения", uk: "Методичка / план навчання" },
+  trainerCertificateFiles: { en: "Certificate", ru: "Сертификат", uk: "Сертифікат" },
+  trainerExperienceProofFiles: { en: "Proof of educator experience", ru: "Подтверждение преподавательского опыта", uk: "Підтвердження викладацького досвіду" },
   membershipCategory: { en: "Membership category", ru: "Категория участия", uk: "Категорія участі" },
   applicantType: { en: "Applicant type", ru: "Тип заявителя", uk: "Тип заявника" },
   firstName: { en: "First name", ru: "Имя", uk: "Ім’я" },
@@ -281,7 +287,18 @@ function getCategorySpecificFields(category: MembershipCategory): (keyof FormDat
     case "Professional":
       return ["portfolioImages", "workingJurisdictions", ...professionalAchievementFields];
     case "Trainer":
-      return ["portfolioImages", "educatorRole", "educatorSubjects", "educatorYears", "educatorFormat", "studentCount", ...professionalAchievementFields];
+      return [
+        "portfolioImages",
+        "educatorRole",
+        "educatorSubjects",
+        "educatorYears",
+        "educatorFormat",
+        "studentCount",
+        "trainerEducationPlanFiles",
+        "trainerCertificateFiles",
+        "trainerExperienceProofFiles",
+        ...professionalAchievementFields,
+      ];
     case "Business":
       return ["bizName", "bizType", "bizYear", "bizTeamSize", "bizServices", ...professionalAchievementFields];
     case "Brand":
@@ -361,6 +378,9 @@ export default function ApplyPage() {
       membershipCategory: "Specialist",
       applicantType: membershipConfigById.Specialist.applicantType,
       portfolioImages: [],
+      trainerEducationPlanFiles: [],
+      trainerCertificateFiles: [],
+      trainerExperienceProofFiles: [],
       specialization: [],
       hasLicense: "Yes",
     },
@@ -416,6 +436,9 @@ export default function ApplyPage() {
         {
           applicantType: membershipConfigById.Specialist.applicantType,
           portfolioImages: [],
+          trainerEducationPlanFiles: [],
+          trainerCertificateFiles: [],
+          trainerExperienceProofFiles: [],
           specialization: [],
           hasLicense: "Yes",
           ...parsedDraft,
@@ -459,6 +482,14 @@ export default function ApplyPage() {
   }, [hasOtherSpecialization, setValue]);
 
   React.useEffect(() => {
+    if (selectedCategory !== "Trainer") {
+      setValue("trainerEducationPlanFiles", [], { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+      setValue("trainerCertificateFiles", [], { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+      setValue("trainerExperienceProofFiles", [], { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+    }
+  }, [selectedCategory, setValue]);
+
+  React.useEffect(() => {
     const subscription = watch((value) => {
       if (typeof window === "undefined" || submitted) {
         return;
@@ -471,6 +502,9 @@ export default function ApplyPage() {
   }, [submitted, watch]);
 
   const portfolioImages = watch("portfolioImages") || [];
+  const trainerEducationPlanFiles = watch("trainerEducationPlanFiles") || [];
+  const trainerCertificateFiles = watch("trainerCertificateFiles") || [];
+  const trainerExperienceProofFiles = watch("trainerExperienceProofFiles") || [];
 
   React.useEffect(() => {
     register("portfolioImages", {
@@ -502,6 +536,31 @@ export default function ApplyPage() {
 
         return true;
       },
+    });
+  }, [isRu, isUk, register, selectedCategory]);
+
+  React.useEffect(() => {
+    register("trainerEducationPlanFiles", {
+      validate: (value: string[]) =>
+        selectedCategory !== "Trainer" ||
+        (Array.isArray(value) && value.length >= 1) ||
+        (isRu ? "Загрузите методичку или план обучения." : isUk ? "Завантажте методичку або план навчання." : "Upload an education plan / методичка."),
+    });
+    register("trainerCertificateFiles", {
+      validate: (value: string[]) =>
+        selectedCategory !== "Trainer" ||
+        (Array.isArray(value) && value.length >= 1) ||
+        (isRu ? "Загрузите сертификат." : isUk ? "Завантажте сертифікат." : "Upload a certificate."),
+    });
+    register("trainerExperienceProofFiles", {
+      validate: (value: string[]) =>
+        selectedCategory !== "Trainer" ||
+        (Array.isArray(value) && value.length >= 5) ||
+        (isRu
+          ? "Загрузите минимум 5 фото подтверждения преподавательского опыта."
+          : isUk
+            ? "Завантажте щонайменше 5 фото підтвердження викладацького досвіду."
+            : "Upload at least 5 proof photos for educator experience."),
     });
   }, [isRu, isUk, register, selectedCategory]);
 
@@ -1057,6 +1116,30 @@ export default function ApplyPage() {
                 portfolioImages={portfolioImages}
                 onPortfolioImagesChange={(urls) => {
                   setValue("portfolioImages", urls, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
+                }}
+                trainerEducationPlanFiles={trainerEducationPlanFiles}
+                onTrainerEducationPlanFilesChange={(urls) => {
+                  setValue("trainerEducationPlanFiles", urls, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
+                }}
+                trainerCertificateFiles={trainerCertificateFiles}
+                onTrainerCertificateFilesChange={(urls) => {
+                  setValue("trainerCertificateFiles", urls, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
+                }}
+                trainerExperienceProofFiles={trainerExperienceProofFiles}
+                onTrainerExperienceProofFilesChange={(urls) => {
+                  setValue("trainerExperienceProofFiles", urls, {
                     shouldDirty: true,
                     shouldTouch: true,
                     shouldValidate: true,
