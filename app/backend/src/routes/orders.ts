@@ -180,13 +180,20 @@ async function sendAdminNewApplicationEmail(params: {
     .filter(Boolean)
     .join(" • ");
 
+  const specializationSummary = Array.isArray(application?.specialization)
+    ? application.specialization.filter((item): item is string => typeof item === "string" && item.trim().length > 0).join(", ")
+    : typeof application?.specialization === "string"
+      ? application.specialization
+      : null;
+
   const importantFields = [
     ["Membership", membershipPackage],
     ["Applicant Type", applicantType],
     ["Phone", phone],
     ["City", typeof application?.city === "string" ? application.city : null],
     ["Country", typeof application?.country === "string" ? application.country : null],
-    ["Specialization", typeof application?.specialization === "string" ? application.specialization : null],
+    ["Subcategory / Specialization", specializationSummary],
+    ["Other Specialization", typeof application?.specializationOther === "string" ? application.specializationOther : null],
     ["Current Position", typeof application?.currentPosition === "string" ? application.currentPosition : null],
     ["Experience", typeof application?.yearsExperience === "string" ? application.yearsExperience : null],
     ["Achievements", typeof application?.achievementsDesc === "string" ? application.achievementsDesc : null],
@@ -484,8 +491,25 @@ ordersRouter.post("/", async (req, res) => {
     membershipPackage === "Professional" ||
     membershipPackage === "Trainer";
   const categoryRequiresLicenseNumber = membershipPackage !== "Specialist";
+  const categoryRequiresSubcategory =
+    membershipPackage !== "Business" &&
+    membershipPackage !== "Brand";
   const licenseNumber =
     typeof normalizedApplication.licenseNumber === "string" ? normalizedApplication.licenseNumber.trim() : "";
+  const specializations =
+    Array.isArray(normalizedApplication.specialization)
+      ? (normalizedApplication.specialization as unknown[]).filter(
+          (item): item is string => typeof item === "string" && item.trim().length > 0,
+        )
+      : [];
+  const specializationOther =
+    typeof normalizedApplication.specializationOther === "string"
+      ? normalizedApplication.specializationOther.trim()
+      : "";
+
+  normalizedApplication.portfolioImages = portfolioImages;
+  normalizedApplication.specialization = specializations;
+  normalizedApplication.specializationOther = specializationOther;
 
   if (categoryRequiresPortfolio && (portfolioImages.length < 5 || portfolioImages.length > 10)) {
     return res.status(400).json({
@@ -495,6 +519,14 @@ ordersRouter.post("/", async (req, res) => {
 
   if (categoryRequiresLicenseNumber && !licenseNumber) {
     return res.status(400).json({ error: "License number is required for this membership category." });
+  }
+
+  if (categoryRequiresSubcategory && specializations.length === 0) {
+    return res.status(400).json({ error: "Please select at least one subcategory or specialization." });
+  }
+
+  if (categoryRequiresSubcategory && specializations.includes("Other") && !specializationOther) {
+    return res.status(400).json({ error: "Please describe your other specialization." });
   }
 
   try {

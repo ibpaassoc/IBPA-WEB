@@ -62,6 +62,7 @@ type FormData = {
   licenseNumber?: string;
   additionalEducation?: string;
   specialization: string[];
+  specializationOther?: string;
   studentSchool?: string;
   studentProgName?: string;
   studentStartDate?: string;
@@ -130,6 +131,8 @@ const specializationOptions = [
   { value: "Cosmetologist", en: "Cosmetologist", ru: "Косметолог", uk: "Косметолог" },
   { value: "Salon Owner", en: "Salon Owner", ru: "Владелец салона", uk: "Власник салону" },
   { value: "Educator", en: "Educator", ru: "Преподаватель", uk: "Викладач" },
+  { value: "Beauty School", en: "Beauty School", ru: "Школа красоты", uk: "Школа краси" },
+  { value: "Distributor", en: "Distributor", ru: "Дистрибьютор", uk: "Дистриб'ютор" },
   { value: "Other", en: "Other", ru: "Другое", uk: "Інше" },
 ];
 
@@ -178,7 +181,8 @@ const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }
   hasLicense: { en: "Professional license", ru: "Профессиональная лицензия", uk: "Професійна ліцензія" },
   licenseNumber: { en: "License number", ru: "Номер лицензии", uk: "Номер ліцензії" },
   additionalEducation: { en: "Additional professional qualifications", ru: "Дополнительные профессиональные квалификации", uk: "Додаткові професійні кваліфікації" },
-  specialization: { en: "Specialization", ru: "Специализация", uk: "Спеціалізація" },
+  specialization: { en: "Subcategory / Specialization", ru: "Подкатегория / специализация", uk: "Підкатегорія / спеціалізація" },
+  specializationOther: { en: "Other specialization", ru: "Другая специализация", uk: "Інша спеціалізація" },
   studentSchool: { en: "School / Academy", ru: "Школа / академия", uk: "Школа / академія" },
   studentProgName: { en: "Program name", ru: "Название программы", uk: "Назва програми" },
   studentStartDate: { en: "Start date", ru: "Дата начала", uk: "Дата початку" },
@@ -293,6 +297,10 @@ function requiresLicenseNumber(category: MembershipCategory) {
   return category !== "Specialist";
 }
 
+function includesSubcategorySection(category: MembershipCategory) {
+  return category !== "Business" && category !== "Brand";
+}
+
 function getStepFields(step: number, category: MembershipCategory): (keyof FormData)[] {
   switch (step) {
     case 0:
@@ -302,7 +310,9 @@ function getStepFields(step: number, category: MembershipCategory): (keyof FormD
         ? ["firstName", "lastName", "dateOfBirth", "email", "phone", "citizenship", "city", "country"]
         : ["firstName", "lastName", "email", "phone", "citizenship", "city", "country"];
     case 2:
-      return ["currentPosition", "yearsExperience", "professionalDesc", "workSetting"];
+      return includesSubcategorySection(category)
+        ? ["currentPosition", "specialization", "specializationOther", "yearsExperience", "professionalDesc", "workSetting"]
+        : ["currentPosition", "yearsExperience", "professionalDesc", "workSetting"];
     case 3:
       return requiresLicenseNumber(category) ? ["educationDesc", "hasLicense", "licenseNumber"] : ["educationDesc", "hasLicense"];
     case 4:
@@ -326,6 +336,7 @@ export default function ApplyPage() {
   const { locale } = useI18n();
   const isRu = locale === "ru";
   const isUk = locale === "uk";
+  const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
   const useEnglishTypography = true;
   const headlineClassName = useEnglishTypography
     ? `${homeTemplateDisplay.className} font-black tracking-[-0.05em]`
@@ -358,6 +369,9 @@ export default function ApplyPage() {
   });
 
   const selectedCategory = watch("membershipCategory");
+  const watchedSpecializations = watch("specialization");
+  const selectedSpecializations = Array.isArray(watchedSpecializations) ? watchedSpecializations : [];
+  const hasOtherSpecialization = selectedSpecializations.includes("Other");
   const selectedConfig = membershipConfigById[selectedCategory] || membershipConfigById.Specialist;
   const selectedConfigTitle = isRu ? selectedConfig.titleRu : isUk ? selectedConfig.titleUk : selectedConfig.title;
   const selectedConfigShortTitle = isRu ? selectedConfig.shortTitleRu : isUk ? selectedConfig.shortTitleUk : selectedConfig.shortTitle;
@@ -432,6 +446,19 @@ export default function ApplyPage() {
       shouldTouch: false,
     });
   }, [selectedCategory, setValue]);
+
+  React.useEffect(() => {
+    if (!includesSubcategorySection(selectedCategory)) {
+      setValue("specialization", [], { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+      setValue("specializationOther", "", { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+    }
+  }, [selectedCategory, setValue]);
+
+  React.useEffect(() => {
+    if (!hasOtherSpecialization) {
+      setValue("specializationOther", "", { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+    }
+  }, [hasOtherSpecialization, setValue]);
 
   React.useEffect(() => {
     const subscription = watch((value) => {
@@ -866,6 +893,54 @@ export default function ApplyPage() {
                     </select>
                     {renderFieldError("currentPosition")}
                   </div>
+                  {includesSubcategorySection(selectedCategory) && (
+                    <div className="md:col-span-2 rounded-[24px] border border-[#B9D9EB]/50 bg-white/80 p-5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#708090]">
+                        {t("Specialization", "Специализация", " Спеціалізація")} *
+                      </p>
+                      <div className="mt-5 grid gap-2 md:grid-cols-2">
+                        {specializationOptions.map((option) => (
+                          <label
+                            key={option.value}
+                            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 transition-colors hover:border-[#B9D9EB]"
+                          >
+                            <input
+                              type="checkbox"
+                              value={option.value}
+                              {...register("specialization", {
+                                validate: (value) =>
+                                  !includesSubcategorySection(selectedCategory) ||
+                                  (Array.isArray(value) && value.length > 0) ||
+                                  t("Select at least one specialization.", "Выберите хотя бы одну специализацию.", "Оберіть хоча б одну спеціалізацію."),
+                              })}
+                              className="accent-black"
+                            />
+                            <span>{isRu ? option.ru : isUk ? option.uk : option.en}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {renderFieldError("specialization")}
+
+                      {hasOtherSpecialization && (
+                        <div className="mt-5 space-y-2">
+                          <label className="field-label">
+                            {t("Other specialization", "Другая специализация", "Інша спеціалізація")} *
+                          </label>
+                          <input
+                            {...register("specializationOther", {
+                              validate: (value) =>
+                                !hasOtherSpecialization ||
+                                !!value?.trim() ||
+                                t("Enter your specialization.", "Укажите вашу специализацию.", "Вкажіть вашу спеціалізацію."),
+                            })}
+                            className="form-input"
+                            placeholder={t("Describe your specialization", "Опишите вашу специализацию", "Опишіть вашу спеціалізацію")}
+                          />
+                          {renderFieldError("specializationOther")}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="field-label">{isRu ? "Опыт работы" : isUk ? "Досвід роботи" : "Years of Experience"} *</label>
                     <select {...register("yearsExperience", { required: true })} className="form-input appearance-none">
@@ -988,7 +1063,6 @@ export default function ApplyPage() {
                 selectedCategory={selectedCategory}
                 detailTitle={isRu ? selectedConfig.detailTitleRu : isUk ? selectedConfig.detailTitleUk : selectedConfig.detailTitle}
                 detailDescription={isRu ? selectedConfig.detailDescriptionRu : isUk ? selectedConfig.detailDescriptionUk : selectedConfig.detailDescription}
-                specializationOptions={specializationOptions}
                 register={register}
                 watch={watch}
                 renderFieldError={renderFieldError}

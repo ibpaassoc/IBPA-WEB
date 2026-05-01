@@ -8,7 +8,6 @@ import { PortfolioUploadField } from "@/components/forms/PortfolioUploadField";
 
 type FormData = {
   portfolioImages: string[];
-  specialization: string[];
   dateOfBirth?: string;
   studentSchool?: string;
   studentProgName?: string;
@@ -48,7 +47,6 @@ type DetailsStepProps = {
   selectedCategory: MembershipCategory;
   detailTitle: string;
   detailDescription: string;
-  specializationOptions: Array<{ value: string; en: string; ru: string; uk: string }>;
   register: UseFormRegister<any>;
   watch: UseFormWatch<any>;
   renderFieldError: (field: any) => ReactNode;
@@ -64,7 +62,6 @@ export function DetailsStep({
   selectedCategory,
   detailTitle,
   detailDescription,
-  specializationOptions,
   register,
   watch,
   renderFieldError,
@@ -141,20 +138,6 @@ export function DetailsStep({
 
         {selectedCategory === "Professional" && (
           <>
-            <div className="space-y-2 md:col-span-2">
-              <label className="field-label">{t("Specialization", "Специализация", "Спеціалізація")}</label>
-              <div className="grid gap-2 md:grid-cols-2">
-                {specializationOptions.map((option) => (
-                  <label
-                    key={option.value}
-                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700"
-                  >
-                    <input type="checkbox" value={option.value} {...register("specialization")} className="accent-black" />
-                    <span>{isRu ? option.ru : isUk ? option.uk : option.en}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
             <div className="space-y-2 md:col-span-2">
               <label className="field-label">
                 {t("Working jurisdictions", "Где вы работаете", "Де ви працюєте")} *

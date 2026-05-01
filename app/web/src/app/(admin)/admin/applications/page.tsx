@@ -56,7 +56,8 @@ const FIELD_LABELS: Record<string, string> = {
   hasLicense: "Наличие лицензии",
   licenseNumber: "Номер лицензии",
   additionalEducation: "Доп. образование",
-  specialization: "Специализация",
+  specialization: "Subcategory / Specialization",
+  specializationOther: "Other specialization",
   studentSchool: "Школа (студент)",
   studentProgName: "Название программы",
   studentStartDate: "Начало обучения",
@@ -121,6 +122,7 @@ function buildSections(order: AdminOrder) {
         "licenseNumber",
         "additionalEducation",
         "specialization",
+        "specializationOther",
       ],
     },
     {

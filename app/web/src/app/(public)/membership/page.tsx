@@ -141,7 +141,7 @@ export default function Membership() {
             alt={isRu ? "Сообщество IBPA" : isUk ? "Спільнота IBPA" : "Membership"}
           />
         </div>
-        <div className="absolute inset-0 hidden md:block md:-top-[360px] md:h-[calc(100%+360px)]">
+        <div className="absolute inset-0 hidden md:block md:top-[-360px] md:h-[calc(100%+360px)]">
           <ImageWithFallback
             src="/home/salon.webp"
             className="h-full w-full object-cover object-top"
@@ -180,7 +180,7 @@ export default function Membership() {
             </p>
           </motion.div>
           <motion.div {...fadeInUp} transition={{ delay: 0.2 }} className="flex gap-4 rounded-[40px] bg-[#F1F3F5] p-8 shadow-[0_18px_55px_rgba(39,54,72,0.08)]">
-            <ShieldCheck size={32} className="text-[#708090] flex-shrink-0" />
+            <ShieldCheck size={32} className="text-[#708090] shrink-0" />
             <p className={`text-slate-600 ${bodyClassName}`}>{isRu ? "Все заявки на участие проходят предварительное рассмотрение комиссией по отбору. После одобрения кандидат получает возможность завершить оплату и активировать доступ в сообщество." : isUk ? "Усі заявки на участь проходять попередній розгляд комісією з відбору. Після схвалення кандидат отримує можливість завершити оплату та активувати доступ до спільноти." : "All membership applications go through a preliminary review by the Membership Review Board. After approval, the candidate may complete payment and activate membership."}</p>
           </motion.div>
         </div>
@@ -226,7 +226,7 @@ export default function Membership() {
                       <div className="mt-6 grid gap-6 sm:grid-cols-2">
                         {pkg.features.map((feature, fIdx) => (
                           <div key={fIdx} className={`flex gap-4 items-start text-slate-600 ${bodyClassName}`}>
-                            <Check className="mt-1 flex-shrink-0 text-[#72A0C1]" size={18} />
+                            <Check className="mt-1 shrink-0 text-[#72A0C1]" size={18} />
                             <span>{feature}</span>
                           </div>
                         ))}
