@@ -1,13 +1,27 @@
 import { getAdminProxyContext } from "@/lib/admin-proxy";
 import { NextRequest, NextResponse } from "next/server";
 
+function normalizeContentBody(body: Record<string, any>) {
+  if (!Object.prototype.hasOwnProperty.call(body, "coverAspect")) {
+    return body;
+  }
+
+  if (body.coverAspect === null) {
+    return { ...body, coverAspect: null };
+  }
+
+  const rawCoverAspect = Number(body.coverAspect);
+  const coverAspect = Number.isFinite(rawCoverAspect) && rawCoverAspect > 0 ? rawCoverAspect : null;
+  return { ...body, coverAspect };
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { backendUrl, authHeaders, error } = await getAdminProxyContext(req.url);
   const { id } = await params;
   if (error || !authHeaders) return error!;
 
   try {
-    const body = await req.json();
+    const body = normalizeContentBody(await req.json());
     const res = await fetch(`${backendUrl}/api/content/admin/${id}`, {
       method: "PATCH",
       headers: { ...authHeaders, "Content-Type": "application/json" },

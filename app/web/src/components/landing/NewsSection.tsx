@@ -14,6 +14,8 @@ type ContentItem = {
   type: "news" | "events";
   title: string;
   coverImage?: string | null;
+  coverAspect?: number | null;
+  cover_aspect?: number | null;
   ctaUrl?: string | null;
   createdAt: string;
 };
@@ -68,6 +70,7 @@ export const NewsSection = async ({ locale }: NewsSectionProps) => {
           };
   const newsItems = items.slice(0, 2).map((item) => ({
     img: item.coverImage || "/news/beauty-forum-2025.webp",
+    aspect: item.coverAspect ?? item.cover_aspect ?? 16 / 9,
     title: item.title,
     date: new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     category: locale === "ru" ? "Новость" : locale === "uk" ? "Новина" : item.type === "news" ? copy.newsCategory : "Event",
@@ -98,7 +101,7 @@ export const NewsSection = async ({ locale }: NewsSectionProps) => {
         <div className="grid gap-12 md:grid-cols-2">
           {newsItems.map((news, i) => (
             <Link key={i} href="/news" className="group block space-y-6 cursor-pointer" aria-label={news.title}>
-              <div className="aspect-[4/3] overflow-hidden rounded-[40px] relative">
+              <div className="overflow-hidden rounded-[40px] relative" style={{ aspectRatio: news.aspect }}>
                 <ImageWithFallback 
                   src={news.img} 
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.05]" 

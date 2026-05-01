@@ -17,6 +17,32 @@ function getSingleValue(value: unknown): string | null {
   return null;
 }
 
+function normalizeCoverAspect(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const coverAspect = Number(value);
+  return Number.isFinite(coverAspect) && coverAspect > 0 ? coverAspect : null;
+}
+
+function hasCoverAspect(body: Record<string, any>) {
+  return Object.prototype.hasOwnProperty.call(body, "coverAspect") || Object.prototype.hasOwnProperty.call(body, "cover_aspect");
+}
+
+function getRawCoverAspect(body: Record<string, any>) {
+  return body.coverAspect ?? body.cover_aspect;
+}
+
+function serializeContentItem(item: typeof contentItems.$inferSelect) {
+  const coverAspect = normalizeCoverAspect(item.coverAspect);
+  return {
+    ...item,
+    coverAspect,
+    cover_aspect: coverAspect,
+  };
+}
+
 async function clearPinnedForType(db: ReturnType<typeof requireDb>, type: "news" | "events" | "partners", excludeId?: string) {
   const existing = await db.select().from(contentItems).where(eq(contentItems.type, type));
   const pinnedIds = existing
@@ -52,7 +78,7 @@ contentRouter.get("/public", async (req, res) => {
       .where(and(eq(contentItems.type, type), targetFilter))
       .orderBy(desc(contentItems.isPinned), desc(contentItems.createdAt));
 
-    res.json({ items });
+    res.json({ items: items.map(serializeContentItem) });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -66,7 +92,7 @@ contentRouter.get("/admin", adminClerkMiddleware, requireAdminAccess, async (_re
   try {
     const db = requireDb();
     const items = await db.select().from(contentItems).orderBy(desc(contentItems.isPinned), desc(contentItems.createdAt));
-    res.json({ items });
+    res.json({ items: items.map(serializeContentItem) });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -79,6 +105,7 @@ contentRouter.get("/admin", adminClerkMiddleware, requireAdminAccess, async (_re
 contentRouter.post("/admin", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
   try {
     const db = requireDb();
+    const bodyPayload = (req.body || {}) as Record<string, any>;
     const {
       type,
       title,
@@ -93,7 +120,7 @@ contentRouter.post("/admin", adminClerkMiddleware, requireAdminAccess, async (re
       isPinned,
       publishToSite,
       publishToDashboard,
-    } = req.body || {};
+    } = bodyPayload;
 
     if ((type !== "news" && type !== "events" && type !== "partners") || !title || !body) {
       return res.status(400).json({ error: "type, title, and body are required." });
@@ -121,6 +148,7 @@ contentRouter.post("/admin", adminClerkMiddleware, requireAdminAccess, async (re
         title,
         body,
         coverImage: coverImage || null,
+        coverAspect: normalizeCoverAspect(getRawCoverAspect(bodyPayload)),
         eventAddress: type === "events" ? eventAddress || null : null,
         eventAllDay: type === "events" ? Boolean(eventAllDay) : false,
         eventDate: type === "events" && eventDate ? new Date(eventDate) : null,
@@ -133,7 +161,7 @@ contentRouter.post("/admin", adminClerkMiddleware, requireAdminAccess, async (re
       })
       .returning();
 
-    res.json({ item });
+    res.json({ item: serializeContentItem(item) });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -147,6 +175,7 @@ contentRouter.patch("/admin/:id", adminClerkMiddleware, requireAdminAccess, asyn
   try {
     const db = requireDb();
     const id = getSingleValue(req.params.id);
+    const bodyPayload = (req.body || {}) as Record<string, any>;
     const {
       type,
       title,
@@ -161,7 +190,7 @@ contentRouter.patch("/admin/:id", adminClerkMiddleware, requireAdminAccess, asyn
       isPinned,
       publishToSite,
       publishToDashboard,
-    } = req.body || {};
+    } = bodyPayload;
 
     if (!id) {
       return res.status(400).json({ error: "Invalid content item id" });
@@ -182,24 +211,30 @@ contentRouter.patch("/admin/:id", adminClerkMiddleware, requireAdminAccess, asyn
       }
     }
 
+    const updateValues: typeof contentItems.$inferInsert = {
+      type,
+      title,
+      body,
+      coverImage: coverImage || null,
+      eventAddress: type === "events" ? eventAddress || null : null,
+      eventAllDay: type === "events" ? Boolean(eventAllDay) : false,
+      eventDate: type === "events" && eventDate ? new Date(eventDate as string) : null,
+      eventEndDate: type === "events" && eventEndDate ? new Date(eventEndDate as string) : null,
+      ctaUrl: ctaUrl || null,
+      ctaLabel: ctaLabel || "Open Link",
+      isPinned: Boolean(isPinned),
+      publishToSite: Boolean(publishToSite),
+      publishToDashboard: Boolean(publishToDashboard),
+      updatedAt: new Date(),
+    };
+
+    if (hasCoverAspect(bodyPayload)) {
+      updateValues.coverAspect = normalizeCoverAspect(getRawCoverAspect(bodyPayload));
+    }
+
     const [item] = await db
       .update(contentItems)
-      .set({
-        type,
-        title,
-        body,
-        coverImage: coverImage || null,
-        eventAddress: type === "events" ? eventAddress || null : null,
-        eventAllDay: type === "events" ? Boolean(eventAllDay) : false,
-        eventDate: type === "events" && eventDate ? new Date(eventDate) : null,
-        eventEndDate: type === "events" && eventEndDate ? new Date(eventEndDate) : null,
-        ctaUrl: ctaUrl || null,
-        ctaLabel: ctaLabel || "Open Link",
-        isPinned: Boolean(isPinned),
-        publishToSite: Boolean(publishToSite),
-        publishToDashboard: Boolean(publishToDashboard),
-        updatedAt: new Date(),
-      })
+      .set(updateValues)
       .where(eq(contentItems.id, id))
       .returning();
 
@@ -207,7 +242,7 @@ contentRouter.patch("/admin/:id", adminClerkMiddleware, requireAdminAccess, asyn
       return res.status(404).json({ error: "Content item not found" });
     }
 
-    res.json({ item });
+    res.json({ item: serializeContentItem(item) });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });

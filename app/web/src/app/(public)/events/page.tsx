@@ -54,12 +54,14 @@ export default function EventsPage() {
             href: items[0].ctaUrl || "/contact",
             ctaLabel: items[0].ctaLabel || (isRu ? "Открыть ссылку" : isUk ? "Відкрити посилання" : "Open Link"),
             image: items[0].coverImage || "/events/teora-event.webp",
+            aspect: items[0].coverAspect ?? 16 / 9,
             isPinned: Boolean(items[0].isPinned),
           }
         : {
             ...localizedEvent,
             ctaLabel: isRu ? "Перейти к регистрации" : isUk ? "Перейти до реєстрації" : "Open Registration",
             image: "/events/teora-event.webp",
+            aspect: 16 / 9,
             isPinned: false,
           },
     [isRu, isUk, items, localizedEvent],
@@ -86,7 +88,7 @@ export default function EventsPage() {
 
         <div className="overflow-hidden rounded-[40px] border border-slate-200/70 bg-white shadow-[0_18px_54px_rgba(15,23,42,0.06)]">
           <div className="grid lg:grid-cols-[0.94fr_1.06fr]">
-            <div className="relative min-h-[340px] overflow-hidden lg:min-h-[620px]">
+            <div className="relative overflow-hidden" style={{ aspectRatio: renderedEvent.aspect }}>
               <img
                 src={renderedEvent.image}
                 alt={renderedEvent.title}

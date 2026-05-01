@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Loader2, Newspaper, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminUploadZone } from "@/components/AdminUploadZone";
+import { ImageCropperModal } from "@/components/admin/ImageCropperModal";
 import type { AdminContentItem } from "@/lib/admin-types";
 
 type ContentType = "news" | "events";
@@ -14,6 +15,7 @@ type FormState = {
   title: string;
   body: string;
   coverImage: string;
+  coverAspect: number | null;
   eventAddress: string;
   eventAllDay: boolean;
   eventDate: string;
@@ -30,6 +32,7 @@ const emptyForm: FormState = {
   title: "",
   body: "",
   coverImage: "",
+  coverAspect: 16 / 9,
   eventAddress: "",
   eventAllDay: false,
   eventDate: "",
@@ -41,6 +44,10 @@ const emptyForm: FormState = {
   publishToDashboard: false,
 };
 
+function normalizeCoverAspect(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 16 / 9;
+}
+
 function normalizeForm(value?: Partial<FormState>): FormState {
   return {
     id: value?.id,
@@ -48,6 +55,7 @@ function normalizeForm(value?: Partial<FormState>): FormState {
     title: value?.title ?? "",
     body: value?.body ?? "",
     coverImage: value?.coverImage ?? "",
+    coverAspect: normalizeCoverAspect(value?.coverAspect),
     eventAddress: value?.eventAddress ?? "",
     eventAllDay: Boolean(value?.eventAllDay),
     eventDate: value?.eventDate ?? "",
@@ -60,6 +68,26 @@ function normalizeForm(value?: Partial<FormState>): FormState {
   };
 }
 
+function getCoverAspect(item: Pick<AdminContentItem, "coverAspect" | "cover_aspect">) {
+  return normalizeCoverAspect(item.coverAspect ?? item.cover_aspect);
+}
+
+function formatCoverAspectLabel(value: number | null | undefined) {
+  const aspect = normalizeCoverAspect(value);
+  if (Math.abs(aspect - 16 / 9) < 0.01) return "16:9";
+  if (Math.abs(aspect - 4 / 3) < 0.01) return "4:3";
+  if (Math.abs(aspect - 1) < 0.01) return "1:1";
+  if (Math.abs(aspect - 3 / 4) < 0.01) return "3:4";
+  return aspect.toFixed(2);
+}
+
+function buildContentPayload(form: FormState) {
+  return {
+    ...form,
+    coverAspect: normalizeCoverAspect(form.coverAspect),
+  };
+}
+
 export default function ContentPage() {
   const [items, setItems] = useState<AdminContentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +95,10 @@ export default function ContentPage() {
   const [filter, setFilter] = useState<ContentType>("news");
   const [form, setForm] = useState<FormState>(emptyForm);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [cropRequest, setCropRequest] = useState<{
+    file: File;
+    resolve: (value: { file: File; aspect?: number | null } | null) => void;
+  } | null>(null);
 
   const loadItems = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) {
@@ -83,6 +115,7 @@ export default function ContentPage() {
               title: item.title ?? "",
               body: item.body ?? "",
               coverImage: item.coverImage ?? "",
+              coverAspect: getCoverAspect(item),
               eventAddress: item.eventAddress ?? "",
               eventAllDay: Boolean(item.eventAllDay),
               eventDate: item.eventDate ? new Date(item.eventDate).toISOString().slice(0, 16) : "",
@@ -152,6 +185,7 @@ export default function ContentPage() {
       title: item.title ?? "",
       body: item.body ?? "",
       coverImage: item.coverImage ?? "",
+      coverAspect: getCoverAspect(item),
       eventAddress: item.eventAddress ?? "",
       eventAllDay: Boolean(item.eventAllDay),
       eventDate: item.eventDate ? new Date(item.eventDate).toISOString().slice(0, 16) : "",
@@ -199,19 +233,67 @@ export default function ContentPage() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(buildContentPayload(form)),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to save content");
 
       toast.success(form.id ? "Content updated" : "Content created");
-      await loadItems();
+      if (data?.item) {
+        const savedItem = data.item as AdminContentItem;
+        setItems((prev) => {
+          const normalizedItem = {
+            ...savedItem,
+            coverImage: savedItem.coverImage ?? "",
+            coverAspect: getCoverAspect(savedItem),
+          };
+          const exists = prev.some((item) => item.id === savedItem.id);
+          return exists
+            ? prev.map((item) => (item.id === savedItem.id ? { ...item, ...normalizedItem } : item))
+            : [normalizedItem, ...prev];
+        });
+      } else {
+        await loadItems();
+      }
       resetForm();
     } catch (error: any) {
       toast.error(error.message || "Failed to save content");
     } finally {
       setSaving(false);
     }
+  };
+
+  const prepareCoverImage = useCallback((file: File) => {
+    return new Promise<{ file: File; aspect?: number | null } | null>((resolve) => {
+      setCropRequest({ file, resolve });
+    });
+  }, []);
+
+  const handleCropApply = (croppedFile: File, aspect: number) => {
+    cropRequest?.resolve({ file: croppedFile, aspect });
+    setCropRequest(null);
+  };
+
+  const handleCropCancel = () => {
+    cropRequest?.resolve(null);
+    setCropRequest(null);
+  };
+
+  const handleCoverUploaded = async (url: string, aspect?: number | null) => {
+    const nextAspect = normalizeCoverAspect(aspect ?? form.coverAspect);
+
+    setForm((prev) => ({
+      ...prev,
+      coverImage: url,
+      coverAspect: nextAspect,
+    }));
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === form.id ? { ...item, coverImage: url, coverAspect: nextAspect } : item,
+      ),
+    );
+
+    toast.success("Image uploaded. Click Save/Update to publish the new cover ratio.");
   };
 
   const handleDelete = async (id: string) => {
@@ -397,6 +479,9 @@ export default function ContentPage() {
                 <div>
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Cover Image</p>
                   <p className="mt-1 text-xs text-slate-400">Upload a single image for the card cover or drag it into the area below.</p>
+                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    Current ratio: {formatCoverAspectLabel(form.coverAspect)}
+                  </p>
                 </div>
               </div>
               <div className="mt-4">
@@ -406,16 +491,14 @@ export default function ContentPage() {
                   label="Drag & drop an image here"
                   helperText="PNG, JPG, WEBP up to 8MB"
                   buttonText="Choose file"
-                  onUploaded={(url) => {
-                    setForm((prev) => ({ ...prev, coverImage: url }));
-                    toast.success("Image uploaded");
-                  }}
+                  prepareFile={prepareCoverImage}
+                  onUploaded={(url, metadata) => void handleCoverUploaded(url, metadata?.aspect)}
                   onError={(message) => toast.error(`Upload error: ${message}`)}
                 />
               </div>
               {form.coverImage && (
-                <div className="mt-4 overflow-hidden rounded-[20px] border border-slate-200">
-                  <img src={form.coverImage} alt="Cover preview" className="h-56 w-full object-cover" />
+                <div className="mt-4 overflow-hidden rounded-[20px] border border-slate-200" style={{ aspectRatio: form.coverAspect ?? 16 / 9 }}>
+                  <img src={form.coverImage} alt="Cover preview" className="h-full w-full object-cover" />
                 </div>
               )}
             </div>
@@ -481,7 +564,11 @@ export default function ContentPage() {
             <div className="space-y-4">
               {filteredItems.map((item) => (
                 <div key={item.id} className="overflow-hidden rounded-[24px] border border-slate-100 bg-[#F8FAFC]">
-                  {item.coverImage && <img src={item.coverImage} alt={item.title} className="h-40 w-full object-cover" />}
+                  {item.coverImage && (
+                    <div style={{ aspectRatio: item.coverAspect ?? 16 / 9 }}>
+                      <img src={item.coverImage} alt={item.title} className="h-full w-full object-cover" />
+                    </div>
+                  )}
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -516,6 +603,9 @@ export default function ContentPage() {
                       </div>
                     )}
                     <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                        Cover {formatCoverAspectLabel(item.coverAspect)}
+                      </span>
                       {item.isPinned && (
                         <span className="rounded-full bg-[#72A0C1] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">
                           Pinned
@@ -539,6 +629,14 @@ export default function ContentPage() {
           )}
         </section>
       </div>
+      {cropRequest && (
+        <ImageCropperModal
+          file={cropRequest.file}
+          defaultAspect={form.coverAspect ?? 16 / 9}
+          onApply={handleCropApply}
+          onCancel={handleCropCancel}
+        />
+      )}
     </main>
   );
 }

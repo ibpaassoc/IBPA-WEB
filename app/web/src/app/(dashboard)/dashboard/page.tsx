@@ -34,6 +34,7 @@ type DashboardContentItem = {
   title: string;
   body: string;
   coverImage?: string | null;
+  coverAspect?: number | null;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;
@@ -550,7 +551,7 @@ export default function DashboardPage() {
           {items.map((item) => (
             <article key={item.id} className="overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-sm">
               {item.coverImage && (
-                <div className="aspect-4/3 overflow-hidden rounded-[40px]">
+                <div className="overflow-hidden rounded-[40px]" style={{ aspectRatio: item.coverAspect ?? 16 / 9 }}>
                   <ImageWithFallback src={item.coverImage} alt={item.title} className="h-full w-full object-cover" />
                 </div>
               )}

@@ -65,6 +65,7 @@ export default function NewsPage() {
     date: new Date(item.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
     summary: item.body,
     image: item.coverImage || "/news/beauty-forum-2025.webp",
+    aspect: item.coverAspect ?? 16 / 9,
     href: item.ctaUrl || "/contact",
     ctaLabel: item.ctaLabel || (isRu ? "Открыть материал" : isUk ? "Відкрити матеріал" : "Open Story"),
     isPinned: Boolean(item.isPinned),
@@ -94,7 +95,7 @@ export default function NewsPage() {
           ) : renderedUpdates.length ? (
             renderedUpdates.map((item) => (
               <article key={item.title} className="overflow-hidden rounded-[40px] border border-slate-200/80 bg-white shadow-[0_18px_54px_rgba(15,23,42,0.06)]">
-                <div className="aspect-[4/3] overflow-hidden rounded-[40px]">
+                <div className="overflow-hidden rounded-[40px]" style={{ aspectRatio: item.aspect }}>
                   <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
                 </div>
                 <div className="p-8">
