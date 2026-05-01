@@ -352,7 +352,7 @@ function MemberCard({
           ) : null}
 
           <p className="mt-4 text-[1.6rem] font-semibold leading-tight text-slate-900">{member.fullName}</p>
-          {specializations.length > 1 ? (
+          {specializations.length > 0 ? (
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               {specializations.map((item) => (
                 <span
@@ -363,8 +363,6 @@ function MemberCard({
                 </span>
               ))}
             </div>
-          ) : specializationText ? (
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">{specializationText}</p>
           ) : null}
 
           {member.location ? (
