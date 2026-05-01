@@ -102,7 +102,6 @@ export const Footer = () => {
     { name: copy.membership, href: "/membership" },
     { name: copy.criteria, href: "/criteria" },
     { name: copy.standards, href: "/standards" },
-    { name: copy.memberDirectory, href: "/members" },
     { name: copy.faq, href: "/faq" },
     { name: copy.governance, href: "/governance" },
     { name: copy.events, href: "/events" },

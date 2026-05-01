@@ -36,6 +36,9 @@ import { useI18n } from "@/lib/i18n";
 
 type FormData = {
   portfolioImages: string[];
+  trainerEducationPlanFiles: string[];
+  trainerCertificateFiles: string[];
+  trainerExperienceProofFiles: string[];
   membershipCategory: MembershipCategory;
   applicantType: string;
   firstName: string;
@@ -49,7 +52,6 @@ type FormData = {
   state?: string;
   zipCode?: string;
   country: string;
-  currentPosition: string;
   yearsExperience: string;
   professionalDesc: string;
   workSetting: string;
@@ -62,6 +64,7 @@ type FormData = {
   licenseNumber?: string;
   additionalEducation?: string;
   specialization: string[];
+  specializationOther?: string;
   studentSchool?: string;
   studentProgName?: string;
   studentStartDate?: string;
@@ -130,6 +133,8 @@ const specializationOptions = [
   { value: "Cosmetologist", en: "Cosmetologist", ru: "Косметолог", uk: "Косметолог" },
   { value: "Salon Owner", en: "Salon Owner", ru: "Владелец салона", uk: "Власник салону" },
   { value: "Educator", en: "Educator", ru: "Преподаватель", uk: "Викладач" },
+  { value: "Beauty School", en: "Beauty School", ru: "Школа красоты", uk: "Школа краси" },
+  { value: "Distributor", en: "Distributor", ru: "Дистрибьютор", uk: "Дистриб'ютор" },
   { value: "Other", en: "Other", ru: "Другое", uk: "Інше" },
 ];
 
@@ -153,6 +158,9 @@ const ConfirmStep = dynamic(
 
 const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }> = {
   portfolioImages: { en: "Portfolio images", ru: "Фото работ", uk: "Фото робіт" },
+  trainerEducationPlanFiles: { en: "Education Plan / Методичка", ru: "Методичка / план обучения", uk: "Методичка / план навчання" },
+  trainerCertificateFiles: { en: "Certificate", ru: "Сертификат", uk: "Сертифікат" },
+  trainerExperienceProofFiles: { en: "Proof of educator experience", ru: "Подтверждение преподавательского опыта", uk: "Підтвердження викладацького досвіду" },
   membershipCategory: { en: "Membership category", ru: "Категория участия", uk: "Категорія участі" },
   applicantType: { en: "Applicant type", ru: "Тип заявителя", uk: "Тип заявника" },
   firstName: { en: "First name", ru: "Имя", uk: "Ім’я" },
@@ -166,7 +174,6 @@ const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }
   state: { en: "State / Region", ru: "Штат / регион", uk: "Штат / регіон" },
   zipCode: { en: "ZIP / Postal code", ru: "ZIP / индекс", uk: "ZIP / індекс" },
   country: { en: "Country", ru: "Страна", uk: "Країна" },
-  currentPosition: { en: "Expert role in the industry", ru: "Экспертная роль в индустрии", uk: "Експертна роль в індустрії" },
   yearsExperience: { en: "Years of experience", ru: "Опыт работы", uk: "Досвід роботи" },
   professionalDesc: { en: "Professional description", ru: "Профессиональное описание", uk: "Професійний опис" },
   workSetting: { en: "Work setting", ru: "Формат работы", uk: "Формат роботи" },
@@ -178,7 +185,8 @@ const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }
   hasLicense: { en: "Professional license", ru: "Профессиональная лицензия", uk: "Професійна ліцензія" },
   licenseNumber: { en: "License number", ru: "Номер лицензии", uk: "Номер ліцензії" },
   additionalEducation: { en: "Additional professional qualifications", ru: "Дополнительные профессиональные квалификации", uk: "Додаткові професійні кваліфікації" },
-  specialization: { en: "Specialization", ru: "Специализация", uk: "Спеціалізація" },
+  specialization: { en: "Subcategory / Specialization", ru: "Подкатегория / специализация", uk: "Підкатегорія / спеціалізація" },
+  specializationOther: { en: "Other specialization", ru: "Другая специализация", uk: "Інша спеціалізація" },
   studentSchool: { en: "School / Academy", ru: "Школа / академия", uk: "Школа / академія" },
   studentProgName: { en: "Program name", ru: "Название программы", uk: "Назва програми" },
   studentStartDate: { en: "Start date", ru: "Дата начала", uk: "Дата початку" },
@@ -279,7 +287,18 @@ function getCategorySpecificFields(category: MembershipCategory): (keyof FormDat
     case "Professional":
       return ["portfolioImages", "workingJurisdictions", ...professionalAchievementFields];
     case "Trainer":
-      return ["portfolioImages", "educatorRole", "educatorSubjects", "educatorYears", "educatorFormat", "studentCount", ...professionalAchievementFields];
+      return [
+        "portfolioImages",
+        "educatorRole",
+        "educatorSubjects",
+        "educatorYears",
+        "educatorFormat",
+        "studentCount",
+        "trainerEducationPlanFiles",
+        "trainerCertificateFiles",
+        "trainerExperienceProofFiles",
+        ...professionalAchievementFields,
+      ];
     case "Business":
       return ["bizName", "bizType", "bizYear", "bizTeamSize", "bizServices", ...professionalAchievementFields];
     case "Brand":
@@ -287,6 +306,14 @@ function getCategorySpecificFields(category: MembershipCategory): (keyof FormDat
     default:
       return [];
   }
+}
+
+function requiresLicenseNumber(category: MembershipCategory) {
+  return category !== "Specialist";
+}
+
+function includesSubcategorySection(category: MembershipCategory) {
+  return category !== "Business" && category !== "Brand";
 }
 
 function getStepFields(step: number, category: MembershipCategory): (keyof FormData)[] {
@@ -298,9 +325,11 @@ function getStepFields(step: number, category: MembershipCategory): (keyof FormD
         ? ["firstName", "lastName", "dateOfBirth", "email", "phone", "citizenship", "city", "country"]
         : ["firstName", "lastName", "email", "phone", "citizenship", "city", "country"];
     case 2:
-      return ["currentPosition", "yearsExperience", "professionalDesc", "workSetting"];
+      return includesSubcategorySection(category)
+        ? ["specialization", "specializationOther", "yearsExperience", "professionalDesc", "workSetting"]
+        : ["yearsExperience", "professionalDesc", "workSetting"];
     case 3:
-      return ["educationDesc", "hasLicense"];
+      return requiresLicenseNumber(category) ? ["educationDesc", "hasLicense", "licenseNumber"] : ["educationDesc", "hasLicense"];
     case 4:
       return getCategorySpecificFields(category);
     case 5:
@@ -322,6 +351,7 @@ export default function ApplyPage() {
   const { locale } = useI18n();
   const isRu = locale === "ru";
   const isUk = locale === "uk";
+  const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
   const useEnglishTypography = true;
   const headlineClassName = useEnglishTypography
     ? `${homeTemplateDisplay.className} font-black tracking-[-0.05em]`
@@ -348,12 +378,18 @@ export default function ApplyPage() {
       membershipCategory: "Specialist",
       applicantType: membershipConfigById.Specialist.applicantType,
       portfolioImages: [],
+      trainerEducationPlanFiles: [],
+      trainerCertificateFiles: [],
+      trainerExperienceProofFiles: [],
       specialization: [],
       hasLicense: "Yes",
     },
   });
 
   const selectedCategory = watch("membershipCategory");
+  const watchedSpecializations = watch("specialization");
+  const selectedSpecializations = Array.isArray(watchedSpecializations) ? watchedSpecializations : [];
+  const hasOtherSpecialization = selectedSpecializations.includes("Other");
   const selectedConfig = membershipConfigById[selectedCategory] || membershipConfigById.Specialist;
   const selectedConfigTitle = isRu ? selectedConfig.titleRu : isUk ? selectedConfig.titleUk : selectedConfig.title;
   const selectedConfigShortTitle = isRu ? selectedConfig.shortTitleRu : isUk ? selectedConfig.shortTitleUk : selectedConfig.shortTitle;
@@ -400,6 +436,9 @@ export default function ApplyPage() {
         {
           applicantType: membershipConfigById.Specialist.applicantType,
           portfolioImages: [],
+          trainerEducationPlanFiles: [],
+          trainerCertificateFiles: [],
+          trainerExperienceProofFiles: [],
           specialization: [],
           hasLicense: "Yes",
           ...parsedDraft,
@@ -430,6 +469,27 @@ export default function ApplyPage() {
   }, [selectedCategory, setValue]);
 
   React.useEffect(() => {
+    if (!includesSubcategorySection(selectedCategory)) {
+      setValue("specialization", [], { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+      setValue("specializationOther", "", { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+    }
+  }, [selectedCategory, setValue]);
+
+  React.useEffect(() => {
+    if (!hasOtherSpecialization) {
+      setValue("specializationOther", "", { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+    }
+  }, [hasOtherSpecialization, setValue]);
+
+  React.useEffect(() => {
+    if (selectedCategory !== "Trainer") {
+      setValue("trainerEducationPlanFiles", [], { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+      setValue("trainerCertificateFiles", [], { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+      setValue("trainerExperienceProofFiles", [], { shouldDirty: false, shouldTouch: false, shouldValidate: false });
+    }
+  }, [selectedCategory, setValue]);
+
+  React.useEffect(() => {
     const subscription = watch((value) => {
       if (typeof window === "undefined" || submitted) {
         return;
@@ -442,6 +502,9 @@ export default function ApplyPage() {
   }, [submitted, watch]);
 
   const portfolioImages = watch("portfolioImages") || [];
+  const trainerEducationPlanFiles = watch("trainerEducationPlanFiles") || [];
+  const trainerCertificateFiles = watch("trainerCertificateFiles") || [];
+  const trainerExperienceProofFiles = watch("trainerExperienceProofFiles") || [];
 
   React.useEffect(() => {
     register("portfolioImages", {
@@ -473,6 +536,31 @@ export default function ApplyPage() {
 
         return true;
       },
+    });
+  }, [isRu, isUk, register, selectedCategory]);
+
+  React.useEffect(() => {
+    register("trainerEducationPlanFiles", {
+      validate: (value: string[]) =>
+        selectedCategory !== "Trainer" ||
+        (Array.isArray(value) && value.length >= 1) ||
+        (isRu ? "Загрузите методичку или план обучения." : isUk ? "Завантажте методичку або план навчання." : "Upload an education plan / методичка."),
+    });
+    register("trainerCertificateFiles", {
+      validate: (value: string[]) =>
+        selectedCategory !== "Trainer" ||
+        (Array.isArray(value) && value.length >= 1) ||
+        (isRu ? "Загрузите сертификат." : isUk ? "Завантажте сертифікат." : "Upload a certificate."),
+    });
+    register("trainerExperienceProofFiles", {
+      validate: (value: string[]) =>
+        selectedCategory !== "Trainer" ||
+        (Array.isArray(value) && value.length >= 5) ||
+        (isRu
+          ? "Загрузите минимум 5 фото подтверждения преподавательского опыта."
+          : isUk
+            ? "Завантажте щонайменше 5 фото підтвердження викладацького досвіду."
+            : "Upload at least 5 proof photos for educator experience."),
     });
   }, [isRu, isUk, register, selectedCategory]);
 
@@ -852,16 +940,54 @@ export default function ApplyPage() {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Экспертная роль в индустрии" : isUk ? "Експертна роль в індустрії" : "Expert role in the industry"} *</label>
-                    <select {...register("currentPosition", { required: isRu ? "Выберите экспертную роль." : isUk ? "Оберіть експертну роль." : "Select your expert role." })} className="form-input appearance-none">
-                      <option value="">{isRu ? "Выберите роль" : isUk ? "Оберіть роль" : "Select role"}</option>
-                      <option value="Expert">{isRu ? "Эксперт" : isUk ? "Експерт" : "Expert"}</option>
-                      <option value="Educator">{isRu ? "Преподаватель" : isUk ? "Викладач" : "Educator"}</option>
-                      <option value="Specialist">{isRu ? "Специалист" : isUk ? "Фахівець" : "Specialist"}</option>
-                    </select>
-                    {renderFieldError("currentPosition")}
-                  </div>
+                  {includesSubcategorySection(selectedCategory) && (
+                    <div className="md:col-span-2 rounded-[24px] border border-[#B9D9EB]/50 bg-white/80 p-5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#708090]">
+                        {t("Specialization", "Специализация", " Спеціалізація")} *
+                      </p>
+                      <div className="mt-5 grid gap-2 md:grid-cols-2">
+                        {specializationOptions.map((option) => (
+                          <label
+                            key={option.value}
+                            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 transition-colors hover:border-[#B9D9EB]"
+                          >
+                            <input
+                              type="checkbox"
+                              value={option.value}
+                              {...register("specialization", {
+                                validate: (value) =>
+                                  !includesSubcategorySection(selectedCategory) ||
+                                  (Array.isArray(value) && value.length > 0) ||
+                                  t("Select at least one specialization.", "Выберите хотя бы одну специализацию.", "Оберіть хоча б одну спеціалізацію."),
+                              })}
+                              className="accent-black"
+                            />
+                            <span>{isRu ? option.ru : isUk ? option.uk : option.en}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {renderFieldError("specialization")}
+
+                      {hasOtherSpecialization && (
+                        <div className="mt-5 space-y-2">
+                          <label className="field-label">
+                            {t("Other specialization", "Другая специализация", "Інша спеціалізація")} *
+                          </label>
+                          <input
+                            {...register("specializationOther", {
+                              validate: (value) =>
+                                !hasOtherSpecialization ||
+                                !!value?.trim() ||
+                                t("Enter your specialization.", "Укажите вашу специализацию.", "Вкажіть вашу спеціалізацію."),
+                            })}
+                            className="form-input"
+                            placeholder={t("Describe your specialization", "Опишите вашу специализацию", "Опишіть вашу спеціалізацію")}
+                          />
+                          {renderFieldError("specializationOther")}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="field-label">{isRu ? "Опыт работы" : isUk ? "Досвід роботи" : "Years of Experience"} *</label>
                     <select {...register("yearsExperience", { required: true })} className="form-input appearance-none">
@@ -949,8 +1075,18 @@ export default function ApplyPage() {
                     {renderFieldError("hasLicense")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Номер лицензии" : isUk ? "Номер ліцензії" : "License Number"}</label>
-                    <input {...register("licenseNumber")} className="form-input" placeholder={isRu ? "Номер лицензии, если применимо" : isUk ? "Номер ліцензії, якщо застосовно" : "License number if applicable"} />
+                    <label className="field-label">{isRu ? "Номер лицензии" : isUk ? "Номер ліцензії" : "License Number"}{requiresLicenseNumber(selectedCategory) ? " *" : ""}</label>
+                    <input
+                      {...register("licenseNumber", {
+                        validate: (value) =>
+                          !requiresLicenseNumber(selectedCategory) ||
+                          !!value?.trim() ||
+                          (isRu ? "Укажите номер лицензии." : isUk ? "Вкажіть номер ліцензії." : "Enter your license number."),
+                      })}
+                      className="form-input"
+                      placeholder={isRu ? "Номер лицензии, если применимо" : isUk ? "Номер ліцензії, якщо застосовно" : "License number if applicable"}
+                    />
+                    {renderFieldError("licenseNumber")}
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="field-label">{isRu ? "Дополнительные профессиональные квалификации" : isUk ? "Додаткові професійні кваліфікації" : "Additional professional qualifications"}</label>
@@ -974,13 +1110,36 @@ export default function ApplyPage() {
                 selectedCategory={selectedCategory}
                 detailTitle={isRu ? selectedConfig.detailTitleRu : isUk ? selectedConfig.detailTitleUk : selectedConfig.detailTitle}
                 detailDescription={isRu ? selectedConfig.detailDescriptionRu : isUk ? selectedConfig.detailDescriptionUk : selectedConfig.detailDescription}
-                specializationOptions={specializationOptions}
                 register={register}
                 watch={watch}
                 renderFieldError={renderFieldError}
                 portfolioImages={portfolioImages}
                 onPortfolioImagesChange={(urls) => {
                   setValue("portfolioImages", urls, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
+                }}
+                trainerEducationPlanFiles={trainerEducationPlanFiles}
+                onTrainerEducationPlanFilesChange={(urls) => {
+                  setValue("trainerEducationPlanFiles", urls, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
+                }}
+                trainerCertificateFiles={trainerCertificateFiles}
+                onTrainerCertificateFilesChange={(urls) => {
+                  setValue("trainerCertificateFiles", urls, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
+                }}
+                trainerExperienceProofFiles={trainerExperienceProofFiles}
+                onTrainerExperienceProofFilesChange={(urls) => {
+                  setValue("trainerExperienceProofFiles", urls, {
                     shouldDirty: true,
                     shouldTouch: true,
                     shouldValidate: true,

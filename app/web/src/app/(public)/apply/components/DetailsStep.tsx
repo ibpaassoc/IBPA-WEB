@@ -4,11 +4,14 @@ import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormWatch } from "react-hook-form";
 import type { MembershipCategory } from "@/lib/membership";
+import { ApplicationFileUploadField } from "@/components/forms/ApplicationFileUploadField";
 import { PortfolioUploadField } from "@/components/forms/PortfolioUploadField";
 
 type FormData = {
   portfolioImages: string[];
-  specialization: string[];
+  trainerEducationPlanFiles: string[];
+  trainerCertificateFiles: string[];
+  trainerExperienceProofFiles: string[];
   dateOfBirth?: string;
   studentSchool?: string;
   studentProgName?: string;
@@ -48,12 +51,17 @@ type DetailsStepProps = {
   selectedCategory: MembershipCategory;
   detailTitle: string;
   detailDescription: string;
-  specializationOptions: Array<{ value: string; en: string; ru: string; uk: string }>;
   register: UseFormRegister<any>;
   watch: UseFormWatch<any>;
   renderFieldError: (field: any) => ReactNode;
   portfolioImages: string[];
   onPortfolioImagesChange: (urls: string[]) => void;
+  trainerEducationPlanFiles: string[];
+  onTrainerEducationPlanFilesChange: (urls: string[]) => void;
+  trainerCertificateFiles: string[];
+  onTrainerCertificateFilesChange: (urls: string[]) => void;
+  trainerExperienceProofFiles: string[];
+  onTrainerExperienceProofFilesChange: (urls: string[]) => void;
 };
 
 export function DetailsStep({
@@ -64,12 +72,17 @@ export function DetailsStep({
   selectedCategory,
   detailTitle,
   detailDescription,
-  specializationOptions,
   register,
   watch,
   renderFieldError,
   portfolioImages,
   onPortfolioImagesChange,
+  trainerEducationPlanFiles,
+  onTrainerEducationPlanFilesChange,
+  trainerCertificateFiles,
+  onTrainerCertificateFilesChange,
+  trainerExperienceProofFiles,
+  onTrainerExperienceProofFilesChange,
 }: DetailsStepProps) {
   const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
   const requiresPortfolio = selectedCategory === "Specialist" || selectedCategory === "Professional" || selectedCategory === "Trainer";
@@ -142,20 +155,6 @@ export function DetailsStep({
         {selectedCategory === "Professional" && (
           <>
             <div className="space-y-2 md:col-span-2">
-              <label className="field-label">{t("Specialization", "Специализация", "Спеціалізація")}</label>
-              <div className="grid gap-2 md:grid-cols-2">
-                {specializationOptions.map((option) => (
-                  <label
-                    key={option.value}
-                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700"
-                  >
-                    <input type="checkbox" value={option.value} {...register("specialization")} className="accent-black" />
-                    <span>{isRu ? option.ru : isUk ? option.uk : option.en}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2 md:col-span-2">
               <label className="field-label">
                 {t("Working jurisdictions", "Где вы работаете", "Де ви працюєте")} *
               </label>
@@ -192,9 +191,67 @@ export function DetailsStep({
               {renderFieldError("educatorFormat")}
             </div>
             <div className="space-y-2 md:col-span-2">
-              <label className="field-label">{t("Approximate student count", "Примерное число студентов", "Приблизна кількість студентів")}</label>
-              <input {...register("studentCount")} className="form-input" />
+              <label className="field-label">{t("Approximate student count", "Примерное число студентов", "Приблизна кількість студентів")} *</label>
+              <input
+                {...register("studentCount", {
+                  required: true,
+                  validate: (value: string) => {
+                    const count = Number(String(value || "").match(/\d+/)?.[0] || 0);
+                    return count >= 5 || t("Enter at least 5 students.", "Укажите минимум 5 студентов.", "Вкажіть щонайменше 5 студентів.");
+                  },
+                })}
+                className="form-input"
+                inputMode="numeric"
+                placeholder="5+"
+              />
+              {renderFieldError("studentCount")}
             </div>
+            <ApplicationFileUploadField
+              endpoint="trainerEducationPlanUploader"
+              label={t("Education Plan / Методичка", "Методичка / план обучения", "Методичка / план навчання")}
+              description={t(
+                "Upload your education plan, methodology, or training materials as PDF, DOC, or DOCX.",
+                "Загрузите методичку, план обучения или учебные материалы в формате PDF, DOC или DOCX.",
+                "Завантажте методичку, план навчання або навчальні матеріали у форматі PDF, DOC чи DOCX.",
+              )}
+              value={trainerEducationPlanFiles}
+              onChange={onTrainerEducationPlanFilesChange}
+              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              chooseLabel={t("Choose file", "Выбрать файл", "Обрати файл")}
+              error={renderFieldError("trainerEducationPlanFiles")}
+            />
+            <ApplicationFileUploadField
+              endpoint="trainerCertificateUploader"
+              label={t("Certificate", "Сертификат", "Сертифікат")}
+              description={t(
+                "Upload a certificate that supports your educator application. PDF or image files are accepted.",
+                "Загрузите сертификат, подтверждающий вашу заявку преподавателя. Принимаются PDF или изображения.",
+                "Завантажте сертифікат, що підтверджує вашу заявку викладача. Приймаються PDF або зображення.",
+              )}
+              value={trainerCertificateFiles}
+              onChange={onTrainerCertificateFilesChange}
+              accept=".pdf,image/*,application/pdf"
+              chooseLabel={t("Choose file", "Выбрать файл", "Обрати файл")}
+              error={renderFieldError("trainerCertificateFiles")}
+            />
+            <ApplicationFileUploadField
+              endpoint="trainerProofUploader"
+              label={t("Proof of educator experience", "Подтверждение преподавательского опыта", "Підтвердження викладацького досвіду")}
+              description={t(
+                "Upload at least 5 photos such as student reviews, teaching photos, or training screenshots.",
+                "Загрузите минимум 5 фото: отзывы студентов, фото преподавания, скриншоты обучения и другие подтверждения.",
+                "Завантажте щонайменше 5 фото: відгуки студентів, фото викладання, скриншоти навчання та інші підтвердження.",
+              )}
+              value={trainerExperienceProofFiles}
+              onChange={onTrainerExperienceProofFilesChange}
+              accept="image/*"
+              chooseLabel={t("Choose photos", "Выбрать фото", "Обрати фото")}
+              multiple
+              minFiles={5}
+              maxFiles={10}
+              imageOnly
+              error={renderFieldError("trainerExperienceProofFiles")}
+            />
           </>
         )}
 

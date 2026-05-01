@@ -180,14 +180,20 @@ async function sendAdminNewApplicationEmail(params: {
     .filter(Boolean)
     .join(" • ");
 
+  const specializationSummary = Array.isArray(application?.specialization)
+    ? application.specialization.filter((item): item is string => typeof item === "string" && item.trim().length > 0).join(", ")
+    : typeof application?.specialization === "string"
+      ? application.specialization
+      : null;
+
   const importantFields = [
     ["Membership", membershipPackage],
     ["Applicant Type", applicantType],
     ["Phone", phone],
     ["City", typeof application?.city === "string" ? application.city : null],
     ["Country", typeof application?.country === "string" ? application.country : null],
-    ["Specialization", typeof application?.specialization === "string" ? application.specialization : null],
-    ["Current Position", typeof application?.currentPosition === "string" ? application.currentPosition : null],
+    ["Subcategory / Specialization", specializationSummary],
+    ["Other Specialization", typeof application?.specializationOther === "string" ? application.specializationOther : null],
     ["Experience", typeof application?.yearsExperience === "string" ? application.yearsExperience : null],
     ["Achievements", typeof application?.achievementsDesc === "string" ? application.achievementsDesc : null],
     ["Competition", competitionSummary || null],
@@ -196,6 +202,9 @@ async function sendAdminNewApplicationEmail(params: {
     ["Industry Contribution", typeof application?.contributionDesc === "string" ? application.contributionDesc : null],
     ["Professional Community", typeof application?.professionalCommunityYesNo === "string" ? application.professionalCommunityYesNo : null],
     ["Other Organizations", organizationSummary || null],
+    ["Education Plan / Методичка", Array.isArray(application?.trainerEducationPlanFiles) ? `${application.trainerEducationPlanFiles.length} file(s)` : null],
+    ["Certificate", Array.isArray(application?.trainerCertificateFiles) ? `${application.trainerCertificateFiles.length} file(s)` : null],
+    ["Proof of Educator Experience", Array.isArray(application?.trainerExperienceProofFiles) ? `${application.trainerExperienceProofFiles.length} file(s)` : null],
     ["Instagram", typeof application?.instagramLink === "string" ? application.instagramLink : null],
     ["Website", typeof application?.websiteLink === "string" ? application.websiteLink : null],
   ].filter(([, value]) => value);
@@ -478,16 +487,92 @@ ordersRouter.post("/", async (req, res) => {
           (item): item is string => typeof item === "string" && item.length > 0,
         )
       : [];
+  const trainerEducationPlanFiles =
+    Array.isArray(normalizedApplication.trainerEducationPlanFiles)
+      ? (normalizedApplication.trainerEducationPlanFiles as unknown[]).filter(
+          (item): item is string => typeof item === "string" && item.length > 0,
+        )
+      : [];
+  const trainerCertificateFiles =
+    Array.isArray(normalizedApplication.trainerCertificateFiles)
+      ? (normalizedApplication.trainerCertificateFiles as unknown[]).filter(
+          (item): item is string => typeof item === "string" && item.length > 0,
+        )
+      : [];
+  const trainerExperienceProofFiles =
+    Array.isArray(normalizedApplication.trainerExperienceProofFiles)
+      ? (normalizedApplication.trainerExperienceProofFiles as unknown[]).filter(
+          (item): item is string => typeof item === "string" && item.length > 0,
+        )
+      : [];
 
   const categoryRequiresPortfolio =
     membershipPackage === "Specialist" ||
     membershipPackage === "Professional" ||
     membershipPackage === "Trainer";
+  const categoryRequiresLicenseNumber = membershipPackage !== "Specialist";
+  const categoryRequiresSubcategory =
+    membershipPackage !== "Business" &&
+    membershipPackage !== "Brand";
+  const licenseNumber =
+    typeof normalizedApplication.licenseNumber === "string" ? normalizedApplication.licenseNumber.trim() : "";
+  const specializations =
+    Array.isArray(normalizedApplication.specialization)
+      ? (normalizedApplication.specialization as unknown[]).filter(
+          (item): item is string => typeof item === "string" && item.trim().length > 0,
+        )
+      : [];
+  const specializationOther =
+    typeof normalizedApplication.specializationOther === "string"
+      ? normalizedApplication.specializationOther.trim()
+      : "";
+
+  normalizedApplication.portfolioImages = portfolioImages;
+  normalizedApplication.trainerEducationPlanFiles = trainerEducationPlanFiles;
+  normalizedApplication.trainerCertificateFiles = trainerCertificateFiles;
+  normalizedApplication.trainerExperienceProofFiles = trainerExperienceProofFiles;
+  normalizedApplication.specialization = specializations;
+  normalizedApplication.specializationOther = specializationOther;
 
   if (categoryRequiresPortfolio && (portfolioImages.length < 5 || portfolioImages.length > 10)) {
     return res.status(400).json({
       error: "Please provide between 5 and 10 portfolio images for this membership category.",
     });
+  }
+
+  if (categoryRequiresLicenseNumber && !licenseNumber) {
+    return res.status(400).json({ error: "License number is required for this membership category." });
+  }
+
+  if (categoryRequiresSubcategory && specializations.length === 0) {
+    return res.status(400).json({ error: "Please select at least one subcategory or specialization." });
+  }
+
+  if (categoryRequiresSubcategory && specializations.includes("Other") && !specializationOther) {
+    return res.status(400).json({ error: "Please describe your other specialization." });
+  }
+
+  if (membershipPackage === "Trainer") {
+    const studentCount = Number(
+      (typeof normalizedApplication.studentCount === "string" ? normalizedApplication.studentCount : "")
+        .match(/\d+/)?.[0] || 0,
+    );
+
+    if (studentCount < 5) {
+      return res.status(400).json({ error: "Trainer applications require at least 5 students taught." });
+    }
+
+    if (trainerEducationPlanFiles.length < 1) {
+      return res.status(400).json({ error: "Education plan / методичка is required for Trainer applications." });
+    }
+
+    if (trainerCertificateFiles.length < 1) {
+      return res.status(400).json({ error: "Certificate upload is required for Trainer applications." });
+    }
+
+    if (trainerExperienceProofFiles.length < 5) {
+      return res.status(400).json({ error: "Please upload at least 5 proof files for educator experience." });
+    }
   }
 
   try {

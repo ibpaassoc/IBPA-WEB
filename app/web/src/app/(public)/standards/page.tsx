@@ -168,11 +168,11 @@ const documents: DocumentEntry[] = [
     },
   },
   {
-    slug: "bylaws-english.pdf",
+    slug: "bylaws.pdf",
     title: {
-      en: "Bylaws (English)",
-      ru: "Устав (английская версия)",
-      uk: "Статут (англійська версія)",
+      en: "Bylaws",
+      ru: "Устав",
+      uk: "Статут",
     },
     description: {
       en: "Formal governing rules of the association, including structure, authority, voting, and foundational procedures.",

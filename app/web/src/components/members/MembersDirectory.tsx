@@ -14,6 +14,7 @@ type MembersDirectoryProps = {
   items: PublicMember[];
   locale: Locale;
   mode?: "teaser" | "full";
+  surface?: "public" | "dashboard";
 };
 
 function getMembershipLabels(locale: Locale): Record<string, string> {
@@ -79,7 +80,7 @@ function normalizeUrl(value?: string | null) {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-export function MembersDirectory({ items, locale, mode = "full" }: MembersDirectoryProps) {
+export function MembersDirectory({ items, locale, mode = "full", surface = "public" }: MembersDirectoryProps) {
   const membershipLabels = getMembershipLabels(locale);
   const copy =
     locale === "ru"
@@ -132,10 +133,12 @@ export function MembersDirectory({ items, locale, mode = "full" }: MembersDirect
           }
         : {
             eyebrow: "Member Directory",
-            title: mode === "teaser" ? "Meet IBPA Members" : "IBPA Member Directory",
+            title: mode === "teaser" ? "Meet IBPA Members" : surface === "dashboard" ? "Community" : "IBPA Member Directory",
             description:
               mode === "teaser"
                 ? "Paid members with active accounts appear in the public directory so clients, partners, and peers can discover the right beauty professional."
+                : surface === "dashboard"
+                  ? "Connect with active IBPA members, explore specializations, and discover peers across the professional beauty community."
                 : "An open directory of paid IBPA members with core profile details, portfolio samples, and direct contact links.",
             empty: "New member profiles will appear here soon.",
             allMembers: "View all members",
@@ -168,7 +171,7 @@ export function MembersDirectory({ items, locale, mode = "full" }: MembersDirect
 
     return items.filter((item) => {
       const matchesCategory = category === "all" || item.membershipCategory === category;
-      const haystack = [item.fullName, item.title, item.location, item.description, item.highlights.join(" ")]
+      const haystack = [item.fullName, item.title, item.specializations?.join(" "), item.location, item.description, item.highlights.join(" ")]
         .join(" ")
         .toLowerCase();
       const matchesQuery = !query || haystack.includes(query);
@@ -190,7 +193,7 @@ export function MembersDirectory({ items, locale, mode = "full" }: MembersDirect
             <p className="mt-5 text-base leading-relaxed text-slate-600 md:text-lg">{copy.description}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                href="/members"
+                href="/dashboard/community"
                 className="inline-flex items-center gap-2 rounded-md bg-black px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800"
               >
                 {copy.allMembers} <ArrowRight className="h-4 w-4" />
@@ -325,6 +328,13 @@ function MemberCard({
     month: "short",
     year: "numeric",
   });
+  const specializations =
+    member.specializations && member.specializations.length > 0
+      ? member.specializations
+      : member.title
+        ? member.title.split(",").map((item) => item.trim()).filter(Boolean)
+        : [];
+  const specializationText = specializations.join(", ") || member.title;
 
   return (
     <Dialog>
@@ -342,7 +352,20 @@ function MemberCard({
           ) : null}
 
           <p className="mt-4 text-[1.6rem] font-semibold leading-tight text-slate-900">{member.fullName}</p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">{member.title}</p>
+          {specializations.length > 1 ? (
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              {specializations.map((item) => (
+                <span
+                  key={item}
+                  className="inline-flex rounded-full border border-[#72A0C1]/20 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#4C7D9D]"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : specializationText ? (
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{specializationText}</p>
+          ) : null}
 
           {member.location ? (
             <p className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
@@ -382,7 +405,7 @@ function MemberCard({
                       {member.fullName}
                     </DialogTitle>
                     <DialogDescription className="mt-3 max-w-2xl text-sm text-white/65 md:text-base">
-                      {member.title}
+                      {specializationText}
                     </DialogDescription>
                     {member.location ? (
                       <p className="mt-3 inline-flex items-center gap-2 text-sm text-white/65">
