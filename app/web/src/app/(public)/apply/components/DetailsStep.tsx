@@ -72,7 +72,7 @@ export function DetailsStep({
   onPortfolioImagesChange,
 }: DetailsStepProps) {
   const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
-  const requiresPortfolio = selectedCategory === "Student" || selectedCategory === "Professional" || selectedCategory === "Trainer";
+  const requiresPortfolio = selectedCategory === "Specialist" || selectedCategory === "Professional" || selectedCategory === "Trainer";
   const isProfessionalLike = selectedCategory === "Professional" || selectedCategory === "Trainer" || selectedCategory === "Business";
   const achievementsYesNo = watch("achievementsYesNo");
   const competitionsYesNo = watch("competitionsYesNo");
@@ -112,20 +112,20 @@ export function DetailsStep({
           />
         )}
 
-        {selectedCategory === "Student" && (
+        {selectedCategory === "Specialist" && (
           <>
             <div className="space-y-2 md:col-span-2">
-              <label className="field-label">{t("School / Academy", "Школа / академия", "Школа / академія")} *</label>
+              <label className="field-label">{t("Training / Academy", "Школа / академия", "Школа / академія")} *</label>
               <input {...register("studentSchool", { required: true })} className="form-input" />
               {renderFieldError("studentSchool")}
             </div>
             <div className="space-y-2">
-              <label className="field-label">{t("Program name", "Название программы", "Назва програми")} *</label>
+              <label className="field-label">{t("Training program", "Название программы", "Назва програми")} *</label>
               <input {...register("studentProgName", { required: true })} className="form-input" />
               {renderFieldError("studentProgName")}
             </div>
             <div className="space-y-2">
-              <label className="field-label">{t("Expected graduation", "Ожидаемая дата окончания", "Очікувана дата завершення")} *</label>
+              <label className="field-label">{t("Training completion", "Ожидаемая дата окончания", "Очікувана дата завершення")} *</label>
               <input {...register("studentEndDate", { required: true })} className="form-input" placeholder="YYYY-MM-DD" />
               {renderFieldError("studentEndDate")}
             </div>

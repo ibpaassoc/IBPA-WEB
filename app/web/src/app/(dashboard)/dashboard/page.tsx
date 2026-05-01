@@ -91,7 +91,8 @@ function getNotificationMeta(notification: DashboardNotification) {
 function formatMembershipCategory(category?: string | null) {
   switch (category) {
     case "Student":
-      return "Student Membership";
+    case "Specialist":
+      return "Specialist Membership";
     case "Professional":
       return "Professional Membership";
     case "Trainer":
@@ -116,6 +117,7 @@ function addOneYear(dateString?: string) {
 function getMembershipAmount(category?: string | null) {
   switch (category) {
     case "Student":
+    case "Specialist":
       return "$49.00";
     case "Professional":
       return "$199.00";
@@ -548,7 +550,7 @@ export default function DashboardPage() {
           {items.map((item) => (
             <article key={item.id} className="overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-sm">
               {item.coverImage && (
-                <div className="aspect-[4/3] overflow-hidden rounded-[40px]">
+                <div className="aspect-4/3 overflow-hidden rounded-[40px]">
                   <ImageWithFallback src={item.coverImage} alt={item.title} className="h-full w-full object-cover" />
                 </div>
               )}
@@ -688,7 +690,7 @@ export default function DashboardPage() {
              <div className="space-y-6">
                 {/* Payment Method */}
                 <div className="bg-slate-900 p-8 rounded-[32px] text-white shadow-2xl relative overflow-hidden">
-                   <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-[#72A0C1]/20 rounded-full blur-[40px]" />
+                   <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-[#72A0C1]/20 rounded-full blur-2xl" />
                    <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-6">Membership Record</h3>
                    <div className="space-y-3 mb-8">
                       <div>
@@ -794,8 +796,8 @@ export default function DashboardPage() {
                 className="h-full w-full object-cover object-center opacity-70 grayscale"
                 alt="Profile Hero"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/55 to-white/10" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.22),_transparent_48%)]" />
+              <div className="absolute inset-0 bg-linear-to-t from-[#050505] via-[#050505]/55 to-white/10" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_48%)]" />
             </div>
 
             <div className="relative z-10 flex min-h-[680px] flex-col px-4 pb-4 pt-4 md:min-h-[780px] md:px-8 md:pb-8 md:pt-8">
@@ -919,7 +921,7 @@ export default function DashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => setActiveTab('billing')}
-                                className="flex-1 rounded-[20px] bg-gradient-to-r from-[#8DD4F7] via-[#F2C94C] to-[#F6B6FF] px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.16em] text-black shadow-[0_20px_45px_rgba(141,212,247,0.25)] transition-transform hover:scale-[1.01] md:rounded-[22px] md:px-6 md:py-4 md:text-sm md:tracking-[0.24em]"
+                                className="flex-1 rounded-[20px] bg-linear-to-r from-[#8DD4F7] via-[#F2C94C] to-[#F6B6FF] px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.16em] text-black shadow-[0_20px_45px_rgba(141,212,247,0.25)] transition-transform hover:scale-[1.01] md:rounded-[22px] md:px-6 md:py-4 md:text-sm md:tracking-[0.24em]"
                               >
                                 View Membership
                               </button>
@@ -1192,7 +1194,7 @@ export default function DashboardPage() {
              >
                <Menu className="w-6 h-6" />
              </button>
-             <div className="w-8 h-8 md:w-10 md:h-10 bg-black rounded-lg md:rounded-xl flex items-center justify-center text-white scale-90 hidden xs:flex">
+             <div className="w-8 h-8 md:w-10 md:h-10 bg-black rounded-lg md:rounded-xl flex items-center justify-center text-white scale-90 xs:flex">
                <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" />
              </div>
              <span className="md:hidden">Dashboard</span>
@@ -1229,7 +1231,7 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
-                        className="absolute right-0 top-14 z-50 w-[320px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl"
+                        className="absolute right-0 top-14 z-50 w-xs overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl"
                       >
                         <div className="border-b border-slate-100 px-5 py-4">
                           <div className="flex items-center justify-between gap-3">

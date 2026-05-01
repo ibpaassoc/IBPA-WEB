@@ -10,12 +10,16 @@ import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
 export const ordersRouter = Router();
 
 const MEMBERSHIP_PRICE_KEYS = {
-  Student: "STRIPE_PRICE_STUDENT",
+  Specialist: "STRIPE_PRICE_SPECIALIST",
   Professional: "STRIPE_PRICE_PROFESSIONAL",
   Trainer: "STRIPE_PRICE_TRAINER",
   Business: "STRIPE_PRICE_BUSINESS",
   Brand: "STRIPE_PRICE_BRAND",
 } as const;
+
+const LEGACY_MEMBERSHIP_PACKAGES: Record<string, keyof typeof MEMBERSHIP_PRICE_KEYS> = {
+  Student: "Specialist",
+};
 
 const SPONSORSHIP_PRICE_KEYS = {
   Associate: "STRIPE_PRICE_SPONSOR_ASSOCIATE",
@@ -70,12 +74,21 @@ function generateCertificateNumber() {
 }
 
 function getMembershipPriceId(category?: string | null) {
-  const key = MEMBERSHIP_PRICE_KEYS[(category || "Professional") as keyof typeof MEMBERSHIP_PRICE_KEYS];
+  const normalizedCategory = normalizeMembershipPackage(category) || "Professional";
+  const key = MEMBERSHIP_PRICE_KEYS[normalizedCategory as keyof typeof MEMBERSHIP_PRICE_KEYS];
   if (!key) {
     throw new Error(`Unsupported membership category: ${category}`);
   }
 
   return getRequiredEnv(key);
+}
+
+function normalizeMembershipPackage(category?: unknown) {
+  if (typeof category !== "string") {
+    return null;
+  }
+
+  return (LEGACY_MEMBERSHIP_PACKAGES[category] || category) as keyof typeof MEMBERSHIP_PRICE_KEYS;
 }
 
 function getSponsorshipPriceId(tier?: string | null) {
@@ -395,12 +408,13 @@ ordersRouter.post("/", async (req, res) => {
   const {
     email,
     name,
-    package: membershipPackage,
+    package: rawMembershipPackage,
     applicantType,
     application,
     phone,
     honeypot,
   } = req.body;
+  const membershipPackage = normalizeMembershipPackage(rawMembershipPackage);
   const secureToken = crypto.randomUUID();
 
   if (typeof honeypot === "string" && honeypot.trim()) {
@@ -426,6 +440,11 @@ ordersRouter.post("/", async (req, res) => {
   if (typeof application !== "object" || application === null || Array.isArray(application)) {
     return res.status(400).json({ error: "Application payload is required." });
   }
+
+  const normalizedApplication: Record<string, unknown> = {
+    ...(application as Record<string, unknown>),
+    membershipCategory: membershipPackage,
+  };
 
   const ipLimit = applicationLimiter.hit(`orders:ip:${clientIp}`);
   const emailLimit = applicationLimiter.hit(`orders:email:${safeEmail}`);
@@ -454,14 +473,14 @@ ordersRouter.post("/", async (req, res) => {
   const applicantPhone = phone || (application ? application.phone : null);
 
   const portfolioImages =
-    application && typeof application === "object" && Array.isArray((application as Record<string, unknown>).portfolioImages)
-      ? ((application as Record<string, unknown>).portfolioImages as unknown[]).filter(
+    Array.isArray(normalizedApplication.portfolioImages)
+      ? (normalizedApplication.portfolioImages as unknown[]).filter(
           (item): item is string => typeof item === "string" && item.length > 0,
         )
       : [];
 
   const categoryRequiresPortfolio =
-    membershipPackage === "Student" ||
+    membershipPackage === "Specialist" ||
     membershipPackage === "Professional" ||
     membershipPackage === "Trainer";
 
@@ -479,7 +498,7 @@ ordersRouter.post("/", async (req, res) => {
       membershipCategory: membershipPackage,
       package: membershipPackage,
       applicantType,
-      applicationPayload: application,
+      applicationPayload: normalizedApplication,
       status: "pending",
       secureToken,
     }).returning();
@@ -509,7 +528,7 @@ ordersRouter.post("/", async (req, res) => {
         phone: applicantPhone,
         membershipPackage,
         applicantType,
-        application: application && typeof application === "object" ? application : null,
+        application: normalizedApplication,
       });
       console.log("Admin application notification email sent", {
         to: adminNotificationEmail,

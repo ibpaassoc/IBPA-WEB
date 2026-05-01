@@ -3,10 +3,10 @@ import { Books, SealCheck, UsersThree, Medal, Ticket } from "@phosphor-icons/rea
 
 export const audience = [
   { 
-    title: "Students", 
+    title: "Specialists", 
     price: "$49",
     type: "ENTRY",
-    desc: "Students currently studying beauty professions and building their careers.", 
+    desc: "Specialists building early experience and professional direction.", 
     img: "https://images.unsplash.com/photo-1659886061101-56a318ec09df?q=80&w=800" 
   },
   { 
@@ -68,7 +68,7 @@ export const whyJoin = [
 ];
 
 export const packages = [
-  { name: "Student", price: "$49", type: "ENTRY" },
+  { name: "Specialist", price: "$49", type: "ENTRY" },
   { name: "Professional", price: "$199", type: "ELITE" },
   { name: "Educator", price: "$399", type: "MASTER" },
   { name: "Business", price: "$599", type: "PREMIUM" },

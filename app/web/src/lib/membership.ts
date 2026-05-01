@@ -1,4 +1,4 @@
-export type MembershipCategory = "Student" | "Professional" | "Trainer" | "Business" | "Brand";
+export type MembershipCategory = "Specialist" | "Professional" | "Trainer" | "Business" | "Brand";
 export type ApplicantType = "Individual" | "Business" | "School" | "Brand";
 
 export type MembershipConfig = {
@@ -25,7 +25,7 @@ export type MembershipConfig = {
 
 export const membershipConfigs: MembershipConfig[] = [
   {
-    id: "Student",
+    id: "Specialist",
     title: "Specialist",
     titleRu: "Специалист",
     titleUk: "Спеціаліст",
@@ -34,12 +34,12 @@ export const membershipConfigs: MembershipConfig[] = [
     shortTitleUk: "Спеціаліст",
     price: "$49",
     applicantType: "Individual",
-    audienceAliases: ["Students"],
+    audienceAliases: ["Students", "Student", "Specialists"],
     summary: "For current beauty specialists building early experience and professional direction.",
     summaryRu: "Для специалистов beauty-индустрии, которые находятся в начале профессионального пути и формируют своё направление развития.",
     summaryUk: "Для спеціалістів beauty-індустрії, які перебувають на початку професійного шляху та формують свій напрям розвитку.",
     detailTitle: "Specialist details",
-    detailDescription: "Tell us about your school, program, and what you want to build next.",
+    detailDescription: "Tell us about your training, early experience, and what you want to build next.",
     detailTitleRu: "Детали специалиста",
     detailDescriptionRu: "Расскажите о вашей школе, программе обучения и о том, что вы хотите развивать дальше.",
     detailTitleUk: "Деталі спеціаліста",

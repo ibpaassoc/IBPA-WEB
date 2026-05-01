@@ -24,7 +24,8 @@ interface Certificate {
 function formatMembershipCategory(category?: string | null) {
   switch (category) {
     case "Student":
-      return "Student Membership";
+    case "Specialist":
+      return "Specialist Membership";
     case "Professional":
       return "Professional Membership";
     case "Trainer":

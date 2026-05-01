@@ -19,6 +19,7 @@ type MembersDirectoryProps = {
 function getMembershipLabels(locale: Locale): Record<string, string> {
   if (locale === "ru") {
     return {
+      Specialist: "Старт",
       Student: "Старт",
       Professional: "Элита",
       Trainer: "Мастер",
@@ -34,6 +35,7 @@ function getMembershipLabels(locale: Locale): Record<string, string> {
 
   if (locale === "uk") {
     return {
+      Specialist: "Старт",
       Student: "Старт",
       Professional: "Еліта",
       Trainer: "Майстер",
@@ -48,7 +50,8 @@ function getMembershipLabels(locale: Locale): Record<string, string> {
   }
 
   return {
-    Student: "Entry",
+    Specialist: "ENTRY",
+    Student: "ENTRY",
     Professional: "Elite",
     Trainer: "Master",
     Business: "Premium",
@@ -218,7 +221,7 @@ export function MembersDirectory({ items, locale, mode = "full" }: MembersDirect
                       style={{ transform: `translate(-50%, -50%) rotate(${angle}deg)` }}
                     >
                       <div
-                        className="flex -translate-y-[12.5rem] translate-x-0 animate-[spin_36s_linear_infinite_reverse] items-center justify-center md:-translate-y-[15rem]"
+                        className="flex translate-y-[-12.5rem] translate-x-0 animate-[spin_36s_linear_infinite_reverse] items-center justify-center md:translate-y-[-15rem]"
                       >
                         <MemberAvatar member={member} className={sizeClass} />
                       </div>

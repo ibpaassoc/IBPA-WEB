@@ -17,7 +17,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   .filter(Boolean) || [];
 
 const membershipStripePriceKeys = {
-  Student: "STRIPE_PRICE_STUDENT",
+  Specialist: "STRIPE_PRICE_SPECIALIST",
   Professional: "STRIPE_PRICE_PROFESSIONAL",
   Trainer: "STRIPE_PRICE_TRAINER",
   Business: "STRIPE_PRICE_BUSINESS",
@@ -25,7 +25,7 @@ const membershipStripePriceKeys = {
 } as const;
 
 const membershipFallbackAmounts = {
-  Student: 4900,
+  Specialist: 4900,
   Professional: 12900,
   Trainer: 24900,
   Business: 39900,

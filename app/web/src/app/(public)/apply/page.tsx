@@ -183,7 +183,7 @@ const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }
   studentProgName: { en: "Program name", ru: "Название программы", uk: "Назва програми" },
   studentStartDate: { en: "Start date", ru: "Дата начала", uk: "Дата початку" },
   studentEndDate: { en: "Expected graduation", ru: "Ожидаемая дата окончания", uk: "Очікувана дата завершення" },
-  studentMotivation: { en: "Student motivation", ru: "Почему вы подаете заявку сейчас?", uk: "Чому ви подаєте заявку зараз?" },
+  studentMotivation: { en: "Specialist motivation", ru: "Почему вы подаете заявку сейчас?", uk: "Чому ви подаєте заявку зараз?" },
   educatorRole: { en: "Educator role", ru: "Роль преподавателя", uk: "Роль викладача" },
   educatorSubjects: { en: "Subjects taught", ru: "Какие дисциплины вы преподаете", uk: "Які дисципліни ви викладаєте" },
   educatorYears: { en: "Teaching years", ru: "Опыт преподавания", uk: "Досвід викладання" },
@@ -274,7 +274,7 @@ const industryContributionFields: (keyof FormData)[] = [
 
 function getCategorySpecificFields(category: MembershipCategory): (keyof FormData)[] {
   switch (category) {
-    case "Student":
+    case "Specialist":
       return ["portfolioImages", "studentSchool", "studentProgName", "studentEndDate", "studentMotivation"];
     case "Professional":
       return ["portfolioImages", "workingJurisdictions", ...professionalAchievementFields];
@@ -294,7 +294,7 @@ function getStepFields(step: number, category: MembershipCategory): (keyof FormD
     case 0:
       return ["membershipCategory"];
     case 1:
-      return category === "Student" || category === "Professional" || category === "Trainer"
+      return category === "Specialist" || category === "Professional" || category === "Trainer"
         ? ["firstName", "lastName", "dateOfBirth", "email", "phone", "citizenship", "city", "country"]
         : ["firstName", "lastName", "email", "phone", "citizenship", "city", "country"];
     case 2:
@@ -345,8 +345,8 @@ export default function ApplyPage() {
   } = useForm<FormData>({
     mode: "onChange",
     defaultValues: {
-      membershipCategory: "Professional",
-      applicantType: membershipConfigById.Professional.applicantType,
+      membershipCategory: "Specialist",
+      applicantType: membershipConfigById.Specialist.applicantType,
       portfolioImages: [],
       specialization: [],
       hasLicense: "Yes",
@@ -354,7 +354,7 @@ export default function ApplyPage() {
   });
 
   const selectedCategory = watch("membershipCategory");
-  const selectedConfig = membershipConfigById[selectedCategory];
+  const selectedConfig = membershipConfigById[selectedCategory] || membershipConfigById.Specialist;
   const selectedConfigTitle = isRu ? selectedConfig.titleRu : isUk ? selectedConfig.titleUk : selectedConfig.title;
   const selectedConfigShortTitle = isRu ? selectedConfig.shortTitleRu : isUk ? selectedConfig.shortTitleUk : selectedConfig.shortTitle;
   const selectedConfigSummary = isRu ? selectedConfig.summaryRu : isUk ? selectedConfig.summaryUk : selectedConfig.summary;
@@ -395,14 +395,15 @@ export default function ApplyPage() {
 
     try {
       const parsedDraft = JSON.parse(savedDraft) as Partial<FormData>;
+      const draftCategory = getMembershipCategory(parsedDraft.membershipCategory);
       reset(
         {
-          membershipCategory: "Professional",
-          applicantType: membershipConfigById.Professional.applicantType,
+          applicantType: membershipConfigById.Specialist.applicantType,
           portfolioImages: [],
           specialization: [],
           hasLicense: "Yes",
           ...parsedDraft,
+          membershipCategory: draftCategory || "Specialist",
         },
         { keepDefaultValues: true },
       );
@@ -422,7 +423,7 @@ export default function ApplyPage() {
   }, [setValue]);
 
   React.useEffect(() => {
-    setValue("applicantType", membershipConfigById[selectedCategory].applicantType, {
+    setValue("applicantType", (membershipConfigById[selectedCategory] || membershipConfigById.Specialist).applicantType, {
       shouldDirty: false,
       shouldTouch: false,
     });
@@ -446,7 +447,7 @@ export default function ApplyPage() {
     register("portfolioImages", {
       validate: (value: string[]) => {
         const requiresPortfolio =
-          selectedCategory === "Student" ||
+          selectedCategory === "Specialist" ||
           selectedCategory === "Professional" ||
           selectedCategory === "Trainer";
 
@@ -747,7 +748,7 @@ export default function ApplyPage() {
                     <input {...register("lastName", { required: isRu ? "Введите фамилию." : isUk ? "Введіть прізвище." : "Enter your last name." })} className="form-input" placeholder={isRu ? "Фамилия" : isUk ? "Прізвище" : "Last name"} />
                     {renderFieldError("lastName")}
                   </div>
-                  {(selectedCategory === "Student" || selectedCategory === "Professional" || selectedCategory === "Trainer") && (
+                  {(selectedCategory === "Specialist" || selectedCategory === "Professional" || selectedCategory === "Trainer") && (
                     <div className="space-y-2">
                       <label className="field-label">{isRu ? "Дата рождения" : isUk ? "Дата народження" : "Date of Birth"} *</label>
                       <input

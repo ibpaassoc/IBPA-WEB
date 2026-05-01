@@ -58,7 +58,7 @@ export default function FAQPage() {
           {
             question: "Какие категории membership есть в IBPA?",
             answer:
-              "На сайте предусмотрены пять категорий: Student, Professional, Trainer, Business и Brand. Они отличаются по роли участника в индустрии, наполнению профиля, уровню доступа и стоимости участия.",
+              "На сайте предусмотрены пять категорий: Specialist, Professional, Trainer, Business и Brand. Они отличаются по роли участника в индустрии, наполнению профиля, уровню доступа и стоимости участия.",
           },
           {
             question: "Как проходит подача заявки?",
@@ -137,7 +137,7 @@ export default function FAQPage() {
             {
               question: "Які категорії membership є в IBPA?",
               answer:
-                "На сайті передбачено п’ять категорій: Student, Professional, Trainer, Business і Brand. Вони відрізняються роллю учасника в індустрії, наповненням профілю, рівнем доступу та вартістю участі.",
+                "На сайті передбачено п’ять категорій: Specialist, Professional, Trainer, Business і Brand. Вони відрізняються роллю учасника в індустрії, наповненням профілю, рівнем доступу та вартістю участі.",
             },
             {
               question: "Як проходить подання заявки?",
@@ -210,12 +210,12 @@ export default function FAQPage() {
             {
               question: "Who can apply to join?",
               answer:
-                "Applications are open to students, practicing beauty professionals, educators and trainers, beauty business owners, and brands or companies working in the industry. Each category has its own application flow and profile requirements.",
+                "Applications are open to specialists, practicing beauty professionals, educators and trainers, beauty business owners, and brands or companies working in the industry. Each category has its own application flow and profile requirements.",
             },
             {
               question: "What membership categories are available?",
               answer:
-                "The site currently includes five categories: Student, Professional, Trainer, Business, and Brand. They differ by industry role, application content, access level, and membership price.",
+                "The site currently includes five categories: Specialist, Professional, Trainer, Business, and Brand. They differ by industry role, application content, access level, and membership price.",
             },
             {
               question: "How does the application process work?",

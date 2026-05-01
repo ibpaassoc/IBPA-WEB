@@ -1,4 +1,4 @@
-export type MembershipCategory = "Student" | "Professional" | "Trainer" | "Business" | "Brand" | null | undefined;
+export type MembershipCategory = "Specialist" | "Student" | "Professional" | "Trainer" | "Business" | "Brand" | null | undefined;
 
 export type ApplicationPayload = Record<string, unknown> | null | undefined;
 
@@ -95,6 +95,7 @@ export function getSnapshotItems(profile: CombinedProfileData): SnapshotItem[] {
   const sharedEducation = textValue(payload.educationDesc) || textValue(profile.education) || "Not provided";
 
   switch (membership) {
+    case "Specialist":
     case "Student":
       return [
         { label: "Experience", value: sharedExperience },
@@ -198,12 +199,12 @@ export function getEditableFields(membership: MembershipCategory): EditableField
   ];
 
   const byCategory: Record<string, EditableField[]> = {
-    Student: [
+    Specialist: [
       { key: "dateOfBirth", label: "Date of Birth", type: "date" },
       { key: "studentSchool", label: "School", placeholder: "Your school" },
       { key: "studentProgName", label: "Program", placeholder: "Program name" },
       { key: "studentEndDate", label: "Graduation Date", type: "date" },
-      { key: "studentMotivation", label: "Student Motivation", type: "textarea" },
+      { key: "studentMotivation", label: "Specialist Motivation", type: "textarea" },
     ],
     Professional: [
       { key: "dateOfBirth", label: "Date of Birth", type: "date" },
@@ -266,7 +267,8 @@ export function getEditableFields(membership: MembershipCategory): EditableField
     ],
   };
 
-  return [...shared, ...(byCategory[membership || ""] || [])];
+  const categoryKey = membership === "Student" ? "Specialist" : membership || "";
+  return [...shared, ...(byCategory[categoryKey] || [])];
 }
 
 export function buildEditablePayload(form: Record<string, string>, membership: MembershipCategory) {

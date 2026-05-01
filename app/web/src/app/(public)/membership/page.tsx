@@ -28,7 +28,7 @@ export default function Membership() {
 
   const packages = [
     {
-      category: "Student" as MembershipCategory,
+      category: "Specialist" as MembershipCategory,
       name: isRu ? "Специалист" : isUk ? "Спеціаліст" : "Specialist",
       price: "$49",
       image: "/home/student-1.webp",
@@ -37,7 +37,7 @@ export default function Membership() {
       features: [
         isRu ? "статус Specialist Member of IBPA" : isUk ? "статус Specialist Member of IBPA" : "Specialist Member of IBPA status",
         isRu ? "доступ к базовым образовательным материалам" : isUk ? "доступ до базових освітніх матеріалів" : "access to core educational materials",
-        isRu ? "доступ к отдельным вебинарам и материалам для специалистов" : isUk ? "доступ до окремих вебінарів і матеріалів для спеціалістів" : "access to selected webinars and student-focused resources",
+        isRu ? "доступ к отдельным вебинарам и материалам для специалистов" : isUk ? "доступ до окремих вебінарів і матеріалів для спеціалістів" : "access to selected webinars and specialist-focused resources",
         isRu ? "возможность участия в открытых мероприятиях" : isUk ? "можливість участі у відкритих подіях" : "ability to join open events",
         isRu ? "цифровой сертификат участника" : isUk ? "цифровий сертифікат учасника" : "digital membership certificate",
         isRu ? "цифровой знак участника" : isUk ? "цифровий знак учасника" : "digital membership badge"

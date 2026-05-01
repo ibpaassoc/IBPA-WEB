@@ -8,9 +8,12 @@ import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { cyrillicDisplay } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { useI18n } from "@/lib/i18n";
-import { getDashboardUrl } from "@/lib/public-urls";
 
-export const Navbar = () => {
+type NavbarProps = {
+  dashboardHref?: string;
+};
+
+export const Navbar = ({ dashboardHref = "/" }: NavbarProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
@@ -28,7 +31,6 @@ export const Navbar = () => {
     ? `${homeTemplateDisplay.className} font-extrabold ${isCyrillicLocale ? "tracking-[0.08em]" : "tracking-[0.14em]"}`
     : `${cyrillicDisplay.className} font-medium tracking-[0.08em]`;
   const ctaClassName = "font-sans font-semibold tracking-[0.08em]";
-  const dashboardHref = getDashboardUrl() || "/";
 
   useEffect(() => {
     const handleScroll = () => {
