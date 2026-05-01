@@ -97,7 +97,7 @@ export function MembersSpotlightSection({ locale, items }: MembersSpotlightSecti
             )}
 
             <Link
-              href="/members"
+              href="/dashboard/community"
               className={`inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-[11px] uppercase tracking-[0.16em] text-slate-900 transition-colors hover:border-slate-300 hover:bg-slate-50 ${uiClassName}`}
             >
               {copy.cta}

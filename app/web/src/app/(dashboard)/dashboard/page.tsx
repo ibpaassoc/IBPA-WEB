@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { SignOutButton, UserButton, useUser, UserProfile } from "@clerk/nextjs";
-import { LayoutDashboard, Settings, User, Bell, LogIn, Loader2, Award, FileText, Menu, X, CreditCard, ChevronRight, Download, Newspaper, CalendarDays } from "lucide-react";
+import { LayoutDashboard, Settings, User, Bell, LogIn, Loader2, Award, FileText, Menu, X, CreditCard, ChevronRight, Download, Newspaper, CalendarDays, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -1086,6 +1086,15 @@ export default function DashboardPage() {
         <Award className="w-5 h-5" />
         My Certificates
       </button>
+
+      <Link
+        href="/dashboard/community"
+        onClick={() => setIsMobileMenuOpen(false)}
+        className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] text-slate-400 transition-all hover:bg-white hover:text-slate-600"
+      >
+        <Users className="w-5 h-5" />
+        Community
+      </Link>
 
       <button
         onClick={() => { setActiveTab('news' as TabType); setIsMobileMenuOpen(false); }}
