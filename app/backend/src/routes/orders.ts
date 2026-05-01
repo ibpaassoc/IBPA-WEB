@@ -483,11 +483,18 @@ ordersRouter.post("/", async (req, res) => {
     membershipPackage === "Specialist" ||
     membershipPackage === "Professional" ||
     membershipPackage === "Trainer";
+  const categoryRequiresLicenseNumber = membershipPackage !== "Specialist";
+  const licenseNumber =
+    typeof normalizedApplication.licenseNumber === "string" ? normalizedApplication.licenseNumber.trim() : "";
 
   if (categoryRequiresPortfolio && (portfolioImages.length < 5 || portfolioImages.length > 10)) {
     return res.status(400).json({
       error: "Please provide between 5 and 10 portfolio images for this membership category.",
     });
+  }
+
+  if (categoryRequiresLicenseNumber && !licenseNumber) {
+    return res.status(400).json({ error: "License number is required for this membership category." });
   }
 
   try {

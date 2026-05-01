@@ -289,6 +289,10 @@ function getCategorySpecificFields(category: MembershipCategory): (keyof FormDat
   }
 }
 
+function requiresLicenseNumber(category: MembershipCategory) {
+  return category !== "Specialist";
+}
+
 function getStepFields(step: number, category: MembershipCategory): (keyof FormData)[] {
   switch (step) {
     case 0:
@@ -300,7 +304,7 @@ function getStepFields(step: number, category: MembershipCategory): (keyof FormD
     case 2:
       return ["currentPosition", "yearsExperience", "professionalDesc", "workSetting"];
     case 3:
-      return ["educationDesc", "hasLicense"];
+      return requiresLicenseNumber(category) ? ["educationDesc", "hasLicense", "licenseNumber"] : ["educationDesc", "hasLicense"];
     case 4:
       return getCategorySpecificFields(category);
     case 5:
@@ -949,8 +953,18 @@ export default function ApplyPage() {
                     {renderFieldError("hasLicense")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Номер лицензии" : isUk ? "Номер ліцензії" : "License Number"}</label>
-                    <input {...register("licenseNumber")} className="form-input" placeholder={isRu ? "Номер лицензии, если применимо" : isUk ? "Номер ліцензії, якщо застосовно" : "License number if applicable"} />
+                    <label className="field-label">{isRu ? "Номер лицензии" : isUk ? "Номер ліцензії" : "License Number"}{requiresLicenseNumber(selectedCategory) ? " *" : ""}</label>
+                    <input
+                      {...register("licenseNumber", {
+                        validate: (value) =>
+                          !requiresLicenseNumber(selectedCategory) ||
+                          !!value?.trim() ||
+                          (isRu ? "Укажите номер лицензии." : isUk ? "Вкажіть номер ліцензії." : "Enter your license number."),
+                      })}
+                      className="form-input"
+                      placeholder={isRu ? "Номер лицензии, если применимо" : isUk ? "Номер ліцензії, якщо застосовно" : "License number if applicable"}
+                    />
+                    {renderFieldError("licenseNumber")}
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="field-label">{isRu ? "Дополнительные профессиональные квалификации" : isUk ? "Додаткові професійні кваліфікації" : "Additional professional qualifications"}</label>
