@@ -1,5 +1,41 @@
 import { getAdminProxyContext } from "@/lib/admin-proxy";
+import { readBackendResponse } from "@/lib/read-backend-response";
 import { NextRequest, NextResponse } from "next/server";
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const { backendUrl, authHeaders, error } = await getAdminProxyContext(req.url);
+  if (error || !authHeaders) return error!;
+
+  try {
+    const body = await req.json();
+    const resp = await fetch(`${backendUrl}/api/orders/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const { data, text } = await readBackendResponse(resp);
+
+    if (resp.ok) {
+      return NextResponse.json(data);
+    }
+
+    return NextResponse.json(
+      { error: data?.error || text || "Backend Error" },
+      { status: resp.status },
+    );
+  } catch (err: any) {
+    console.error("[Admin API] Failed to update order PATCH:", err);
+    return NextResponse.json(
+      { error: "Internal Error", details: err?.message || String(err) },
+      { status: 500 },
+    );
+  }
+}
 
 export async function DELETE(
   req: NextRequest,

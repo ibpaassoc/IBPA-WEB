@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { OrderStatus } from "@/lib/types";
 import { AdminOrder } from "@/lib/admin-types";
+import { getMembershipCategory, membershipConfigs } from "@/lib/membership";
 import { toast } from "sonner";
 
 const STATUS_OPTIONS: Array<{ value: OrderStatus | "all"; label: string }> = [
@@ -263,6 +264,8 @@ export default function ApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [selectedMembershipCategory, setSelectedMembershipCategory] = useState("");
+  const [isUpdatingMembershipCategory, setIsUpdatingMembershipCategory] = useState(false);
 
   const readErrorMessage = async (resp: Response) => {
     try {
@@ -321,6 +324,10 @@ export default function ApplicationsPage() {
   }, [fetchOrders]);
 
   useEffect(() => {
+    setSelectedMembershipCategory(getMembershipCategory(selectedOrder?.membershipCategory) ?? "");
+  }, [selectedOrder?.membershipCategory]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -365,6 +372,10 @@ export default function ApplicationsPage() {
   const selectedSections = selectedOrder ? buildSections(selectedOrder) : [];
   const selectedPortfolioImages = selectedOrder ? getPortfolioImages(selectedOrder) : [];
   const selectedTrainerFileGroups = selectedOrder ? getTrainerFileGroups(selectedOrder) : [];
+  const hasMembershipCategoryChange =
+    Boolean(selectedOrder) &&
+    Boolean(selectedMembershipCategory) &&
+    selectedMembershipCategory !== (getMembershipCategory(selectedOrder?.membershipCategory) ?? "");
   const summaryCards: Array<{
     label: string;
     value: number;
@@ -473,6 +484,52 @@ export default function ApplicationsPage() {
       toast.error(error instanceof Error ? error.message : "Ошибка при отправке новой ссылки.");
     } finally {
       setIsResendingPaymentLink(null);
+    }
+  };
+
+  const handleUpdateMembershipCategory = async () => {
+    if (!selectedOrder) {
+      return;
+    }
+
+    const membershipCategory = getMembershipCategory(selectedMembershipCategory);
+    if (!membershipCategory) {
+      toast.error("Choose a valid membership category.");
+      return;
+    }
+
+    setIsUpdatingMembershipCategory(true);
+    try {
+      const resp = await fetch(`/api/admin/orders/${selectedOrder.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ membershipCategory }),
+      });
+
+      if (!resp.ok) {
+        throw new Error(await readErrorMessage(resp));
+      }
+
+      const data = await resp.json();
+      const updatedApplication = data?.application as AdminOrder | undefined;
+
+      if (!updatedApplication) {
+        throw new Error("Backend did not return the updated application.");
+      }
+
+      setOrders((prev) =>
+        prev.map((order) => (order.id === updatedApplication.id ? updatedApplication : order)),
+      );
+      setSelectedOrder(updatedApplication);
+      setSelectedMembershipCategory(getMembershipCategory(updatedApplication.membershipCategory) ?? "");
+      await fetchOrders({ silent: true });
+
+      toast.success("Membership category updated.");
+    } catch (error) {
+      console.error("Failed to update membership category", error);
+      toast.error(error instanceof Error ? error.message : "Failed to update membership category.");
+    } finally {
+      setIsUpdatingMembershipCategory(false);
     }
   };
 
@@ -910,6 +967,51 @@ export default function ApplicationsPage() {
                 {/* RIGHT COLUMN: ACTIONS & STATUS */}
                 <div className="bg-[#F8FAFC] p-8 md:p-12 flex flex-col h-full">
                   <div className="grow space-y-10">
+                    <section className="space-y-6">
+                      <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Admin-only membership</h3>
+                      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                        <div className="space-y-2">
+                          <label htmlFor="admin-membership-category" className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                            Membership Category
+                          </label>
+                          <select
+                            id="admin-membership-category"
+                            value={selectedMembershipCategory}
+                            onChange={(event) => setSelectedMembershipCategory(event.target.value)}
+                            disabled={isUpdatingMembershipCategory}
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-all focus:border-[#72A0C1] focus:ring-2 focus:ring-[#72A0C1]/15 disabled:bg-slate-50 disabled:text-slate-400"
+                          >
+                            <option value="" disabled>
+                              Select category
+                            </option>
+                            {membershipConfigs.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.title}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <p className="text-xs font-medium leading-relaxed text-slate-500">
+                          Current saved category: <span className="font-bold text-slate-700">{selectedOrder.membershipCategory || "Not set"}</span>
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={handleUpdateMembershipCategory}
+                          disabled={isUpdatingMembershipCategory || !hasMembershipCategoryChange}
+                          className="flex w-full items-center justify-center gap-3 rounded-2xl border border-[#72A0C1]/20 bg-[#F0F8FF] px-6 py-4 font-bold text-[#5B84A0] transition-all hover:bg-[#E6F2FA] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isUpdatingMembershipCategory ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          {isUpdatingMembershipCategory ? "Saving..." : "Save category"}
+                        </button>
+                      </div>
+                    </section>
+
                     <section className="space-y-6">
                       <div className="flex items-center justify-between">
                          <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Действия и статус</h3>
