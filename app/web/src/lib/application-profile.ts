@@ -52,16 +52,14 @@ export function getApplicationPayload(profile: CombinedProfileData) {
     : {}) as Record<string, unknown>;
 }
 
-export function getMasterRole(profile: CombinedProfileData) {
+export function getSpecializationDisplay(profile: CombinedProfileData) {
   const payload = getApplicationPayload(profile);
 
   return (
     textValue(payload.specialization) ||
-    textValue(payload.currentPosition) ||
     textValue(profile.specialization) ||
     textValue(payload.bizType) ||
     textValue(payload.brandType) ||
-    textValue(payload.educatorRole) ||
     "Not specified"
   );
 }
@@ -77,12 +75,12 @@ export function getLocation(profile: CombinedProfileData) {
 
 export function getProfileBadges(profile: CombinedProfileData, status: string, membershipLabel: string) {
   const payload = getApplicationPayload(profile);
-  const role = getMasterRole(profile);
+  const specialization = getSpecializationDisplay(profile);
   const years = textValue(payload.yearsExperience) || textValue(profile.experienceYears);
 
   return [
     membershipLabel.replace(" Membership", ""),
-    years ? `${years} experience` : role,
+    years ? `${years} experience` : specialization,
     status === "paid" ? "Certificate Active" : status === "approved" ? "Awaiting Payment" : "Under Review",
   ];
 }
@@ -191,7 +189,6 @@ export function getEditableFields(membership: MembershipCategory): EditableField
     { key: "phone", label: "Phone", placeholder: "Your phone number" },
     { key: "country", label: "Country", placeholder: "Country" },
     { key: "city", label: "City", placeholder: "City" },
-    { key: "currentPosition", label: "Professional Role", placeholder: "Role / title" },
     { key: "yearsExperience", label: "Experience", placeholder: "e.g. 6 years" },
     { key: "instagramLink", label: "Instagram", placeholder: "https://instagram.com/..." },
     { key: "whyJoin", label: "Why IBPA", type: "textarea", placeholder: "Why do you want to be part of IBPA?" },

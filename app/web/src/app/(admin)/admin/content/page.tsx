@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Loader2, Newspaper, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { AdminUploadZone } from "@/components/AdminUploadZone";
+import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import { ImageCropperModal } from "@/components/admin/ImageCropperModal";
 import type { AdminContentItem } from "@/lib/admin-types";
 

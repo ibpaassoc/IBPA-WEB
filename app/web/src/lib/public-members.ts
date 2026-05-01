@@ -6,6 +6,7 @@ export type PublicMember = {
   membershipCategory: string;
   applicantType: string;
   title: string;
+  specializations?: string[];
   description: string;
   experience: string;
   location: string;

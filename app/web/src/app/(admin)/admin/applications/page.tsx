@@ -44,7 +44,6 @@ const FIELD_LABELS: Record<string, string> = {
   state: "Регион/Штат",
   zipCode: "Почтовый индекс",
   country: "Страна",
-  currentPosition: "Текущая должность",
   yearsExperience: "Стаж работы (лет)",
   professionalDesc: "Профессиональное резюме",
   workSetting: "Место работы (тип)",
@@ -56,7 +55,8 @@ const FIELD_LABELS: Record<string, string> = {
   hasLicense: "Наличие лицензии",
   licenseNumber: "Номер лицензии",
   additionalEducation: "Доп. образование",
-  specialization: "Специализация",
+  specialization: "Subcategory / Specialization",
+  specializationOther: "Other specialization",
   studentSchool: "Школа (студент)",
   studentProgName: "Название программы",
   studentStartDate: "Начало обучения",
@@ -80,6 +80,9 @@ const FIELD_LABELS: Record<string, string> = {
   websiteLink: "Сайт",
   linkedinLink: "LinkedIn",
   portfolioLink: "Портфолио",
+  trainerEducationPlanFiles: "Education Plan / Методичка",
+  trainerCertificateFiles: "Certificate",
+  trainerExperienceProofFiles: "Proof of educator experience",
   whyJoin: "Почему хочет вступить",
   contributionDesc: "Вклад в ассоциацию",
   legalName: "Юридическое имя",
@@ -105,7 +108,7 @@ function buildSections(order: AdminOrder) {
   const sections = [
     {
       title: "Итоговое резюме",
-      fields: ["membershipCategory", "applicantType", "currentPosition", "yearsExperience", "workSetting"],
+      fields: ["membershipCategory", "applicantType", "specialization", "specializationOther", "yearsExperience", "workSetting"],
     },
     {
       title: "Контактные данные",
@@ -121,6 +124,7 @@ function buildSections(order: AdminOrder) {
         "licenseNumber",
         "additionalEducation",
         "specialization",
+        "specializationOther",
       ],
     },
     {
@@ -182,6 +186,38 @@ function getPortfolioImages(order: AdminOrder): string[] {
   }
 
   return images.filter((item): item is string => typeof item === "string" && item.length > 0);
+}
+
+function fileListFromPayload(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string" && item.length > 0);
+}
+
+function getTrainerFileGroups(order: AdminOrder): Array<{ title: string; files: string[]; imagePreview?: boolean }> {
+  const payload =
+    order.applicationPayload && typeof order.applicationPayload === "object"
+      ? (order.applicationPayload as Record<string, unknown>)
+      : {};
+
+  return [
+    {
+      title: "Education Plan / Методичка",
+      files: fileListFromPayload(payload, "trainerEducationPlanFiles"),
+    },
+    {
+      title: "Certificate",
+      files: fileListFromPayload(payload, "trainerCertificateFiles"),
+    },
+    {
+      title: "Proof of educator experience",
+      files: fileListFromPayload(payload, "trainerExperienceProofFiles"),
+      imagePreview: true,
+    },
+  ].filter((group) => group.files.length > 0);
 }
 
 function StatusBadge({ status }: { status: OrderStatus }) {
@@ -328,6 +364,7 @@ export default function ApplicationsPage() {
 
   const selectedSections = selectedOrder ? buildSections(selectedOrder) : [];
   const selectedPortfolioImages = selectedOrder ? getPortfolioImages(selectedOrder) : [];
+  const selectedTrainerFileGroups = selectedOrder ? getTrainerFileGroups(selectedOrder) : [];
   const summaryCards: Array<{
     label: string;
     value: number;
@@ -769,6 +806,65 @@ export default function ApplicationsPage() {
                                 className="aspect-square h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                               />
                             </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedTrainerFileGroups.length > 0 && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-4 mb-2">
+                          <div className="h-8 w-1 bg-[#72A0C1] rounded-full" />
+                          <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Trainer / Educator files</h3>
+                        </div>
+
+                        <div className="space-y-6">
+                          {selectedTrainerFileGroups.map((group) => (
+                            <div key={group.title} className="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm">
+                              <div className="mb-4 flex items-center justify-between gap-3">
+                                <h4 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">{group.title}</h4>
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                                  {group.files.length} file{group.files.length === 1 ? "" : "s"}
+                                </span>
+                              </div>
+
+                              {group.imagePreview ? (
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                  {group.files.map((fileUrl, index) => (
+                                    <a
+                                      key={`${group.title}-${fileUrl}-${index}`}
+                                      href={fileUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="group overflow-hidden rounded-[22px] border border-slate-100 bg-white transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                                    >
+                                      <img
+                                        src={fileUrl}
+                                        alt={`${group.title} ${index + 1}`}
+                                        className="aspect-square h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                                      />
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="grid gap-3">
+                                  {group.files.map((fileUrl, index) => (
+                                    <a
+                                      key={`${group.title}-${fileUrl}-${index}`}
+                                      href={fileUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-[#72A0C1]/40 hover:text-[#4C7D9D]"
+                                    >
+                                      <span>{group.title} {index + 1}</span>
+                                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.16em]">
+                                        Open / download <ExternalLink className="h-3.5 w-3.5" />
+                                      </span>
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ))}
                         </div>
                       </div>
