@@ -40,7 +40,6 @@ export default function Membership() {
         isRu ? "доступ к отдельным вебинарам и материалам для специалистов" : isUk ? "доступ до окремих вебінарів і матеріалів для спеціалістів" : "access to selected webinars and specialist-focused resources",
         isRu ? "возможность участия в открытых мероприятиях" : isUk ? "можливість участі у відкритих подіях" : "ability to join open events",
         isRu ? "цифровой сертификат участника" : isUk ? "цифровий сертифікат учасника" : "digital membership certificate",
-        isRu ? "цифровой знак участника" : isUk ? "цифровий знак учасника" : "digital membership badge"
       ],
       value: isRu ? "Этот пакет помогает специалисту начать путь в профессиональной среде и получать ранний доступ к знаниям." : isUk ? "Цей пакет допомагає спеціалісту розпочати шлях у професійному середовищі та отримувати ранній доступ до знань." : "This package helps specialists begin their path in the professional community and gain early access to knowledge."
     },
@@ -56,9 +55,9 @@ export default function Membership() {
         isRu ? "доступ к расширенной библиотеке материалов" : isUk ? "доступ до розширеної бібліотеки матеріалів" : "access to an expanded learning library",
         isRu ? "доступ к вебинарам и профессиональному контенту" : isUk ? "доступ до вебінарів і професійного контенту" : "access to webinars and professional content",
         isRu ? "размещение в каталоге участников" : isUk ? "розміщення в каталозі учасників" : "placement in the Member Directory",
-        isRu ? "цифровой сертификат и знак участника" : isUk ? "цифровий сертифікат і знак учасника" : "digital certificate and membership badge",
-        isRu ? "право указывать статус участника в профиле и биографии" : isUk ? "право вказувати статус учасника у профілі та біографії" : "ability to reference membership in profile and bio"
-      ],
+        isRu ? "право указывать статус участника в профиле и биографии" : isUk ? "право вказувати статус учасника у профілі та біографії" : "ability to reference membership in profile and bio",
+        isRu ? "цифровой сертификат" : isUk ? "цифровий сертифікат" : "digital certificate"
+    ],
       value: isRu ? "Помогает мастеру усилить профессиональный статус, быть видимым в индустрии и получать образование." : isUk ? "Допомагає майстру посилити професійний статус, бути помітним в індустрії та отримувати освіту." : "Helps professionals strengthen status, gain visibility, and continue growing through education."
     },
     {
