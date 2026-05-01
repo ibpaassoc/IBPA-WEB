@@ -21,6 +21,14 @@ const LEGACY_MEMBERSHIP_PACKAGES: Record<string, keyof typeof MEMBERSHIP_PRICE_K
   Student: "Specialist",
 };
 
+const MEMBERSHIP_APPLICANT_TYPES: Record<keyof typeof MEMBERSHIP_PRICE_KEYS, string> = {
+  Specialist: "Individual",
+  Professional: "Individual",
+  Trainer: "School",
+  Business: "Business",
+  Brand: "Brand",
+};
+
 const SPONSORSHIP_PRICE_KEYS = {
   Associate: "STRIPE_PRICE_SPONSOR_ASSOCIATE",
   Community: "STRIPE_PRICE_SPONSOR_COMMUNITY",
@@ -409,6 +417,110 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
       return res.status(503).json({ error: error.message });
     }
     res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+
+ordersRouter.patch("/admin/applications/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+  const membershipCategory = normalizeMembershipPackage(req.body?.membershipCategory);
+
+  if (!id) {
+    return res.status(400).json({ error: "Invalid application id" });
+  }
+
+  if (typeof membershipCategory !== "string" || !ALLOWED_MEMBERSHIP_PACKAGES.has(membershipCategory)) {
+    return res.status(400).json({ error: "Unsupported membership category." });
+  }
+
+  try {
+    const db = requireDb();
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+
+    if (!order) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const applicationPayload =
+      order.applicationPayload && typeof order.applicationPayload === "object" && !Array.isArray(order.applicationPayload)
+        ? (order.applicationPayload as Record<string, unknown>)
+        : {};
+    const applicantType = MEMBERSHIP_APPLICANT_TYPES[membershipCategory];
+
+    const [updatedApplication] = await db
+      .update(orders)
+      .set({
+        membershipCategory,
+        package: membershipCategory,
+        applicantType,
+        applicationPayload: {
+          ...applicationPayload,
+          membershipCategory,
+          applicantType,
+        },
+      })
+      .where(eq(orders.id, id))
+      .returning();
+
+    return res.json({ success: true, application: updatedApplication });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+
+    console.error("Failed to update application membership category", error);
+    return res.status(500).json({ error: "Failed to update application membership category" });
+  }
+});
+
+ordersRouter.patch("/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+  const membershipCategory = normalizeMembershipPackage(req.body?.membershipCategory);
+
+  if (!id) {
+    return res.status(400).json({ error: "Invalid application id" });
+  }
+
+  if (typeof membershipCategory !== "string" || !ALLOWED_MEMBERSHIP_PACKAGES.has(membershipCategory)) {
+    return res.status(400).json({ error: "Unsupported membership category." });
+  }
+
+  try {
+    const db = requireDb();
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+
+    if (!order) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const applicationPayload =
+      order.applicationPayload && typeof order.applicationPayload === "object" && !Array.isArray(order.applicationPayload)
+        ? (order.applicationPayload as Record<string, unknown>)
+        : {};
+    const applicantType = MEMBERSHIP_APPLICANT_TYPES[membershipCategory];
+
+    const [updatedApplication] = await db
+      .update(orders)
+      .set({
+        membershipCategory,
+        package: membershipCategory,
+        applicantType,
+        applicationPayload: {
+          ...applicationPayload,
+          membershipCategory,
+          applicantType,
+        },
+      })
+      .where(eq(orders.id, id))
+      .returning();
+
+    return res.json({ success: true, application: updatedApplication });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+
+    console.error("Failed to update application membership category", error);
+    return res.status(500).json({ error: "Failed to update application membership category" });
   }
 });
 
