@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     siteName: "IBPA",
     images: [
       {
-        url: "/og-image.png",
+        url: "@/public/file.svg",
         width: 1200,
         height: 630,
       },
