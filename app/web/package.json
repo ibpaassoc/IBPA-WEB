@@ -47,6 +47,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@types/canvas-confetti": "^1.9.0",
     "@uploadthing/react": "^7.3.3",
+    "@vercel/speed-insights": "^2.0.0",
     "@vimeo/player": "^2.30.3",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
