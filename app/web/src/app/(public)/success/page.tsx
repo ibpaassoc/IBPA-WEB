@@ -2,16 +2,17 @@
 
 import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { SignUp } from "@clerk/nextjs";
+import { SignUp, useUser } from "@clerk/nextjs";
 import { motion } from "motion/react";
 import { ArrowRight, CheckCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { cyrillicDisplay, cyrillicEditorial } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
-import { getBackendUrl, getDashboardUrl } from "@/lib/public-urls";
+import { getDashboardUrl } from "@/lib/public-urls";
 import { useI18n } from "@/lib/i18n";
 
 function SuccessContent() {
+  const { isLoaded, isSignedIn } = useUser();
   const { locale } = useI18n();
   const useEnglishTypography = true;
   const headlineClassName = useEnglishTypography
@@ -23,7 +24,8 @@ function SuccessContent() {
     : `${cyrillicEditorial.className} italic`;
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  const dashboardUrl = getDashboardUrl() || "/";
+  const stripeSessionId = searchParams.get("session_id");
+  const dashboardUrl = getDashboardUrl("/dashboard") || "/dashboard";
   const dashboardSignInUrl = getDashboardUrl("/sign-in") || "/sign-in";
   const [status, setStatus] = useState<"loading" | "paid" | "error">(token ? "loading" : "error");
   const [errorReason, setErrorReason] = useState<"missing_token" | "not_found" | "backend_unavailable" | "verify_failed" | null>(
@@ -74,22 +76,42 @@ function SuccessContent() {
       return;
     }
 
+    let cancelled = false;
+
     const verifyToken = async () => {
       try {
-        const resp = await fetch(getBackendUrl(`/api/orders/verify/${token}`));
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data.status === "paid" || data.status === "approved") {
-            // Even if approved (but stripe not yet synced), we show the signup
-            setStatus("paid");
-            setOrderData({ email: data.email, name: data.name });
-          } else {
+        const query = stripeSessionId ? `?session_id=${encodeURIComponent(stripeSessionId)}` : "";
+
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const resp = await fetch(`/api/orders/verify/${encodeURIComponent(token)}${query}`, {
+            cache: "no-store",
+          });
+
+          if (cancelled) {
+            return;
+          }
+
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.status === "paid") {
+              setStatus("paid");
+              setOrderData({ email: data.email, name: data.name });
+              return;
+            }
+
+            if (data.status === "approved" && attempt < 9) {
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              continue;
+            }
+
             setErrorReason("verify_failed");
             setStatus("error");
+            return;
           }
-        } else {
+
           setErrorReason(resp.status === 404 ? "not_found" : "verify_failed");
           setStatus("error");
+          return;
         }
       } catch (err) {
         console.error(err);
@@ -99,9 +121,13 @@ function SuccessContent() {
     };
 
     verifyToken();
-  }, [token]);
 
-  if (status === "loading") {
+    return () => {
+      cancelled = true;
+    };
+  }, [token, stripeSessionId]);
+
+  if (status === "loading" || !isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F0F8FF]">
         <Loader2 className="w-10 h-10 text-[#B9D9EB] animate-spin" />
@@ -240,6 +266,20 @@ function SuccessContent() {
             <span className="w-12 h-[2px] bg-[#B9D9EB]" />
             {copy.completeRegistration}
           </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              href={dashboardUrl}
+              className={`inline-flex items-center justify-center gap-2.5 rounded-full bg-black px-8 py-4 text-[12px] uppercase text-white transition-colors hover:bg-[#B9D9EB] shadow-xl ${bodyClassName}`}
+            >
+              {isRu ? "Открыть кабинет" : isUk ? "Відкрити кабінет" : "Go to Dashboard"} <ArrowRight size={16} />
+            </Link>
+            <Link
+              href={dashboardSignInUrl}
+              className={`inline-flex items-center justify-center rounded-full border border-slate-200 px-8 py-4 text-[12px] uppercase text-slate-700 transition-colors hover:border-slate-300 hover:text-black ${bodyClassName}`}
+            >
+              {isRu ? "Войти" : isUk ? "Увійти" : "Sign In"}
+            </Link>
+          </div>
         </motion.div>
 
         <motion.div 
@@ -248,14 +288,38 @@ function SuccessContent() {
           className="w-full max-w-md justify-self-center pt-10 md:pt-14 lg:max-w-none lg:pt-32"
         >
           <div className="overflow-hidden rounded-[40px] border border-[#B9D9EB]/20 bg-white p-2 shadow-2xl">
-            <SignUp 
-              routing="hash"
-              initialValues={{ emailAddress: orderData?.email }}
-              forceRedirectUrl={dashboardUrl}
-              fallbackRedirectUrl={dashboardUrl}
-              signInFallbackRedirectUrl={dashboardUrl}
-              signInUrl={dashboardSignInUrl}
-            />
+            {isSignedIn ? (
+              <div className="p-8 text-center md:p-10">
+                <p className="text-[10px] uppercase tracking-[0.26em] text-[#708090]">
+                  {isRu ? "Аккаунт готов" : isUk ? "Акаунт готовий" : "Account ready"}
+                </p>
+                <h2 className={`mt-4 text-3xl uppercase leading-none text-slate-900 ${headlineClassName}`}>
+                  {isRu ? "Кабинет доступен" : isUk ? "Кабінет доступний" : "Dashboard access active"}
+                </h2>
+                <p className={`mt-4 text-sm leading-relaxed text-slate-600 ${bodyClassName}`}>
+                  {isRu
+                    ? "Вы уже вошли в аккаунт. Нажмите кнопку ниже, чтобы открыть личный кабинет."
+                    : isUk
+                      ? "Ви вже увійшли в акаунт. Натисніть кнопку нижче, щоб відкрити особистий кабінет."
+                      : "You are already signed in. Use the button below to open your personal dashboard."}
+                </p>
+                <Link
+                  href={dashboardUrl}
+                  className={`mt-8 inline-flex items-center justify-center gap-2.5 rounded-full bg-black px-8 py-4 text-[12px] uppercase text-white transition-colors hover:bg-[#B9D9EB] shadow-xl ${bodyClassName}`}
+                >
+                  {isRu ? "Открыть кабинет" : isUk ? "Відкрити кабінет" : "Open Dashboard"} <ArrowRight size={16} />
+                </Link>
+              </div>
+            ) : (
+              <SignUp
+                routing="hash"
+                initialValues={{ emailAddress: orderData?.email }}
+                forceRedirectUrl={dashboardUrl}
+                fallbackRedirectUrl={dashboardUrl}
+                signInFallbackRedirectUrl={dashboardUrl}
+                signInUrl={dashboardSignInUrl}
+              />
+            )}
           </div>
         </motion.div>
       </div>

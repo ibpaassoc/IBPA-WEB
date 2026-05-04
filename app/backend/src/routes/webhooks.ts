@@ -91,100 +91,124 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
   const sig = req.headers["stripe-signature"];
   let event;
 
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error("Stripe Webhook Error: STRIPE_WEBHOOK_SECRET is not configured");
+    return res.status(500).send("Webhook Error: Stripe webhook secret is not configured");
+  }
+
   try {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig!,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err: any) {
     console.error("Stripe Webhook Error:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const orderKind = session.metadata?.orderKind;
-    const orderId = session.metadata?.orderId;
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const orderKind = session.metadata?.orderKind;
+      const orderId = session.metadata?.orderId;
 
-    if (orderKind === "sponsorship") {
-      console.log("[Stripe Webhook] Sponsorship checkout completed", {
-        sessionId: session.id,
-        tier: session.metadata?.sponsorshipTier ?? null,
-      });
-      return res.json({ received: true });
-    }
-
-    if (orderId) {
-      const db = requireDb();
-      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-
-      if (!order) {
-        console.warn(`[Stripe Webhook] Order ${orderId} not found for paid session ${session.id}`);
+      if (orderKind === "sponsorship") {
+        console.log("[Stripe Webhook] Sponsorship checkout completed", {
+          sessionId: session.id,
+          tier: session.metadata?.sponsorshipTier ?? null,
+        });
         return res.json({ received: true });
       }
 
-      const shouldSendActivationEmail = order.status !== "paid";
-      await markOrderPaid(orderId, session.id);
+      if (orderId) {
+        const db = requireDb();
+        const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
 
-      if (typeof session.subscription === "string") {
-        const { expiresAt } = await getMembershipSubscriptionExpiry(session.subscription);
-        await updateCertificateExpiry(orderId, expiresAt);
-        console.log(`[Stripe Webhook] Membership order ${orderId} marked as paid, expiresAt: ${expiresAt.toISOString()}`);
-      }
+        if (!order) {
+          console.warn(`[Stripe Webhook] Order ${orderId} not found for paid session ${session.id}`);
+          return res.json({ received: true });
+        }
 
-      if (shouldSendActivationEmail) {
-        try {
-          const emailResult = await sendDashboardActivationEmail({
-            email: order.email,
-            name: order.name,
-            secureToken: order.secureToken,
-          });
-          console.log("[Stripe Webhook] Dashboard activation email sent", {
-            to: order.email,
-            id: emailResult.data?.id ?? null,
-            error: emailResult.error ?? null,
-          });
-        } catch (emailError) {
-          console.error("[Stripe Webhook] Failed to send dashboard activation email", {
-            to: order.email,
-            error: emailError,
-          });
+        const shouldSendActivationEmail = order.status !== "paid";
+        await markOrderPaid(orderId, session.id);
+        console.log(`[Stripe Webhook] Order ${orderId} marked as paid for session ${session.id}`);
+
+        if (typeof session.subscription === "string") {
+          try {
+            const { expiresAt } = await getMembershipSubscriptionExpiry(session.subscription);
+            await updateCertificateExpiry(orderId, expiresAt);
+            console.log(`[Stripe Webhook] Membership order ${orderId} expiresAt synced: ${expiresAt.toISOString()}`);
+          } catch (expiryError) {
+            console.error("[Stripe Webhook] Failed to sync membership expiry", {
+              orderId,
+              sessionId: session.id,
+              subscriptionId: session.subscription,
+              error: expiryError,
+            });
+          }
+        }
+
+        if (shouldSendActivationEmail) {
+          try {
+            const emailResult = await sendDashboardActivationEmail({
+              email: order.email,
+              name: order.name,
+              secureToken: order.secureToken,
+            });
+            console.log("[Stripe Webhook] Dashboard activation email sent", {
+              to: order.email,
+              id: emailResult.data?.id ?? null,
+              error: emailResult.error ?? null,
+            });
+          } catch (emailError) {
+            console.error("[Stripe Webhook] Failed to send dashboard activation email", {
+              to: order.email,
+              error: emailError,
+            });
+          }
         }
       }
     }
-  }
 
-  if (event.type === "invoice.payment_succeeded") {
-    const invoice = event.data.object as Stripe.Invoice;
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object as Stripe.Invoice;
 
-    const orderId = invoice.parent?.subscription_details?.metadata?.orderId;
-    const periodEnd = Math.max(...invoice.lines.data.map((line) => line.period?.end || 0));
+      const orderId = invoice.parent?.subscription_details?.metadata?.orderId;
+      const periodEnd = Math.max(...invoice.lines.data.map((line) => line.period?.end || 0));
 
-    if (orderId && periodEnd > 0) {
-      const expiresAt = new Date(periodEnd * 1000);
-      await markOrderPaid(orderId);
-      await updateCertificateExpiry(orderId, expiresAt);
-      console.log(`[Stripe Webhook] Membership renewal synced for order ${orderId}, expiresAt: ${expiresAt.toISOString()}`);
+      if (orderId && periodEnd > 0) {
+        const expiresAt = new Date(periodEnd * 1000);
+        await markOrderPaid(orderId);
+        await updateCertificateExpiry(orderId, expiresAt);
+        console.log(`[Stripe Webhook] Membership renewal synced for order ${orderId}, expiresAt: ${expiresAt.toISOString()}`);
+      }
     }
-  }
 
-  if (event.type === "invoice.payment_failed") {
-    const invoice = event.data.object as Stripe.Invoice;
-    console.warn("[Stripe Webhook] Invoice payment failed", {
-      invoiceId: invoice.id,
-      orderId: invoice.parent?.subscription_details?.metadata?.orderId ?? null,
-    });
-  }
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as Stripe.Invoice;
+      console.warn("[Stripe Webhook] Invoice payment failed", {
+        invoiceId: invoice.id,
+        orderId: invoice.parent?.subscription_details?.metadata?.orderId ?? null,
+      });
+    }
 
-  if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as Stripe.Subscription;
-    console.log("[Stripe Webhook] Subscription state changed", {
-      id: subscription.id,
-      status: subscription.status,
-      orderId: subscription.metadata?.orderId ?? null,
-      type: event.type,
+    if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
+      const subscription = event.data.object as Stripe.Subscription;
+      console.log("[Stripe Webhook] Subscription state changed", {
+        id: subscription.id,
+        status: subscription.status,
+        orderId: subscription.metadata?.orderId ?? null,
+        type: event.type,
+      });
+    }
+  } catch (handlerError) {
+    console.error("[Stripe Webhook] Failed to process event", {
+      eventId: event.id,
+      eventType: event.type,
+      error: handlerError,
     });
+    return res.status(500).json({ error: "Failed to process Stripe webhook event" });
   }
 
   res.json({ received: true });

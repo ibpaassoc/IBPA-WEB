@@ -77,6 +77,17 @@ function getPaymentLinkUrl(secureToken: string) {
   return `${frontendUrl}/payment-link/${encodeURIComponent(secureToken)}`;
 }
 
+function getSuccessUrl(secureToken: string) {
+  const frontendUrl = process.env.DASHBOARD_URL || process.env.FRONTEND_URL;
+
+  if (!frontendUrl) {
+    throw new Error("DASHBOARD_URL or FRONTEND_URL is not configured");
+  }
+
+  const baseUrl = frontendUrl.replace(/\/$/, "");
+  return `${baseUrl}/success?token=${encodeURIComponent(secureToken)}&session_id={CHECKOUT_SESSION_ID}`;
+}
+
 function generateCertificateNumber() {
   return `CERT-${new Date().toISOString().split("T")[0].replace(/-/g, "")}-${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
 }
@@ -286,6 +297,33 @@ async function sendApprovalEmail(params: {
   return response;
 }
 
+async function sendDashboardActivationEmail(params: {
+  email: string;
+  name: string;
+  secureToken: string;
+}) {
+  const { email, name, secureToken } = params;
+  const dashboardUrl = process.env.DASHBOARD_URL || process.env.FRONTEND_URL || "";
+  const activationUrl = `${dashboardUrl.replace(/\/$/, "")}/success?token=${encodeURIComponent(secureToken)}`;
+
+  return resend.emails.send({
+    from: resendFrom,
+    to: email,
+    subject: "Complete your IBPA dashboard access",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
+        <h1 style="margin: 0 0 18px; font-size: 30px; line-height: 1.1;">Payment confirmed</h1>
+        <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">Hello ${name || "there"},</p>
+        <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">Your IBPA payment has been received. The final step is to activate your personal dashboard using the same email address you used in your application.</p>
+        <div style="margin: 28px 0;">
+          <a href="${activationUrl}" style="display: inline-block; background: #0f172a; color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Open dashboard access</a>
+        </div>
+        <p style="margin: 0 0 12px; font-size: 14px; line-height: 1.7; color: #475569;">If you already have an account, sign in. If not, create one with this email: <strong>${email}</strong>.</p>
+      </div>
+    `,
+  });
+}
+
 async function ensureCertificateRecord(orderId: string, preferredCertificateNumber?: string) {
   const db = requireDb();
   const [existingCert] = await db.select().from(certificates).where(eq(certificates.orderId, orderId));
@@ -335,7 +373,7 @@ async function createMembershipCheckoutSession(params: {
       },
     ],
     mode: "subscription",
-    success_url: `${process.env.DASHBOARD_URL || process.env.FRONTEND_URL}/success?token=${order.secureToken}`,
+    success_url: getSuccessUrl(order.secureToken),
     cancel_url: `${process.env.DASHBOARD_URL || process.env.FRONTEND_URL}/`,
     subscription_data: {
       metadata: {
@@ -1080,6 +1118,7 @@ ordersRouter.post("/:id/resend-payment-link", adminClerkMiddleware, requireAdmin
 // 3. Verify token
 ordersRouter.get("/verify/:token", async (req, res) => {
   const token = getSingleValue(req.params.token);
+  const stripeSessionId = getSingleValue(req.query.session_id);
 
   if (!token) {
     return res.status(400).json({ error: "Invalid verification token" });
@@ -1090,11 +1129,60 @@ ordersRouter.get("/verify/:token", async (req, res) => {
     const [order] = await db.select().from(orders).where(eq(orders.secureToken, token));
     if (!order) return res.status(404).json({ error: "Order not found" });
 
+    const checkoutSessionId = stripeSessionId || order.stripeSessionId;
+
+    if (order.status !== "paid" && checkoutSessionId?.startsWith("cs_")) {
+      const session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+      const sessionOrderId = session.metadata?.orderId;
+      const sessionOrderKind = session.metadata?.orderKind;
+      const isPaidSession =
+        session.status === "complete" &&
+        (session.payment_status === "paid" || session.payment_status === "no_payment_required");
+
+      if (sessionOrderId === order.id && sessionOrderKind === "membership" && isPaidSession) {
+        const [paidOrder] = await db
+          .update(orders)
+          .set({ status: "paid", stripeSessionId: session.id })
+          .where(eq(orders.id, order.id))
+          .returning();
+
+        try {
+          const emailResult = await sendDashboardActivationEmail({
+            email: order.email,
+            name: order.name,
+            secureToken: order.secureToken,
+          });
+          console.log("[Verify Payment] Dashboard activation email sent", {
+            to: order.email,
+            id: emailResult.data?.id ?? null,
+            error: emailResult.error ?? null,
+          });
+        } catch (emailError) {
+          console.error("[Verify Payment] Failed to send dashboard activation email", {
+            to: order.email,
+            error: emailError,
+          });
+        }
+
+        return res.json(paidOrder || { ...order, status: "paid", stripeSessionId: session.id });
+      }
+
+      console.warn("[Verify Payment] Stripe session did not match paid order", {
+        orderId: order.id,
+        stripeSessionId: checkoutSessionId,
+        sessionOrderId,
+        sessionOrderKind,
+        sessionStatus: session.status,
+        paymentStatus: session.payment_status,
+      });
+    }
+
     res.json(order);
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
     }
+    console.error("[Verify Payment] Verification failed", error);
     res.status(500).json({ error: "Verification failed" });
   }
 });
