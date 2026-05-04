@@ -8,6 +8,7 @@ import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-sans" });
 
@@ -64,6 +65,7 @@ export default async function RootLayout({
           {children}
           <Toaster richColors position="bottom-right" />
           <SpeedInsights />
+          <Analytics />
         </body>
       </html>
     </ClerkProvider>
