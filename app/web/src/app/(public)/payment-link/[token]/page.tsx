@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getBackendUrl } from "@/lib/public-urls";
+import { getServerBackendUrl } from "@/lib/backend-url";
 
 type PaymentLinkPageProps =
   | { params: Promise<{ token: string }> }
@@ -31,7 +31,13 @@ export default async function PaymentLinkPage({ params }: PaymentLinkPageProps) 
   }
 
   try {
-    const resp = await fetch(getBackendUrl("/api/orders/payment-link"), {
+    const backendUrl = getServerBackendUrl();
+
+    if (!backendUrl) {
+      throw new Error("Backend URL is not configured");
+    }
+
+    const resp = await fetch(`${backendUrl}/api/orders/payment-link`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

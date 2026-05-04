@@ -1,8 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getServerBackendUrl } from "@/lib/backend-url";
 import { readBackendResponse } from "@/lib/read-backend-response";
 
-const getApiUrl = () => process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+const getApiUrl = () => getServerBackendUrl();
 
 async function getAuthHeaders() {
   const authData = await auth();
@@ -17,6 +18,7 @@ export async function GET() {
   try {
     const headers = await getAuthHeaders();
     if (!headers) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!getApiUrl()) return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
 
     const backendUrl = `${getApiUrl()}/api/dashboard/profile`;
     const res = await fetch(backendUrl, { headers, cache: "no-store" });
@@ -38,6 +40,7 @@ export async function PATCH(req: Request) {
   try {
     const headers = await getAuthHeaders();
     if (!headers) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!getApiUrl()) return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
 
     const body = await req.json();
     const backendUrl = `${getApiUrl()}/api/dashboard/profile`;

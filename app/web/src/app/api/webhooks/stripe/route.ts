@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { getServerBackendUrl } from "@/lib/backend-url";
 
 function getBackendUrl() {
-  return process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+  return getServerBackendUrl();
 }
 
 export async function POST(request: Request) {
@@ -12,6 +13,13 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (new URL(request.url).origin === new URL(backendUrl).origin) {
+      return NextResponse.json(
+        { error: "BACKEND_URL cannot point to the public web app for Stripe webhooks." },
+        { status: 500 },
+      );
+    }
+
     const body = await request.arrayBuffer();
     const res = await fetch(`${backendUrl}/api/webhooks/stripe`, {
       method: "POST",
@@ -31,7 +39,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("[Admin webhook proxy] Failed to proxy Stripe webhook:", error);
+    console.error("[Stripe webhook proxy] Failed to proxy Stripe webhook:", error);
     return NextResponse.json({ error: "Failed to proxy Stripe webhook" }, { status: 500 });
   }
 }

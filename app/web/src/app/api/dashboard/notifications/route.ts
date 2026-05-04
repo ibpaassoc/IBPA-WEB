@@ -1,8 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getServerBackendUrl } from "@/lib/backend-url";
 import { readBackendResponse } from "@/lib/read-backend-response";
 
-const getApiUrl = () => process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+const getApiUrl = () => getServerBackendUrl();
 
 export async function GET() {
   try {
@@ -16,6 +17,10 @@ export async function GET() {
     const token = await getToken();
     if (!token) {
       return NextResponse.json({ error: "Token not found" }, { status: 401 });
+    }
+
+    if (!getApiUrl()) {
+      return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
     }
 
     const backendUrl = `${getApiUrl()}/api/dashboard/notifications`;
@@ -52,6 +57,10 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
+    if (!getApiUrl()) {
+      return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
+    }
+
     const backendUrl = `${getApiUrl()}/api/dashboard/notifications`;
     const res = await fetch(backendUrl, {
       method: "PATCH",
