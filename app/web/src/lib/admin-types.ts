@@ -17,6 +17,16 @@ export type AdminOrder = {
   certificateNumber?: string;
 };
 
+export type ApplicationAdditionalFile = {
+  id: string;
+  applicationId: string;
+  fileName: string;
+  fileUrl: string;
+  fileKey?: string | null;
+  fileType: string;
+  createdAt: string;
+};
+
 export type AdminClient = {
   id: string;
   userName: string;

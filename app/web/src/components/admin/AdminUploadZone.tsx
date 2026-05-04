@@ -15,11 +15,12 @@ type UploadEndpoint = keyof OurFileRouter;
 type AdminUploadZoneProps = {
   endpoint: UploadEndpoint;
   accept?: string;
+  multiple?: boolean;
   label: string;
   helperText: string;
   buttonText: string;
   prepareFile?: (file: File) => Promise<{ file: File; aspect?: number | null } | null>;
-  onUploaded: (url: string, metadata?: { aspect?: number | null }) => void;
+  onUploaded: (url: string, metadata?: { aspect?: number | null; fileName?: string; fileKey?: string | null; fileType?: string }) => void;
   onError?: (message: string) => void;
   onFileSelected?: (file: File) => void;
 };
@@ -27,6 +28,7 @@ type AdminUploadZoneProps = {
 export function AdminUploadZone({
   endpoint,
   accept,
+  multiple = false,
   label,
   helperText,
   buttonText,
@@ -39,27 +41,54 @@ export function AdminUploadZone({
   const [isDragging, setIsDragging] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
 
-  const handleFile = React.useCallback(
-    async (file?: File | null) => {
-      if (!file) return;
+  const handleFiles = React.useCallback(
+    async (selectedFiles?: FileList | File[] | null) => {
+      const files = Array.from(selectedFiles || []);
+      if (!files.length) return;
+
+      const filesToHandle = multiple ? files : files.slice(0, 1);
       setIsUploading(true);
       try {
-        const prepared = prepareFile ? await prepareFile(file) : { file };
-        if (!prepared) {
+        const preparedFiles: Array<{ file: File; aspect?: number | null }> = [];
+
+        for (const file of filesToHandle) {
+          const prepared = prepareFile ? await prepareFile(file) : { file };
+          if (prepared) {
+            preparedFiles.push(prepared);
+          }
+        }
+
+        if (!preparedFiles.length) {
           return;
         }
 
-        const result = await uploadFiles(endpoint, { files: [prepared.file] });
-        const uploaded = result?.[0] as
-          | { ufsUrl?: string; url?: string; serverData?: { url?: string } }
-          | undefined;
-        const url = uploaded?.serverData?.url || uploaded?.ufsUrl || uploaded?.url;
+        const result = await uploadFiles(endpoint, { files: preparedFiles.map((item) => item.file) });
 
-        if (!url) {
-          throw new Error("Upload completed, but no file URL was returned.");
+        for (const [index, uploadedResult] of (result || []).entries()) {
+          const uploaded = uploadedResult as
+            | {
+                ufsUrl?: string;
+                url?: string;
+                key?: string;
+                name?: string;
+                type?: string;
+                serverData?: { url?: string };
+              }
+            | undefined;
+          const prepared = preparedFiles[index];
+          const url = uploaded?.serverData?.url || uploaded?.ufsUrl || uploaded?.url;
+
+          if (!url) {
+            throw new Error("Upload completed, but no file URL was returned.");
+          }
+
+          onUploaded(url, {
+            aspect: prepared.aspect,
+            fileName: uploaded?.name || prepared.file.name,
+            fileKey: uploaded?.key || null,
+            fileType: uploaded?.type || prepared.file.type,
+          });
         }
-
-        onUploaded(url, { aspect: prepared.aspect });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Upload failed.";
         onError?.(message);
@@ -67,17 +96,18 @@ export function AdminUploadZone({
         setIsUploading(false);
       }
     },
-    [endpoint, onError, onUploaded, prepareFile],
+    [endpoint, multiple, onError, onUploaded, prepareFile],
   );
 
     const handleInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
+        const files = event.target.files;
+        const file = files?.[0];
         if (!file) return;
 
         if (onFileSelected) {
             onFileSelected(file);
         } else {
-            await handleFile(file);
+            await handleFiles(files);
         }
 
         event.target.value = "";
@@ -87,13 +117,14 @@ export function AdminUploadZone({
         event.preventDefault();
         setIsDragging(false);
 
-        const file = event.dataTransfer.files?.[0];
+        const files = event.dataTransfer.files;
+        const file = files?.[0];
         if (!file) return;
 
         if (onFileSelected) {
             onFileSelected(file);
         } else {
-            await handleFile(file);
+            await handleFiles(files);
         }
     };
 
@@ -113,6 +144,7 @@ export function AdminUploadZone({
         ref={inputRef}
         type="file"
         accept={accept}
+        multiple={multiple}
         className="hidden"
         onChange={handleInputChange}
       />

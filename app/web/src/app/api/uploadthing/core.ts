@@ -83,6 +83,16 @@ export const ourFileRouter = {
       console.log("Upload complete for certificate:", file.url);
       return { uploadedBy: "Admin", url: file.url };
     }),
+  applicationAdditionalFileUploader: f({
+    image: { maxFileSize: "8MB", maxFileCount: 10 },
+    pdf: { maxFileSize: "8MB", maxFileCount: 10 },
+    "application/msword": { maxFileSize: "8MB", maxFileCount: 10 },
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { maxFileSize: "8MB", maxFileCount: 10 },
+  })
+    .middleware(requireAdminUpload)
+    .onUploadComplete(async ({ file }) => {
+      return { uploadedBy: "Admin", url: file.url };
+    }),
   contentImageUploader: f({ image: { maxFileSize: "8MB", maxFileCount: 1 } })
     .middleware(requireAdminUpload)
     .onUploadComplete(async ({ file }) => {

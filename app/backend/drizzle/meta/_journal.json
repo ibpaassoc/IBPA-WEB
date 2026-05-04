@@ -8,6 +8,13 @@
       "when": 1777673607758,
       "tag": "0000_add_content_cover_aspect",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777920000000,
+      "tag": "0001_add_application_additional_files",
+      "breakpoints": true
     }
   ]
 }
