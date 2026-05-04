@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { requireDb, orders, certificates, users } from "../lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
-import { resend, resendFrom } from "../services/email";
+import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 
 export const webhooksRouter = Router();
 
@@ -81,6 +81,32 @@ async function sendDashboardActivationEmail(params: {
         <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #64748b;">
           If the button does not work, copy this link:<br />${activationUrl}
         </p>
+      </div>
+    `,
+  });
+}
+
+async function sendAdminPaymentReceivedEmail(params: {
+  email: string;
+  name: string;
+  orderId: string;
+  membershipCategory?: string | null;
+  stripeSessionId?: string | null;
+}) {
+  const { email, name, orderId, membershipCategory, stripeSessionId } = params;
+
+  return resend.emails.send({
+    from: resendFrom,
+    to: adminNotificationEmail,
+    subject: `IBPA payment received: ${name || email}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
+        <h1 style="margin: 0 0 16px; font-size: 24px;">Payment received</h1>
+        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${name || "Unknown"}</p>
+        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${email}</p>
+        <p style="margin: 0 0 10px;"><strong>Membership:</strong> ${membershipCategory || "N/A"}</p>
+        <p style="margin: 0 0 10px;"><strong>Order ID:</strong> ${orderId}</p>
+        <p style="margin: 0;"><strong>Stripe session:</strong> ${stripeSessionId || "N/A"}</p>
       </div>
     `,
   });
@@ -165,6 +191,26 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
             console.error("[Stripe Webhook] Failed to send dashboard activation email", {
               to: order.email,
               error: emailError,
+            });
+          }
+
+          try {
+            const adminEmailResult = await sendAdminPaymentReceivedEmail({
+              email: order.email,
+              name: order.name,
+              orderId: order.id,
+              membershipCategory: order.membershipCategory,
+              stripeSessionId: session.id,
+            });
+            console.log("[Stripe Webhook] Admin payment received notification sent", {
+              to: adminNotificationEmail,
+              id: adminEmailResult.data?.id ?? null,
+              error: adminEmailResult.error ?? null,
+            });
+          } catch (adminEmailError) {
+            console.error("[Stripe Webhook] Admin payment received notification failed", {
+              to: adminNotificationEmail,
+              error: adminEmailError,
             });
           }
         }
