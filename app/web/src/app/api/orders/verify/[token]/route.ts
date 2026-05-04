@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { getServerBackendUrl } from "@/lib/backend-url";
 
 function getBackendUrl() {
-  return process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+  return getServerBackendUrl();
 }
 
 export async function GET(

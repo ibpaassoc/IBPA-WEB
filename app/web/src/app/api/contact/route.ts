@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
-import { getBackendUrl } from "@/lib/public-urls";
+import { getServerBackendUrl } from "@/lib/backend-url";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const response = await fetch(getBackendUrl("/api/contact"), {
+    const backendUrl = getServerBackendUrl();
+    if (!backendUrl) {
+      return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
+    }
+
+    const response = await fetch(`${backendUrl}/api/contact`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

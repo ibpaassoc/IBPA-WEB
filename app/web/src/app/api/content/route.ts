@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerBackendUrl } from "@/lib/backend-url";
 import { readBackendResponse } from "@/lib/read-backend-response";
 
-const getApiUrl = () => process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+const getApiUrl = () => getServerBackendUrl();
 
 export async function GET(req: NextRequest) {
   const backendUrl = getApiUrl();

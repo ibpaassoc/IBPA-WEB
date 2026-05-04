@@ -1,11 +1,16 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getServerBackendUrl } from "@/lib/backend-url";
 import { readBackendResponse } from "@/lib/read-backend-response";
 
 export async function GET() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+  const apiUrl = getServerBackendUrl();
 
   try {
+    if (!apiUrl) {
+      return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
+    }
+
     const authData = await auth();
     const { getToken, userId } = authData;
 
