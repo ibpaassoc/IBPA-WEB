@@ -324,6 +324,58 @@ async function sendDashboardActivationEmail(params: {
   });
 }
 
+async function sendAdminPaymentLinkSentEmail(params: {
+  email: string;
+  name: string;
+  orderId: string;
+  membershipCategory?: string | null;
+  checkoutUrl?: string | null;
+}) {
+  const { email, name, orderId, membershipCategory, checkoutUrl } = params;
+
+  return resend.emails.send({
+    from: resendFrom,
+    to: adminNotificationEmail,
+    subject: `IBPA payment link sent: ${name || email}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
+        <h1 style="margin: 0 0 16px; font-size: 24px;">Payment link sent</h1>
+        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${name || "Unknown"}</p>
+        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${email}</p>
+        <p style="margin: 0 0 10px;"><strong>Membership:</strong> ${membershipCategory || "N/A"}</p>
+        <p style="margin: 0 0 10px;"><strong>Order ID:</strong> ${orderId}</p>
+        ${checkoutUrl ? `<p style="margin: 18px 0 0;"><a href="${checkoutUrl}">Stripe checkout link</a></p>` : ""}
+      </div>
+    `,
+  });
+}
+
+async function sendAdminPaymentReceivedEmail(params: {
+  email: string;
+  name: string;
+  orderId: string;
+  membershipCategory?: string | null;
+  stripeSessionId?: string | null;
+}) {
+  const { email, name, orderId, membershipCategory, stripeSessionId } = params;
+
+  return resend.emails.send({
+    from: resendFrom,
+    to: adminNotificationEmail,
+    subject: `IBPA payment received: ${name || email}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
+        <h1 style="margin: 0 0 16px; font-size: 24px;">Payment received</h1>
+        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${name || "Unknown"}</p>
+        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${email}</p>
+        <p style="margin: 0 0 10px;"><strong>Membership:</strong> ${membershipCategory || "N/A"}</p>
+        <p style="margin: 0 0 10px;"><strong>Order ID:</strong> ${orderId}</p>
+        <p style="margin: 0;"><strong>Stripe session:</strong> ${stripeSessionId || "N/A"}</p>
+      </div>
+    `,
+  });
+}
+
 async function ensureCertificateRecord(orderId: string, preferredCertificateNumber?: string) {
   const db = requireDb();
   const [existingCert] = await db.select().from(certificates).where(eq(certificates.orderId, orderId));
@@ -845,6 +897,26 @@ ordersRouter.post("/admin/approve", adminClerkMiddleware, requireAdminAccess, as
         id: emailResult.data?.id ?? null,
         error: emailResult.error ?? null,
       });
+
+      try {
+        const adminEmailResult = await sendAdminPaymentLinkSentEmail({
+          email: order.email,
+          name: order.name,
+          orderId: order.id,
+          membershipCategory: order.membershipCategory,
+          checkoutUrl: session.url,
+        });
+        console.log("Admin payment link notification sent", {
+          to: adminNotificationEmail,
+          id: adminEmailResult.data?.id ?? null,
+          error: adminEmailResult.error ?? null,
+        });
+      } catch (adminEmailError) {
+        console.error("Admin payment link notification failed", {
+          to: adminNotificationEmail,
+          error: adminEmailError,
+        });
+      }
     } catch (emailError) {
       console.error("Approval email failed", {
         to: order.email,
@@ -911,6 +983,26 @@ ordersRouter.post("/payment-link", async (req, res) => {
         id: emailResult.data?.id ?? null,
         error: emailResult.error ?? null,
       });
+
+      try {
+        const adminEmailResult = await sendAdminPaymentLinkSentEmail({
+          email: order.email,
+          name: order.name,
+          orderId: order.id,
+          membershipCategory: order.membershipCategory,
+          checkoutUrl: session.url,
+        });
+        console.log("[Payment Link] Admin payment link notification sent", {
+          to: adminNotificationEmail,
+          id: adminEmailResult.data?.id ?? null,
+          error: adminEmailResult.error ?? null,
+        });
+      } catch (adminEmailError) {
+        console.error("[Payment Link] Admin payment link notification failed", {
+          to: adminNotificationEmail,
+          error: adminEmailError,
+        });
+      }
     } catch (emailError) {
       console.error("[Payment Link] Failed to send fresh approval email", {
         to: order.email,
@@ -1093,6 +1185,26 @@ ordersRouter.post("/:id/resend-payment-link", adminClerkMiddleware, requireAdmin
         id: emailResult.data?.id ?? null,
         error: emailResult.error ?? null,
       });
+
+      try {
+        const adminEmailResult = await sendAdminPaymentLinkSentEmail({
+          email: order.email,
+          name: order.name,
+          orderId: order.id,
+          membershipCategory: order.membershipCategory,
+          checkoutUrl: session.url,
+        });
+        console.log("[Admin] Admin payment link notification sent", {
+          to: adminNotificationEmail,
+          id: adminEmailResult.data?.id ?? null,
+          error: adminEmailResult.error ?? null,
+        });
+      } catch (adminEmailError) {
+        console.error("[Admin] Admin payment link notification failed", {
+          to: adminNotificationEmail,
+          error: adminEmailError,
+        });
+      }
     } catch (emailError) {
       console.error("[Admin] Failed to send fresh payment link email", {
         to: order.email,
@@ -1161,6 +1273,26 @@ ordersRouter.get("/verify/:token", async (req, res) => {
           console.error("[Verify Payment] Failed to send dashboard activation email", {
             to: order.email,
             error: emailError,
+          });
+        }
+
+        try {
+          const adminEmailResult = await sendAdminPaymentReceivedEmail({
+            email: order.email,
+            name: order.name,
+            orderId: order.id,
+            membershipCategory: order.membershipCategory,
+            stripeSessionId: session.id,
+          });
+          console.log("[Verify Payment] Admin payment received notification sent", {
+            to: adminNotificationEmail,
+            id: adminEmailResult.data?.id ?? null,
+            error: adminEmailResult.error ?? null,
+          });
+        } catch (adminEmailError) {
+          console.error("[Verify Payment] Admin payment received notification failed", {
+            to: adminNotificationEmail,
+            error: adminEmailError,
           });
         }
 
