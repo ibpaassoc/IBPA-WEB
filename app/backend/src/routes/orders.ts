@@ -1,7 +1,7 @@
 import { Router } from "express";
 import crypto from "crypto";
-import { requireDb, orders, certificates } from "../lib/db";
-import { desc, eq } from "drizzle-orm";
+import { requireDb, orders, certificates, applicationAdditionalFiles } from "../lib/db";
+import { and, desc, eq } from "drizzle-orm";
 import { stripe } from "../services/stripe";
 import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
@@ -36,10 +36,18 @@ const SPONSORSHIP_PRICE_KEYS = {
 } as const;
 
 const ALLOWED_MEMBERSHIP_PACKAGES = new Set(Object.keys(MEMBERSHIP_PRICE_KEYS));
+const ALLOWED_ADDITIONAL_FILE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "pdf", "doc", "docx"]);
 const applicationLimiter = createRateLimiter(4, 30 * 60 * 1000);
 const applicationAgentLimiter = createRateLimiter(8, 30 * 60 * 1000);
 const paymentLinkLimiter = createRateLimiter(4, 60 * 60 * 1000);
 const paymentLinkAgentLimiter = createRateLimiter(8, 60 * 60 * 1000);
+
+type AdditionalFileInput = {
+  fileName: string;
+  fileUrl: string;
+  fileKey: string | null;
+  fileType: string;
+};
 
 function normalizeHeaderValue(value: unknown, maxLength = 120) {
   if (typeof value !== "string") {
@@ -118,6 +126,18 @@ function getSingleValue(value: unknown): string | null {
   }
 
   return null;
+}
+
+function getFileExtension(fileNameOrUrl: string) {
+  const cleanValue = fileNameOrUrl.split("?")[0]?.split("#")[0] || "";
+  const extension = cleanValue.split(".").pop()?.toLowerCase() || "";
+  return extension;
+}
+
+function isAllowedAdditionalFile(fileName: string, fileUrl: string) {
+  const fileNameExtension = getFileExtension(fileName);
+  const fileUrlExtension = getFileExtension(fileUrl);
+  return ALLOWED_ADDITIONAL_FILE_EXTENSIONS.has(fileNameExtension) || ALLOWED_ADDITIONAL_FILE_EXTENSIONS.has(fileUrlExtension);
 }
 
 async function sendApplicationReceivedEmail(params: {
@@ -745,6 +765,132 @@ ordersRouter.post("/", async (req, res) => {
       return res.status(503).json({ error: error.message });
     }
     res.status(500).json({ error: "Failed to create order" });
+  }
+});
+
+ordersRouter.get("/:id/additional-files", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+
+  if (!id) {
+    return res.status(400).json({ error: "Invalid application id" });
+  }
+
+  try {
+    const db = requireDb();
+    const [order] = await db.select({ id: orders.id }).from(orders).where(eq(orders.id, id));
+
+    if (!order) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const files = await db
+      .select()
+      .from(applicationAdditionalFiles)
+      .where(eq(applicationAdditionalFiles.applicationId, id))
+      .orderBy(desc(applicationAdditionalFiles.createdAt));
+
+    return res.json({ files });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+
+    console.error("Failed to list additional application files", error);
+    return res.status(500).json({ error: "Failed to list additional files" });
+  }
+});
+
+ordersRouter.post("/:id/additional-files", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+  const incomingFiles: unknown[] = Array.isArray(req.body?.files) ? req.body.files : [req.body];
+
+  if (!id) {
+    return res.status(400).json({ error: "Invalid application id" });
+  }
+
+  const files: AdditionalFileInput[] = incomingFiles
+    .map((file: unknown) => {
+      const record = file && typeof file === "object" ? (file as Record<string, unknown>) : {};
+      const fileName = typeof record.fileName === "string" ? record.fileName.trim() : "";
+      const fileUrl = typeof record.fileUrl === "string" ? record.fileUrl.trim() : "";
+      const fileKey = typeof record.fileKey === "string" && record.fileKey.trim() ? record.fileKey.trim() : null;
+      const fileType = typeof record.fileType === "string" && record.fileType.trim()
+        ? record.fileType.trim().slice(0, 120)
+        : getFileExtension(fileName || fileUrl);
+
+      return { fileName, fileUrl, fileKey, fileType };
+    })
+    .filter((file): file is AdditionalFileInput => Boolean(file.fileName && file.fileUrl));
+
+  if (!files.length) {
+    return res.status(400).json({ error: "No files were provided" });
+  }
+
+  const unsupportedFile = files.find((file) => !isAllowedAdditionalFile(file.fileName, file.fileUrl));
+  if (unsupportedFile) {
+    return res.status(400).json({ error: `Unsupported file type: ${unsupportedFile.fileName}` });
+  }
+
+  try {
+    const db = requireDb();
+    const [order] = await db.select({ id: orders.id }).from(orders).where(eq(orders.id, id));
+
+    if (!order) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const savedFiles = await db
+      .insert(applicationAdditionalFiles)
+      .values(files.map((file) => ({
+        applicationId: id,
+        fileName: file.fileName.slice(0, 255),
+        fileUrl: file.fileUrl,
+        fileKey: file.fileKey,
+        fileType: file.fileType,
+      })))
+      .returning();
+
+    return res.json({ success: true, files: savedFiles });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+
+    console.error("Failed to save additional application files", error);
+    return res.status(500).json({ error: "Failed to save additional files" });
+  }
+});
+
+ordersRouter.delete("/:id/additional-files/:fileId", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+  const fileId = getSingleValue(req.params.fileId);
+
+  if (!id || !fileId) {
+    return res.status(400).json({ error: "Invalid file id" });
+  }
+
+  try {
+    const db = requireDb();
+    const [deletedFile] = await db
+      .delete(applicationAdditionalFiles)
+      .where(and(
+        eq(applicationAdditionalFiles.id, fileId),
+        eq(applicationAdditionalFiles.applicationId, id),
+      ))
+      .returning();
+
+    if (!deletedFile) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    return res.json({ success: true, deletedFile });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+
+    console.error("Failed to delete additional application file", error);
+    return res.status(500).json({ error: "Failed to delete additional file" });
   }
 });
 

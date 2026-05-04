@@ -15,11 +15,13 @@ import {
   Trash2,
   Copy,
   ShieldAlert,
-  XCircle
+  XCircle,
+  FileText,
 } from "lucide-react";
 import { OrderStatus } from "@/lib/types";
-import { AdminOrder } from "@/lib/admin-types";
+import { AdminOrder, ApplicationAdditionalFile } from "@/lib/admin-types";
 import { getMembershipCategory, membershipConfigs } from "@/lib/membership";
+import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import { toast } from "sonner";
 
 const STATUS_OPTIONS: Array<{ value: OrderStatus | "all"; label: string }> = [
@@ -266,6 +268,9 @@ export default function ApplicationsPage() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [selectedMembershipCategory, setSelectedMembershipCategory] = useState("");
   const [isUpdatingMembershipCategory, setIsUpdatingMembershipCategory] = useState(false);
+  const [additionalFiles, setAdditionalFiles] = useState<ApplicationAdditionalFile[]>([]);
+  const [isLoadingAdditionalFiles, setIsLoadingAdditionalFiles] = useState(false);
+  const [isDeletingAdditionalFile, setIsDeletingAdditionalFile] = useState<string | null>(null);
 
   const readErrorMessage = async (resp: Response) => {
     try {
@@ -326,6 +331,39 @@ export default function ApplicationsPage() {
   useEffect(() => {
     setSelectedMembershipCategory(getMembershipCategory(selectedOrder?.membershipCategory) ?? "");
   }, [selectedOrder?.membershipCategory]);
+
+  const fetchAdditionalFiles = useCallback(async (applicationId: string) => {
+    setIsLoadingAdditionalFiles(true);
+    try {
+      const resp = await fetch(`/api/admin/orders/${applicationId}/additional-files`, { cache: "no-store" });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        const message =
+          data && typeof data === "object" && "error" in data && typeof data.error === "string"
+            ? data.error
+            : "Failed to load additional files.";
+        throw new Error(message);
+      }
+
+      setAdditionalFiles(Array.isArray(data?.files) ? data.files : []);
+    } catch (error) {
+      console.error("Failed to load additional files", error);
+      toast.error(error instanceof Error ? error.message : "Failed to load additional files.");
+      setAdditionalFiles([]);
+    } finally {
+      setIsLoadingAdditionalFiles(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedOrder?.id) {
+      setAdditionalFiles([]);
+      return;
+    }
+
+    void fetchAdditionalFiles(selectedOrder.id);
+  }, [fetchAdditionalFiles, selectedOrder?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -530,6 +568,73 @@ export default function ApplicationsPage() {
       toast.error(error instanceof Error ? error.message : "Failed to update membership category.");
     } finally {
       setIsUpdatingMembershipCategory(false);
+    }
+  };
+
+  const handleAdditionalFileUploaded = async (
+    url: string,
+    metadata?: { fileName?: string; fileKey?: string | null; fileType?: string },
+  ) => {
+    if (!selectedOrder) {
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/api/admin/orders/${selectedOrder.id}/additional-files`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: [
+            {
+              fileName: metadata?.fileName || url.split("/").pop() || "Uploaded file",
+              fileUrl: url,
+              fileKey: metadata?.fileKey || null,
+              fileType: metadata?.fileType || "",
+            },
+          ],
+        }),
+      });
+
+      if (!resp.ok) {
+        throw new Error(await readErrorMessage(resp));
+      }
+
+      const data = await resp.json();
+      const savedFiles = Array.isArray(data?.files) ? data.files : [];
+      setAdditionalFiles((prev) => [...savedFiles, ...prev]);
+      toast.success("Additional document uploaded.");
+    } catch (error) {
+      console.error("Failed to save additional file metadata", error);
+      toast.error(error instanceof Error ? error.message : "Failed to save additional document.");
+    }
+  };
+
+  const handleDeleteAdditionalFile = async (fileId: string) => {
+    if (!selectedOrder) {
+      return;
+    }
+
+    if (!window.confirm("Delete this additional document from the application?")) {
+      return;
+    }
+
+    setIsDeletingAdditionalFile(fileId);
+    try {
+      const resp = await fetch(`/api/admin/orders/${selectedOrder.id}/additional-files/${fileId}`, {
+        method: "DELETE",
+      });
+
+      if (!resp.ok) {
+        throw new Error(await readErrorMessage(resp));
+      }
+
+      setAdditionalFiles((prev) => prev.filter((file) => file.id !== fileId));
+      toast.success("Additional document deleted.");
+    } catch (error) {
+      console.error("Failed to delete additional file", error);
+      toast.error(error instanceof Error ? error.message : "Failed to delete additional document.");
+    } finally {
+      setIsDeletingAdditionalFile(null);
     }
   };
 
@@ -1009,6 +1114,73 @@ export default function ApplicationsPage() {
                           )}
                           {isUpdatingMembershipCategory ? "Saving..." : "Save category"}
                         </button>
+                      </div>
+                    </section>
+
+                    <section className="space-y-6">
+                      <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Additional Documents</h3>
+                      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+                        <AdminUploadZone
+                          endpoint="applicationAdditionalFileUploader"
+                          multiple
+                          accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          label="Upload documents or images"
+                          helperText="JPG, PNG, WEBP, PDF, DOC, DOCX. Multiple files supported."
+                          buttonText="Choose files"
+                          onUploaded={handleAdditionalFileUploaded}
+                          onError={(message) => toast.error(message)}
+                        />
+
+                        <div className="space-y-3">
+                          {isLoadingAdditionalFiles ? (
+                            <div className="flex items-center justify-center rounded-2xl bg-slate-50 py-6 text-slate-400">
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                            </div>
+                          ) : additionalFiles.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs font-semibold text-slate-400">
+                              No additional documents uploaded yet.
+                            </div>
+                          ) : (
+                            additionalFiles.map((file) => (
+                              <div
+                                key={file.id}
+                                className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3"
+                              >
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#72A0C1]">
+                                  <FileText className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0 grow">
+                                  <p className="truncate text-sm font-bold text-slate-800">{file.fileName}</p>
+                                  <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                    {new Date(file.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <a
+                                  href={file.fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 transition-colors hover:text-[#4C7D9D]"
+                                  title="View / download"
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAdditionalFile(file.id)}
+                                  disabled={isDeletingAdditionalFile === file.id}
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                                  title="Delete"
+                                >
+                                  {isDeletingAdditionalFile === file.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </div>
                     </section>
 

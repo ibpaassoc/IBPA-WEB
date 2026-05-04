@@ -1,4 +1,4 @@
-import { boolean, doublePrecision, jsonb, pgTable, uuid, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, jsonb, pgTable, uuid, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const cardRequests = pgTable("card_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -33,6 +33,18 @@ export const certificates = pgTable("certificates", {
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const applicationAdditionalFiles = pgTable("application_additional_files", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  applicationId: uuid("application_id").references(() => orders.id, { onDelete: "cascade" }).notNull(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileKey: text("file_key"),
+  fileType: varchar("file_type", { length: 120 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("application_additional_files_application_id_idx").on(table.applicationId),
+]);
 
 export const dashboardNotifications = pgTable("dashboard_notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -85,6 +97,7 @@ export const users = pgTable("users", {
 export type CardRequest = typeof cardRequests.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type Certificate = typeof certificates.$inferSelect;
+export type ApplicationAdditionalFile = typeof applicationAdditionalFiles.$inferSelect;
 export type DashboardNotificationRecord = typeof dashboardNotifications.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type User = typeof users.$inferSelect;
