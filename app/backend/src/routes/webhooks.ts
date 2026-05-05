@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { requireDb, orders, certificates, users } from "../lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
-import { adminNotificationEmail, resend, resendFrom, stripeInvoiceCopyEmail } from "../services/email";
+import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 
 export const webhooksRouter = Router();
 const processedInvoiceCopyEvents = new Set<string>();
@@ -137,10 +137,6 @@ function formatInvoiceAmount(invoice: Stripe.Invoice) {
 }
 
 async function sendStripeInvoiceCopyEmail(invoice: Stripe.Invoice) {
-  if (!stripeInvoiceCopyEmail) {
-    return null;
-  }
-
   const invoiceLabel = invoice.number || invoice.id;
   const customerName = invoice.customer_name || "Unknown";
   const customerEmail = invoice.customer_email || "Unknown";
@@ -149,7 +145,7 @@ async function sendStripeInvoiceCopyEmail(invoice: Stripe.Invoice) {
 
   return resend.emails.send({
     from: resendFrom,
-    to: stripeInvoiceCopyEmail,
+    to: resendFrom,
     subject: `Stripe invoice sent: ${invoiceLabel}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
@@ -210,7 +206,7 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
           return res.json({ received: true });
         }
 
-        const shouldSendActivationEmail = order.status !== "paid";
+        const shouldSendActivationEmail = order.status !== "paid" || !order.stripeSessionId;
         await markOrderPaid(orderId, session.id);
         console.log(`[Stripe Webhook] Order ${orderId} marked as paid for session ${session.id}`);
 
@@ -277,7 +273,13 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
       const orderId = invoice.parent?.subscription_details?.metadata?.orderId;
       const periodEnd = Math.max(...invoice.lines.data.map((line) => line.period?.end || 0));
 
-      if (orderId && periodEnd > 0) {
+      if (orderId && periodEnd > 0 && invoice.billing_reason && invoice.billing_reason !== "subscription_cycle") {
+        console.log("[Stripe Webhook] Skipping non-renewal invoice payment sync", {
+          invoiceId: invoice.id,
+          orderId,
+          billingReason: invoice.billing_reason,
+        });
+      } else if (orderId && periodEnd > 0) {
         const expiresAt = new Date(periodEnd * 1000);
         await markOrderPaid(orderId);
         await updateCertificateExpiry(orderId, expiresAt);
@@ -294,14 +296,20 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
           invoiceId: invoice.id,
         });
       } else {
-        processedInvoiceCopyEvents.add(event.id);
-
         try {
           const copyEmailResult = await sendStripeInvoiceCopyEmail(invoice);
 
-          if (copyEmailResult) {
+          if (copyEmailResult?.error) {
+            console.error("[Stripe Webhook] Stripe invoice copy notification failed", {
+              to: resendFrom,
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.number ?? null,
+              error: copyEmailResult.error,
+            });
+          } else if (copyEmailResult) {
+            processedInvoiceCopyEvents.add(event.id);
             console.log("[Stripe Webhook] Stripe invoice copy notification sent", {
-              to: stripeInvoiceCopyEmail,
+              to: resendFrom,
               invoiceId: invoice.id,
               invoiceNumber: invoice.number ?? null,
               id: copyEmailResult.data?.id ?? null,
@@ -310,7 +318,7 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
           }
         } catch (copyEmailError) {
           console.error("[Stripe Webhook] Stripe invoice copy notification failed", {
-            to: stripeInvoiceCopyEmail,
+            to: resendFrom,
             invoiceId: invoice.id,
             invoiceNumber: invoice.number ?? null,
             error: copyEmailError,
