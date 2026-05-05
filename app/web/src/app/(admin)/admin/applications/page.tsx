@@ -30,12 +30,12 @@ import {
 } from "@/lib/application-fields";
 
 const STATUS_OPTIONS: Array<{ value: OrderStatus | "all"; label: string }> = [
-  { value: "all", label: "Все статусы" },
-  { value: "pending", label: "Новые" },
-  { value: "review", label: "Доп. проверка" },
-  { value: "rejected", label: "Отклоненные" },
-  { value: "approved", label: "Одобренные" },
-  { value: "paid", label: "Оплаченные" },
+  { value: "all", label: "All statuses" },
+  { value: "pending", label: "New" },
+  { value: "review", label: "Additional review" },
+  { value: "rejected", label: "Rejected" },
+  { value: "approved", label: "Approved" },
+  { value: "paid", label: "Paid" },
 ];
 
 function buildSections(order: AdminOrder) {
@@ -167,11 +167,11 @@ function StatusBadge({ status }: { status: OrderStatus }) {
     paid: "bg-green-50 text-green-600 border-green-100",
   };
   const labels = {
-    pending: "Ожидание",
-    review: "Доп. проверка",
-    rejected: "Отклонено",
-    approved: "Одобрено",
-    paid: "Оплачено",
+    pending: "Pending",
+    review: "Additional review",
+    rejected: "Rejected",
+    approved: "Approved",
+    paid: "Paid",
   };
   const icon = {
     pending: <Clock className="w-3 h-3" />,
@@ -220,7 +220,7 @@ export default function ApplicationsPage() {
       } catch {}
     }
 
-    return "Не удалось выполнить запрос.";
+    return "Could not complete the request.";
   };
 
   const fetchOrders = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -236,12 +236,12 @@ export default function ApplicationsPage() {
         const message =
           data && typeof data === "object" && "error" in data && typeof data.error === "string"
             ? data.error
-            : "Не удалось загрузить заявки.";
+            : "Could not load applications.";
         throw new Error(message);
       }
 
       if (!Array.isArray(data)) {
-        throw new Error("Сервер вернул некорректный формат списка заявок.");
+        throw new Error("The server returned an invalid application list format.");
       }
 
       setOrders(
@@ -252,7 +252,7 @@ export default function ApplicationsPage() {
       console.error("[fetchOrders] Client-side fetch failed:", error, { name: error?.name, message: error?.message });
       if (!silent) {
         setOrders([]);
-        toast.error(`Ошибка при загрузке заявок: ${error?.message || "Unknown error"}`);
+        toast.error(`Failed to load applications: ${error?.message || "Unknown error"}`);
       }
     } finally {
       setIsLoading(false);
@@ -354,12 +354,12 @@ export default function ApplicationsPage() {
     value: number;
     filter: OrderStatus | "all";
   }> = [
-    { label: "Всего", value: orders.length, filter: "all" },
-    { label: "Новые", value: orders.filter((order) => order.status === "pending").length, filter: "pending" },
-    { label: "Доп. проверка", value: orders.filter((order) => order.status === "review").length, filter: "review" },
-    { label: "Отклонены", value: orders.filter((order) => order.status === "rejected").length, filter: "rejected" },
-    { label: "Одобрены", value: orders.filter((order) => order.status === "approved").length, filter: "approved" },
-    { label: "Оплачены", value: orders.filter((order) => order.status === "paid").length, filter: "paid" }
+    { label: "Total", value: orders.length, filter: "all" },
+    { label: "New", value: orders.filter((order) => order.status === "pending").length, filter: "pending" },
+    { label: "Additional review", value: orders.filter((order) => order.status === "review").length, filter: "review" },
+    { label: "Rejected", value: orders.filter((order) => order.status === "rejected").length, filter: "rejected" },
+    { label: "Approved", value: orders.filter((order) => order.status === "approved").length, filter: "approved" },
+    { label: "Paid", value: orders.filter((order) => order.status === "paid").length, filter: "paid" }
   ];
 
   const handleApprove = async (orderId: string) => {
@@ -399,17 +399,17 @@ export default function ApplicationsPage() {
           checkoutUrl,
         });
       }
-      toast.success("Заявка одобрена!");
+      toast.success("Application approved.");
     } catch (error) {
       console.error("Failed to approve order", error);
-      toast.error(error instanceof Error ? error.message : "Ошибка при одобрении.");
+      toast.error(error instanceof Error ? error.message : "Failed to approve application.");
     } finally {
       setIsApproving(null);
     }
   };
 
   const handleResendPaymentLink = async (orderId: string) => {
-    if (!window.confirm("Отправить новую ссылку на оплату и заменить текущую?")) {
+    if (!window.confirm("Send a new payment link and replace the current one?")) {
       return;
     }
 
@@ -451,10 +451,10 @@ export default function ApplicationsPage() {
         }
       }
 
-      toast.success("Новая ссылка на оплату отправлена.");
+      toast.success("New payment link sent.");
     } catch (error) {
       console.error("Failed to resend payment link", error);
-      toast.error(error instanceof Error ? error.message : "Ошибка при отправке новой ссылки.");
+      toast.error(error instanceof Error ? error.message : "Failed to send a new payment link.");
     } finally {
       setIsResendingPaymentLink(null);
     }
@@ -606,17 +606,17 @@ export default function ApplicationsPage() {
         });
       }
 
-      toast.success("Заявка переведена на дополнительную проверку.");
+      toast.success("Application moved to additional review.");
     } catch (error) {
       console.error("Failed to move order to review", error);
-      toast.error(error instanceof Error ? error.message : "Ошибка при переводе на дополнительную проверку.");
+      toast.error(error instanceof Error ? error.message : "Failed to move application to additional review.");
     } finally {
       setIsReviewing(null);
     }
   };
 
   const handleReject = async (orderId: string) => {
-    if (!window.confirm("Подтвердить отклонение заявки? Пользователь получит email об отклонении.")) {
+    if (!window.confirm("Confirm application rejection? The applicant will receive a rejection email.")) {
       return;
     }
 
@@ -652,10 +652,10 @@ export default function ApplicationsPage() {
         });
       }
 
-      toast.success("Заявка отклонена, письмо отправлено пользователю.");
+      toast.success("Application rejected and email sent to the applicant.");
     } catch (error) {
       console.error("Failed to reject order", error);
-      toast.error(error instanceof Error ? error.message : "Ошибка при отклонении заявки.");
+      toast.error(error instanceof Error ? error.message : "Failed to reject application.");
     } finally {
       setIsRejecting(null);
     }
@@ -664,7 +664,7 @@ export default function ApplicationsPage() {
   const handleDelete = async (orderId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     
-    if (!window.confirm("Вы уверены, что хотите удалить эту заявку? Это действие необратимо.")) {
+    if (!window.confirm("Are you sure you want to delete this application? This action cannot be undone.")) {
       return;
     }
 
@@ -679,14 +679,14 @@ export default function ApplicationsPage() {
         if (selectedOrder?.id === orderId) {
           setSelectedOrder(null);
         }
-        toast.success("Заявка удалена.");
+        toast.success("Application deleted.");
       } else {
         const message = await readErrorMessage(resp);
-        toast.error(`Ошибка удаления: ${message}`);
+        toast.error(`Delete failed: ${message}`);
       }
     } catch (error) {
       console.error("Failed to delete order", error);
-      toast.error(error instanceof Error ? error.message : "Произошла ошибка при удалении.");
+      toast.error(error instanceof Error ? error.message : "An error occurred while deleting.");
     } finally {
       setIsDeleting(null);
     }
@@ -696,9 +696,9 @@ export default function ApplicationsPage() {
     <main className="mx-auto max-w-7xl px-4 py-8 lg:py-9">
       <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl uppercase tracking-tighter font-anton lg:text-[2rem]">Заявки на Членство</h1>
+          <h1 className="text-3xl uppercase tracking-tighter font-anton lg:text-[2rem]">Membership Applications</h1>
           <p className="mt-1.5 max-w-2xl text-sm font-light text-slate-500">
-            Просматривайте полные анкеты кандидатов, проверяйте опыт и одобряйте выдачу сертификатов.
+            Review complete applicant forms, verify experience, and approve certificate issuance.
           </p>
           {lastSyncedAt && (
             <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">
@@ -714,7 +714,7 @@ export default function ApplicationsPage() {
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Поиск по имени, email или категории"
+              placeholder="Search by name, email, or category"
               className="w-full rounded-xl border border-slate-100 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm outline-none transition-all focus:border-[#72A0C1] focus:ring-2 focus:ring-[#72A0C1]/15"
             />
           </div>
@@ -775,8 +775,8 @@ export default function ApplicationsPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-300">
             <ClipboardList className="h-8 w-8" />
           </div>
-          <h3 className="text-xl font-bold text-slate-900">Заявок не найдено</h3>
-          <p className="mt-2 text-slate-500">Попробуйте изменить параметры поиска или фильтры.</p>
+          <h3 className="text-xl font-bold text-slate-900">No applications found</h3>
+          <p className="mt-2 text-slate-500">Try changing the search query or filters.</p>
         </div>
       ) : (
         <div className="grid gap-3">
@@ -830,7 +830,7 @@ export default function ApplicationsPage() {
                       onClick={(e) => handleDelete(order.id, e)}
                       disabled={isDeleting === order.id}
                       className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
-                      title="Удалить заявку"
+                      title="Delete application"
                     >
                       {isDeleting === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     </button>
@@ -885,7 +885,7 @@ export default function ApplicationsPage() {
                       <div className="space-y-6">
                         <div className="flex items-center gap-4 mb-2">
                           <div className="h-8 w-1 bg-[#72A0C1] rounded-full" />
-                          <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Примеры работ</h3>
+                          <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Portfolio Examples</h3>
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -899,7 +899,7 @@ export default function ApplicationsPage() {
                             >
                               <img
                                 src={imageUrl}
-                                alt={`Пример работы ${index + 1}`}
+                                alt={`Portfolio example ${index + 1}`}
                                 className="aspect-square h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                               />
                             </a>
@@ -969,12 +969,12 @@ export default function ApplicationsPage() {
 
                     <div className="flex items-center gap-4 mb-2">
                       <div className="h-8 w-1 bg-[#B9D9EB] rounded-full" />
-                      <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Данные анкеты</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Application Data</h3>
                     </div>
 
                     {selectedSections.length === 0 ? (
                       <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/50 p-12 text-center text-slate-400">
-                        Метрики анкеты еще не загружены для этой заявки.
+                        Application details have not been loaded for this application yet.
                       </div>
                     ) : (
                       selectedSections.map((section) => (
@@ -1121,7 +1121,7 @@ export default function ApplicationsPage() {
 
                     <section className="space-y-6">
                       <div className="flex items-center justify-between">
-                         <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Действия и статус</h3>
+                         <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Actions and Status</h3>
                          <StatusBadge status={selectedOrder.status} />
                       </div>
 
@@ -1130,8 +1130,8 @@ export default function ApplicationsPage() {
                           <div className="space-y-4">
                             <p className="text-sm text-slate-500 font-serif italic">
                               {selectedOrder.status === "review"
-                                ? "Заявка уже переведена на дополнительную проверку. После повторной оценки ее можно одобрить."
-                                : "Проверьте анкету и вынесите решение по заявке."}
+                                ? "This application is already in additional review. After reassessment, it can be approved."
+                                : "Review the application and make a decision."}
                             </p>
                             {selectedOrder.status === "pending" && (
                               <button
@@ -1144,7 +1144,7 @@ export default function ApplicationsPage() {
                                 ) : (
                                   <ShieldAlert className="h-5 w-5 group-hover:scale-110 transition-transform" />
                                 )}
-                                <span>{isReviewing === selectedOrder.id ? "Обработка..." : "Отправить на доп. проверку"}</span>
+                                <span>{isReviewing === selectedOrder.id ? "Processing..." : "Send to additional review"}</span>
                               </button>
                             )}
                             <button
@@ -1157,7 +1157,7 @@ export default function ApplicationsPage() {
                               ) : (
                                 <XCircle className="h-5 w-5 group-hover:scale-110 transition-transform" />
                               )}
-                              <span>{isRejecting === selectedOrder.id ? "Обработка..." : "Отклонить заявку"}</span>
+                              <span>{isRejecting === selectedOrder.id ? "Processing..." : "Reject application"}</span>
                             </button>
                             <button
                               onClick={() => handleApprove(selectedOrder.id)}
@@ -1169,7 +1169,7 @@ export default function ApplicationsPage() {
                               ) : (
                                 <CheckCircle2 className="h-5 w-5 group-hover:scale-110 transition-transform" />
                               )}
-                              <span>{isApproving === selectedOrder.id ? "Обработка..." : "Одобрить заявку"}</span>
+                              <span>{isApproving === selectedOrder.id ? "Processing..." : "Approve application"}</span>
                             </button>
                           </div>
                         )}
@@ -1177,7 +1177,7 @@ export default function ApplicationsPage() {
                         {selectedOrder.status === "approved" && (
                           <div className="space-y-4">
                             <div className="rounded-2xl bg-[#F0F8FF] p-4 text-xs font-semibold text-[#72A0C1] leading-relaxed border border-[#72A0C1]/10">
-                              Заявка одобрена. Сертификат готов к оплате. Ожидает платеж через Stripe.
+                              Application approved. Certificate is ready for payment and awaiting Stripe checkout.
                             </div>
                             
                             <div className="flex flex-col gap-3">
@@ -1190,20 +1190,20 @@ export default function ApplicationsPage() {
                                 className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-slate-900 bg-slate-900 px-6 py-4 font-bold text-white transition-all hover:bg-black shadow-lg"
                               >
                                 <ExternalLink className="h-4 w-4" />
-                                Оплатить в Stripe
+                                Pay in Stripe
                               </button>
                               
                               <button
                                 onClick={() => {
                                   if (selectedOrder.checkoutUrl) {
                                     navigator.clipboard.writeText(selectedOrder.checkoutUrl);
-                                    toast.success("Ссылка скопирована!");
+                                    toast.success("Link copied.");
                                   }
                                 }}
                                 className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-4 font-bold text-slate-600 transition-all hover:bg-slate-50"
                               >
                                 <Copy className="h-4 w-4" />
-                                Скопировать ссылку
+                                Copy link
                               </button>
 
                               <button
@@ -1216,7 +1216,7 @@ export default function ApplicationsPage() {
                                 ) : (
                                   <ExternalLink className="h-4 w-4" />
                                 )}
-                                Новая ссылка на оплату
+                                New payment link
                               </button>
                             </div>
                           </div>
@@ -1225,7 +1225,7 @@ export default function ApplicationsPage() {
                         {selectedOrder.status === "rejected" && (
                           <div className="space-y-4">
                             <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4 text-xs font-semibold leading-relaxed text-rose-700">
-                              Заявка отклонена. Пользователю отправлено email-уведомление об отклонении.
+                              Application rejected. A rejection email has been sent to the applicant.
                             </div>
                           </div>
                         )}
@@ -1236,8 +1236,8 @@ export default function ApplicationsPage() {
                               <CheckCircle2 size={24} />
                             </div>
                             <div>
-                               <p className="text-sm font-bold text-green-600 uppercase tracking-widest">Оплачено</p>
-                               <p className="mt-2 text-xs text-green-600/70 font-medium">Клиент завершил оплату. Членство активно.</p>
+                               <p className="text-sm font-bold text-green-600 uppercase tracking-widest">Paid</p>
+                               <p className="mt-2 text-xs text-green-600/70 font-medium">Client completed payment. Membership is active.</p>
                             </div>
                           </div>
                         )}
@@ -1245,19 +1245,19 @@ export default function ApplicationsPage() {
                     </section>
 
                     <section className="space-y-6">
-                       <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Метаданные</h3>
+                       <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Metadata</h3>
                        <div className="grid gap-3">
                           <div className="rounded-2xl border border-slate-200/60 bg-white px-5 py-4 flex justify-between items-center">
-                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Подано</p>
+                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Submitted</p>
                              <p className="text-sm font-bold text-slate-900">{new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
                           </div>
                           <div className="rounded-2xl border border-slate-200/60 bg-white px-5 py-4 flex flex-col gap-2">
-                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Email клиента</p>
+                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client email</p>
                              <p className="text-sm font-bold text-slate-900">{selectedOrder.email}</p>
                           </div>
                           {selectedOrder.certificateNumber && (
                             <div className="rounded-2xl border border-[#B9D9EB]/30 bg-[#F0F8FF] px-5 py-4 flex justify-between items-center">
-                               <p className="text-[10px] font-bold uppercase tracking-widest text-[#72A0C1]">Сертификат</p>
+                               <p className="text-[10px] font-bold uppercase tracking-widest text-[#72A0C1]">Certificate</p>
                                <p className="font-anton text-sm text-[#72A0C1]">{selectedOrder.certificateNumber}</p>
                             </div>
                           )}
@@ -1267,14 +1267,14 @@ export default function ApplicationsPage() {
 
                   {/* DANGER ZONE */}
                   <div className="mt-12 pt-8 border-t border-slate-200/60">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-300 mb-4">Опасная зона</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-300 mb-4">Danger Zone</p>
                     <button
                       onClick={(e) => handleDelete(selectedOrder.id, e)}
                       disabled={isDeleting === selectedOrder.id}
                       className="flex w-full items-center justify-center gap-3 rounded-2xl border border-red-100 bg-red-50 px-6 py-4 font-bold text-red-500 transition-all hover:bg-red-500 hover:text-white disabled:opacity-50"
                     >
                       {isDeleting === selectedOrder.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                      Удалить заявку навсегда
+                      Delete application permanently
                     </button>
                   </div>
                 </div>

@@ -27,17 +27,17 @@ import { formatApplicationValue, getApplicationFieldLabel } from "@/lib/applicat
 
 function getSubscriptionStatus(expiresAt?: string | null) {
   if (!expiresAt) {
-     return { label: "Активен (Без срока)", colorClass: "bg-green-50 text-green-600 border-green-100/50" };
+     return { label: "Active (No expiration)", colorClass: "bg-green-50 text-green-600 border-green-100/50" };
   }
   const expDate = new Date(expiresAt);
   const diffDays = Math.ceil((expDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
   if (diffDays < 0) {
-    return { label: "Истек", colorClass: "bg-red-50 text-red-600 border-red-100/50" };
+    return { label: "Expired", colorClass: "bg-red-50 text-red-600 border-red-100/50" };
   } else if (diffDays <= 30) {
-    return { label: "Заканчивается", colorClass: "bg-orange-50 text-orange-600 border-orange-100/50" };
+    return { label: "Expiring soon", colorClass: "bg-orange-50 text-orange-600 border-orange-100/50" };
   } else {
-    return { label: "Активен", colorClass: "bg-green-50 text-green-600 border-green-100/50" };
+    return { label: "Active", colorClass: "bg-green-50 text-green-600 border-green-100/50" };
   }
 }
 
@@ -68,7 +68,7 @@ export default function ClientsPage() {
       } catch {}
     }
 
-    return "Не удалось выполнить запрос.";
+    return "Could not complete the request.";
   };
 
   const fetchClients = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -84,12 +84,12 @@ export default function ClientsPage() {
         const message =
           data && typeof data === "object" && "error" in data && typeof data.error === "string"
             ? data.error
-            : "Не удалось загрузить клиентов.";
+            : "Could not load clients.";
         throw new Error(message);
       }
 
       if (!Array.isArray(data)) {
-        throw new Error("Сервер вернул некорректный формат списка клиентов.");
+        throw new Error("The server returned an invalid client list format.");
       }
 
       setClients(data);
@@ -100,7 +100,7 @@ export default function ClientsPage() {
       if (!silent) {
         setClients([]);
         setFilteredClients([]);
-        toast.error(`Ошибка при загрузке клиентов: ${error?.message || "Unknown error"}`);
+        toast.error(`Failed to load clients: ${error?.message || "Unknown error"}`);
       }
     } finally {
       setIsLoading(false);
@@ -154,7 +154,7 @@ export default function ClientsPage() {
 
   const handleCertificateUpload = async (orderId: string, url: string) => {
     setPendingCertificateUrl(url);
-    toast.success("Файл загружен. Проверьте и подтвердите сохранение.");
+    toast.success("File uploaded. Review and confirm saving.");
   };
 
   const handleCertificateSave = async (orderId: string) => {
@@ -168,7 +168,7 @@ export default function ClientsPage() {
         body: JSON.stringify({ url: pendingCertificateUrl }),
       });
       if (resp.ok) {
-        toast.success("Сертификат подтвержден и сохранен.");
+        toast.success("Certificate confirmed and saved.");
         setClients(prev => prev.map(c => c.id === orderId ? { ...c, certificateUrl: pendingCertificateUrl } : c));
         if (selectedClient && selectedClient.id === orderId) {
           setSelectedClient({ ...selectedClient, certificateUrl: pendingCertificateUrl });
@@ -179,14 +179,14 @@ export default function ClientsPage() {
         toast.error(message);
       }
     } catch (e) {
-      toast.error("Ошибка при сохранении сертификата.");
+      toast.error("Failed to save certificate.");
     } finally {
       setIsSavingCertificate(false);
     }
   };
 
   const handleRemoveCertificate = async (orderId: string) => {
-    if (!window.confirm("Удалить текущий сертификат и освободить место для нового файла?")) return;
+    if (!window.confirm("Remove the current certificate and make room for a new file?")) return;
 
     setIsRemovingCertificate(true);
     try {
@@ -205,9 +205,9 @@ export default function ClientsPage() {
         setSelectedClient({ ...selectedClient, certificateUrl: null });
       }
       setPendingCertificateUrl(null);
-      toast.success("Сертификат удален. Можно загрузить новый файл.");
+      toast.success("Certificate removed. You can upload a new file.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Ошибка при удалении сертификата.");
+      toast.error(error instanceof Error ? error.message : "Failed to remove certificate.");
     } finally {
       setIsRemovingCertificate(false);
     }
@@ -220,13 +220,13 @@ export default function ClientsPage() {
         method: "POST",
       });
       if (resp.ok) {
-        toast.success("Письмо с сертификатом успешно отправлено!");
+        toast.success("Certificate email sent successfully.");
       } else {
         const errorData = await resp.json().catch(() => ({}));
-        toast.error(errorData.error || "Ошибка при отправке письма.");
+        toast.error(errorData.error || "Failed to send email.");
       }
     } catch (e) {
-      toast.error("Ошибка сети при отправке письма.");
+      toast.error("Network error while sending email.");
     } finally {
       setIsResending(null);
     }
@@ -234,7 +234,7 @@ export default function ClientsPage() {
 
   const handleDelete = async (clientId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!window.confirm("Вы уверены, что хотите удалить этого клиента? Это действие необратимо.")) return;
+    if (!window.confirm("Are you sure you want to delete this client? This action cannot be undone.")) return;
 
     setIsDeleting(clientId);
     try {
@@ -242,13 +242,13 @@ export default function ClientsPage() {
       if (resp.ok) {
         setClients(prev => prev.filter(c => c.id !== clientId));
         if (selectedClient?.id === clientId) setSelectedClient(null);
-        toast.success("Клиент удален.");
+        toast.success("Client deleted.");
       } else {
         const message = await readErrorMessage(resp);
         toast.error(message);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Ошибка при удалении.");
+      toast.error(error instanceof Error ? error.message : "Failed to delete.");
     } finally {
       setIsDeleting(null);
     }
@@ -256,7 +256,7 @@ export default function ClientsPage() {
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Скопировано!");
+    toast.success("Copied.");
   };
 
   // Helper to parse questionnaire data (payload might be stored in applicationPayload)
@@ -278,8 +278,8 @@ export default function ClientsPage() {
     <main className="mx-auto max-w-7xl px-4 py-8 lg:py-9">
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-5">
         <div>
-          <h1 className="text-3xl uppercase tracking-tighter font-anton lg:text-[2rem]">Клиенты</h1>
-          <p className="text-slate-500 mt-1.5 text-sm font-light">База одобренных и оплаченных участников ассоциации</p>
+          <h1 className="text-3xl uppercase tracking-tighter font-anton lg:text-[2rem]">Clients</h1>
+          <p className="text-slate-500 mt-1.5 text-sm font-light">Approved and paid association members</p>
           {lastSyncedAt && (
             <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">
               Last sync {new Date(lastSyncedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
@@ -293,7 +293,7 @@ export default function ClientsPage() {
           </span>
           <input
             type="text"
-            placeholder="Поиск по имени, email или сертификату..."
+            placeholder="Search by name, email, or certificate..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-100 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#72A0C1]/20 focus:border-[#72A0C1] transition-all"
@@ -310,8 +310,8 @@ export default function ClientsPage() {
           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
             <Users size={32} />
           </div>
-          <h3 className="text-xl font-bold text-slate-900">Список пуст</h3>
-          <p className="text-slate-500 mt-2">Здесь появятся клиенты после успешной оплаты членства.</p>
+          <h3 className="text-xl font-bold text-slate-900">The list is empty</h3>
+          <p className="text-slate-500 mt-2">Clients will appear here after successful membership payment.</p>
         </div>
       ) : (
         <div className="grid gap-3">
@@ -333,15 +333,15 @@ export default function ClientsPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-5">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Категория</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Category</span>
                     <span className="text-xs font-medium text-slate-600 lg:text-sm">{client.cardName || "Professional"}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Сертификат</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Certificate</span>
                     <span className="text-xs font-mono font-bold text-[#72A0C1] lg:text-sm">{client.certificateNumber}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Статус</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Status</span>
                     <span className={`px-2 py-0.5 mt-1 text-[10px] font-bold uppercase tracking-widest rounded-full border ${getSubscriptionStatus(client.expiresAt).colorClass}`}>
                       {getSubscriptionStatus(client.expiresAt).label}
                     </span>
@@ -398,7 +398,7 @@ export default function ClientsPage() {
                     activeTab === "manage" ? "text-slate-900 border-slate-900" : "text-slate-300 border-transparent hover:text-slate-500"
                   }`}
                 >
-                  Управление
+                  Manage
                 </button>
                 <button
                   onClick={() => setActiveTab("profile")}
@@ -406,7 +406,7 @@ export default function ClientsPage() {
                     activeTab === "profile" ? "text-slate-900 border-slate-900" : "text-slate-300 border-transparent hover:text-slate-500"
                   }`}
                 >
-                  Анкета
+                  Application
                 </button>
               </div>
             </header>
@@ -420,16 +420,16 @@ export default function ClientsPage() {
                     <div>
                       <div className="flex items-center gap-3 text-slate-400 mb-4">
                         <Printer size={16} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Сертификат</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Certificate</span>
                       </div>
                       <p className="font-mono text-lg font-black text-slate-900 leading-none">
-                        {selectedClient.certificateNumber || "НЕ ВЫДАН"}
+                        {selectedClient.certificateNumber || "NOT ISSUED"}
                       </p>
                       <div className="mt-2 space-y-1">
-                        <p className="text-[11px] text-slate-400">Выдан: {new Date(selectedClient.createdAt).toLocaleDateString()}</p>
+                        <p className="text-[11px] text-slate-400">Issued: {new Date(selectedClient.createdAt).toLocaleDateString()}</p>
                         {selectedClient.expiresAt && (
                           <p className="text-[11px] font-medium text-slate-500">
-                            Действителен до: {new Date(selectedClient.expiresAt).toLocaleDateString()}
+                            Valid until: {new Date(selectedClient.expiresAt).toLocaleDateString()}
                           </p>
                         )}
                       </div>
@@ -437,7 +437,7 @@ export default function ClientsPage() {
                     {selectedClient.certificateUrl ? (
                       <div className="mt-4 space-y-3">
                         <a href={selectedClient.certificateUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-all">
-                          <FileText size={14} /> Открыть PDF
+                          <FileText size={14} /> Open PDF
                         </a>
                         <button
                           type="button"
@@ -446,7 +446,7 @@ export default function ClientsPage() {
                           className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 disabled:opacity-60"
                         >
                           {isRemovingCertificate ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                          Удалить PDF
+                          Remove PDF
                         </button>
                       </div>
                     ) : (
@@ -455,11 +455,11 @@ export default function ClientsPage() {
                           <AdminUploadZone
                             endpoint="certificateUploader"
                             accept=".pdf,application/pdf"
-                            label="Загрузите PDF сертификата"
-                            helperText="Файл не сохранится автоматически. Сначала вы подтвердите добавление."
-                            buttonText="Выбрать файл"
+                            label="Upload certificate PDF"
+                            helperText="The file will not be saved automatically. Confirm the attachment first."
+                            buttonText="Choose file"
                             onUploaded={(url) => handleCertificateUpload(selectedClient.id, url)}
-                            onError={(message) => toast.error(`Ошибка загрузки: ${message}`)}
+                            onError={(message) => toast.error(`Upload failed: ${message}`)}
                           />
                         ) : (
                           <div className="rounded-[20px] border border-[#72A0C1]/20 bg-white p-4">
@@ -468,7 +468,7 @@ export default function ClientsPage() {
                                 <Upload size={16} />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-bold text-slate-800">Файл загружен, но еще не прикреплен</p>
+                                <p className="text-sm font-bold text-slate-800">File uploaded but not attached yet</p>
                                 <p className="mt-1 break-all text-xs leading-relaxed text-slate-500">{pendingCertificateUrl}</p>
                               </div>
                             </div>
@@ -480,7 +480,7 @@ export default function ClientsPage() {
                                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-black px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white transition-all hover:bg-slate-800 disabled:opacity-60"
                               >
                                 {isSavingCertificate ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                                Подтвердить
+                                Confirm
                               </button>
                               <button
                                 type="button"
@@ -489,7 +489,7 @@ export default function ClientsPage() {
                                 className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-60"
                               >
                                 <Undo2 size={14} />
-                                Отменить
+                                Cancel
                               </button>
                             </div>
                           </div>
@@ -502,7 +502,7 @@ export default function ClientsPage() {
                   <div className="bg-[#F8FAFC] rounded-3xl p-6 border border-slate-100">
                     <div className="flex items-center gap-3 text-slate-400 mb-6">
                       <Mail size={16} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Контакты</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Contacts</span>
                     </div>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between group">
@@ -516,8 +516,8 @@ export default function ClientsPage() {
                       </div>
                       <div className="flex items-center gap-4">
                          <div>
-                            <p className="text-[10px] font-bold text-slate-300 uppercase mb-1">Телефон</p>
-                            <p className="text-sm font-bold text-slate-700">{selectedClient.phone || (selectedClient.applicationPayload as any)?.phone || "Не указан"}</p>
+                            <p className="text-[10px] font-bold text-slate-300 uppercase mb-1">Phone</p>
+                            <p className="text-sm font-bold text-slate-700">{selectedClient.phone || (selectedClient.applicationPayload as any)?.phone || "Not provided"}</p>
                          </div>
                       </div>
                     </div>
@@ -545,7 +545,7 @@ export default function ClientsPage() {
                   <div className="bg-[#F8FAFC] rounded-3xl p-6 border border-slate-100 flex flex-col justify-between">
                     <div className="flex items-center gap-3 text-slate-400 mb-4">
                       <ShieldAlert size={16} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Действия админа</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Admin Actions</span>
                     </div>
                     <div className="space-y-3 mt-auto">
                        <button 
@@ -554,7 +554,7 @@ export default function ClientsPage() {
                          className="flex w-full items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-[#72A0C1] disabled:opacity-50 disabled:hover:text-slate-400 transition-colors"
                        >
                          {isResending === selectedClient.id ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
-                         Отправить PDF на email
+                         Send PDF by email
                        </button>
                     </div>
                   </div>
@@ -565,25 +565,25 @@ export default function ClientsPage() {
                   {(selectedClient.bio || selectedClient.instagramUrl || selectedClient.specialization || selectedClient.country) && (
                     <div>
                       <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-900 mb-6 flex items-center gap-2">
-                        <Sparkles size={16} className="text-[#72A0C1]" /> Публичный Профиль
+                        <Sparkles size={16} className="text-[#72A0C1]" /> Public Profile
                       </h3>
                       <div className="grid gap-6 sm:grid-cols-2 bg-[#F8FAFC] border border-slate-100 rounded-3xl p-6">
                         {selectedClient.country && (
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Локация</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Location</p>
                             <p className="text-sm font-medium text-slate-700">{selectedClient.country}{selectedClient.city ? `, ${selectedClient.city}` : ""}</p>
                           </div>
                         )}
                         {selectedClient.specialization && (
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Специализация</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Specialization</p>
                             <p className="text-sm font-medium text-slate-700">{selectedClient.specialization}</p>
                           </div>
                         )}
                         {selectedClient.experienceYears && (
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Опыт</p>
-                            <p className="text-sm font-medium text-slate-700">{selectedClient.experienceYears} лет</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Experience</p>
+                            <p className="text-sm font-medium text-slate-700">{selectedClient.experienceYears} years</p>
                           </div>
                         )}
                         {selectedClient.instagramUrl && (
@@ -596,13 +596,13 @@ export default function ClientsPage() {
                         )}
                         {selectedClient.education && (
                           <div className="space-y-1 sm:col-span-2">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Образование / Сертификаты</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Education / Certificates</p>
                             <p className="text-sm font-medium text-slate-700">{selectedClient.education}</p>
                           </div>
                         )}
                         {selectedClient.bio && (
                           <div className="space-y-1 sm:col-span-2">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">О себе (Bio)</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">About (Bio)</p>
                             <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedClient.bio}</p>
                           </div>
                         )}
@@ -613,7 +613,7 @@ export default function ClientsPage() {
                   {/* Application Payload Section */}
                   <div>
                     <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-900 mb-6 flex items-center gap-2">
-                       <FileText size={16} className="text-[#72A0C1]" /> Исходная заявка
+                       <FileText size={16} className="text-[#72A0C1]" /> Original Application
                     </h3>
                     <div className="grid gap-6 sm:grid-cols-2">
                       {(selectedClient as any).applicationPayload ? (
@@ -629,7 +629,7 @@ export default function ClientsPage() {
                         ))
                       ) : (
                         <div className="col-span-2 py-10 text-center text-slate-400 font-serif italic">
-                           Данные анкеты при регистрации отсутствуют.
+                           Application data from registration is not available.
                         </div>
                       )}
                     </div>
