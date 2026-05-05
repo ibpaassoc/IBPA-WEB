@@ -1,13 +1,59 @@
 import { Router } from "express";
 import bodyParser from "body-parser";
 import Stripe from "stripe";
-import { requireDb, orders, certificates, users } from "../lib/db";
+import { requireDb, orders, certificates, users, emailLogs } from "../lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
 import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 
 export const webhooksRouter = Router();
 const processedInvoiceCopyEvents = new Set<string>();
+const dashboardActivationSubject = "Complete your IBPA dashboard access";
+
+function dashboardActivationLogBody(orderId: string) {
+  return `stripe-dashboard-activation:${orderId}`;
+}
+
+async function ensureEmailLogsTable(db: ReturnType<typeof requireDb>) {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "email_logs" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "to" text NOT NULL,
+      "subject" text NOT NULL,
+      "body" text NOT NULL,
+      "status" text NOT NULL,
+      "created_at" timestamp DEFAULT now() NOT NULL
+    )
+  `);
+}
+
+async function hasSentDashboardActivationEmail(db: ReturnType<typeof requireDb>, email: string, orderId: string) {
+  await ensureEmailLogsTable(db);
+  const [existingLog] = await db
+    .select({ id: emailLogs.id })
+    .from(emailLogs)
+    .where(
+      and(
+        sql`lower(${emailLogs.to}) = lower(${email})`,
+        eq(emailLogs.subject, dashboardActivationSubject),
+        eq(emailLogs.body, dashboardActivationLogBody(orderId)),
+        eq(emailLogs.status, "sent"),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(existingLog);
+}
+
+async function logDashboardActivationEmailSent(db: ReturnType<typeof requireDb>, email: string, orderId: string) {
+  await ensureEmailLogsTable(db);
+  await db.insert(emailLogs).values({
+    to: email,
+    subject: dashboardActivationSubject,
+    body: dashboardActivationLogBody(orderId),
+    status: "sent",
+  });
+}
 
 async function markOrderPaid(orderId: string, stripeSessionId?: string | null) {
   const db = requireDb();
@@ -56,7 +102,7 @@ async function sendDashboardActivationEmail(params: {
   return resend.emails.send({
     from: resendFrom,
     to: email,
-    subject: "Complete your IBPA dashboard access",
+    subject: dashboardActivationSubject,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
         <p style="margin: 0 0 12px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #64748b;">
@@ -206,7 +252,19 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
           return res.json({ received: true });
         }
 
-        const shouldSendActivationEmail = order.status !== "paid" || !order.stripeSessionId;
+        let activationEmailAlreadySent = false;
+        try {
+          activationEmailAlreadySent = await hasSentDashboardActivationEmail(db, order.email, order.id);
+        } catch (emailLogError) {
+          console.error("[Stripe Webhook] Failed to check dashboard activation email log", {
+            orderId: order.id,
+            email: order.email,
+            error: emailLogError,
+          });
+        }
+
+        const shouldSendActivationEmail =
+          !activationEmailAlreadySent && (order.status !== "paid" || !order.stripeSessionId || session.id === order.stripeSessionId);
         await markOrderPaid(orderId, session.id);
         console.log(`[Stripe Webhook] Order ${orderId} marked as paid for session ${session.id}`);
 
@@ -237,6 +295,18 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
               id: emailResult.data?.id ?? null,
               error: emailResult.error ?? null,
             });
+
+            if (!emailResult.error) {
+              try {
+                await logDashboardActivationEmailSent(db, order.email, order.id);
+              } catch (emailLogError) {
+                console.error("[Stripe Webhook] Failed to log dashboard activation email", {
+                  orderId: order.id,
+                  email: order.email,
+                  error: emailLogError,
+                });
+              }
+            }
           } catch (emailError) {
             console.error("[Stripe Webhook] Failed to send dashboard activation email", {
               to: order.email,
@@ -263,6 +333,15 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
               error: adminEmailError,
             });
           }
+        } else {
+          console.log("[Stripe Webhook] Dashboard activation email skipped", {
+            orderId: order.id,
+            email: order.email,
+            activationEmailAlreadySent,
+            orderStatus: order.status,
+            existingStripeSessionId: order.stripeSessionId ?? null,
+            eventStripeSessionId: session.id,
+          });
         }
       }
     }
