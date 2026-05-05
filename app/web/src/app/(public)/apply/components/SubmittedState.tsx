@@ -15,8 +15,8 @@ type SubmittedStateProps = {
 };
 
 export function SubmittedState({
-  isRu,
-  isUk,
+  isRu: _isRu,
+  isUk: _isUk,
   headlineClassName,
   editorialClassName,
   selectedConfigShortTitle,
@@ -31,30 +31,26 @@ export function SubmittedState({
           <CheckCircle2 size={28} />
         </div>
         <p className="text-center text-[10px] uppercase tracking-[0.35em] text-[#708090]">
-          {isRu ? "Заявка отправлена" : isUk ? "Заявку надіслано" : "Application submitted"}
+          Application submitted
         </p>
         <h1 className={`mt-4 text-center text-4xl md:text-6xl uppercase leading-none text-slate-900 ${headlineClassName}`}>
-          {isRu ? "Спасибо" : isUk ? "Дякуємо" : "Thank You"}
+          Thank You
         </h1>
         <p className={`mt-4 text-center text-slate-600 ${editorialClassName}`}>
-          {isRu
-            ? "Мы получили вашу заявку. Команда IBPA свяжется с вами после проверки."
-            : isUk
-              ? "Ми отримали вашу заявку. Команда IBPA зв’яжеться з вами після перевірки."
-              : "We have received your application. The IBPA team will contact you after review."}
+          We have received your application. The IBPA team will contact you after review.
         </p>
 
         <div className="mt-8 grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 md:grid-cols-2">
           <div>
             <p className="text-[10px] uppercase tracking-widest text-slate-400">
-              {isRu ? "Категория" : isUk ? "Категорія" : "Category"}
+              Category
             </p>
             <p className="mt-1 font-semibold text-slate-900">{selectedConfigTitle}</p>
             <p className="text-xs text-slate-500">{selectedConfigShortTitle}</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-widest text-slate-400">
-              {isRu ? "Тип заявки" : isUk ? "Тип заявки" : "Applicant type"}
+              Applicant type
             </p>
             <p className="mt-1 font-semibold text-slate-900">{localizedApplicantType}</p>
             <p className="text-xs text-slate-500">{selectedPrice}</p>
@@ -66,13 +62,13 @@ export function SubmittedState({
             href="/"
             className="rounded-full bg-black px-6 py-3 text-xs font-bold uppercase tracking-widest text-white"
           >
-            {isRu ? "На главную" : isUk ? "На головну" : "Back to Home"}
+            Back to Home
           </Link>
           <Link
             href="/membership"
             className="rounded-full border border-slate-300 px-6 py-3 text-xs font-bold uppercase tracking-widest text-slate-800"
           >
-            {isRu ? "Смотреть категории" : isUk ? "Дивитися категорії" : "View Membership"}
+            View Membership
           </Link>
         </div>
       </div>

@@ -40,7 +40,7 @@ export function MotivationStep({
   watch,
   renderFieldError,
 }: MotivationStepProps) {
-  const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
+  const t = (en: string, _ru: string, _uk: string) => en;
   const isBusinessOrBrand = selectedCategory === "Business" || selectedCategory === "Brand";
   const isProfessionalLike = selectedCategory === "Professional" || selectedCategory === "Trainer" || selectedCategory === "Business";
   const otherOrganizationsYesNo = watch("otherOrganizationsYesNo");

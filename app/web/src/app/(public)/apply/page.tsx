@@ -351,7 +351,7 @@ export default function ApplyPage() {
   const { locale } = useI18n();
   const isRu = locale === "ru";
   const isUk = locale === "uk";
-  const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
+  const t = (en: string, _ru: string, _uk: string) => en;
   const useEnglishTypography = true;
   const headlineClassName = useEnglishTypography
     ? `${homeTemplateDisplay.className} font-black tracking-[-0.05em]`
@@ -394,30 +394,7 @@ export default function ApplyPage() {
   const selectedConfigTitle = isRu ? selectedConfig.titleRu : isUk ? selectedConfig.titleUk : selectedConfig.title;
   const selectedConfigShortTitle = isRu ? selectedConfig.shortTitleRu : isUk ? selectedConfig.shortTitleUk : selectedConfig.shortTitle;
   const selectedConfigSummary = isRu ? selectedConfig.summaryRu : isUk ? selectedConfig.summaryUk : selectedConfig.summary;
-  const localizedApplicantType =
-    selectedConfig.applicantType === "Individual"
-      ? isRu
-        ? "Частное лицо"
-        : isUk
-          ? "Приватна особа"
-        : "Individual"
-      : selectedConfig.applicantType === "Business"
-        ? isRu
-          ? "Бизнес"
-          : isUk
-            ? "Бізнес"
-          : "Business"
-        : selectedConfig.applicantType === "School"
-          ? isRu
-            ? "Школа"
-            : isUk
-              ? "Школа"
-            : "School"
-          : isRu
-            ? "Бренд"
-            : isUk
-              ? "Бренд"
-            : "Brand";
+  const localizedApplicantType = selectedConfig.applicantType;
 
   React.useEffect(() => {
     if (typeof window === "undefined") {
@@ -565,8 +542,8 @@ export default function ApplyPage() {
   }, [isRu, isUk, register, selectedCategory]);
 
   const getFieldLabel = React.useCallback(
-    (field: keyof FormData) => (isRu ? fieldLabels[field].ru : isUk ? fieldLabels[field].uk : fieldLabels[field].en),
-    [isRu, isUk],
+    (field: keyof FormData) => fieldLabels[field].en,
+    [],
   );
 
   const renderFieldError = React.useCallback(
@@ -676,8 +653,8 @@ export default function ApplyPage() {
         isUk={isUk}
         headlineClassName={headlineClassName}
         editorialClassName={editorialClassName}
-        selectedConfigShortTitle={selectedConfigShortTitle}
-        selectedConfigTitle={selectedConfigTitle}
+        selectedConfigShortTitle={selectedConfig.shortTitle}
+        selectedConfigTitle={selectedConfig.title}
         localizedApplicantType={localizedApplicantType}
         selectedPrice={selectedConfig.price}
       />
@@ -821,24 +798,24 @@ export default function ApplyPage() {
             {currentStep === 1 && (
               <motion.div key="contact" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-10">
                 <div className="space-y-3">
-                  <h2 className={`text-3xl md:text-4xl uppercase tracking-tight text-slate-900 ${headlineClassName}`}>{isRu ? "Контактные данные заявителя" : isUk ? "Контактні дані заявника" : "Applicant contact details"}</h2>
-                  <p className={`text-slate-500 ${editorialClassName}`}>{isRu ? "Используйте контактные данные человека или компании, которые должны получать обновления по заявке." : isUk ? "Використовуйте контактні дані людини або компанії, які мають отримувати оновлення щодо заявки." : "Use the person or company contact details that should receive review updates."}</p>
+                  <h2 className={`text-3xl md:text-4xl uppercase tracking-tight text-slate-900 ${headlineClassName}`}>Applicant contact details</h2>
+                  <p className={`text-slate-500 ${editorialClassName}`}>Use the person or company contact details that should receive review updates.</p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Имя" : isUk ? "Ім’я" : "First Name"} *</label>
-                    <input {...register("firstName", { required: isRu ? "Введите имя." : isUk ? "Введіть ім’я." : "Enter your first name." })} className="form-input" placeholder={isRu ? "Имя" : isUk ? "Ім’я" : "First name"} />
+                    <label className="field-label">First Name *</label>
+                    <input {...register("firstName", { required: isRu ? "Введите имя." : isUk ? "Введіть ім’я." : "Enter your first name." })} className="form-input" placeholder="First name" />
                     {renderFieldError("firstName")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Фамилия" : isUk ? "Прізвище" : "Last Name"} *</label>
-                    <input {...register("lastName", { required: isRu ? "Введите фамилию." : isUk ? "Введіть прізвище." : "Enter your last name." })} className="form-input" placeholder={isRu ? "Фамилия" : isUk ? "Прізвище" : "Last name"} />
+                    <label className="field-label">Last Name *</label>
+                    <input {...register("lastName", { required: isRu ? "Введите фамилию." : isUk ? "Введіть прізвище." : "Enter your last name." })} className="form-input" placeholder="Last name" />
                     {renderFieldError("lastName")}
                   </div>
                   {(selectedCategory === "Specialist" || selectedCategory === "Professional" || selectedCategory === "Trainer") && (
                     <div className="space-y-2">
-                      <label className="field-label">{isRu ? "Дата рождения" : isUk ? "Дата народження" : "Date of Birth"} *</label>
+                      <label className="field-label">Date of Birth *</label>
                       <input
                         type="date"
                         {...register("dateOfBirth", {
@@ -850,7 +827,7 @@ export default function ApplyPage() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Email" : isUk ? "Email" : "Email Address"} *</label>
+                    <label className="field-label">Email Address *</label>
                     <input
                       type="email"
                       inputMode="email"
@@ -869,7 +846,7 @@ export default function ApplyPage() {
                     {renderFieldError("email")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Телефон" : isUk ? "Телефон" : "Phone Number"} *</label>
+                    <label className="field-label">Phone Number *</label>
                     <input
                       type="tel"
                       inputMode="numeric"
@@ -888,9 +865,9 @@ export default function ApplyPage() {
                     {renderFieldError("phone")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Гражданство" : isUk ? "Громадянство" : "Citizenship"} *</label>
+                    <label className="field-label">Citizenship *</label>
                     <select {...register("citizenship", { required: isRu ? "Выберите гражданство." : isUk ? "Оберіть громадянство." : "Select your citizenship." })} className="form-input appearance-none">
-                      <option value="">{isRu ? "Выберите страну" : isUk ? "Оберіть країну" : "Select country"}</option>
+                      <option value="">Select country</option>
                       {countryOptions.map((country) => (
                         <option key={country} value={country}>
                           {country}
@@ -900,9 +877,9 @@ export default function ApplyPage() {
                     {renderFieldError("citizenship")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Страна" : isUk ? "Країна" : "Country"} *</label>
+                    <label className="field-label">Country *</label>
                     <select {...register("country", { required: isRu ? "Выберите страну проживания." : isUk ? "Оберіть країну проживання." : "Select your country of residence." })} className="form-input appearance-none">
-                      <option value="">{isRu ? "Выберите страну" : isUk ? "Оберіть країну" : "Select country"}</option>
+                      <option value="">Select country</option>
                       {countryOptions.map((country) => (
                         <option key={country} value={country}>
                           {country}
@@ -912,21 +889,21 @@ export default function ApplyPage() {
                     {renderFieldError("country")}
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="field-label">{isRu ? "Улица и адрес" : isUk ? "Вулиця та адреса" : "Street Address"}</label>
-                    <input {...register("streetAddress")} className="form-input" placeholder={isRu ? "Улица и адрес" : isUk ? "Вулиця та адреса" : "Street address"} />
+                    <label className="field-label">Street Address</label>
+                    <input {...register("streetAddress")} className="form-input" placeholder="Street address" />
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Город" : isUk ? "Місто" : "City"} *</label>
-                    <input {...register("city", { required: isRu ? "Введите город." : isUk ? "Введіть місто." : "Enter your city." })} className="form-input" placeholder={isRu ? "Город" : isUk ? "Місто" : "City"} />
+                    <label className="field-label">City *</label>
+                    <input {...register("city", { required: isRu ? "Введите город." : isUk ? "Введіть місто." : "Enter your city." })} className="form-input" placeholder="City" />
                     {renderFieldError("city")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Штат / регион" : isUk ? "Штат / регіон" : "State / Region"}</label>
-                    <input {...register("state")} className="form-input" placeholder={isRu ? "Штат / регион" : isUk ? "Штат / регіон" : "State / region"} />
+                    <label className="field-label">State / Region</label>
+                    <input {...register("state")} className="form-input" placeholder="State / region" />
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "ZIP / индекс" : isUk ? "ZIP / індекс" : "ZIP / Postal Code"}</label>
-                    <input {...register("zipCode")} className="form-input" placeholder={isRu ? "ZIP / индекс" : isUk ? "ZIP / індекс" : "ZIP / postal code"} />
+                    <label className="field-label">ZIP / Postal Code</label>
+                    <input {...register("zipCode")} className="form-input" placeholder="ZIP / postal code" />
                   </div>
                 </div>
               </motion.div>
@@ -935,8 +912,8 @@ export default function ApplyPage() {
             {currentStep === 2 && (
               <motion.div key="profile" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-10">
                 <div className="space-y-3">
-                  <h2 className={`text-3xl md:text-4xl uppercase tracking-tight text-slate-900 ${headlineClassName}`}>{isRu ? "Профессиональный профиль" : isUk ? "Професійний профіль" : "Professional snapshot"}</h2>
-                  <p className={`text-slate-500 ${editorialClassName}`}>{isRu ? "Этот блок помогает комиссии быстро понять вашу текущую роль и уровень профессиональной активности." : isUk ? "Цей блок допомагає комісії швидко зрозуміти вашу поточну роль і рівень професійної активності." : "This gives the board a quick picture of your current role and level of activity."}</p>
+                  <h2 className={`text-3xl md:text-4xl uppercase tracking-tight text-slate-900 ${headlineClassName}`}>Professional snapshot</h2>
+                  <p className={`text-slate-500 ${editorialClassName}`}>This gives the board a quick picture of your current role and level of activity.</p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-8">
@@ -962,7 +939,7 @@ export default function ApplyPage() {
                               })}
                               className="accent-black"
                             />
-                            <span>{isRu ? option.ru : isUk ? option.uk : option.en}</span>
+                            <span>{option.en}</span>
                           </label>
                         ))}
                       </div>
@@ -989,46 +966,46 @@ export default function ApplyPage() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Опыт работы" : isUk ? "Досвід роботи" : "Years of Experience"} *</label>
+                    <label className="field-label">Years of Experience *</label>
                     <select {...register("yearsExperience", { required: true })} className="form-input appearance-none">
-                      <option value="">{isRu ? "Выберите диапазон" : isUk ? "Оберіть діапазон" : "Select range"}</option>
-                      <option value="<1">{isRu ? "Менее 1 года" : isUk ? "Менше 1 року" : "Less than 1 year"}</option>
-                      <option value="1-2">{isRu ? "1–2 года" : isUk ? "1–2 роки" : "1–2 years"}</option>
-                      <option value="3-5">{isRu ? "3–5 лет" : isUk ? "3–5 років" : "3–5 years"}</option>
-                      <option value="5-10">{isRu ? "5–10 лет" : isUk ? "5–10 років" : "5–10 years"}</option>
-                      <option value="10+">{isRu ? "10+ лет" : isUk ? "10+ років" : "10+ years"}</option>
+                      <option value="">Select range</option>
+                      <option value="<1">Less than 1 year</option>
+                      <option value="1-2">1-2 years</option>
+                      <option value="3-5">3-5 years</option>
+                      <option value="5-10">5-10 years</option>
+                      <option value="10+">10+ years</option>
                     </select>
                     {renderFieldError("yearsExperience")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Формат работы" : isUk ? "Формат роботи" : "Work Setting"} *</label>
+                    <label className="field-label">Work Setting *</label>
                     <select {...register("workSetting", { required: true })} className="form-input appearance-none">
-                      <option value="">{isRu ? "Выберите формат" : isUk ? "Оберіть формат" : "Select setting"}</option>
-                      <option value="Independent">{isRu ? "Частная практика" : isUk ? "Приватна практика" : "Independent"}</option>
-                      <option value="Salon / Studio">{isRu ? "Салон / студия" : isUk ? "Салон / студія" : "Salon / Studio"}</option>
-                      <option value="Academy / School">{isRu ? "Академия / школа" : isUk ? "Академія / школа" : "Academy / School"}</option>
-                      <option value="Brand / Company">{isRu ? "Бренд / компания" : isUk ? "Бренд / компанія" : "Brand / Company"}</option>
-                      <option value="Other">{isRu ? "Другое" : isUk ? "Інше" : "Other"}</option>
+                      <option value="">Select setting</option>
+                      <option value="Independent">Independent</option>
+                      <option value="Salon / Studio">Salon / Studio</option>
+                      <option value="Academy / School">Academy / School</option>
+                      <option value="Brand / Company">Brand / Company</option>
+                      <option value="Other">Other</option>
                     </select>
                     {renderFieldError("workSetting")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Место работы" : isUk ? "Місце роботи" : "Place of Work"}</label>
-                    <input {...register("placeOfWork")} className="form-input" placeholder={isRu ? "Название салона, академии или компании" : isUk ? "Назва салону, академії або компанії" : "Salon, academy, or company name"} />
+                    <label className="field-label">Place of Work</label>
+                    <input {...register("placeOfWork")} className="form-input" placeholder="Salon, academy, or company name" />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="field-label">{isRu ? "Профессиональное описание" : isUk ? "Професійний опис" : "Professional Description"} *</label>
+                    <label className="field-label">Professional Description *</label>
                     <textarea
                       {...register("professionalDesc", { required: isRu ? "Добавьте профессиональное описание." : isUk ? "Додайте професійний опис." : "Add your professional description." })}
                       rows={4}
                       className="form-input"
-                      placeholder={isRu ? "Опишите вашу деятельность, специализацию, обучение (если есть) и вклад в развитие индустрии" : isUk ? "Опишіть вашу діяльність, спеціалізацію, навчання (якщо є) та внесок у розвиток індустрії" : "Describe your activity, specialization, training (if any), and contribution to the development of the industry"}
+                      placeholder="Describe your activity, specialization, training (if any), and contribution to the development of the industry"
                     />
                     {renderFieldError("professionalDesc")}
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="field-label">{isRu ? "Где вы работаете" : isUk ? "Де ви працюєте" : "Working Jurisdictions"} *</label>
-                    <input {...register("workingJurisdictions", { required: true })} className="form-input" placeholder={isRu ? "Страны, штаты или рынки, где вы активно работаете" : isUk ? "Країни, штати або ринки, де ви активно працюєте" : "Countries, states, or markets where you actively work"} />
+                    <label className="field-label">Working Jurisdictions *</label>
+                    <input {...register("workingJurisdictions", { required: true })} className="form-input" placeholder="Countries, states, or markets where you actively work" />
                     {renderFieldError("workingJurisdictions")}
                   </div>
                 </div>
@@ -1038,44 +1015,44 @@ export default function ApplyPage() {
             {currentStep === 3 && (
               <motion.div key="credentials" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-10">
                 <div className="space-y-3">
-                  <h2 className={`text-3xl md:text-4xl uppercase tracking-tight text-slate-900 ${headlineClassName}`}>{isRu ? "Образование и квалификация" : isUk ? "Освіта та кваліфікація" : "Education and qualifications"}</h2>
-                  <p className={`text-slate-500 ${editorialClassName}`}>{isRu ? "Укажите образование и квалификации, которые подтверждают вашу заявку." : isUk ? "Укажіть освіту та кваліфікації, які підтверджують вашу заявку." : "Share the education or credentials that support your application."}</p>
+                  <h2 className={`text-3xl md:text-4xl uppercase tracking-tight text-slate-900 ${headlineClassName}`}>Education and qualifications</h2>
+                  <p className={`text-slate-500 ${editorialClassName}`}>Share the education or credentials that support your application.</p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-2 md:col-span-2">
-                    <label className="field-label">{isRu ? "Профессиональная подготовка и полученные квалификации" : isUk ? "Професійна підготовка та отримані кваліфікації" : "Professional training and qualifications earned"} *</label>
+                    <label className="field-label">Professional training and qualifications earned *</label>
                     <textarea
                       {...register("educationDesc", { required: isRu ? "Добавьте сведения о подготовке и квалификациях." : isUk ? "Додайте відомості про підготовку та кваліфікації." : "Add your professional training and qualifications." })}
                       rows={4}
                       className="form-input"
-                      placeholder={isRu ? "Укажите образовательные программы, курсы, обучение у преподавателей, а также полученные сертификаты и квалификации" : isUk ? "Укажіть освітні програми, курси, навчання у викладачів, а також отримані сертифікати й кваліфікації" : "List educational programs, courses, training with educators, and any certificates or qualifications you have earned"}
+                      placeholder="List educational programs, courses, training with educators, and any certificates or qualifications you have earned"
                     />
                     {renderFieldError("educationDesc")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Ключевая образовательная программа / ведущий преподаватель" : isUk ? "Ключова освітня програма / провідний викладач" : "Key educational program / lead educator"}</label>
+                    <label className="field-label">Key educational program / lead educator</label>
                     <input
                       {...register("schoolName")}
                       className="form-input"
-                      placeholder={isRu ? "Укажите наиболее значимую программу обучения, академию или преподавателя, оказавшего влияние на вашу профессиональную подготовку" : isUk ? "Укажіть найзначнішу програму навчання, академію або викладача, які вплинули на вашу професійну підготовку" : "Name the most influential training program, academy, or educator in your professional development"}
+                      placeholder="Name the most influential training program, academy, or educator in your professional development"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Даты обучения" : isUk ? "Дати навчання" : "Education Dates"}</label>
-                    <input {...register("educationDates")} className="form-input" placeholder={isRu ? "Например: 2021-2023" : isUk ? "Наприклад: 2021-2023" : "Example: 2021-2023"} />
+                    <label className="field-label">Education Dates</label>
+                    <input {...register("educationDates")} className="form-input" placeholder="Example: 2021-2023" />
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Профессиональная лицензия" : isUk ? "Професійна ліцензія" : "Professional License"} *</label>
+                    <label className="field-label">Professional License *</label>
                     <select {...register("hasLicense", { required: true })} className="form-input appearance-none">
-                      <option value="Yes">{isRu ? "Да, есть лицензия" : isUk ? "Так, є ліцензія" : "Yes, licensed"}</option>
-                      <option value="No">{isRu ? "Нет, лицензии нет" : isUk ? "Ні, ліцензії немає" : "No, not licensed"}</option>
-                      <option value="Not required">{isRu ? "Не требуется в моей юрисдикции" : isUk ? "Не вимагається в моїй юрисдикції" : "Not required in my jurisdiction"}</option>
+                      <option value="Yes">Yes, licensed</option>
+                      <option value="No">No, not licensed</option>
+                      <option value="Not required">Not required in my jurisdiction</option>
                     </select>
                     {renderFieldError("hasLicense")}
                   </div>
                   <div className="space-y-2">
-                    <label className="field-label">{isRu ? "Номер лицензии" : isUk ? "Номер ліцензії" : "License Number"}{requiresLicenseNumber(selectedCategory) ? " *" : ""}</label>
+                    <label className="field-label">License Number{requiresLicenseNumber(selectedCategory) ? " *" : ""}</label>
                     <input
                       {...register("licenseNumber", {
                         validate: (value) =>
@@ -1084,17 +1061,17 @@ export default function ApplyPage() {
                           (isRu ? "Укажите номер лицензии." : isUk ? "Вкажіть номер ліцензії." : "Enter your license number."),
                       })}
                       className="form-input"
-                      placeholder={isRu ? "Номер лицензии, если применимо" : isUk ? "Номер ліцензії, якщо застосовно" : "License number if applicable"}
+                      placeholder="License number if applicable"
                     />
                     {renderFieldError("licenseNumber")}
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="field-label">{isRu ? "Дополнительные профессиональные квалификации" : isUk ? "Додаткові професійні кваліфікації" : "Additional professional qualifications"}</label>
+                    <label className="field-label">Additional professional qualifications</label>
                     <textarea
                       {...register("additionalEducation")}
                       rows={3}
                       className="form-input"
-                      placeholder={isRu ? "Укажите дополнительные курсы, мастер-классы, обучения, сертификации и профессиональные программы, направленные на развитие ваших навыков" : isUk ? "Укажіть додаткові курси, майстер-класи, навчання, сертифікації та професійні програми, спрямовані на розвиток ваших навичок" : "List any additional courses, masterclasses, training, certifications, and professional programs that strengthened your skills"}
+                      placeholder="List any additional courses, masterclasses, training, certifications, and professional programs that strengthened your skills"
                     />
                   </div>
                 </div>
@@ -1108,8 +1085,8 @@ export default function ApplyPage() {
                 headlineClassName={headlineClassName}
                 editorialClassName={editorialClassName}
                 selectedCategory={selectedCategory}
-                detailTitle={isRu ? selectedConfig.detailTitleRu : isUk ? selectedConfig.detailTitleUk : selectedConfig.detailTitle}
-                detailDescription={isRu ? selectedConfig.detailDescriptionRu : isUk ? selectedConfig.detailDescriptionUk : selectedConfig.detailDescription}
+                detailTitle={selectedConfig.detailTitle}
+                detailDescription={selectedConfig.detailDescription}
                 register={register}
                 watch={watch}
                 renderFieldError={renderFieldError}
@@ -1167,7 +1144,7 @@ export default function ApplyPage() {
                 isUk={isUk}
                 headlineClassName={headlineClassName}
                 editorialClassName={editorialClassName}
-                selectedConfigTitle={selectedConfigTitle}
+                selectedConfigTitle={selectedConfig.title}
                 localizedApplicantType={localizedApplicantType}
                 selectedPrice={selectedConfig.price}
                 register={register}

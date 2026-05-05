@@ -84,7 +84,7 @@ export function DetailsStep({
   trainerExperienceProofFiles,
   onTrainerExperienceProofFilesChange,
 }: DetailsStepProps) {
-  const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
+  const t = (en: string, _ru: string, _uk: string) => en;
   const requiresPortfolio = selectedCategory === "Specialist" || selectedCategory === "Professional" || selectedCategory === "Trainer";
   const isProfessionalLike = selectedCategory === "Professional" || selectedCategory === "Trainer" || selectedCategory === "Business";
   const achievementsYesNo = watch("achievementsYesNo");
