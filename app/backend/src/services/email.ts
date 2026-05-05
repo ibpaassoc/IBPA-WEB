@@ -31,4 +31,3 @@ export const resend = new Proxy(
 export const resendFrom = process.env.RESEND_FROM_EMAIL || "IBPA <onboarding@resend.dev>";
 export const adminNotificationEmail =
   process.env.ADMIN_NOTIFICATION_EMAIL || process.env.RESEND_FROM_EMAIL || "info@ibpassociations.org";
-export const stripeInvoiceCopyEmail = process.env.STRIPE_INVOICE_COPY_EMAIL || "";
