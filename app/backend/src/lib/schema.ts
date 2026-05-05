@@ -57,6 +57,15 @@ export const dashboardNotifications = pgTable("dashboard_notifications", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const emailLogs = pgTable("email_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  to: text("to").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const contentItems = pgTable("content_items", {
   id: uuid("id").primaryKey().defaultRandom(),
   type: varchar("type", { length: 20 }).notNull(),
@@ -99,5 +108,6 @@ export type Order = typeof orders.$inferSelect;
 export type Certificate = typeof certificates.$inferSelect;
 export type ApplicationAdditionalFile = typeof applicationAdditionalFiles.$inferSelect;
 export type DashboardNotificationRecord = typeof dashboardNotifications.$inferSelect;
+export type EmailLog = typeof emailLogs.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type User = typeof users.$inferSelect;
