@@ -4,9 +4,10 @@ import Stripe from "stripe";
 import { requireDb, orders, certificates, users } from "../lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
-import { adminNotificationEmail, resend, resendFrom } from "../services/email";
+import { adminNotificationEmail, resend, resendFrom, stripeInvoiceCopyEmail } from "../services/email";
 
 export const webhooksRouter = Router();
+const processedInvoiceCopyEvents = new Set<string>();
 
 async function markOrderPaid(orderId: string, stripeSessionId?: string | null) {
   const db = requireDb();
@@ -107,6 +108,59 @@ async function sendAdminPaymentReceivedEmail(params: {
         <p style="margin: 0 0 10px;"><strong>Membership:</strong> ${membershipCategory || "N/A"}</p>
         <p style="margin: 0 0 10px;"><strong>Order ID:</strong> ${orderId}</p>
         <p style="margin: 0;"><strong>Stripe session:</strong> ${stripeSessionId || "N/A"}</p>
+      </div>
+    `,
+  });
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatInvoiceAmount(invoice: Stripe.Invoice) {
+  const amount = typeof invoice.amount_due === "number" ? invoice.amount_due : invoice.amount_paid ?? 0;
+  const currency = (invoice.currency || "usd").toUpperCase();
+
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    }).format(amount / 100);
+  } catch {
+    return `${amount} ${currency}`;
+  }
+}
+
+async function sendStripeInvoiceCopyEmail(invoice: Stripe.Invoice) {
+  if (!stripeInvoiceCopyEmail) {
+    return null;
+  }
+
+  const invoiceLabel = invoice.number || invoice.id;
+  const customerName = invoice.customer_name || "Unknown";
+  const customerEmail = invoice.customer_email || "Unknown";
+  const hostedInvoiceUrl = invoice.hosted_invoice_url || "";
+  const invoicePdfUrl = invoice.invoice_pdf || "";
+
+  return resend.emails.send({
+    from: resendFrom,
+    to: stripeInvoiceCopyEmail,
+    subject: `Stripe invoice sent: ${invoiceLabel}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
+        <h1 style="margin: 0 0 16px; font-size: 24px;">Stripe invoice sent</h1>
+        <p style="margin: 0 0 10px;"><strong>Customer:</strong> ${escapeHtml(customerName)}</p>
+        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${escapeHtml(customerEmail)}</p>
+        <p style="margin: 0 0 10px;"><strong>Invoice:</strong> ${escapeHtml(invoiceLabel)}</p>
+        <p style="margin: 0 0 10px;"><strong>Amount:</strong> ${escapeHtml(formatInvoiceAmount(invoice))}</p>
+        <p style="margin: 0 0 10px;"><strong>Status:</strong> ${escapeHtml(invoice.status || "unknown")}</p>
+        <p style="margin: 0 0 10px;"><strong>Hosted invoice URL:</strong> ${hostedInvoiceUrl ? `<a href="${escapeHtml(hostedInvoiceUrl)}">${escapeHtml(hostedInvoiceUrl)}</a>` : "N/A"}</p>
+        <p style="margin: 0;"><strong>Invoice PDF URL:</strong> ${invoicePdfUrl ? `<a href="${escapeHtml(invoicePdfUrl)}">${escapeHtml(invoicePdfUrl)}</a>` : "N/A"}</p>
       </div>
     `,
   });
@@ -228,6 +282,40 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
         await markOrderPaid(orderId);
         await updateCertificateExpiry(orderId, expiresAt);
         console.log(`[Stripe Webhook] Membership renewal synced for order ${orderId}, expiresAt: ${expiresAt.toISOString()}`);
+      }
+    }
+
+    if (event.type === "invoice.sent") {
+      const invoice = event.data.object as Stripe.Invoice;
+
+      if (processedInvoiceCopyEvents.has(event.id)) {
+        console.log("[Stripe Webhook] Invoice copy email already processed for event", {
+          eventId: event.id,
+          invoiceId: invoice.id,
+        });
+      } else {
+        processedInvoiceCopyEvents.add(event.id);
+
+        try {
+          const copyEmailResult = await sendStripeInvoiceCopyEmail(invoice);
+
+          if (copyEmailResult) {
+            console.log("[Stripe Webhook] Stripe invoice copy notification sent", {
+              to: stripeInvoiceCopyEmail,
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.number ?? null,
+              id: copyEmailResult.data?.id ?? null,
+              error: copyEmailResult.error ?? null,
+            });
+          }
+        } catch (copyEmailError) {
+          console.error("[Stripe Webhook] Stripe invoice copy notification failed", {
+            to: stripeInvoiceCopyEmail,
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.number ?? null,
+            error: copyEmailError,
+          });
+        }
       }
     }
 
