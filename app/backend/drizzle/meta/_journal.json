@@ -15,6 +15,13 @@
       "when": 1777920000000,
       "tag": "0001_add_application_additional_files",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778000000000,
+      "tag": "0002_add_email_logs",
+      "breakpoints": true
     }
   ]
 }
