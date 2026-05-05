@@ -23,61 +23,7 @@ import { Order, OrderStatus } from "@/lib/types";
 import { AdminClient } from "@/lib/admin-types";
 import { toast } from "sonner";
 import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
-
-// Reusing field labels from applications page for the questionnaire tab
-const FIELD_LABELS: Record<string, string> = {
-  membershipCategory: "Категория членства",
-  applicantType: "Тип заявителя",
-  firstName: "Имя",
-  lastName: "Фамилия",
-  email: "Email",
-  phone: "Телефон",
-  citizenship: "Гражданство",
-  streetAddress: "Адрес",
-  city: "Город",
-  state: "Регион/Штат",
-  zipCode: "Почтовый индекс",
-  country: "Страна",
-  yearsExperience: "Стаж работы (лет)",
-  professionalDesc: "Профессиональное резюме",
-  workSetting: "Место работы (тип)",
-  placeOfWork: "Название организации",
-  workingJurisdictions: "Юрисдикции работы",
-  educationDesc: "Описание образования",
-  schoolName: "Учебное заведение",
-  educationDates: "Даты обучения",
-  hasLicense: "Наличие лицензии",
-  licenseNumber: "Номер лицензии",
-  additionalEducation: "Доп. образование",
-  specialization: "Специализация",
-  studentSchool: "Школа (студент)",
-  studentProgName: "Название программы",
-  studentStartDate: "Начало обучения",
-  studentEndDate: "Конец обучения",
-  studentMotivation: "Мотивация студента",
-  educatorRole: "Роль преподавателя",
-  educatorSubjects: "Предметы",
-  educatorYears: "Опыт преподавания",
-  educatorFormat: "Формат обучения",
-  studentCount: "Кол-во студентов",
-  bizName: "Название бизнеса",
-  bizType: "Тип бизнеса",
-  bizYear: "Работает с",
-  bizTeamSize: "Размер команды",
-  bizServices: "Услуги бизнеса",
-  brandName: "Название бренда",
-  brandYear: "Бренд с",
-  brandMarket: "Рынок бренда",
-  brandType: "Тип бренда",
-  instagramLink: "Instagram",
-  websiteLink: "Сайт",
-  linkedinLink: "LinkedIn",
-  portfolioLink: "Портфолио",
-  whyJoin: "Почему хочет вступить",
-  contributionDesc: "Вклад в ассоциацию",
-  legalName: "Юридическое имя",
-  signature: "Подпись",
-};
+import { formatApplicationValue, getApplicationFieldLabel } from "@/lib/application-fields";
 
 function getSubscriptionStatus(expiresAt?: string | null) {
   if (!expiresAt) {
@@ -322,10 +268,10 @@ export default function ClientsPage() {
     }
     return Object.entries(data)
       .map(([key, value]) => ({
-        label: FIELD_LABELS[key] || key,
-        value: Array.isArray(value) ? value.join(", ") : String(value)
+        label: getApplicationFieldLabel(key),
+        value: formatApplicationValue(key, value)
       }))
-      .filter(item => item.value && item.value !== "undefined" && item.value !== "null" && typeof item.value !== 'boolean');
+      .filter(item => item.value);
   };
 
   return (

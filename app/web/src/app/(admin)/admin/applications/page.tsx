@@ -23,6 +23,11 @@ import { AdminOrder, ApplicationAdditionalFile } from "@/lib/admin-types";
 import { getMembershipCategory, membershipConfigs } from "@/lib/membership";
 import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import { toast } from "sonner";
+import {
+  applicationSectionTitles,
+  formatApplicationValue,
+  getApplicationFieldLabel,
+} from "@/lib/application-fields";
 
 const STATUS_OPTIONS: Array<{ value: OrderStatus | "all"; label: string }> = [
   { value: "all", label: "Все статусы" },
@@ -33,76 +38,6 @@ const STATUS_OPTIONS: Array<{ value: OrderStatus | "all"; label: string }> = [
   { value: "paid", label: "Оплаченные" },
 ];
 
-const FIELD_LABELS: Record<string, string> = {
-  membershipCategory: "Категория членства",
-  applicantType: "Тип заявителя",
-  firstName: "Имя",
-  lastName: "Фамилия",
-  dateOfBirth: "Дата рождения",
-  email: "Email",
-  phone: "Телефон",
-  citizenship: "Гражданство",
-  streetAddress: "Адрес",
-  city: "Город",
-  state: "Регион/Штат",
-  zipCode: "Почтовый индекс",
-  country: "Страна",
-  yearsExperience: "Стаж работы (лет)",
-  professionalDesc: "Профессиональное резюме",
-  workSetting: "Место работы (тип)",
-  placeOfWork: "Название организации",
-  workingJurisdictions: "Юрисдикции работы",
-  educationDesc: "Описание образования",
-  schoolName: "Учебное заведение",
-  educationDates: "Даты обучения",
-  hasLicense: "Наличие лицензии",
-  licenseNumber: "Номер лицензии",
-  additionalEducation: "Доп. образование",
-  specialization: "Subcategory / Specialization",
-  specializationOther: "Other specialization",
-  studentSchool: "Школа (студент)",
-  studentProgName: "Название программы",
-  studentStartDate: "Начало обучения",
-  studentEndDate: "Конец обучения",
-  studentMotivation: "Мотивация студента",
-  educatorRole: "Роль преподавателя",
-  educatorSubjects: "Предметы",
-  educatorYears: "Опыт преподавания",
-  educatorFormat: "Формат обучения",
-  studentCount: "Кол-во студентов",
-  bizName: "Название бизнеса",
-  bizType: "Тип бизнеса",
-  bizYear: "Работает с",
-  bizTeamSize: "Размер команды",
-  bizServices: "Услуги бизнеса",
-  brandName: "Название бренда",
-  brandYear: "Бренд с",
-  brandMarket: "Рынок бренда",
-  brandType: "Тип бренда",
-  instagramLink: "Instagram",
-  websiteLink: "Сайт",
-  linkedinLink: "LinkedIn",
-  portfolioLink: "Портфолио",
-  trainerEducationPlanFiles: "Education Plan / Методичка",
-  trainerCertificateFiles: "Certificate",
-  trainerExperienceProofFiles: "Proof of educator experience",
-  whyJoin: "Почему хочет вступить",
-  contributionDesc: "Вклад в ассоциацию",
-  legalName: "Юридическое имя",
-  signature: "Подпись",
-  certifyTrue: "Данные верны",
-  understandReview: "Понимает процесс проверки",
-  agreeStandards: "Согласен со стандартами",
-  privacyConsent: "Согласие на обработку данных",
-};
-
-function formatValue(value: unknown) {
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "boolean") return value ? "Да" : "Нет";
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
-
 function buildSections(order: AdminOrder) {
   const payload = order.applicationPayload && typeof order.applicationPayload === "object"
     ? (order.applicationPayload as Record<string, unknown>)
@@ -110,15 +45,15 @@ function buildSections(order: AdminOrder) {
 
   const sections = [
     {
-      title: "Итоговое резюме",
+      title: applicationSectionTitles.summary,
       fields: ["membershipCategory", "applicantType", "specialization", "specializationOther", "yearsExperience", "workSetting"],
     },
     {
-      title: "Контактные данные",
+      title: applicationSectionTitles.contact,
       fields: ["email", "phone", "dateOfBirth", "citizenship", "country", "city", "state", "zipCode", "streetAddress"],
     },
     {
-      title: "Профессиональный опыт",
+      title: applicationSectionTitles.professional,
       fields: [
         "professionalDesc",
         "workingJurisdictions",
@@ -131,7 +66,7 @@ function buildSections(order: AdminOrder) {
       ],
     },
     {
-      title: "Детали категории",
+      title: applicationSectionTitles.category,
       fields: [
         "studentSchool",
         "studentProgName",
@@ -155,11 +90,11 @@ function buildSections(order: AdminOrder) {
       ],
     },
     {
-      title: "Ссылки и мотивация",
+      title: applicationSectionTitles.links,
       fields: ["instagramLink", "websiteLink", "linkedinLink", "portfolioLink", "whyJoin", "contributionDesc"],
     },
     {
-      title: "Юридическое согласие",
+      title: applicationSectionTitles.legal,
       fields: ["legalName", "signature", "certifyTrue", "understandReview", "agreeStandards", "privacyConsent"],
     },
   ];
@@ -169,8 +104,8 @@ function buildSections(order: AdminOrder) {
       ...section,
       items: section.fields
         .map((field) => ({
-          label: FIELD_LABELS[field] || field,
-          value: formatValue(payload[field]),
+          label: getApplicationFieldLabel(field),
+          value: formatApplicationValue(field, payload[field]),
         }))
         .filter((item) => item.value),
     }))
@@ -208,15 +143,15 @@ function getTrainerFileGroups(order: AdminOrder): Array<{ title: string; files: 
 
   return [
     {
-      title: "Education Plan / Методичка",
+      title: getApplicationFieldLabel("trainerEducationPlanFiles"),
       files: fileListFromPayload(payload, "trainerEducationPlanFiles"),
     },
     {
-      title: "Certificate",
+      title: getApplicationFieldLabel("trainerCertificateFiles"),
       files: fileListFromPayload(payload, "trainerCertificateFiles"),
     },
     {
-      title: "Proof of educator experience",
+      title: getApplicationFieldLabel("trainerExperienceProofFiles"),
       files: fileListFromPayload(payload, "trainerExperienceProofFiles"),
       imagePreview: true,
     },
