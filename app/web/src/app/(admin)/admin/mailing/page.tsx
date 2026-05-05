@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, Link2, Loader2, Mail, Send, Users } from "lucide-react";
+import { Bell, Link2, Loader2, Mail, Send, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { AdminClient } from "@/lib/admin-types";
 
@@ -123,6 +123,23 @@ export default function MailingPage() {
   };
 
   const selectedCount = selectedEmails.size;
+
+  const handleDeleteEmailLog = async (id: string) => {
+    try {
+      const resp = await fetch(`/api/admin/email-logs?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete email history item");
+      }
+
+      setEmailLogs((logs) => logs.filter((log) => log.id !== id));
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete email history item.");
+    }
+  };
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -321,6 +338,7 @@ export default function MailingPage() {
                         <th className="px-4 py-3">To</th>
                         <th className="px-4 py-3">Subject</th>
                         <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3 text-right"> </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
@@ -337,6 +355,17 @@ export default function MailingPage() {
                             <td className="max-w-[220px] truncate px-4 py-3 text-xs font-medium text-slate-800">{log.subject}</td>
                             <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-400">
                               {new Date(log.createdAt).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteEmailLog(log.id)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                                aria-label="Delete email history item"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </td>
                           </tr>
                         ))
