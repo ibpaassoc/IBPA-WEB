@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, Link2, Loader2, Mail, Send, Users } from "lucide-react";
+import { Bell, Link2, Loader2, Mail, Send, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { AdminClient } from "@/lib/admin-types";
 
 type MailingTab = "email" | "dashboard";
+
+type EmailLog = {
+  id: string;
+  to: string;
+  subject: string;
+  createdAt: string;
+};
 
 export default function MailingPage() {
   const [activeTab, setActiveTab] = useState<MailingTab>("email");
@@ -22,6 +29,7 @@ export default function MailingPage() {
 
   const [clients, setClients] = useState<AdminClient[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
@@ -47,9 +55,25 @@ export default function MailingPage() {
     }
   }, []);
 
+  const fetchEmailLogs = useCallback(async () => {
+    try {
+      const resp = await fetch("/api/admin/email-logs", { cache: "no-store" });
+      if (resp.ok) {
+        const data = await resp.json();
+        setEmailLogs(data);
+      }
+    } catch (error) {
+      console.error("Failed to load email logs", error);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchClients();
   }, [fetchClients]);
+
+  useEffect(() => {
+    void fetchEmailLogs();
+  }, [fetchEmailLogs]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -100,6 +124,23 @@ export default function MailingPage() {
 
   const selectedCount = selectedEmails.size;
 
+  const handleDeleteEmailLog = async (id: string) => {
+    try {
+      const resp = await fetch(`/api/admin/email-logs?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete email history item");
+      }
+
+      setEmailLogs((logs) => logs.filter((log) => log.id !== id));
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete email history item.");
+    }
+  };
+
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -139,6 +180,7 @@ export default function MailingPage() {
       toast.success(`Письма отправлены: ${result.count}`);
       setEmailSubject("");
       setEmailMessage("");
+      void fetchEmailLogs();
     } catch (error: any) {
       toast.error(error.message || "Произошла ошибка при отправке рассылки.");
     } finally {
@@ -286,6 +328,52 @@ export default function MailingPage() {
                   </button>
                 </div>
               </form>
+
+              <div className="mt-10 border-t border-slate-100 pt-6">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-slate-900">Email History</h3>
+                <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                  <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
+                    <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3">To</th>
+                        <th className="px-4 py-3">Subject</th>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3 text-right"> </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {emailLogs.length === 0 ? (
+                        <tr>
+                          <td className="px-4 py-5 text-center text-xs text-slate-400" colSpan={4}>
+                            No email history yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        emailLogs.map((log) => (
+                          <tr key={log.id}>
+                            <td className="max-w-[180px] truncate px-4 py-3 text-xs text-slate-600">{log.to}</td>
+                            <td className="max-w-[220px] truncate px-4 py-3 text-xs font-medium text-slate-800">{log.subject}</td>
+                            <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-400">
+                              {new Date(log.createdAt).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteEmailLog(log.id)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                                aria-label="Delete email history item"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </>
           ) : (
             <>
