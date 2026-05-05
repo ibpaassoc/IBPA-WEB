@@ -30,7 +30,9 @@ export default function MailingPage() {
   const [clients, setClients] = useState<AdminClient[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
-  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
+  const [hasUserModifiedSelection, setHasUserModifiedSelection] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const fetchClients = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -43,7 +45,6 @@ export default function MailingPage() {
       if (resp.ok) {
         const data = await resp.json();
         setClients(data);
-        setSelectedEmails(new Set(data.map((c: AdminClient) => c.email)));
         setLastSyncedAt(new Date().toISOString());
       }
     } catch (error) {
@@ -110,19 +111,28 @@ export default function MailingPage() {
   }, [clients, audienceFilter]);
 
   useEffect(() => {
-    setSelectedEmails(new Set(filteredClients.map((c) => c.email)));
-  }, [filteredClients]);
+    if (!hasInitializedSelection && !hasUserModifiedSelection && clients.length > 0) {
+      setSelectedUserIds(new Set(clients.map((c) => c.id)));
+      setHasInitializedSelection(true);
+    }
+  }, [clients, hasInitializedSelection, hasUserModifiedSelection]);
 
-  const toggleClient = (email: string) => {
-    setSelectedEmails((prev) => {
+  const toggleClient = (id: string) => {
+    setHasUserModifiedSelection(true);
+    setSelectedUserIds((prev) => {
       const next = new Set(prev);
-      if (next.has(email)) next.delete(email);
-      else next.add(email);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
-  const selectedCount = selectedEmails.size;
+  const selectedEmails = useMemo(
+    () => clients.filter((client) => selectedUserIds.has(client.id)).map((client) => client.email),
+    [clients, selectedUserIds],
+  );
+
+  const selectedCount = selectedEmails.length;
 
   const handleDeleteEmailLog = async (id: string) => {
     try {
@@ -477,7 +487,10 @@ export default function MailingPage() {
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-100/50 p-3">
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Выбрано: {selectedCount}</span>
               <button
-                onClick={() => setSelectedEmails(new Set(filteredClients.map((c) => c.email)))}
+                onClick={() => {
+                  setHasUserModifiedSelection(true);
+                  setSelectedUserIds(new Set(filteredClients.map((c) => c.id)));
+                }}
                 className="text-[10px] font-bold uppercase tracking-wide text-[#72A0C1] hover:underline"
               >
                 Выбрать всех
@@ -499,19 +512,19 @@ export default function MailingPage() {
                   <label
                     key={client.id}
                     className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
-                      selectedEmails.has(client.email)
+                      selectedUserIds.has(client.id)
                         ? "border-[#72A0C1]/30 bg-white shadow-sm"
                         : "border-transparent bg-transparent hover:bg-slate-100"
                     }`}
                   >
                     <input
                       type="checkbox"
-                      checked={selectedEmails.has(client.email)}
-                      onChange={() => toggleClient(client.email)}
+                      checked={selectedUserIds.has(client.id)}
+                      onChange={() => toggleClient(client.id)}
                       className="h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className={`truncate text-sm font-bold ${selectedEmails.has(client.email) ? "text-slate-900" : "text-slate-500"}`}>
+                      <p className={`truncate text-sm font-bold ${selectedUserIds.has(client.id) ? "text-slate-900" : "text-slate-500"}`}>
                         {client.userName}
                       </p>
                       <p className="truncate text-[10px] tracking-wide text-slate-400">{client.email}</p>
