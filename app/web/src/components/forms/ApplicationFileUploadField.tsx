@@ -4,6 +4,7 @@ import React from "react";
 import { FileText, Loader2, Trash2, UploadCloud } from "lucide-react";
 import { genUploader } from "uploadthing/client";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { isImageLikeFile, prepareUploadFiles, withHeicAccept } from "@/lib/heic-upload";
 import type { OurFileRouter } from "@/app/api/uploadthing/core";
 
 const { uploadFiles } = genUploader<OurFileRouter>({
@@ -48,7 +49,7 @@ export function ApplicationFileUploadField({
     async (fileList?: FileList | File[] | null) => {
       if (!fileList?.length) return;
 
-      const files = Array.from(fileList).filter((file) => !imageOnly || file.type.startsWith("image/"));
+      const files = Array.from(fileList).filter((file) => !imageOnly || isImageLikeFile(file));
       if (!files.length) return;
 
       const availableSlots = maxFiles - value.length;
@@ -58,7 +59,8 @@ export function ApplicationFileUploadField({
 
       setIsUploading(true);
       try {
-        const result = await uploadFiles(endpoint, { files: filesToUpload });
+        const preparedFiles = await prepareUploadFiles(filesToUpload);
+        const result = await uploadFiles(endpoint, { files: preparedFiles });
         const uploadedUrls = result
           .map((item) => item.serverData?.url || item.ufsUrl || item.url)
           .filter((item): item is string => Boolean(item));
@@ -105,7 +107,7 @@ export function ApplicationFileUploadField({
           ref={inputRef}
           type="file"
           multiple={multiple}
-          accept={accept}
+          accept={withHeicAccept(accept)}
           className="hidden"
           onChange={async (event) => {
             await handleFiles(event.target.files);
