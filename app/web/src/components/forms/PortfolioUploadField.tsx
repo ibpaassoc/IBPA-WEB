@@ -34,8 +34,8 @@ export function PortfolioUploadField({
   const [isUploading, setIsUploading] = React.useState(false);
 
   const t = React.useCallback(
-    (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en),
-    [isRu, isUk],
+    (en: string, _ru: string, _uk: string) => en,
+    [],
   );
 
   const handleFiles = React.useCallback(

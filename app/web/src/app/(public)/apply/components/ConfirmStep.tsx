@@ -27,7 +27,7 @@ export function ConfirmStep({
   register,
   renderFieldError,
 }: ConfirmStepProps) {
-  const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
+  const t = (en: string, _ru: string, _uk: string) => en;
 
   return (
     <motion.div
