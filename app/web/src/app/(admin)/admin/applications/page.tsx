@@ -19,7 +19,7 @@ import {
   FileText,
 } from "lucide-react";
 import { OrderStatus } from "@/lib/types";
-import { AdminOrder, ApplicationAdditionalFile } from "@/lib/admin-types";
+import { AdminOrder, AdminOrdersResponse, AdminOrderSummary, ApplicationAdditionalFile } from "@/lib/admin-types";
 import { getMembershipCategory, membershipConfigs } from "@/lib/membership";
 import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import { toast } from "sonner";
@@ -37,6 +37,16 @@ const STATUS_OPTIONS: Array<{ value: OrderStatus | "all"; label: string }> = [
   { value: "approved", label: "Approved" },
   { value: "paid", label: "Paid" },
 ];
+
+const APPLICATIONS_PAGE_SIZE = 20;
+const EMPTY_SUMMARY: AdminOrderSummary = {
+  all: 0,
+  pending: 0,
+  review: 0,
+  rejected: 0,
+  approved: 0,
+  paid: 0,
+};
 
 function buildSections(order: AdminOrder) {
   const payload = order.applicationPayload && typeof order.applicationPayload === "object"
@@ -192,6 +202,8 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 export default function ApplicationsPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isApproving, setIsApproving] = useState<string | null>(null);
   const [isResendingPaymentLink, setIsResendingPaymentLink] = useState<string | null>(null);
   const [isReviewing, setIsReviewing] = useState<string | null>(null);
@@ -200,12 +212,18 @@ export default function ApplicationsPage() {
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [summary, setSummary] = useState<AdminOrderSummary>(EMPTY_SUMMARY);
+  const [hasMoreOrders, setHasMoreOrders] = useState(false);
   const [selectedMembershipCategory, setSelectedMembershipCategory] = useState("");
   const [isUpdatingMembershipCategory, setIsUpdatingMembershipCategory] = useState(false);
   const [additionalFiles, setAdditionalFiles] = useState<ApplicationAdditionalFile[]>([]);
   const [isLoadingAdditionalFiles, setIsLoadingAdditionalFiles] = useState(false);
   const [isDeletingAdditionalFile, setIsDeletingAdditionalFile] = useState<string | null>(null);
+  const [showAllPortfolioImages, setShowAllPortfolioImages] = useState(false);
+  const [showAllTrainerImages, setShowAllTrainerImages] = useState(false);
 
   const readErrorMessage = async (resp: Response) => {
     try {
@@ -223,14 +241,35 @@ export default function ApplicationsPage() {
     return "Could not complete the request.";
   };
 
-  const fetchOrders = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-    if (!silent) {
+  const fetchOrders = useCallback(async ({
+    silent = false,
+    append = false,
+    offset = 0,
+    limit,
+  }: { silent?: boolean; append?: boolean; offset?: number; limit?: number } = {}) => {
+    if (append) {
+      setIsLoadingMore(true);
+    } else if (!silent) {
       setIsLoading(true);
     }
 
     try {
-      const resp = await fetch("/api/orders", { cache: "no-store" });
-      const data = await resp.json();
+      const params = new URLSearchParams({
+        limit: String(limit ?? APPLICATIONS_PAGE_SIZE),
+        offset: String(offset),
+      });
+
+      if (statusFilter !== "all") {
+        params.set("status", statusFilter);
+      }
+
+      const query = debouncedSearchQuery.trim();
+      if (query) {
+        params.set("q", query);
+      }
+
+      const resp = await fetch(`/api/orders?${params.toString()}`, { cache: "no-store" });
+      const data = (await resp.json()) as AdminOrdersResponse | { error?: string };
 
       if (!resp.ok) {
         const message =
@@ -240,28 +279,42 @@ export default function ApplicationsPage() {
         throw new Error(message);
       }
 
-      if (!Array.isArray(data)) {
+      if (!data || !Array.isArray((data as AdminOrdersResponse).items)) {
         throw new Error("The server returned an invalid application list format.");
       }
 
-      setOrders(
-        data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      );
+      const listData = data as AdminOrdersResponse;
+      setOrders((prev) => append ? [...prev, ...listData.items] : listData.items);
+      setTotalOrders(Number(listData.total) || 0);
+      setSummary(listData.summary || EMPTY_SUMMARY);
+      setHasMoreOrders(Boolean(listData.hasMore));
       setLastSyncedAt(new Date().toISOString());
     } catch (error: any) {
       console.error("[fetchOrders] Client-side fetch failed:", error, { name: error?.name, message: error?.message });
       if (!silent) {
         setOrders([]);
+        setTotalOrders(0);
+        setSummary(EMPTY_SUMMARY);
+        setHasMoreOrders(false);
         toast.error(`Failed to load applications: ${error?.message || "Unknown error"}`);
       }
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
-  }, []);
+  }, [debouncedSearchQuery, statusFilter]);
 
   useEffect(() => {
     void fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   useEffect(() => {
     setSelectedMembershipCategory(getMembershipCategory(selectedOrder?.membershipCategory) ?? "");
@@ -306,16 +359,16 @@ export default function ApplicationsPage() {
     }
 
     const intervalId = window.setInterval(() => {
-      void fetchOrders({ silent: true });
+      void fetchOrders({ silent: true, limit: Math.max(APPLICATIONS_PAGE_SIZE, orders.length) });
     }, 30000);
 
     const handleFocus = () => {
-      void fetchOrders({ silent: true });
+      void fetchOrders({ silent: true, limit: Math.max(APPLICATIONS_PAGE_SIZE, orders.length) });
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void fetchOrders({ silent: true });
+        void fetchOrders({ silent: true, limit: Math.max(APPLICATIONS_PAGE_SIZE, orders.length) });
       }
     };
 
@@ -327,24 +380,39 @@ export default function ApplicationsPage() {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, orders.length]);
 
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-      const matchesSearch =
-        !searchQuery.trim() ||
-        order.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.membershipCategory?.toLowerCase().includes(searchQuery.toLowerCase());
+  const handleLoadMore = () => {
+    void fetchOrders({ append: true, offset: orders.length });
+  };
 
-      return matchesStatus && matchesSearch;
-    });
-  }, [orders, searchQuery, statusFilter]);
+  const handleOpenOrder = async (order: AdminOrder) => {
+    setSelectedOrder(order);
+    setShowAllPortfolioImages(false);
+    setShowAllTrainerImages(false);
+    setIsLoadingDetail(true);
+
+    try {
+      const resp = await fetch(`/api/admin/orders/${order.id}`, { cache: "no-store" });
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data?.error || "Could not load application details.");
+      }
+
+      setSelectedOrder(data as AdminOrder);
+    } catch (error) {
+      console.error("Failed to load application detail", error);
+      toast.error(error instanceof Error ? error.message : "Failed to load application details.");
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
 
   const selectedSections = selectedOrder ? buildSections(selectedOrder) : [];
   const selectedPortfolioImages = selectedOrder ? getPortfolioImages(selectedOrder) : [];
   const selectedTrainerFileGroups = selectedOrder ? getTrainerFileGroups(selectedOrder) : [];
+  const visiblePortfolioImages = showAllPortfolioImages ? selectedPortfolioImages : selectedPortfolioImages.slice(0, 6);
+  const getVisibleTrainerFiles = (files: string[]) => showAllTrainerImages ? files : files.slice(0, 6);
   const hasMembershipCategoryChange =
     Boolean(selectedOrder) &&
     Boolean(selectedMembershipCategory) &&
@@ -354,12 +422,12 @@ export default function ApplicationsPage() {
     value: number;
     filter: OrderStatus | "all";
   }> = [
-    { label: "Total", value: orders.length, filter: "all" },
-    { label: "New", value: orders.filter((order) => order.status === "pending").length, filter: "pending" },
-    { label: "Additional review", value: orders.filter((order) => order.status === "review").length, filter: "review" },
-    { label: "Rejected", value: orders.filter((order) => order.status === "rejected").length, filter: "rejected" },
-    { label: "Approved", value: orders.filter((order) => order.status === "approved").length, filter: "approved" },
-    { label: "Paid", value: orders.filter((order) => order.status === "paid").length, filter: "paid" }
+    { label: "Total", value: summary.all, filter: "all" },
+    { label: "New", value: summary.pending, filter: "pending" },
+    { label: "Additional review", value: summary.review, filter: "review" },
+    { label: "Rejected", value: summary.rejected, filter: "rejected" },
+    { label: "Approved", value: summary.approved, filter: "approved" },
+    { label: "Paid", value: summary.paid, filter: "paid" }
   ];
 
   const handleApprove = async (orderId: string) => {
@@ -767,10 +835,24 @@ export default function ApplicationsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[#B9D9EB]" />
+        <div className="grid gap-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="rounded-3xl border border-slate-100 bg-white p-4 lg:p-5 shadow-sm">
+              <div className="flex animate-pulse items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-slate-100" />
+                <div className="flex-1 space-y-3">
+                  <div className="h-4 w-40 rounded bg-slate-100" />
+                  <div className="h-3 w-64 max-w-full rounded bg-slate-100" />
+                  <div className="flex gap-2">
+                    <div className="h-6 w-20 rounded-full bg-slate-100" />
+                    <div className="h-6 w-24 rounded-full bg-slate-100" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      ) : filteredOrders.length === 0 ? (
+      ) : orders.length === 0 ? (
         <div className="rounded-3xl border border-slate-100 bg-white p-16 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-300">
             <ClipboardList className="h-8 w-8" />
@@ -780,10 +862,10 @@ export default function ApplicationsPage() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {filteredOrders.map((order) => (
+          {orders.map((order) => (
             <div
               key={order.id}
-              onClick={() => setSelectedOrder(order)}
+              onClick={() => void handleOpenOrder(order)}
               className="group cursor-pointer rounded-3xl border border-slate-100 bg-white p-4 lg:p-5 shadow-sm transition-all hover:border-[#72A0C1]/30 hover:shadow-xl"
             >
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -839,6 +921,17 @@ export default function ApplicationsPage() {
               </div>
             </div>
           ))}
+          {hasMoreOrders && (
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-bold text-slate-600 shadow-sm transition-all hover:border-[#72A0C1]/30 hover:text-[#4C7D9D] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isLoadingMore ? "Loading..." : `Load more (${orders.length} of ${totalOrders})`}
+            </button>
+          )}
         </div>
       )}
 
@@ -856,6 +949,12 @@ export default function ApplicationsPage() {
               <div className="grid h-full lg:grid-cols-[1fr_380px]">
                 {/* LEFT COLUMN: APPLICATION DATA */}
                 <div className="p-8 md:p-12 lg:border-r lg:border-slate-100">
+                  {isLoadingDetail && (
+                    <div className="mb-6 flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading full application details
+                    </div>
+                  )}
                   <header className="mb-12 flex flex-col gap-6 md:flex-row md:items-center">
                     <div className="flex h-20 w-20 items-center justify-center rounded-[30px] bg-[#72A0C1]/10 text-[#72A0C1] text-3xl font-bold">
                       {selectedOrder.name[0]?.toUpperCase()}
@@ -889,7 +988,7 @@ export default function ApplicationsPage() {
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                          {selectedPortfolioImages.map((imageUrl, index) => (
+                          {visiblePortfolioImages.map((imageUrl, index) => (
                             <a
                               key={`${imageUrl}-${index}`}
                               href={imageUrl}
@@ -900,11 +999,22 @@ export default function ApplicationsPage() {
                               <img
                                 src={imageUrl}
                                 alt={`Portfolio example ${index + 1}`}
+                                loading="lazy"
+                                decoding="async"
                                 className="aspect-square h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                               />
                             </a>
                           ))}
                         </div>
+                        {selectedPortfolioImages.length > visiblePortfolioImages.length && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllPortfolioImages(true)}
+                            className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500 transition-all hover:border-[#72A0C1]/30 hover:text-[#4C7D9D]"
+                          >
+                            Show all images ({selectedPortfolioImages.length})
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -927,7 +1037,7 @@ export default function ApplicationsPage() {
 
                               {group.imagePreview ? (
                                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                                  {group.files.map((fileUrl, index) => (
+                                  {getVisibleTrainerFiles(group.files).map((fileUrl, index) => (
                                     <a
                                       key={`${group.title}-${fileUrl}-${index}`}
                                       href={fileUrl}
@@ -938,6 +1048,8 @@ export default function ApplicationsPage() {
                                       <img
                                         src={fileUrl}
                                         alt={`${group.title} ${index + 1}`}
+                                        loading="lazy"
+                                        decoding="async"
                                         className="aspect-square h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                                       />
                                     </a>
@@ -960,6 +1072,15 @@ export default function ApplicationsPage() {
                                     </a>
                                   ))}
                                 </div>
+                              )}
+                              {group.imagePreview && group.files.length > getVisibleTrainerFiles(group.files).length && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAllTrainerImages(true)}
+                                  className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500 transition-all hover:border-[#72A0C1]/30 hover:text-[#4C7D9D]"
+                                >
+                                  Show all files ({group.files.length})
+                                </button>
                               )}
                             </div>
                           ))}

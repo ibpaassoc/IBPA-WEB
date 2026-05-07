@@ -8,7 +8,8 @@ export async function GET(request: Request) {
   if (error || !authHeaders) return error!;
 
   try {
-    const res = await fetch(`${backendUrl}/api/orders`, {
+    const sourceUrl = new URL(request.url);
+    const res = await fetch(`${backendUrl}/api/orders${sourceUrl.search}`, {
       headers: authHeaders,
       cache: "no-store",
     });
