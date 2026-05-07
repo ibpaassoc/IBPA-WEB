@@ -175,7 +175,7 @@ const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }
   zipCode: { en: "ZIP / Postal code", ru: "ZIP / индекс", uk: "ZIP / індекс" },
   country: { en: "Country", ru: "Страна", uk: "Країна" },
   yearsExperience: { en: "Years of experience", ru: "Опыт работы", uk: "Досвід роботи" },
-  professionalDesc: { en: "Professional description", ru: "Профессиональное описание", uk: "Професійний опис" },
+  professionalDesc: { en: "Professional resume", ru: "Профессиональное резюме", uk: "Професійне резюме" },
   workSetting: { en: "Work setting", ru: "Формат работы", uk: "Формат роботи" },
   placeOfWork: { en: "Place of work", ru: "Место работы", uk: "Місце роботи" },
   workingJurisdictions: { en: "Working jurisdictions", ru: "Где вы работаете", uk: "Де ви працюєте" },
@@ -994,12 +994,13 @@ export default function ApplyPage() {
                     <input {...register("placeOfWork")} className="form-input" placeholder="Salon, academy, or company name" />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="field-label">Professional Description *</label>
+                    <label className="field-label">Professional Resume *</label>
                     <textarea
-                      {...register("professionalDesc", { required: isRu ? "Добавьте профессиональное описание." : isUk ? "Додайте професійний опис." : "Add your professional description." })}
+                      {...register("professionalDesc", { required: isRu ? "Добавьте профессиональное резюме." : isUk ? "Додайте професійне резюме." : "Add your professional resume." })}
                       rows={4}
                       className="form-input"
-                      placeholder="Describe your activity, specialization, training (if any), and contribution to the development of the industry"
+                      placeholder="Describe your professional activity, specialization, training (if any), achievements, and contribution to the beauty industry. Please provide a clear and detailed description of your experience and work.
+"
                     />
                     {renderFieldError("professionalDesc")}
                   </div>

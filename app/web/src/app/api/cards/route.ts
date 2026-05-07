@@ -6,7 +6,8 @@ export async function GET(req: Request) {
   if (error || !authHeaders) return error!;
 
   try {
-    const res = await fetch(`${backendUrl}/api/cards`, {
+    const sourceUrl = new URL(req.url);
+    const res = await fetch(`${backendUrl}/api/cards${sourceUrl.search}`, {
       headers: authHeaders,
       cache: "no-store",
     });

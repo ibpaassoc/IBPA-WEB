@@ -12,9 +12,9 @@ export type AdminOrder = {
   status: OrderStatus;
   stripeSessionId?: string | null;
   checkoutUrl?: string | null;
-  secureToken: string;
+  secureToken?: string;
   createdAt: string;
-  certificateNumber?: string;
+  certificateNumber?: string | null;
 };
 
 export type ApplicationAdditionalFile = {
@@ -48,6 +48,31 @@ export type AdminClient = {
   country?: string | null;
   city?: string | null;
   hasDashboardAccess?: boolean;
+};
+
+export type AdminListResponse<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+};
+
+export type AdminOrderSummary = {
+  all: number;
+  pending: number;
+  review: number;
+  rejected: number;
+  approved: number;
+  paid: number;
+};
+
+export type AdminOrdersResponse = AdminListResponse<AdminOrder> & {
+  summary: AdminOrderSummary;
+};
+
+export type AdminCardsResponse = AdminListResponse<AdminClient> & {
+  categories?: string[];
 };
 
 export type AdminContentItem = {

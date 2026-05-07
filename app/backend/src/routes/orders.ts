@@ -1,7 +1,7 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { requireDb, orders, certificates, applicationAdditionalFiles } from "../lib/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
 import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
@@ -48,6 +48,45 @@ type AdditionalFileInput = {
   fileKey: string | null;
   fileType: string;
 };
+
+const ADMIN_ORDER_LIST_DEFAULT_LIMIT = 20;
+const ADMIN_ORDER_LIST_MAX_LIMIT = 50;
+const ADMIN_ORDER_STATUSES = new Set(["pending", "review", "rejected", "approved", "paid"]);
+
+function getPaginationParams(query: Record<string, unknown>, defaultLimit: number, maxLimit: number) {
+  const rawLimit = Number(query.limit);
+  const rawOffset = Number(query.offset);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(Math.max(Math.trunc(rawLimit), 1), maxLimit)
+    : defaultLimit;
+  const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0;
+
+  return { limit, offset };
+}
+
+function countToNumber(value: unknown) {
+  return typeof value === "number" ? value : Number(value || 0);
+}
+
+function getOrderSearchCondition(q: unknown) {
+  if (typeof q !== "string" || !q.trim()) {
+    return undefined;
+  }
+
+  const term = `%${q.trim()}%`;
+  return sql`(${orders.name} ilike ${term} or ${orders.email} ilike ${term} or ${orders.membershipCategory} ilike ${term})`;
+}
+
+function getOrderStatusCondition(status: unknown) {
+  return typeof status === "string" && ADMIN_ORDER_STATUSES.has(status)
+    ? eq(orders.status, status)
+    : undefined;
+}
+
+function combineConditions(...conditions: Array<ReturnType<typeof getOrderSearchCondition>>) {
+  const active = conditions.filter(Boolean);
+  return active.length > 0 ? and(...active) : undefined;
+}
 
 function normalizeHeaderValue(value: unknown, maxLength = 120) {
   if (typeof value !== "string") {
@@ -516,17 +555,136 @@ async function sendRejectedEmail(params: {
   });
 }
 
-// 0. Get all orders (for admin)
+// 0. Get paginated orders (for admin)
 ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
   try {
     const db = requireDb();
-    const allOrders = await db.select().from(orders);
-    res.json(allOrders);
+    const { limit, offset } = getPaginationParams(req.query, ADMIN_ORDER_LIST_DEFAULT_LIMIT, ADMIN_ORDER_LIST_MAX_LIMIT);
+    const searchCondition = getOrderSearchCondition(req.query.q);
+    const statusCondition = getOrderStatusCondition(req.query.status);
+    const whereCondition = combineConditions(searchCondition, statusCondition);
+    const searchOnlyCondition = combineConditions(searchCondition);
+
+    const itemsQuery = db
+      .select({
+        id: orders.id,
+        email: orders.email,
+        name: orders.name,
+        membershipCategory: orders.membershipCategory,
+        applicantType: orders.applicantType,
+        status: orders.status,
+        createdAt: orders.createdAt,
+        certificateNumber: certificates.certNumber,
+      })
+      .from(orders)
+      .leftJoin(certificates, eq(orders.id, certificates.orderId))
+      .orderBy(desc(orders.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const countQuery = db
+      .select({ count: sql<number>`count(*)` })
+      .from(orders);
+
+    if (whereCondition) {
+      itemsQuery.where(whereCondition);
+      countQuery.where(whereCondition);
+    }
+
+    const summaryBaseQuery = db
+      .select({
+        status: orders.status,
+        count: sql<number>`count(*)`,
+      })
+      .from(orders)
+      .groupBy(orders.status);
+
+    if (searchOnlyCondition) {
+      summaryBaseQuery.where(searchOnlyCondition);
+    }
+
+    const [items, countRows, summaryRows] = await Promise.all([
+      itemsQuery,
+      countQuery,
+      summaryBaseQuery,
+    ]);
+
+    const total = countToNumber(countRows[0]?.count);
+    const summary = {
+      all: 0,
+      pending: 0,
+      review: 0,
+      rejected: 0,
+      approved: 0,
+      paid: 0,
+    };
+
+    for (const row of summaryRows) {
+      const status = row.status as keyof typeof summary;
+      if (status in summary) {
+        summary[status] = countToNumber(row.count);
+      }
+      summary.all += countToNumber(row.count);
+    }
+
+    res.json({
+      items,
+      total,
+      summary,
+      limit,
+      offset,
+      hasMore: offset + items.length < total,
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
     }
+    console.error("Failed to fetch orders:", error);
     res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+
+ordersRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  try {
+    const id = getSingleValue(req.params.id);
+    if (!id) {
+      return res.status(400).json({ error: "Invalid application id" });
+    }
+
+    const db = requireDb();
+    const [application] = await db
+      .select({
+        id: orders.id,
+        email: orders.email,
+        name: orders.name,
+        membershipCategory: orders.membershipCategory,
+        applicantType: orders.applicantType,
+        applicationPayload: orders.applicationPayload,
+        status: orders.status,
+        stripeSessionId: orders.stripeSessionId,
+        secureToken: orders.secureToken,
+        phone: orders.phone,
+        createdAt: orders.createdAt,
+        certificateNumber: certificates.certNumber,
+      })
+      .from(orders)
+      .leftJoin(certificates, eq(orders.id, certificates.orderId))
+      .where(eq(orders.id, id));
+
+    if (!application) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    res.json({
+      ...application,
+      checkoutUrl: application.status === "approved" ? getPaymentLinkUrl(application.secureToken) : null,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+    console.error("Failed to fetch order detail:", error);
+    res.status(500).json({ error: "Failed to fetch order detail" });
   }
 });
 

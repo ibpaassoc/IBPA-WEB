@@ -7,6 +7,40 @@ import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 export const dashboardRouter = Router();
 export const cardsRouter = Router();
 
+const ADMIN_CARD_LIST_DEFAULT_LIMIT = 20;
+const ADMIN_CARD_MAILING_DEFAULT_LIMIT = 100;
+const ADMIN_CARD_LIST_MAX_LIMIT = 50;
+const ADMIN_CARD_MAILING_MAX_LIMIT = 200;
+
+function getPaginationParams(query: Record<string, unknown>, defaultLimit: number, maxLimit: number) {
+  const rawLimit = Number(query.limit);
+  const rawOffset = Number(query.offset);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(Math.max(Math.trunc(rawLimit), 1), maxLimit)
+    : defaultLimit;
+  const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0;
+
+  return { limit, offset };
+}
+
+function countToNumber(value: unknown) {
+  return typeof value === "number" ? value : Number(value || 0);
+}
+
+function getCardSearchCondition(q: unknown) {
+  if (typeof q !== "string" || !q.trim()) {
+    return undefined;
+  }
+
+  const term = `%${q.trim()}%`;
+  return sql`(${orders.name} ilike ${term} or ${orders.email} ilike ${term} or ${certificates.certNumber} ilike ${term} or ${orders.membershipCategory} ilike ${term})`;
+}
+
+function combineConditions(...conditions: any[]) {
+  const active = conditions.filter(Boolean);
+  return active.length > 0 ? and(...active) : undefined;
+}
+
 const EDITABLE_APPLICATION_FIELDS = [
   "phone",
   "dateOfBirth",
@@ -454,7 +488,106 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
 async function listCards(req: any, res: any) {
   try {
     const db = requireDb();
-    const allCerts = await db.select({
+    const isMailingPurpose = req.query?.purpose === "mailing";
+    const { limit, offset } = getPaginationParams(
+      req.query || {},
+      isMailingPurpose ? ADMIN_CARD_MAILING_DEFAULT_LIMIT : ADMIN_CARD_LIST_DEFAULT_LIMIT,
+      isMailingPurpose ? ADMIN_CARD_MAILING_MAX_LIMIT : ADMIN_CARD_LIST_MAX_LIMIT,
+    );
+    const searchCondition = getCardSearchCondition(req.query?.q);
+    const baseCondition = combineConditions(eq(orders.status, "paid"), searchCondition);
+
+    const listSelection = isMailingPurpose
+      ? {
+          id: orders.id,
+          userName: orders.name,
+          email: orders.email,
+          membershipCategory: orders.membershipCategory,
+          status: orders.status,
+          createdAt: orders.createdAt,
+        }
+      : {
+          id: orders.id,
+          userName: orders.name,
+          email: orders.email,
+          phone: orders.phone,
+          membershipCategory: orders.membershipCategory,
+          status: orders.status,
+          certificateNumber: certificates.certNumber,
+          certificateUrl: certificates.certificateUrl,
+          expiresAt: certificates.expiresAt,
+          createdAt: orders.createdAt,
+          bio: users.bio,
+          specialization: users.specialization,
+          experienceYears: users.experienceYears,
+          education: users.education,
+          instagramUrl: users.instagramUrl,
+          country: users.country,
+          city: users.city,
+          hasDashboardAccess: sql<boolean>`${certificates.clerkUserId} is not null`,
+        };
+
+    const itemsQuery = db.select(listSelection)
+      .from(orders)
+      .leftJoin(certificates, eq(orders.id, certificates.orderId))
+      .leftJoin(users, eq(certificates.clerkUserId, users.clerkId))
+      .where(baseCondition)
+      .orderBy(desc(orders.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const countQuery = db
+      .select({ count: sql<number>`count(*)` })
+      .from(orders)
+      .leftJoin(certificates, eq(orders.id, certificates.orderId))
+      .where(baseCondition);
+
+    const categoryRowsQuery = db
+      .select({ membershipCategory: orders.membershipCategory })
+      .from(orders)
+      .where(eq(orders.status, "paid"))
+      .groupBy(orders.membershipCategory);
+
+    const [items, countRows, categoryRows] = await Promise.all([
+      itemsQuery,
+      countQuery,
+      categoryRowsQuery,
+    ]);
+
+    const mapped = items.map((c: any) => ({
+      ...c,
+      cardName: c.membershipCategory || "Professional Membership"
+    }));
+
+    const total = countToNumber(countRows[0]?.count);
+    res.json({
+      items: mapped,
+      total,
+      limit,
+      offset,
+      hasMore: offset + mapped.length < total,
+      categories: categoryRows
+        .map((row: any) => row.membershipCategory)
+        .filter((value: unknown): value is string => typeof value === "string" && value.length > 0),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+    console.error("Failed to fetch cards:", error);
+    res.status(500).json({ error: "Failed to fetch cards" });
+  }
+}
+
+cardsRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  try {
+    const id = typeof req.params.id === "string" ? req.params.id : "";
+    if (!id) {
+      return res.status(400).json({ error: "Invalid client id" });
+    }
+
+    const db = requireDb();
+    const [client] = await db.select({
       id: orders.id,
       userName: orders.name,
       email: orders.email,
@@ -478,22 +611,23 @@ async function listCards(req: any, res: any) {
     .from(orders)
     .leftJoin(certificates, eq(orders.id, certificates.orderId))
     .leftJoin(users, eq(certificates.clerkUserId, users.clerkId))
-    .where(eq(orders.status, 'paid')); 
+    .where(and(eq(orders.status, "paid"), eq(orders.id, id)));
 
-    // Add a default cardName if missing
-    const mpped = allCerts.map((c: any) => ({
-      ...c,
-      cardName: c.membershipCategory || "Professional Membership"
-    }));
+    if (!client) {
+      return res.status(404).json({ error: "Client not found" });
+    }
 
-    res.json(mpped);
+    res.json({
+      ...client,
+      cardName: client.membershipCategory || "Professional Membership"
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
     }
-    console.error("Failed to fetch cards:", error);
-    res.status(500).json({ error: "Failed to fetch cards" });
+    console.error("Failed to fetch card detail:", error);
+    res.status(500).json({ error: "Failed to fetch card detail" });
   }
-}
+});
 
 cardsRouter.get("/", adminClerkMiddleware, requireAdminAccess, listCards);

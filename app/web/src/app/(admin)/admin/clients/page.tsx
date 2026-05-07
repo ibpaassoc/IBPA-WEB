@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { 
   Users, 
   Sparkles, 
@@ -19,11 +19,12 @@ import {
   Upload,
   Undo2
 } from "lucide-react";
-import { Order, OrderStatus } from "@/lib/types";
-import { AdminClient } from "@/lib/admin-types";
+import { AdminCardsResponse, AdminClient } from "@/lib/admin-types";
 import { toast } from "sonner";
 import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import { formatApplicationValue, getApplicationFieldLabel } from "@/lib/application-fields";
+
+const CLIENTS_PAGE_SIZE = 20;
 
 function getSubscriptionStatus(expiresAt?: string | null) {
   if (!expiresAt) {
@@ -43,14 +44,18 @@ function getSubscriptionStatus(expiresAt?: string | null) {
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<AdminClient[]>([]);
-  const [filteredClients, setFilteredClients] = useState<AdminClient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [selectedClient, setSelectedClient] = useState<AdminClient | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isResending, setIsResending] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"manage" | "profile">("manage");
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [totalClients, setTotalClients] = useState(0);
+  const [hasMoreClients, setHasMoreClients] = useState(false);
   const [pendingCertificateUrl, setPendingCertificateUrl] = useState<string | null>(null);
   const [isSavingCertificate, setIsSavingCertificate] = useState(false);
   const [isRemovingCertificate, setIsRemovingCertificate] = useState(false);
@@ -71,14 +76,31 @@ export default function ClientsPage() {
     return "Could not complete the request.";
   };
 
-  const fetchClients = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-    if (!silent) {
+  const fetchClients = useCallback(async ({
+    silent = false,
+    append = false,
+    offset = 0,
+    limit,
+  }: { silent?: boolean; append?: boolean; offset?: number; limit?: number } = {}) => {
+    if (append) {
+      setIsLoadingMore(true);
+    } else if (!silent) {
       setIsLoading(true);
     }
 
     try {
-      const resp = await fetch("/api/cards", { cache: "no-store" });
-      const data = await resp.json();
+      const params = new URLSearchParams({
+        limit: String(limit ?? CLIENTS_PAGE_SIZE),
+        offset: String(offset),
+      });
+
+      const query = debouncedSearchQuery.trim();
+      if (query) {
+        params.set("q", query);
+      }
+
+      const resp = await fetch(`/api/cards?${params.toString()}`, { cache: "no-store" });
+      const data = (await resp.json()) as AdminCardsResponse | { error?: string };
 
       if (!resp.ok) {
         const message =
@@ -88,28 +110,40 @@ export default function ClientsPage() {
         throw new Error(message);
       }
 
-      if (!Array.isArray(data)) {
+      if (!data || !Array.isArray((data as AdminCardsResponse).items)) {
         throw new Error("The server returned an invalid client list format.");
       }
 
-      setClients(data);
-      setFilteredClients(data);
+      const listData = data as AdminCardsResponse;
+      setClients((prev) => append ? [...prev, ...listData.items] : listData.items);
+      setTotalClients(Number(listData.total) || 0);
+      setHasMoreClients(Boolean(listData.hasMore));
       setLastSyncedAt(new Date().toISOString());
     } catch (error: any) {
       console.error("[fetchClients] Client-side fetch failed:", error, { name: error?.name, message: error?.message });
       if (!silent) {
         setClients([]);
-        setFilteredClients([]);
+        setTotalClients(0);
+        setHasMoreClients(false);
         toast.error(`Failed to load clients: ${error?.message || "Unknown error"}`);
       }
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
-  }, []);
+  }, [debouncedSearchQuery]);
 
   useEffect(() => {
     void fetchClients();
   }, [fetchClients]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -117,16 +151,16 @@ export default function ClientsPage() {
     }
 
     const intervalId = window.setInterval(() => {
-      void fetchClients({ silent: true });
+      void fetchClients({ silent: true, limit: Math.max(CLIENTS_PAGE_SIZE, clients.length) });
     }, 30000);
 
     const handleFocus = () => {
-      void fetchClients({ silent: true });
+      void fetchClients({ silent: true, limit: Math.max(CLIENTS_PAGE_SIZE, clients.length) });
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void fetchClients({ silent: true });
+        void fetchClients({ silent: true, limit: Math.max(CLIENTS_PAGE_SIZE, clients.length) });
       }
     };
 
@@ -138,19 +172,32 @@ export default function ClientsPage() {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [fetchClients]);
+  }, [fetchClients, clients.length]);
 
-  useEffect(() => {
-    const filtered = clients.filter((client) => {
-      const matchesSearch =
-        !searchQuery.trim() ||
-        client.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        client.certificateNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
-    });
-    setFilteredClients(filtered);
-  }, [clients, searchQuery]);
+  const handleLoadMore = () => {
+    void fetchClients({ append: true, offset: clients.length });
+  };
+
+  const handleOpenClient = async (client: AdminClient) => {
+    setSelectedClient(client);
+    setActiveTab("manage");
+    setPendingCertificateUrl(null);
+    setIsLoadingDetail(true);
+
+    try {
+      const resp = await fetch(`/api/cards/${client.id}`, { cache: "no-store" });
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data?.error || "Could not load client details.");
+      }
+      setSelectedClient(data as AdminClient);
+    } catch (error) {
+      console.error("Failed to load client detail", error);
+      toast.error(error instanceof Error ? error.message : "Failed to load client details.");
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
 
   const handleCertificateUpload = async (orderId: string, url: string) => {
     setPendingCertificateUrl(url);
@@ -241,6 +288,7 @@ export default function ClientsPage() {
       const resp = await fetch(`/api/admin/orders/${clientId}`, { method: "DELETE" });
       if (resp.ok) {
         setClients(prev => prev.filter(c => c.id !== clientId));
+        setTotalClients((prev) => Math.max(prev - 1, 0));
         if (selectedClient?.id === clientId) setSelectedClient(null);
         toast.success("Client deleted.");
       } else {
@@ -302,10 +350,26 @@ export default function ClientsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-8 h-8 border-4 border-slate-200 border-t-[#B9D9EB] rounded-full animate-spin" />
+        <div className="grid gap-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="rounded-[24px] border border-slate-100 bg-white p-4 lg:p-5 shadow-sm">
+              <div className="flex animate-pulse flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-11 w-11 rounded-full bg-slate-100" />
+                  <div className="space-y-3">
+                    <div className="h-4 w-40 rounded bg-slate-100" />
+                    <div className="h-3 w-56 max-w-full rounded bg-slate-100" />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="h-8 w-24 rounded-full bg-slate-100" />
+                  <div className="h-8 w-28 rounded-full bg-slate-100" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      ) : filteredClients.length === 0 ? (
+      ) : clients.length === 0 ? (
         <div className="bg-white rounded-[32px] p-16 text-center border border-slate-100 shadow-sm">
           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
             <Users size={32} />
@@ -315,10 +379,10 @@ export default function ClientsPage() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {filteredClients.map((client) => (
+          {clients.map((client) => (
             <div
               key={client.id}
-              onClick={() => { setSelectedClient(client); setActiveTab("manage"); setPendingCertificateUrl(null); }}
+              onClick={() => void handleOpenClient(client)}
               className="group cursor-pointer rounded-[24px] border border-slate-100 bg-white p-4 lg:p-5 shadow-sm transition-all hover:border-[#72A0C1]/30 hover:shadow-xl"
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -357,6 +421,17 @@ export default function ClientsPage() {
               </div>
             </div>
           ))}
+          {hasMoreClients && (
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-bold text-slate-600 shadow-sm transition-all hover:border-[#72A0C1]/30 hover:text-[#4C7D9D] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isLoadingMore ? "Loading..." : `Load more (${clients.length} of ${totalClients})`}
+            </button>
+          )}
         </div>
       )}
 
@@ -413,6 +488,12 @@ export default function ClientsPage() {
 
             {/* CONTENT */}
             <div className="flex-grow overflow-hidden relative">
+              {isLoadingDetail && (
+                <div className="absolute inset-x-8 top-2 z-10 flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/90 px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 shadow-sm backdrop-blur">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading full client details
+                </div>
+              )}
               {activeTab === "manage" ? (
                 <div className="p-8 md:p-10 pt-4 grid grid-cols-2 gap-6 h-full content-start">
                   {/* CARD 1: CERTIFICATE */}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell, Link2, Loader2, Mail, Send, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
-import { AdminClient } from "@/lib/admin-types";
+import { AdminCardsResponse, AdminClient } from "@/lib/admin-types";
 
 type MailingTab = "email" | "dashboard";
 
@@ -13,6 +13,8 @@ type EmailLog = {
   subject: string;
   createdAt: string;
 };
+
+const MAILING_RECIPIENT_PAGE_SIZE = 100;
 
 export default function MailingPage() {
   const [activeTab, setActiveTab] = useState<MailingTab>("email");
@@ -29,22 +31,41 @@ export default function MailingPage() {
 
   const [clients, setClients] = useState<AdminClient[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const [isLoadingMoreClients, setIsLoadingMoreClients] = useState(false);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
-  const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
   const [hasUserModifiedSelection, setHasUserModifiedSelection] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [totalClients, setTotalClients] = useState(0);
+  const [hasMoreClients, setHasMoreClients] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
 
-  const fetchClients = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-    if (!silent) {
+  const fetchClients = useCallback(async ({
+    silent = false,
+    append = false,
+    offset = 0,
+    limit,
+  }: { silent?: boolean; append?: boolean; offset?: number; limit?: number } = {}) => {
+    if (append) {
+      setIsLoadingMoreClients(true);
+    } else if (!silent) {
       setIsLoadingClients(true);
     }
 
     try {
-      const resp = await fetch("/api/cards", { cache: "no-store" });
+      const params = new URLSearchParams({
+        purpose: "mailing",
+        limit: String(limit ?? MAILING_RECIPIENT_PAGE_SIZE),
+        offset: String(offset),
+      });
+      const resp = await fetch(`/api/cards?${params.toString()}`, { cache: "no-store" });
       if (resp.ok) {
-        const data = await resp.json();
-        setClients(data);
+        const data = (await resp.json()) as AdminCardsResponse;
+        const items = Array.isArray(data.items) ? data.items : [];
+        setClients((prev) => append ? [...prev, ...items] : items);
+        setTotalClients(Number(data.total) || 0);
+        setHasMoreClients(Boolean(data.hasMore));
+        setCategories(Array.isArray(data.categories) ? data.categories : []);
         setLastSyncedAt(new Date().toISOString());
       }
     } catch (error) {
@@ -53,6 +74,7 @@ export default function MailingPage() {
       }
     } finally {
       setIsLoadingClients(false);
+      setIsLoadingMoreClients(false);
     }
   }, []);
 
@@ -82,16 +104,16 @@ export default function MailingPage() {
     }
 
     const intervalId = window.setInterval(() => {
-      void fetchClients({ silent: true });
+      void fetchClients({ silent: true, limit: Math.max(MAILING_RECIPIENT_PAGE_SIZE, clients.length) });
     }, 30000);
 
     const handleFocus = () => {
-      void fetchClients({ silent: true });
+      void fetchClients({ silent: true, limit: Math.max(MAILING_RECIPIENT_PAGE_SIZE, clients.length) });
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void fetchClients({ silent: true });
+        void fetchClients({ silent: true, limit: Math.max(MAILING_RECIPIENT_PAGE_SIZE, clients.length) });
       }
     };
 
@@ -103,7 +125,7 @@ export default function MailingPage() {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [fetchClients]);
+  }, [fetchClients, clients.length]);
 
   const filteredClients = useMemo(() => {
     if (audienceFilter === "all") return clients;
@@ -111,11 +133,10 @@ export default function MailingPage() {
   }, [clients, audienceFilter]);
 
   useEffect(() => {
-    if (!hasInitializedSelection && !hasUserModifiedSelection && clients.length > 0) {
+    if (!hasUserModifiedSelection && clients.length > 0) {
       setSelectedUserIds(new Set(clients.map((c) => c.id)));
-      setHasInitializedSelection(true);
     }
-  }, [clients, hasInitializedSelection, hasUserModifiedSelection]);
+  }, [clients, hasUserModifiedSelection]);
 
   const toggleClient = (id: string) => {
     setHasUserModifiedSelection(true);
@@ -133,6 +154,10 @@ export default function MailingPage() {
   );
 
   const selectedCount = selectedEmails.length;
+
+  const handleLoadMoreClients = () => {
+    void fetchClients({ append: true, offset: clients.length });
+  };
 
   const handleDeleteEmailLog = async (id: string) => {
     try {
@@ -249,8 +274,6 @@ export default function MailingPage() {
       setIsSending(false);
     }
   };
-
-  const categories = Array.from(new Set(clients.map((c) => c.membershipCategory || c.cardName))).filter(Boolean);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 lg:py-9">
@@ -499,8 +522,16 @@ export default function MailingPage() {
 
             <div className="custom-scrollbar flex-1 space-y-1 overflow-y-auto p-2">
               {isLoadingClients ? (
-                <div className="flex justify-center py-10">
-                  <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+                <div className="space-y-2 py-2">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <div key={index} className="flex animate-pulse items-center gap-3 rounded-xl border border-transparent p-3">
+                      <div className="h-4 w-4 rounded bg-slate-200" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-32 rounded bg-slate-200" />
+                        <div className="h-2.5 w-44 max-w-full rounded bg-slate-200" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : filteredClients.length === 0 ? (
                 <div className="flex flex-col items-center py-10 text-center">
@@ -508,29 +539,42 @@ export default function MailingPage() {
                   <p className="text-sm text-slate-400">Нет подходящих клиентов</p>
                 </div>
               ) : (
-                filteredClients.map((client) => (
-                  <label
-                    key={client.id}
-                    className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
-                      selectedUserIds.has(client.id)
-                        ? "border-[#72A0C1]/30 bg-white shadow-sm"
-                        : "border-transparent bg-transparent hover:bg-slate-100"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedUserIds.has(client.id)}
-                      onChange={() => toggleClient(client.id)}
-                      className="h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className={`truncate text-sm font-bold ${selectedUserIds.has(client.id) ? "text-slate-900" : "text-slate-500"}`}>
-                        {client.userName}
-                      </p>
-                      <p className="truncate text-[10px] tracking-wide text-slate-400">{client.email}</p>
-                    </div>
-                  </label>
-                ))
+                <>
+                  {filteredClients.map((client) => (
+                    <label
+                      key={client.id}
+                      className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                        selectedUserIds.has(client.id)
+                          ? "border-[#72A0C1]/30 bg-white shadow-sm"
+                          : "border-transparent bg-transparent hover:bg-slate-100"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIds.has(client.id)}
+                        onChange={() => toggleClient(client.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-sm font-bold ${selectedUserIds.has(client.id) ? "text-slate-900" : "text-slate-500"}`}>
+                          {client.userName}
+                        </p>
+                        <p className="truncate text-[10px] tracking-wide text-slate-400">{client.email}</p>
+                      </div>
+                    </label>
+                  ))}
+                  {hasMoreClients && audienceFilter === "all" && (
+                    <button
+                      type="button"
+                      onClick={handleLoadMoreClients}
+                      disabled={isLoadingMoreClients}
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 transition-all hover:border-[#72A0C1]/30 hover:text-[#4C7D9D] disabled:opacity-60"
+                    >
+                      {isLoadingMoreClients ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      {isLoadingMoreClients ? "Loading..." : `Load more (${clients.length} of ${totalClients})`}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

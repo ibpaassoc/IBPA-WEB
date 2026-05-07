@@ -37,6 +37,39 @@ export async function PATCH(
   }
 }
 
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const { backendUrl, authHeaders, error } = await getAdminProxyContext(req.url);
+  if (error || !authHeaders) return error!;
+
+  try {
+    const resp = await fetch(`${backendUrl}/api/orders/${encodeURIComponent(id)}`, {
+      headers: authHeaders,
+      cache: "no-store",
+    });
+
+    const { data, text } = await readBackendResponse(resp);
+
+    if (resp.ok) {
+      return NextResponse.json(data);
+    }
+
+    return NextResponse.json(
+      { error: data?.error || text || "Backend Error" },
+      { status: resp.status },
+    );
+  } catch (err: any) {
+    console.error("[Admin API] Failed to fetch order GET:", err);
+    return NextResponse.json(
+      { error: "Internal Error", details: err?.message || String(err) },
+      { status: 500 },
+    );
+  }
+}
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
