@@ -51,9 +51,11 @@ export const SponsorsSection = async ({ locale }: SponsorsSectionProps) => {
   return (
     <section className="bg-[#F1F3F5] px-6 py-14 md:py-20">
       <div className="mx-auto max-w-6xl text-center">
-        <h2 className={`mx-auto max-w-4xl text-[2.4rem] uppercase leading-[0.92] text-slate-900 md:text-[4rem] ${headlineClassName}`}>
-          {content.title}
-        </h2>
+        <a href="/partnership">
+            <h2 className={`mx-auto max-w-4xl text-[2.4rem] uppercase leading-[0.92] text-slate-900 md:text-[4rem] ${headlineClassName}`}>
+                {content.title}
+            </h2>
+        </a>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-6 md:mt-10 md:gap-8">
           {partners.map((partner) => (
