@@ -1,9 +1,9 @@
 const defaultLandingOrigin =
-  process.env.NODE_ENV === "production" ? "https://ibpassociations.org" : "http://localhost:3000";
+  process.env.NODE_ENV === "production" ? "https://ibpassociations.org" : "http://localhost:3002";
 const defaultDashboardOrigin =
   process.env.NODE_ENV === "production" ? "https://ibpassociations.org" : "http://localhost:3001";
 const defaultBackendOrigin =
-  process.env.NODE_ENV === "production" ? "https://ibpassociations.org" : "http://localhost:3003";
+  process.env.NODE_ENV === "production" ? "https://ibpassociations.org" : "http://localhost:3004";
 
 function requireEnvVar(name: string, fallback: string | null = null): string {
   const value = process.env[name];
