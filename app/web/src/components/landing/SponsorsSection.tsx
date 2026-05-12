@@ -60,13 +60,31 @@ export const SponsorsSection = async ({ locale }: SponsorsSectionProps) => {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-6 md:mt-10 md:gap-8">
           {partners.map((partner) => (
             <div key={partner.id} className="flex h-14 items-center justify-center md:h-14">
-              <ImageWithFallback
-                src={partner.logo}
-                alt={partner.name}
-                width={160}
-                height={56}
-                className="h-full w-auto object-contain"
-              />
+              {partner.link ? (
+                <a
+                  href={partner.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${partner.name} website`}
+                  className="flex h-full items-center"
+                >
+                  <ImageWithFallback
+                    src={partner.logo}
+                    alt={partner.name}
+                    width={160}
+                    height={56}
+                    className="h-full w-auto object-contain"
+                  />
+                </a>
+              ) : (
+                <ImageWithFallback
+                  src={partner.logo}
+                  alt={partner.name}
+                  width={160}
+                  height={56}
+                  className="h-full w-auto object-contain"
+                />
+              )}
             </div>
           ))}
         </div>
