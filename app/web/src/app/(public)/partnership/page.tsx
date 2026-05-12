@@ -389,11 +389,21 @@ export default function PartnershipPage() {
               >
                 <div className="flex items-center gap-5 p-6 md:gap-6 md:p-8">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl border border-slate-100 bg-[#F8FAFC] md:h-24 md:w-24">
-                    <ImageWithFallback
-                      src={partner.logo}
-                      alt={partner.name}
-                      className="h-10 w-auto max-w-[70px] object-contain md:h-12 md:max-w-[88px]"
-                    />
+                    {partner.link ? (
+                      <a href={partner.link} target="_blank" rel="noopener noreferrer" aria-label={`${partner.name} website`}>
+                        <ImageWithFallback
+                          src={partner.logo}
+                          alt={partner.name}
+                          className="h-10 w-auto max-w-[70px] object-contain md:h-12 md:max-w-[88px]"
+                        />
+                      </a>
+                    ) : (
+                      <ImageWithFallback
+                        src={partner.logo}
+                        alt={partner.name}
+                        className="h-10 w-auto max-w-[70px] object-contain md:h-12 md:max-w-[88px]"
+                      />
+                    )}
                   </div>
 
                   <div className="min-w-0 space-y-3">

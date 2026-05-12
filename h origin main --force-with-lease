@@ -1,0 +1,63 @@
+[33mfa5ce0c[m[33m ([m[1;36mHEAD[m[33m)[m Merge pull request #23 from ibpaassoc/partners-improve
+[33mce01543[m title to link in partners section
+[33m839da62[m appplication clearification
+[33m9ed12cb[m appplication clearification
+[33mc979661[m checkout.submission.completed email webhook fix
+[33mc0cf498[m checkout.submission.completed email webhook fix
+[33ma4a32bc[m stripe email fix
+[33m712a91d[m stripe email fix
+[33m52eaf2b[m stripe invoice sent webhook
+[33m9bb9f64[m stripe invoice sent webhook
+[33m3b11490[m selection bag fix
+[33mae05761[m selection bag fix
+[33md382c28[m backend mailing history
+[33m267cc39[m backend mailing history
+[33m9770688[m Mailing history
+[33mda72fa6[m delete history message button
+[33m318dcd2[m fully functional mailing history
+[33mdeab85d[m HEIC format comparability
+[33m1fb097c[m HEIC format comparability
+[33mb3b2096[m Application language change to english default
+[33me1da8ca[m Translate admin application UI to English
+[33mc1ae0c0[m Keep application form copy in English
+[33m3793701[m Normalize admin application field display
+[33m01a1a94[m local vercel analytics installed
+[33mc84a956[m Merge pull request #13 from ibpaassoc/vercel/install-vercel-web-analytics-t33q0k
+[33mdd1e71e[m Install Vercel Web Analytics
+[33m440fb3c[m Merge pull request #11 from ibpaassoc/vercel/install-vercel-speed-insights-drc4zm
+[33m078dc5f[m additional documents feature
+[33m619085c[m additional documents feature
+[33m8239106[m Install Vercel Speed Insights
+[33m481bd9f[m notification fix
+[33m5d6a517[m notification fix
+[33mfd19cad[m structure webhooks change
+[33m745d230[m structure webhooks change
+[33m9b9cd5e[m payment webhook fix
+[33me186ca0[m payment webhook fix
+[33mb7fb78a[m logo change
+[33m1329767[m logo change
+[33me5e45d4[m Fix admin membership category update route
+[33m4f5f76c[m Fix admin membership category update route
+[33m0ddae8b[m Fix admin membership category update route
+[33mc9cbbfe[m application edit feature
+[33m25d17d3[m application edit feature
+[33mf4dadeb[m fully fucntional crop feature
+[33m4bbc1e2[m Merge remote-tracking branch 'origin/main' into crop-feature
+[33mafc7556[m fully fucntional crop feature
+[33m866e4d9[m crop feature
+[33macfbc65[m crop feature
+[33ma7ad663[m community card disply fix
+[33m87690cb[m community card disply fix
+[33m283d48a[m Merge pull request #1 from ibpaassoc/landing-fix
+[33mf425162[m community feature exclusive
+[33m42a58c6[m educator application proof change
+[33m9d845d8[m role in industry field remove
+[33m6040926[m specialization filed added
+[33mb76f65d[m membership badge feature rmove
+[33m44fdb82[m standards page documents change
+[33m6f4ff8f[m license required for Entry+
+[33medaea82[m Student -> Specialist change
+[33m72ea9b9[m fix: add gitignore and remove unnecessary files2
+[33m509a7ee[m fix: add gitignore and remove unnecessary files
+[33m6e8b879[m merged web app
+[33m1ce307d[m Initial commit
