@@ -160,6 +160,15 @@ const termsSections = [
   },
   {
     id: "17",
+    title: "Business Owner Team Access",
+    paragraphs: [
+      "Business Owner membership includes one owner account and a limited number of educational Team Seats for professionally affiliated team members. Team Members are not full IBPA members and do not receive full membership status, voting rights, leadership privileges, public member listing, or separate membership certificates.",
+      "Team access must remain email-based, individually assigned, and trackable. Team Members may not use owner credentials, transfer account access, or share event registrations or tickets.",
+      "IBPA reserves the right to request proof of professional affiliation between a Team Member and the business. Misuse of Team Seats, sharing access, or transferring access to third parties may result in restricted or terminated membership access.",
+    ],
+  },
+  {
+    id: "18",
     title: "Contact Information",
     paragraphs: [
       "International Beauty Professionals Association, Inc.",
