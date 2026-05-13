@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { SignOutButton, UserButton, useUser, UserProfile } from "@clerk/nextjs";
-import { LayoutDashboard, Settings, User, Bell, LogIn, Loader2, Award, FileText, Menu, X, CreditCard, ChevronRight, Download, Newspaper, CalendarDays, Users } from "lucide-react";
+import { LayoutDashboard, Settings, User, Bell, LogIn, Loader2, Award, FileText, Menu, X, CreditCard, ChevronRight, Download, Newspaper, CalendarDays, Users, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -10,6 +10,7 @@ import { buildSystemNotifications, normalizeNotifications, type DashboardNotific
 import { getLandingOrigin } from "@/lib/public-urls";
 import { getLocation, getSpecializationDisplay, getProfileBadges, getSnapshotItems, type CombinedProfileData } from "@/lib/application-profile";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { TeamMembersPanel } from "@/components/dashboard/TeamMembersPanel";
 
 interface Certificate {
   certNumber: string;
@@ -26,7 +27,7 @@ interface Certificate {
 }
 
 type ContentTabType = 'news' | 'events';
-type TabType = 'profile' | 'billing' | 'certificates' | 'settings' | 'notifications' | ContentTabType;
+type TabType = 'profile' | 'billing' | 'certificates' | 'teamMembers' | 'settings' | 'notifications' | ContentTabType;
 
 type DashboardContentItem = {
   id: string;
@@ -394,6 +395,7 @@ export default function DashboardPage() {
     : "Pending";
   const primaryCertificateNumber = primaryCertificate?.certNumber || "Pending Review";
   const membershipCategoryLabel = formatMembershipCategory(primaryCertificate?.membershipCategory);
+  const isBusinessOwner = (primaryCertificate?.membershipCategory || profileData.membershipCategory) === "Business";
   const activeApplicationPayload = useMemo<Record<string, unknown>>(() => {
     if (
       primaryCertificate?.applicationPayload &&
@@ -595,6 +597,7 @@ export default function DashboardPage() {
   const renderContent = () => {
     if (activeTab === 'news') return renderContentList(dashboardNews, 'news');
     if (activeTab === 'events') return renderContentList(dashboardEvents, 'events');
+    if (activeTab === "teamMembers") return <TeamMembersPanel enabled={isBusinessOwner} />;
 
     if (activeTab === 'billing') {
       return (
@@ -1087,6 +1090,16 @@ export default function DashboardPage() {
         <Award className="w-5 h-5" />
         My Certificates
       </button>
+
+      {isBusinessOwner ? (
+        <button
+          onClick={() => { setActiveTab('teamMembers'); setIsMobileMenuOpen(false); }}
+          className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] transition-all ${activeTab === 'teamMembers' ? 'bg-[#72A0C1] text-white shadow-lg shadow-[#72A0C1]/20' : 'text-slate-400 hover:bg-white hover:text-slate-600'}`}
+        >
+          <UserPlus className="w-5 h-5" />
+          Team Members
+        </button>
+      ) : null}
 
       <Link
         href="/dashboard/community"
