@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { requireDb, orders, certificates, users, dashboardNotifications } from "../lib/db";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { requireDb, orders, certificates, users, dashboardNotifications, teamMembers } from "../lib/db";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { clerkMiddleware, getAuth, clerkOptions, clerkClient } from "../services/clerk";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 
@@ -11,6 +11,9 @@ const ADMIN_CARD_LIST_DEFAULT_LIMIT = 20;
 const ADMIN_CARD_MAILING_DEFAULT_LIMIT = 100;
 const ADMIN_CARD_LIST_MAX_LIMIT = 50;
 const ADMIN_CARD_MAILING_MAX_LIMIT = 200;
+const BUSINESS_INCLUDED_TEAM_SEATS = 5;
+const ADDITIONAL_TEAM_SEAT_PRICE = 100;
+const MAX_TEAM_SEATS = 30;
 
 function getPaginationParams(query: Record<string, unknown>, defaultLimit: number, maxLimit: number) {
   const rawLimit = Number(query.limit);
@@ -161,6 +164,36 @@ const DASHBOARD_ACCESS_ERROR = {
   error: "Dashboard access is available only for members with a completed payment.",
   code: "ACCESS_NOT_ACTIVATED",
 };
+
+const BUSINESS_OWNER_ONLY_ERROR = {
+  error: "Team Members are available only for Business Owner memberships.",
+  code: "BUSINESS_OWNER_ONLY",
+};
+
+function normalizeEmail(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function trimValue(value: unknown, max = 255) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function optionalTrimmedValue(value: unknown, max = 500) {
+  const next = trimValue(value, max);
+  return next.length > 0 ? next : null;
+}
+
+async function getBusinessOwnerMemberId(db: ReturnType<typeof requireDb>, ownerOrderId: string) {
+  const businessOrders = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(and(eq(orders.status, "paid"), eq(orders.membershipCategory, "Business")))
+    .orderBy(asc(orders.createdAt), asc(orders.id));
+
+  const ownerIndex = businessOrders.findIndex((record: { id: string }) => record.id === ownerOrderId);
+  const normalizedIndex = ownerIndex >= 0 ? ownerIndex + 1 : businessOrders.length + 1;
+  return `IBPA-BO-${String(normalizedIndex).padStart(3, "0")}`;
+}
 
 async function requirePaidDashboardAccess(clerkUserId: string) {
   const db = requireDb();
@@ -395,6 +428,201 @@ dashboardRouter.patch("/notifications", clerkMiddleware(clerkOptions), async (re
   } catch (error) {
     console.error("[Dashboard /notifications PATCH] Error:", error);
     res.status(500).json({ error: "Failed to update notifications" });
+  }
+});
+
+dashboardRouter.get("/team-members", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requirePaidDashboardAccess(clerkUserId);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const { db, latestPaidOrder } = access;
+    if (!latestPaidOrder || latestPaidOrder.membershipCategory !== "Business") {
+      return res.status(403).json(BUSINESS_OWNER_ONLY_ERROR);
+    }
+
+    const ownerMemberId = await getBusinessOwnerMemberId(db, latestPaidOrder.id);
+    const records = await db
+      .select()
+      .from(teamMembers)
+      .where(eq(teamMembers.ownerOrderId, latestPaidOrder.id))
+      .orderBy(asc(teamMembers.seatNumber), asc(teamMembers.createdAt));
+
+    const includedUsed = records.filter((item: any) => item.seatKind === "included").length;
+    const additionalSeats = records.filter((item: any) => item.seatKind === "additional").length;
+    const pendingAdditionalSeats = records.filter((item: any) => item.billingStatus === "payment_required").length;
+
+    res.json({
+      ownerMemberId,
+      includedSeats: BUSINESS_INCLUDED_TEAM_SEATS,
+      includedUsed,
+      additionalSeats,
+      pendingAdditionalSeats,
+      additionalSeatPrice: ADDITIONAL_TEAM_SEAT_PRICE,
+      members: records.map((item: any) => ({
+        id: item.id,
+        teamMemberId: item.teamMemberId,
+        fullName: item.fullName,
+        email: item.email,
+        role: item.role,
+        portfolioLink: item.portfolioLink,
+        license: item.license,
+        seatNumber: item.seatNumber,
+        seatKind: item.seatKind,
+        billingStatus: item.billingStatus,
+        accessStatus: item.accessStatus,
+        registrationStatus: item.registrationStatus,
+        ticketCode: item.ticketCode,
+        attendanceStatus: item.attendanceStatus,
+        createdAt: item.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("[Dashboard /team-members GET] Error:", error);
+    res.status(500).json({ error: "Failed to fetch team members" });
+  }
+});
+
+dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requirePaidDashboardAccess(clerkUserId);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const { db, latestPaidOrder } = access;
+    if (!latestPaidOrder || latestPaidOrder.membershipCategory !== "Business") {
+      return res.status(403).json(BUSINESS_OWNER_ONLY_ERROR);
+    }
+
+    const fullName = trimValue(req.body?.fullName);
+    const email = trimValue(req.body?.email);
+    const emailNormalized = normalizeEmail(req.body?.email);
+    const role = trimValue(req.body?.role, 120);
+    const portfolioLink = optionalTrimmedValue(req.body?.portfolioLink, 500);
+    const license = trimValue(req.body?.license, 120);
+    const affiliationConfirmed = req.body?.affiliationConfirmed === true;
+
+    if (!fullName) {
+      return res.status(400).json({ error: "Full name is required." });
+    }
+
+    if (!email || !emailNormalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalized)) {
+      return res.status(400).json({ error: "A valid email is required." });
+    }
+
+    if (!role) {
+      return res.status(400).json({ error: "Position / role is required." });
+    }
+
+    if (!license) {
+      return res.status(400).json({ error: "License is required." });
+    }
+
+    if (!affiliationConfirmed) {
+      return res.status(400).json({
+        error: "Affiliation confirmation is required before adding a team member.",
+      });
+    }
+
+    const existingMembers = await db
+      .select({
+        id: teamMembers.id,
+        seatNumber: teamMembers.seatNumber,
+        emailNormalized: teamMembers.emailNormalized,
+      })
+      .from(teamMembers)
+      .where(eq(teamMembers.ownerOrderId, latestPaidOrder.id))
+      .orderBy(asc(teamMembers.seatNumber));
+
+    if (existingMembers.length >= MAX_TEAM_SEATS) {
+      return res.status(400).json({
+        error: `Maximum team size is ${MAX_TEAM_SEATS} seats for this release.`,
+      });
+    }
+
+    if (existingMembers.some((member: { emailNormalized: string }) => member.emailNormalized === emailNormalized)) {
+      return res.status(400).json({
+        error: "This email is already assigned to a team seat in your account.",
+      });
+    }
+
+    const seatNumber = existingMembers.length + 1;
+    const seatKind = seatNumber <= BUSINESS_INCLUDED_TEAM_SEATS ? "included" : "additional";
+    const billingStatus = seatKind === "included" ? "included" : "payment_required";
+    const accessStatus = seatKind === "included" ? "active" : "pending_billing";
+    const ownerMemberId = await getBusinessOwnerMemberId(db, latestPaidOrder.id);
+    const teamMemberId = `${ownerMemberId}-T${seatNumber}`;
+
+    const [created] = await db
+      .insert(teamMembers)
+      .values({
+        ownerOrderId: latestPaidOrder.id,
+        ownerClerkUserId: clerkUserId,
+        ownerMemberId,
+        teamMemberId,
+        fullName,
+        email,
+        emailNormalized,
+        role,
+        portfolioLink,
+        license,
+        affiliationConfirmed,
+        seatNumber,
+        seatKind,
+        billingStatus,
+        accessStatus,
+        registrationStatus: "not_registered",
+        ticketCode: null,
+        attendanceStatus: "not_marked",
+      })
+      .returning();
+
+    return res.status(201).json({
+      ownerMemberId,
+      additionalSeatPrice: ADDITIONAL_TEAM_SEAT_PRICE,
+      member: {
+        id: created.id,
+        teamMemberId: created.teamMemberId,
+        fullName: created.fullName,
+        email: created.email,
+        role: created.role,
+        portfolioLink: created.portfolioLink,
+        license: created.license,
+        seatNumber: created.seatNumber,
+        seatKind: created.seatKind,
+        billingStatus: created.billingStatus,
+        accessStatus: created.accessStatus,
+        registrationStatus: created.registrationStatus,
+        ticketCode: created.ticketCode,
+        attendanceStatus: created.attendanceStatus,
+        createdAt: created.createdAt,
+      },
+      note:
+        seatKind === "additional"
+          ? `Seat ${seatNumber} requires payment ($${ADDITIONAL_TEAM_SEAT_PRICE}) before full activation.`
+          : "Team educational seat is active.",
+    });
+  } catch (error: any) {
+    const message = String(error?.message || "");
+    if (message.includes("team_members_owner_order_email_uidx")) {
+      return res.status(400).json({ error: "This email is already assigned to a team seat in your account." });
+    }
+    if (message.includes("team_members_team_member_id_uidx")) {
+      return res.status(400).json({ error: "Team member ID conflict. Please retry." });
+    }
+    console.error("[Dashboard /team-members POST] Error:", error);
+    res.status(500).json({ error: "Failed to add team member" });
   }
 });
 
