@@ -8,6 +8,23 @@ import { useEffect, useState } from "react";
 import { MembersDirectory } from "@/components/members/MembersDirectory";
 import type { PublicMember } from "@/lib/public-members";
 
+function getSafeUiErrorMessage(value: unknown, fallback: string) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+
+  if (/<!doctype|<html|<body|<pre|<\/?[a-z][\s\S]*>/i.test(trimmed) || /node_modules| at [A-Za-z0-9_$]+\s*\(/i.test(trimmed)) {
+    return fallback;
+  }
+
+  return trimmed.length > 260 ? fallback : trimmed;
+}
+
 export default function DashboardCommunityPage() {
   const { isSignedIn, isLoaded } = useUser();
   const router = useRouter();
@@ -46,7 +63,12 @@ export default function DashboardCommunityPage() {
 
         if (!response.ok) {
           setItems([]);
-          setAccessError(data?.error || "Community access is available only for active IBPA members.");
+          setAccessError(
+            getSafeUiErrorMessage(
+              data?.error,
+              "Community access is available only for active IBPA members.",
+            ),
+          );
           return;
         }
 
@@ -54,7 +76,7 @@ export default function DashboardCommunityPage() {
       } catch (error: any) {
         if (!cancelled) {
           setItems([]);
-          setAccessError(error?.message || "Failed to load community members.");
+          setAccessError(getSafeUiErrorMessage(error?.message, "Failed to load community members."));
         }
       } finally {
         if (!cancelled) {

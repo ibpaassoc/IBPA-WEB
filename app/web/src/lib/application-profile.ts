@@ -1,4 +1,4 @@
-export type MembershipCategory = "Specialist" | "Student" | "Professional" | "Trainer" | "Business" | "Brand" | null | undefined;
+export type MembershipCategory = "Specialist" | "Student" | "Professional" | "Trainer" | "Business" | "Brand" | "Partner" | null | undefined;
 
 export type ApplicationPayload = Record<string, unknown> | null | undefined;
 

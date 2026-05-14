@@ -8,7 +8,6 @@ import { ArrowRight, CheckCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { cyrillicDisplay, cyrillicEditorial } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
-import { getDashboardUrl } from "@/lib/public-urls";
 import { useI18n } from "@/lib/i18n";
 
 function SuccessContent() {
@@ -25,8 +24,8 @@ function SuccessContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const stripeSessionId = searchParams.get("session_id");
-  const dashboardUrl = getDashboardUrl("/dashboard") || "/dashboard";
-  const dashboardSignInUrl = getDashboardUrl("/sign-in") || "/sign-in";
+  const dashboardUrl = "/dashboard";
+  const dashboardSignInUrl = "/sign-in";
   const [status, setStatus] = useState<"loading" | "paid" | "error">(token ? "loading" : "error");
   const [errorReason, setErrorReason] = useState<"missing_token" | "not_found" | "backend_unavailable" | "verify_failed" | null>(
     token ? null : "missing_token",

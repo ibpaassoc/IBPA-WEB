@@ -20,6 +20,7 @@ export default function EditApplicationPage() {
   const [profile, setProfile] = useState<CombinedProfileData | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [accessBlocked, setAccessBlocked] = useState(false);
+  const [accessBlockedMessage, setAccessBlockedMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -32,6 +33,7 @@ export default function EditApplicationPage() {
 
         if (res.status === 403) {
           setAccessBlocked(true);
+          setAccessBlockedMessage("Profile editing is not available for this account.");
           return;
         }
 
@@ -39,7 +41,12 @@ export default function EditApplicationPage() {
           throw new Error(data?.error || "Failed to load application data");
         }
 
-        const nextProfile = (data.profile || {}) as CombinedProfileData;
+        const nextProfile = (data.profile || {}) as CombinedProfileData & { dashboardAccessType?: string | null };
+        if (nextProfile.dashboardAccessType === "partner_team_member") {
+          setAccessBlocked(true);
+          setAccessBlockedMessage("Team member profiles are managed by the partner owner.");
+          return;
+        }
         const payload = getApplicationPayload(nextProfile);
         const nextForm: Record<string, string> = {};
 
@@ -153,8 +160,8 @@ export default function EditApplicationPage() {
               Membership Activation Required
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-500 md:text-base">
-              Profile editing is available only for paid IBPA members. If your membership payment was completed, sign
-              in with the same email used for your application and payment.
+              {accessBlockedMessage ||
+                "Profile editing is available only for paid IBPA members. If your membership payment was completed, sign in with the same email used for your application and payment."}
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">

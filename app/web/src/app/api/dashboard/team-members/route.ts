@@ -4,8 +4,6 @@ import { getServerBackendUrl } from "@/lib/backend-url";
 import { readBackendResponse } from "@/lib/read-backend-response";
 import { getSafeBackendErrorMessage } from "@/lib/safe-backend-error";
 
-const getApiUrl = () => getServerBackendUrl();
-
 async function getAuthHeaders() {
   const authData = await auth();
   const { getToken, userId } = authData;
@@ -15,60 +13,67 @@ async function getAuthHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
+function getApiUrl() {
+  return getServerBackendUrl();
+}
+
 export async function GET() {
   try {
     const headers = await getAuthHeaders();
     if (!headers) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (!getApiUrl()) return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
 
-    const backendUrl = `${getApiUrl()}/api/dashboard/profile`;
-    const res = await fetch(backendUrl, { headers, cache: "no-store" });
+    const res = await fetch(`${getApiUrl()}/api/dashboard/team-members`, {
+      headers,
+      cache: "no-store",
+    });
     const { data, text } = await readBackendResponse(res);
-    
-    if (res.ok) {
-      return NextResponse.json(data);
-    } else {
-      console.error(`[Proxy /profile GET] Backend error:`, res.status, text.substring(0, 300));
+
+    if (!res.ok) {
       return NextResponse.json(
-        { error: getSafeBackendErrorMessage(data, text, "Unable to load dashboard profile right now.") },
+        {
+          error: getSafeBackendErrorMessage(data, text, "Unable to load partner team members right now."),
+          code: data?.code,
+        },
         { status: res.status },
       );
     }
+
+    return NextResponse.json(data);
   } catch (error: any) {
-    console.error(`[Proxy /profile GET] Error:`, error);
+    console.error("[Proxy /dashboard/team-members GET] Error:", error);
     return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
   }
 }
 
-export async function PATCH(req: Request) {
+export async function POST(req: Request) {
   try {
     const headers = await getAuthHeaders();
     if (!headers) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (!getApiUrl()) return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
 
-    const body = await req.json();
-    const backendUrl = `${getApiUrl()}/api/dashboard/profile`;
-
-    const res = await fetch(backendUrl, {
-      method: "PATCH",
-      cache: "no-store",
+    const body = await req.json().catch(() => ({}));
+    const res = await fetch(`${getApiUrl()}/api/dashboard/team-members`, {
+      method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
+      cache: "no-store",
       body: JSON.stringify(body),
     });
 
     const { data, text } = await readBackendResponse(res);
-
-    if (res.ok) {
-      return NextResponse.json(data);
-    } else {
-      console.error(`[Proxy /profile PATCH] Backend error:`, res.status, text.substring(0, 300));
+    if (!res.ok) {
       return NextResponse.json(
-        { error: getSafeBackendErrorMessage(data, text, "Unable to save profile changes right now.") },
+        {
+          error: getSafeBackendErrorMessage(data, text, "Unable to invite team member right now."),
+          code: data?.code,
+        },
         { status: res.status },
       );
     }
+
+    return NextResponse.json(data, { status: 201 });
   } catch (error: any) {
-    console.error(`[Proxy /profile PATCH] Error:`, error);
+    console.error("[Proxy /dashboard/team-members POST] Error:", error);
     return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
   }
 }

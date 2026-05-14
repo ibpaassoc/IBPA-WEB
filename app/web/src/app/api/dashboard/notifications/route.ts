@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServerBackendUrl } from "@/lib/backend-url";
 import { readBackendResponse } from "@/lib/read-backend-response";
+import { getSafeBackendErrorMessage } from "@/lib/safe-backend-error";
 
 const getApiUrl = () => getServerBackendUrl();
 
@@ -32,7 +33,10 @@ export async function GET() {
     const { data, text } = await readBackendResponse(res);
 
     if (!res.ok) {
-      return NextResponse.json({ error: data?.error || text || "Backend Error" }, { status: res.status });
+      return NextResponse.json(
+        { error: getSafeBackendErrorMessage(data, text, "Unable to load notifications right now.") },
+        { status: res.status },
+      );
     }
 
     return NextResponse.json(data);
@@ -75,7 +79,10 @@ export async function PATCH(req: Request) {
     const { data, text } = await readBackendResponse(res);
 
     if (!res.ok) {
-      return NextResponse.json({ error: data?.error || text || "Backend Error" }, { status: res.status });
+      return NextResponse.json(
+        { error: getSafeBackendErrorMessage(data, text, "Unable to update notifications right now.") },
+        { status: res.status },
+      );
     }
 
     return NextResponse.json(data);

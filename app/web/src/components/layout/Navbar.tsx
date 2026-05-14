@@ -13,7 +13,7 @@ type NavbarProps = {
   dashboardHref?: string;
 };
 
-export const Navbar = ({ dashboardHref = "/" }: NavbarProps) => {
+export const Navbar = ({ dashboardHref = "/dashboard" }: NavbarProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();

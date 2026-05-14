@@ -79,20 +79,19 @@ export default function Membership() {
     },
     {
       category: "Business" as MembershipCategory,
-      name: isRu ? "Владелец бизнеса" : isUk ? "Власник бізнесу" : "Business Owner",
+      name: "Business Owner",
       price: "$599",
       image: "/home/salon.webp",
       icon: <Briefcase className="w-8 h-8" />,
-      for: isRu ? "Для владельцев студий, салонов, beauty spaces и других beauty-бизнесов." : isUk ? "Для власників студій, салонів, beauty spaces та інших beauty-бізнесів." : "For owners of salons, studios, beauty spaces, and other beauty businesses.",
+      for: "For owners of salons, studios, beauty spaces, and other beauty businesses.",
       features: [
-        isRu ? "Всё, что входит в пакет для специалистов, плюс:" : isUk ? "Усе, що входить до пакета для фахівців, плюс:" : "Everything included in Professional Membership, plus:",
-        isRu ? "позиционирование в каталоге как бизнес-участник" : isUk ? "позиціонування в каталозі як бізнес-учасник" : "directory positioning as a Business Member",
-        isRu ? "расширенный профиль компании в каталоге участников" : isUk ? "розширений профіль компанії в каталозі учасників" : "expanded company profile in the Member Directory",
-        isRu ? "доступ к материалам для бизнеса" : isUk ? "доступ до матеріалів для бізнесу" : "access to business-oriented resources",
-        isRu ? "возможность участия в событиях для владельцев" : isUk ? "можливість участі в подіях для власників" : "opportunities to join owner-focused events",
-        isRu ? "материалы по развитию команды, бренда и процессов" : isUk ? "матеріали з розвитку команди, бренду та процесів" : "resources for team, brand, and process development"
+        "1 Owner Account",
+        "5 Team Educational Seats included",
+        "Additional Team Seat - $100 each",
+        "Every team member must have a license",
+        "Educational access for affiliated team members (not full membership)",
       ],
-      value: isRu ? "Помогает владельцу бизнеса укреплять репутацию, повышать видимость и находить партнеров." : isUk ? "Допомагає власнику бізнесу зміцнювати репутацію, підвищувати видимість і знаходити партнерів." : "Helps business owners strengthen reputation, increase visibility, and build new partnerships."
+      value: "Full Business Owner membership for the owner + limited educational access for affiliated team members.",
     },
     {
       category: "Brand" as MembershipCategory,
@@ -268,6 +267,95 @@ export default function Membership() {
             </div>
           </motion.div>
         ))}
+      </section>
+
+      <section className="bg-[#F8FBFD] py-24">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="rounded-[40px] border border-[#DCE8F0] bg-white p-8 shadow-[0_18px_55px_rgba(39,54,72,0.08)] md:p-12">
+            <p className={`text-[10px] uppercase text-[#72A0C1] ${uiClassName}`}>Business Owner</p>
+            <h2 className={`mt-4 text-4xl uppercase leading-[0.94] text-slate-900 md:text-6xl ${headlineClassName}`}>
+              Business Owner Membership Includes
+            </h2>
+            <p className={`mt-4 max-w-4xl text-lg leading-relaxed text-slate-600 ${bodyClassName}`}>
+              Full Business Owner membership for the owner + limited educational access for affiliated team members.
+            </p>
+
+            <div className="mt-8 grid gap-6 lg:grid-cols-2">
+              <div className="rounded-[28px] border border-[#E4EDF3] bg-[#F8FBFD] p-6">
+                <p className={`text-sm uppercase text-[#72A0C1] ${uiClassName}`}>Business Owner Membership Includes</p>
+                <ul className="mt-4 space-y-3 text-slate-600">
+                  {[
+                    "Full IBPA membership for the business owner",
+                    "5 Team Educational Seats included",
+                    "Ability to add affiliated professionals",
+                    "Educational access for team members",
+                    "Member pricing for selected team events",
+                    "Business visibility inside IBPA",
+                    "Networking opportunities",
+                    "Leadership-level participation",
+                    "Additional Team Seats available for $100 each",
+                  ].map((benefit) => (
+                    <li key={benefit} className={`flex items-start gap-3 text-sm leading-relaxed ${bodyClassName}`}>
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#72A0C1]" />
+                      <span>{benefit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-[28px] border border-[#E4EDF3] bg-white p-6">
+                <p className={`text-sm uppercase text-[#72A0C1] ${uiClassName}`}>Team Access Rules</p>
+                <ul className="mt-4 space-y-3 text-slate-600">
+                  {[
+                    "Team access must be email-based",
+                    "Individually assigned",
+                    "Trackable",
+                    "Team Members cannot use owner credentials",
+                    "Team Members cannot share registrations or tickets",
+                    "Every team member must have a license",
+                  ].map((rule) => (
+                    <li key={rule} className={`flex items-start gap-3 text-sm leading-relaxed ${bodyClassName}`}>
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#72A0C1]" />
+                      <span>{rule}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-6 rounded-[20px] border border-amber-200 bg-amber-50 p-4">
+                  <p className={`text-xs leading-relaxed text-amber-800 ${bodyClassName}`}>
+                    IBPA reserves the right to request proof of professional affiliation between a Team Member and the business. Misuse of Team Seats, sharing access, or transferring access to third parties may result in restricted or terminated membership access.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              <div className="rounded-[28px] border border-[#E4EDF3] bg-white p-6">
+                <p className={`text-sm uppercase text-[#72A0C1] ${uiClassName}`}>Future Event / Webinar Logic</p>
+                <ul className="mt-4 space-y-3 text-slate-600">
+                  {[
+                    "personal registration",
+                    "personal QR / ticket",
+                    "individual attendance tracking",
+                  ].map((item) => (
+                    <li key={item} className={`flex items-start gap-3 text-sm leading-relaxed ${bodyClassName}`}>
+                      <Users className="mt-0.5 h-4 w-4 shrink-0 text-[#72A0C1]" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-[28px] border border-[#E4EDF3] bg-white p-6">
+                <p className={`text-sm uppercase text-[#72A0C1] ${uiClassName}`}>Member ID Format</p>
+                <div className={`mt-4 space-y-2 text-sm text-slate-700 ${bodyClassName}`}>
+                  <p>Business Owner: <span className="font-bold">IBPA-BO-001</span></p>
+                  <p>Team Members: <span className="font-bold">IBPA-BO-001-T1</span>, <span className="font-bold">IBPA-BO-001-T2</span>, <span className="font-bold">IBPA-BO-001-T3</span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* 7.8 How to join */}

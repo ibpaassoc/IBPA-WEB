@@ -1,4 +1,4 @@
-import { boolean, doublePrecision, index, jsonb, pgTable, uuid, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, integer, jsonb, pgTable, uuid, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 
 export const cardRequests = pgTable("card_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -13,6 +13,7 @@ export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: varchar("email", { length: 255 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
+  accountType: varchar("account_type", { length: 30 }).notNull().default("member"),
   membershipCategory: varchar("membership_category", { length: 50 }),
   applicantType: varchar("applicant_type", { length: 50 }),
   applicationPayload: jsonb("application_payload"),
@@ -103,6 +104,50 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const teamMembers = pgTable("team_members", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerOrderId: uuid("owner_order_id").references(() => orders.id, { onDelete: "cascade" }).notNull(),
+  ownerClerkUserId: varchar("owner_clerk_user_id", { length: 255 }).notNull(),
+  ownerMemberId: varchar("owner_member_id", { length: 40 }).notNull(),
+  teamMemberId: varchar("team_member_id", { length: 60 }).notNull(),
+  fullName: varchar("full_name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  emailNormalized: varchar("email_normalized", { length: 255 }).notNull(),
+  role: varchar("role", { length: 120 }).notNull(),
+  portfolioLink: text("portfolio_link"),
+  license: varchar("license", { length: 120 }).notNull(),
+  affiliationConfirmed: boolean("affiliation_confirmed").notNull().default(false),
+  seatNumber: integer("seat_number").notNull(),
+  seatKind: varchar("seat_kind", { length: 30 }).notNull().default("included"),
+  billingStatus: varchar("billing_status", { length: 30 }).notNull().default("included"),
+  accessStatus: varchar("access_status", { length: 30 }).notNull().default("active"),
+  status: varchar("status", { length: 30 }).notNull().default("invited"),
+  registrationStatus: varchar("registration_status", { length: 30 }).notNull().default("not_registered"),
+  ticketCode: varchar("ticket_code", { length: 120 }),
+  attendanceStatus: varchar("attendance_status", { length: 30 }).notNull().default("not_marked"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("team_members_owner_order_id_idx").on(table.ownerOrderId),
+  index("team_members_owner_clerk_user_id_idx").on(table.ownerClerkUserId),
+  index("team_members_owner_order_email_idx").on(table.ownerOrderId, table.emailNormalized),
+  uniqueIndex("team_members_team_member_id_uidx").on(table.teamMemberId),
+]);
+
+export const teamSeatExtensions = pgTable("team_seat_extensions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  partnerOrderId: uuid("partner_order_id").references(() => orders.id, { onDelete: "cascade" }).notNull(),
+  ownerClerkUserId: varchar("owner_clerk_user_id", { length: 255 }).notNull(),
+  seatsRequested: integer("seats_requested").notNull().default(1),
+  status: varchar("status", { length: 30 }).notNull().default("payment_required"),
+  paymentSessionId: text("payment_session_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("team_seat_extensions_partner_order_id_idx").on(table.partnerOrderId),
+  index("team_seat_extensions_owner_clerk_user_id_idx").on(table.ownerClerkUserId),
+]);
+
 export type CardRequest = typeof cardRequests.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type Certificate = typeof certificates.$inferSelect;
@@ -111,3 +156,5 @@ export type DashboardNotificationRecord = typeof dashboardNotifications.$inferSe
 export type EmailLog = typeof emailLogs.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type TeamSeatExtension = typeof teamSeatExtensions.$inferSelect;

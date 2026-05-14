@@ -6,6 +6,7 @@ export type Order = {
   id: string;
   email: string;
   name: string;
+  accountType?: "member" | "partner" | null;
   membershipCategory?: string | null;
   applicantType?: string | null;
   applicationPayload?: ApplicationPayload;
