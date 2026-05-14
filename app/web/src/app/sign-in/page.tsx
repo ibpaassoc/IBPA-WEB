@@ -1,11 +1,11 @@
 import { SignIn } from "@clerk/nextjs";
 import Link from "next/link";
 import { LockKeyhole, ChevronRight } from "lucide-react";
-import { getDashboardUrl, getLandingOrigin } from "@/lib/public-urls";
+import { getLandingOrigin } from "@/lib/public-urls";
 
 export default function SignInPage() {
   const landingUrl = getLandingOrigin();
-  const dashboardUrl = getDashboardUrl("/dashboard") || "/dashboard";
+  const dashboardUrl = "/dashboard";
 
   return (
     <div className="min-h-screen bg-[#F1F3F5] px-4 py-10 md:px-8 md:py-16">

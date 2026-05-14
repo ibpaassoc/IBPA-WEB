@@ -17,35 +17,6 @@ function getApiUrl() {
   return getServerBackendUrl();
 }
 
-export async function GET() {
-  try {
-    const headers = await getAuthHeaders();
-    if (!headers) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!getApiUrl()) return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
-
-    const res = await fetch(`${getApiUrl()}/api/dashboard/team-members`, {
-      headers,
-      cache: "no-store",
-    });
-    const { data, text } = await readBackendResponse(res);
-
-    if (!res.ok) {
-      return NextResponse.json(
-        {
-          error: getSafeBackendErrorMessage(data, text, "Unable to load partner team members right now."),
-          code: data?.code,
-        },
-        { status: res.status },
-      );
-    }
-
-    return NextResponse.json(data);
-  } catch (error: any) {
-    console.error("[Proxy /dashboard/team-members GET] Error:", error);
-    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
-  }
-}
-
 export async function POST(req: Request) {
   try {
     const headers = await getAuthHeaders();
@@ -53,18 +24,18 @@ export async function POST(req: Request) {
     if (!getApiUrl()) return NextResponse.json({ error: "Backend URL is not configured." }, { status: 500 });
 
     const body = await req.json().catch(() => ({}));
-    const res = await fetch(`${getApiUrl()}/api/dashboard/team-members`, {
+    const res = await fetch(`${getApiUrl()}/api/dashboard/team-members/extend-seats`, {
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
       cache: "no-store",
       body: JSON.stringify(body),
     });
-
     const { data, text } = await readBackendResponse(res);
+
     if (!res.ok) {
       return NextResponse.json(
         {
-          error: getSafeBackendErrorMessage(data, text, "Unable to invite team member right now."),
+          error: getSafeBackendErrorMessage(data, text, "Unable to request additional seats right now."),
           code: data?.code,
         },
         { status: res.status },
@@ -73,7 +44,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {
-    console.error("[Proxy /dashboard/team-members POST] Error:", error);
+    console.error("[Proxy /dashboard/team-members/extend-seats POST] Error:", error);
     return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
   }
 }

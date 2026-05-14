@@ -1,13 +1,12 @@
 ﻿"use client";
 
 import { SignOutButton, UserButton, useUser, UserProfile } from "@clerk/nextjs";
-import { LayoutDashboard, Settings, User, Bell, LogIn, Loader2, Award, FileText, Menu, X, CreditCard, ChevronRight, Download, Newspaper, CalendarDays, Users, UserPlus } from "lucide-react";
+import { AlertCircle, CheckCircle2, LayoutDashboard, Settings, User, Bell, LogIn, Loader2, Award, FileText, Menu, X, CreditCard, ChevronRight, Download, Newspaper, CalendarDays, Users, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { buildSystemNotifications, normalizeNotifications, type DashboardNotification } from "@/lib/notifications";
-import { getLandingOrigin } from "@/lib/public-urls";
 import { getLocation, getSpecializationDisplay, getProfileBadges, getSnapshotItems, type CombinedProfileData } from "@/lib/application-profile";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { TeamMembersPanel } from "@/components/dashboard/TeamMembersPanel";
@@ -16,6 +15,7 @@ interface Certificate {
   certNumber: string;
   orderEmail: string;
   orderName: string;
+  accountType?: string | null;
   phone?: string | null;
   membershipCategory?: string | null;
   applicantType?: string | null;
@@ -25,6 +25,78 @@ interface Certificate {
   applicationPayload?: Record<string, unknown> | null;
   createdAt: string;
 }
+
+type DashboardAccessType = "member" | "partner_owner" | "partner_team_member";
+
+type TeamMemberAccessInfo = {
+  id?: string;
+  teamMemberId: string;
+  fullName?: string;
+  email?: string;
+  role: string;
+  licenseNumber: string;
+  status: string;
+  ownerMemberId: string;
+  partnerBusinessName: string;
+  partnerBusinessEmail: string;
+};
+
+type PartnerInvitedMember = {
+  id: string;
+  teamMemberId: string;
+  fullName: string;
+  email: string;
+  role: string;
+  status: string;
+};
+
+type PartnerTeamSummary = {
+  includedSeats: number;
+  includedUsed: number;
+  includedRemaining: number;
+  usedSeats: number;
+  remainingSeats: number;
+  totalAllowedSeats: number;
+  additionalUsed: number;
+  paidAdditionalSeats: number;
+  pendingSeatExtensionSeats: number;
+  pendingSeatExtensionRequests: number;
+  additionalSeatPrice: number;
+  canInvite: boolean;
+  inviteDisabledReason: string | null;
+  invitedMembers: PartnerInvitedMember[];
+};
+
+type DashboardProfileData = CombinedProfileData & {
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  state?: string | null;
+  achievements?: string | null;
+  certificatesSummary?: string | null;
+  type?: string | null;
+  accountType?: string | null;
+  applicationType?: string | null;
+  orderType?: string | null;
+  membershipStatus?: string | null;
+  paymentStatus?: string | null;
+  certificateStatus?: string | null;
+  partnerTeamSummary?: PartnerTeamSummary | null;
+  dashboardAccessType?: DashboardAccessType | null;
+  teamMember?: TeamMemberAccessInfo;
+};
+
+type DashboardMeta = {
+  accountType?: string | null;
+  applicationType?: string | null;
+  orderType?: string | null;
+  membershipStatus?: string | null;
+  paymentStatus?: string | null;
+  certificateStatus?: string | null;
+  partnerTeam?: PartnerTeamSummary | null;
+};
 
 type ContentTabType = 'news' | 'events';
 type TabType = 'profile' | 'billing' | 'certificates' | 'teamMembers' | 'settings' | 'notifications' | ContentTabType;
@@ -91,18 +163,22 @@ function getNotificationMeta(notification: DashboardNotification) {
 }
 
 function formatMembershipCategory(category?: string | null) {
-  switch (category) {
-    case "Student":
-    case "Specialist":
+  const normalized = String(category || "").trim().toLowerCase();
+
+  switch (normalized) {
+    case "student":
+    case "specialist":
       return "Specialist Membership";
-    case "Professional":
+    case "professional":
       return "Professional Membership";
-    case "Trainer":
+    case "trainer":
       return "Trainer Membership";
-    case "Business":
+    case "business":
       return "Business Membership";
-    case "Brand":
+    case "brand":
       return "Brand Membership";
+    case "partner":
+      return "Partner Membership";
     default:
       return "Membership Review";
   }
@@ -117,28 +193,52 @@ function addOneYear(dateString?: string) {
 }
 
 function getMembershipAmount(category?: string | null) {
-  switch (category) {
-    case "Student":
-    case "Specialist":
+  const normalized = String(category || "").trim().toLowerCase();
+
+  switch (normalized) {
+    case "student":
+    case "specialist":
       return "$49.00";
-    case "Professional":
+    case "professional":
       return "$199.00";
-    case "Trainer":
+    case "trainer":
       return "$399.00";
-    case "Business":
+    case "business":
       return "$599.00";
-    case "Brand":
+    case "brand":
       return "$1,299.00";
+    case "partner":
+      return "Pending";
     default:
       return "Pending";
   }
+}
+
+function normalizeAccountTypeValue(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function formatStatusLabel(value: unknown, fallback: string) {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!normalized) {
+    return fallback;
+  }
+
+  return normalized
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 export default function DashboardPage() {
   const { user, isSignedIn, isLoaded: userLoaded } = useUser();
 
   const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [profileData, setProfileData] = useState<CombinedProfileData>({});
+  const [profileData, setProfileData] = useState<DashboardProfileData>({});
+  const [dashboardMeta, setDashboardMeta] = useState<DashboardMeta>({});
+  const [dashboardAccessType, setDashboardAccessType] = useState<DashboardAccessType>("member");
+  const [teamMemberAccess, setTeamMemberAccess] = useState<TeamMemberAccessInfo | null>(null);
   const [accessBlocked, setAccessBlocked] = useState(false);
   const [accessErrorMessage, setAccessErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -184,8 +284,16 @@ export default function DashboardPage() {
   const refreshDashboardData = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
       if (!isSignedIn) {
+        setCertificates([]);
+        setProfileData({});
+        setCustomNotifications([]);
+        setDashboardNews([]);
+        setDashboardEvents([]);
         setAccessBlocked(false);
         setAccessErrorMessage(null);
+        setDashboardMeta({});
+        setDashboardAccessType("member");
+        setTeamMemberAccess(null);
         setLoading(false);
         return;
       }
@@ -207,6 +315,9 @@ export default function DashboardPage() {
           console.warn("[Dashboard] API returned 401");
           setCertificates([]);
           setProfileData({});
+          setDashboardMeta({});
+          setDashboardAccessType("member");
+          setTeamMemberAccess(null);
           setCustomNotifications([]);
           setDashboardNews([]);
           setDashboardEvents([]);
@@ -220,6 +331,9 @@ export default function DashboardPage() {
           );
           setCertificates([]);
           setProfileData({});
+          setDashboardMeta({});
+          setDashboardAccessType("member");
+          setTeamMemberAccess(null);
           setCustomNotifications([]);
           setDashboardNews([]);
           setDashboardEvents([]);
@@ -238,10 +352,79 @@ export default function DashboardPage() {
           setAccessBlocked(false);
           setAccessErrorMessage(null);
           setCertificates(Array.isArray(certData.certificates) ? certData.certificates : []);
+          setDashboardMeta({
+            accountType: typeof certData?.accountType === "string" ? certData.accountType : null,
+            applicationType: typeof certData?.applicationType === "string" ? certData.applicationType : null,
+            orderType: typeof certData?.orderType === "string" ? certData.orderType : null,
+            membershipStatus: typeof certData?.membershipStatus === "string" ? certData.membershipStatus : null,
+            paymentStatus: typeof certData?.paymentStatus === "string" ? certData.paymentStatus : null,
+            certificateStatus: typeof certData?.certificateStatus === "string" ? certData.certificateStatus : null,
+            partnerTeam:
+              certData?.partnerTeam && typeof certData.partnerTeam === "object"
+                ? (certData.partnerTeam as PartnerTeamSummary)
+                : null,
+          });
+          const accessFromMe = certData?.dashboardAccess?.type;
+          if (accessFromMe === "member" || accessFromMe === "partner_owner" || accessFromMe === "partner_team_member") {
+            setDashboardAccessType(accessFromMe);
+          }
+
+          if (accessFromMe === "partner_team_member" && certData?.dashboardAccess) {
+            setTeamMemberAccess({
+              teamMemberId: certData.dashboardAccess.teamMemberId || "Pending",
+              role: certData.dashboardAccess.role || "Team Member",
+              licenseNumber: certData.dashboardAccess.licenseNumber || "Not provided",
+              status: certData.dashboardAccess.teamMemberStatus || "invited",
+              ownerMemberId: certData.dashboardAccess.ownerMemberId || "IBPA-BO-001",
+              partnerBusinessName: certData.dashboardAccess.partnerName || "Partner Account",
+              partnerBusinessEmail: certData.dashboardAccess.partnerEmail || "Not provided",
+            });
+          } else {
+            setTeamMemberAccess(null);
+          }
         }
 
         if (profRes.ok && profileJson) {
-          setProfileData(profileJson.profile || {});
+          const nextProfile = (profileJson.profile || {}) as DashboardProfileData;
+          setProfileData(nextProfile);
+          setDashboardMeta((prev) => ({
+            accountType:
+              typeof nextProfile.accountType === "string"
+                ? nextProfile.accountType
+                : prev.accountType ?? null,
+            applicationType:
+              typeof nextProfile.applicationType === "string"
+                ? nextProfile.applicationType
+                : prev.applicationType ?? null,
+            orderType:
+              typeof nextProfile.orderType === "string"
+                ? nextProfile.orderType
+                : prev.orderType ?? null,
+            membershipStatus:
+              typeof nextProfile.membershipStatus === "string"
+                ? nextProfile.membershipStatus
+                : prev.membershipStatus ?? null,
+            paymentStatus:
+              typeof nextProfile.paymentStatus === "string"
+                ? nextProfile.paymentStatus
+                : prev.paymentStatus ?? null,
+            certificateStatus:
+              typeof nextProfile.certificateStatus === "string"
+                ? nextProfile.certificateStatus
+                : prev.certificateStatus ?? null,
+            partnerTeam: nextProfile.partnerTeamSummary ?? prev.partnerTeam ?? null,
+          }));
+
+          const accessFromProfile = nextProfile.dashboardAccessType;
+          if (accessFromProfile === "member" || accessFromProfile === "partner_owner" || accessFromProfile === "partner_team_member") {
+            setDashboardAccessType(accessFromProfile);
+          }
+
+          if (nextProfile.teamMember) {
+            setTeamMemberAccess(nextProfile.teamMember);
+          } else if (accessFromProfile !== "partner_team_member") {
+            setTeamMemberAccess(null);
+          }
         }
 
         if (notificationsRes.ok && notificationsJson) {
@@ -376,14 +559,74 @@ export default function DashboardPage() {
     }
   }, [activeTab]);
 
-  const activeAppsCount = certificates.length;
   const hasApprovedCert = certificates.some(c => c.status === "approved" || c.status === "paid");
-  const membershipStatus = hasApprovedCert ? "IBPA Member" : "Guest";
+  const normalizedAccountType = useMemo(() => {
+    const candidates = [
+      profileData.type,
+      profileData.accountType,
+      profileData.applicationType,
+      profileData.orderType,
+      dashboardMeta.accountType,
+      dashboardMeta.applicationType,
+      dashboardMeta.orderType,
+      certificates[0]?.accountType,
+    ];
+
+    for (const candidate of candidates) {
+      const normalized = normalizeAccountTypeValue(candidate);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    return "";
+  }, [
+    certificates,
+    dashboardMeta.accountType,
+    dashboardMeta.applicationType,
+    dashboardMeta.orderType,
+    profileData.accountType,
+    profileData.applicationType,
+    profileData.orderType,
+    profileData.type,
+  ]);
+  const isPartnerAccount = normalizedAccountType === "partner";
+  const isTeamMemberDashboard = dashboardAccessType === "partner_team_member";
+  const isPartnerOwner =
+    dashboardAccessType === "partner_owner" || (isPartnerAccount && dashboardAccessType !== "partner_team_member");
+  const showCertificatesTab = !isTeamMemberDashboard && !isPartnerOwner;
+  const partnerTeamSummary = profileData.partnerTeamSummary || dashboardMeta.partnerTeam || null;
+  const normalizedMembershipStatus = String(
+    profileData.membershipStatus ?? dashboardMeta.membershipStatus ?? "",
+  ).trim().toLowerCase();
+  const normalizedPaymentStatus = String(profileData.paymentStatus ?? dashboardMeta.paymentStatus ?? "")
+    .trim()
+    .toLowerCase();
+  const normalizedCertificateStatus = String(
+    profileData.certificateStatus ?? dashboardMeta.certificateStatus ?? "",
+  ).trim().toLowerCase();
+  const isMembershipActive = hasApprovedCert || normalizedPaymentStatus === "paid";
+  const membershipStatus =
+    isTeamMemberDashboard
+      ? "Team Member"
+      : isPartnerOwner
+        ? "Partner Account"
+        : isMembershipActive
+          ? "IBPA Member"
+          : normalizedMembershipStatus === "review"
+          ? "Pending Review"
+            : "Guest";
   const primaryCertificate = certificates[0];
-  const firstName = user?.firstName || "Member";
-  const lastName = user?.lastName || "";
-  const fullName = [firstName, lastName].filter(Boolean).join(" ");
-  const username = user?.username || user?.primaryEmailAddress?.emailAddress?.split("@")[0] || "ibpa.member";
+  const mappedFirstName = String(profileData.firstName || "").trim();
+  const mappedLastName = String(profileData.lastName || "").trim();
+  const mappedFullName = String(profileData.fullName || "").trim();
+  const clerkFullName = [user?.firstName || "", user?.lastName || ""].filter(Boolean).join(" ").trim();
+  const firstName = mappedFirstName || user?.firstName || "Member";
+  const lastName = mappedLastName || user?.lastName || "";
+  const fullName = mappedFullName || [mappedFirstName, mappedLastName].filter(Boolean).join(" ") || clerkFullName || "Member";
+  const dashboardContactEmail =
+    String(profileData.email || primaryCertificate?.orderEmail || user?.primaryEmailAddress?.emailAddress || "").trim();
+  const username = user?.username || dashboardContactEmail.split("@")[0] || "ibpa.member";
   const memberSinceDate = primaryCertificate?.createdAt ? new Date(primaryCertificate.createdAt) : user?.createdAt ? new Date(user.createdAt) : null;
   const memberSinceDisplay = memberSinceDate
     ? memberSinceDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })
@@ -393,9 +636,26 @@ export default function DashboardPage() {
   const certificateValidUntilDisplay = certificateValidUntilDate
     ? certificateValidUntilDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : "Pending";
-  const primaryCertificateNumber = primaryCertificate?.certNumber || "Pending Review";
-  const membershipCategoryLabel = formatMembershipCategory(primaryCertificate?.membershipCategory);
-  const isBusinessOwner = (primaryCertificate?.membershipCategory || profileData.membershipCategory) === "Business";
+  const certificateStatusDisplay = formatStatusLabel(normalizedCertificateStatus, "Pending");
+  const primaryCertificateNumber = isPartnerOwner
+    ? "Partner Team Access"
+    : primaryCertificate?.certNumber || "Pending Review";
+  const membershipCategoryLabel = isTeamMemberDashboard
+    ? "Partner Team Access"
+    : isPartnerOwner
+      ? "Partner Membership"
+      : formatMembershipCategory(primaryCertificate?.membershipCategory || profileData.membershipCategory);
+
+  useEffect(() => {
+    if (isTeamMemberDashboard && (activeTab === "billing" || activeTab === "certificates" || activeTab === "teamMembers")) {
+      setActiveTab("profile");
+      return;
+    }
+
+    if (isPartnerOwner && activeTab === "certificates") {
+      setActiveTab("billing");
+    }
+  }, [activeTab, isPartnerOwner, isTeamMemberDashboard]);
   const activeApplicationPayload = useMemo<Record<string, unknown>>(() => {
     if (
       primaryCertificate?.applicationPayload &&
@@ -454,7 +714,8 @@ export default function DashboardPage() {
   const specializationDisplay = getSpecializationDisplay(mergedProfileData);
   const locationDisplay = getLocation(mergedProfileData);
   const snapshotItems = getSnapshotItems(mergedProfileData);
-  const profileTags = getProfileBadges(mergedProfileData, primaryCertificate?.status || "pending", membershipCategoryLabel);
+  const profileStatusForBadges = primaryCertificate?.status || (isMembershipActive ? "paid" : normalizedMembershipStatus || "pending");
+  const profileTags = getProfileBadges(mergedProfileData, profileStatusForBadges, membershipCategoryLabel);
   const profileHeroImage =
     mergedProfileData.imageUrl ||
     user?.imageUrl ||
@@ -477,7 +738,7 @@ export default function DashboardPage() {
         hasApprovedCert,
         membershipCategoryLabel,
         primaryCertificate,
-        userCreatedAt: user?.createdAt?.toISOString(),
+      userCreatedAt: user?.createdAt?.toISOString(),
     }),
     [hasApprovedCert, membershipCategoryLabel, primaryCertificate, user?.createdAt]
   );
@@ -517,7 +778,15 @@ export default function DashboardPage() {
   const latestEventsAt = dashboardEvents[0]?.createdAt || null;
   const hasNewNews = Boolean(latestNewsAt && (!lastSeenNewsAt || new Date(latestNewsAt).getTime() > new Date(lastSeenNewsAt).getTime()));
   const hasNewEvents = Boolean(latestEventsAt && (!lastSeenEventsAt || new Date(latestEventsAt).getTime() > new Date(lastSeenEventsAt).getTime()));
-  const membershipAmount = getMembershipAmount(primaryCertificate?.membershipCategory);
+  const includedPartnerSeats = partnerTeamSummary?.includedSeats ?? 5;
+  const usedPartnerSeats = partnerTeamSummary?.usedSeats ?? 0;
+  const remainingPartnerSeats = partnerTeamSummary?.remainingSeats ?? includedPartnerSeats;
+  const pendingPartnerSeatRequests = partnerTeamSummary?.pendingSeatExtensionRequests ?? 0;
+  const partnerSeatPrice = partnerTeamSummary?.additionalSeatPrice ?? 100;
+  const invitedPartnerMembers = partnerTeamSummary?.invitedMembers || [];
+  const membershipAmount = isPartnerOwner
+    ? `${includedPartnerSeats} included seats`
+    : getMembershipAmount(primaryCertificate?.membershipCategory);
   const billingEntries = certificates.map((cert) => ({
     id: cert.certNumber,
     date: new Date(cert.createdAt).toLocaleDateString("en-US", {
@@ -597,9 +866,147 @@ export default function DashboardPage() {
   const renderContent = () => {
     if (activeTab === 'news') return renderContentList(dashboardNews, 'news');
     if (activeTab === 'events') return renderContentList(dashboardEvents, 'events');
-    if (activeTab === "teamMembers") return <TeamMembersPanel enabled={isBusinessOwner} />;
+    if (activeTab === "teamMembers") return <TeamMembersPanel enabled={isPartnerOwner} />;
 
     if (activeTab === 'billing') {
+      if (isPartnerOwner) {
+        return (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6 md:space-y-8">
+            <div className="bg-white p-6 md:p-10 rounded-[32px] md:rounded-[40px] border border-gray-100 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-1/2 h-full bg-[#B9D9EB]/5 rounded-l-[200px] z-0 pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                  <p className="text-[#72A0C1] text-[10px] tracking-[0.4em] font-bold uppercase mb-2 opacity-70">Partner Access</p>
+                  <h2 className="text-3xl md:text-5xl uppercase font-anton mb-2">Team <span className="text-[#72A0C1]">&</span> Membership.</h2>
+                  <p className="text-slate-400 text-xs font-light">Manage your partner account seats, invited members, and educational team access.</p>
+                </div>
+                <Link href="/contact" className="bg-black text-white px-8 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#72A0C1] transition-all shadow-xl shadow-black/10 text-center">
+                  Contact Support
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm relative group overflow-hidden">
+                  <div className="absolute top-6 right-8">
+                    <div className="w-12 h-12 bg-[#72A0C1]/10 rounded-full flex items-center justify-center text-[#72A0C1]">
+                      <Users className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Active Plan</h3>
+                  <div className="flex flex-col md:flex-row md:items-end gap-4 mb-8">
+                    <p className="text-4xl md:text-5xl font-anton text-slate-900 uppercase">Partner</p>
+                    <p className="text-[#72A0C1] text-xs font-bold mb-2">/ Team Access</p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-8 pt-8 border-t border-slate-50">
+                    <div>
+                      <p className="text-slate-400 text-[9px] uppercase tracking-widest font-bold mb-1">Included Seats</p>
+                      <p className="text-sm font-bold text-slate-700">{includedPartnerSeats}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-[9px] uppercase tracking-widest font-bold mb-1">Used Seats</p>
+                      <p className="text-sm font-bold text-slate-700">{usedPartnerSeats}</p>
+                    </div>
+                    <div className="hidden md:block">
+                      <p className="text-slate-400 text-[9px] uppercase tracking-widest font-bold mb-1">Remaining Seats</p>
+                      <p className="text-sm font-bold text-slate-700">{remainingPartnerSeats}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Team Members</h3>
+                    {lastSyncedAt && <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Updated {new Date(lastSyncedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
+                  </div>
+
+                  {invitedPartnerMembers.length > 0 ? (
+                    <div className="space-y-4">
+                      {invitedPartnerMembers.map((member) => (
+                        <div key={member.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-[#F8FAFC] p-4 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-900">{member.fullName}</p>
+                            <p className="mt-1 text-xs text-slate-500">{member.email}</p>
+                            <p className="mt-1 text-xs text-slate-500">{member.role}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{member.teamMemberId}</span>
+                            <span className={`rounded-full px-3 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${
+                              member.status === "active"
+                                ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "border border-amber-200 bg-amber-50 text-amber-700"
+                            }`}>
+                              {member.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-400">
+                      You have not invited any team members yet.
+                    </div>
+                  )}
+
+                  <div className="mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("teamMembers")}
+                      className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1]"
+                    >
+                      Manage Team Members
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-slate-900 p-8 rounded-[32px] text-white shadow-2xl relative overflow-hidden">
+                  <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-[#72A0C1]/20 rounded-full blur-2xl" />
+                  <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-6">Partner Record</h3>
+                  <div className="space-y-3 mb-8">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">Category</p>
+                      <p className="mt-1 text-xs font-bold">Partner Membership</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">Payment Status</p>
+                      <p className="mt-1 text-xs font-bold">{formatStatusLabel(normalizedPaymentStatus, "Pending")}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">Certificate Status</p>
+                      <p className="mt-1 text-xs font-bold">{certificateStatusDisplay}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">Pending Seat Requests</p>
+                      <p className="mt-1 text-xs font-bold">{pendingPartnerSeatRequests}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("teamMembers")}
+                    className="w-full py-3 bg-white/10 border border-white/10 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-colors hover:bg-white/15"
+                  >
+                    Extend Seats ({partnerSeatPrice} USD, payment required)
+                  </button>
+                </div>
+
+                <div className="bg-[#B9D9EB]/10 p-8 rounded-[32px] border border-[#B9D9EB]/20">
+                  <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Partner Support</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-6 font-light">
+                    Questions about partner seats or billing? Our support team is here to help.
+                  </p>
+                  <Link href="/contact" className="flex items-center gap-2 text-[10px] font-bold text-[#72A0C1] uppercase tracking-widest group">
+                    Contact Team <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        );
+      }
+
       return (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6 md:space-y-8">
           {/* Header Section */}
@@ -611,7 +1018,7 @@ export default function DashboardPage() {
                   <h2 className="text-3xl md:text-5xl uppercase font-anton mb-2">Billing <span className="text-[#72A0C1]">&</span> Subscription.</h2>
                   <p className="text-slate-400 text-xs font-light">Manage your membership status, certificate timeline, and account records.</p>
                 </div>
-                <Link href={`${getLandingOrigin()}/contact`} className="bg-black text-white px-8 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#72A0C1] transition-all shadow-xl shadow-black/10 text-center">
+                <Link href="/contact" className="bg-black text-white px-8 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#72A0C1] transition-all shadow-xl shadow-black/10 text-center">
                    Contact Support
                 </Link>
              </div>
@@ -644,8 +1051,8 @@ export default function DashboardPage() {
                       <div className="hidden md:block">
                          <p className="text-slate-400 text-[9px] uppercase tracking-widest font-bold mb-1">Status</p>
                          <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${hasApprovedCert ? "bg-green-500 animate-pulse" : "bg-amber-400"}`} />
-                            <p className="text-sm font-bold text-slate-700 uppercase">{hasApprovedCert ? "Active" : "Pending"}</p>
+                            <span className={`w-2 h-2 rounded-full ${isMembershipActive ? "bg-green-500 animate-pulse" : "bg-amber-400"}`} />
+                            <p className="text-sm font-bold text-slate-700 uppercase">{isMembershipActive ? "Active" : "Pending"}</p>
                          </div>
                       </div>
                    </div>
@@ -721,7 +1128,7 @@ export default function DashboardPage() {
                    <p className="text-xs text-slate-500 leading-relaxed mb-6 font-light">
                       Questions about your subscription? Our support team is here to help.
                    </p>
-                   <Link href={`${getLandingOrigin()}/contact`} className="flex items-center gap-2 text-[10px] font-bold text-[#72A0C1] uppercase tracking-widest group">
+                   <Link href="/contact" className="flex items-center gap-2 text-[10px] font-bold text-[#72A0C1] uppercase tracking-widest group">
                       Contact Team <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                    </Link>
                 </div>
@@ -732,6 +1139,27 @@ export default function DashboardPage() {
     }
 
     if (activeTab === 'certificates') {
+      if (isPartnerOwner) {
+        return (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+            <div className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
+              <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">Partner Access</p>
+              <h3 className="mt-4 text-2xl uppercase font-anton text-slate-900 md:text-4xl">Team Members Dashboard</h3>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-500 md:text-base">
+                Partner owners manage team seats instead of individual certificate records in this area.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab("teamMembers")}
+                className="mt-6 inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1]"
+              >
+                Open Team Members
+              </button>
+            </div>
+          </motion.div>
+        );
+      }
+
       return (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-white p-6 md:p-10 rounded-[32px] md:rounded-[40px] border border-slate-100 shadow-sm min-h-[400px]">
           <div className="flex items-center gap-4 mb-8 md:mb-10">
@@ -788,6 +1216,75 @@ export default function DashboardPage() {
     }
 
     if (activeTab === 'profile') {
+      if (isTeamMemberDashboard) {
+        return (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="space-y-6">
+            <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
+              <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">Team Member Dashboard</p>
+              <h3 className="mt-4 text-2xl uppercase font-anton text-slate-900 md:text-4xl">Educational Access</h3>
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-500 md:text-base">
+                Your dashboard provides educational resources and selected member pricing from your parent partner account.
+              </p>
+            </section>
+
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Team Member ID</p>
+                <p className="mt-2 text-xl font-bold text-slate-900">{teamMemberAccess?.teamMemberId || "Pending"}</p>
+              </article>
+              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Role</p>
+                <p className="mt-2 text-xl font-bold text-slate-900">{teamMemberAccess?.role || "Team Member"}</p>
+              </article>
+              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Partner Business</p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">{teamMemberAccess?.partnerBusinessName || "Partner Account"}</p>
+              </article>
+              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Owner ID</p>
+                <p className="mt-2 text-xl font-bold text-slate-900">{teamMemberAccess?.ownerMemberId || "IBPA-BO-001"}</p>
+              </article>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-2">
+              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
+                <h4 className="text-lg uppercase font-anton text-slate-900">Available To You</h4>
+                <ul className="mt-4 space-y-2 text-sm text-slate-600">
+                  {[
+                    "Educational resources",
+                    "Webinars and master classes",
+                    "Selected event/member pricing",
+                    "Participation and certificates area (if enabled)",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
+                <h4 className="text-lg uppercase font-anton text-slate-900">Not Included</h4>
+                <ul className="mt-4 space-y-2 text-sm text-slate-600">
+                  {[
+                    "Full membership certificate",
+                    "Voting rights",
+                    "Public member listing controls",
+                    "Leadership features",
+                    "Full owner/member privileges",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </section>
+          </motion.div>
+        );
+      }
+
       return (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="w-full max-w-6xl mx-auto px-0 pb-20 md:px-4">
           <div className="relative overflow-hidden rounded-[48px] border border-white/10 bg-[#0A0A0A] shadow-[0_20px_100px_rgba(0,0,0,0.35)]">
@@ -924,18 +1421,28 @@ export default function DashboardPage() {
                             <div className="mt-6 flex flex-col gap-3 sm:flex-row md:mt-8">
                               <button
                                 type="button"
-                                onClick={() => setActiveTab('billing')}
+                                onClick={() => setActiveTab(isPartnerOwner ? "teamMembers" : "billing")}
                                 className="flex-1 rounded-[20px] bg-linear-to-r from-[#8DD4F7] via-[#F2C94C] to-[#F6B6FF] px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.16em] text-black shadow-[0_20px_45px_rgba(141,212,247,0.25)] transition-transform hover:scale-[1.01] md:rounded-[22px] md:px-6 md:py-4 md:text-sm md:tracking-[0.24em]"
                               >
-                                View Membership
+                                {isPartnerOwner ? "Manage Team" : "View Membership"}
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setActiveTab('certificates')}
-                                className="rounded-[20px] border border-white/12 bg-white/10 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.16em] text-white backdrop-blur-xl transition-colors hover:bg-white/15 md:rounded-[22px] md:px-6 md:py-4 md:text-sm md:tracking-[0.24em]"
-                              >
-                                Certificate Status
-                              </button>
+                              {showCertificatesTab ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab("certificates")}
+                                  className="rounded-[20px] border border-white/12 bg-white/10 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.16em] text-white backdrop-blur-xl transition-colors hover:bg-white/15 md:rounded-[22px] md:px-6 md:py-4 md:text-sm md:tracking-[0.24em]"
+                                >
+                                  Certificate Status
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab("billing")}
+                                  className="rounded-[20px] border border-white/12 bg-white/10 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[0.16em] text-white backdrop-blur-xl transition-colors hover:bg-white/15 md:rounded-[22px] md:px-6 md:py-4 md:text-sm md:tracking-[0.24em]"
+                                >
+                                  Billing Status
+                                </button>
+                              )}
                             </div>
                           </div>
                         </motion.div>
@@ -976,7 +1483,7 @@ export default function DashboardPage() {
                 Primary Contact
               </p>
               <p className="mt-2 truncate text-xs font-medium text-slate-700 md:mt-3 md:text-sm">
-                {user?.primaryEmailAddress?.emailAddress || "Email not available"}
+                {dashboardContactEmail || "Email not available"}
               </p>
             </div>
           </motion.div>
@@ -1073,6 +1580,14 @@ export default function DashboardPage() {
     );
   }
 
+  if (isSignedIn && loading) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-[#72A0C1]" />
+      </div>
+    );
+  }
+
   const NavContent = () => (
     <nav className="space-y-2">
       <button
@@ -1083,15 +1598,17 @@ export default function DashboardPage() {
         Profile
       </button>
       
-      <button 
-        onClick={() => { setActiveTab('certificates'); setIsMobileMenuOpen(false); }}
-        className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] transition-all ${activeTab === 'certificates' ? 'bg-[#72A0C1] text-white shadow-lg shadow-[#72A0C1]/20' : 'text-slate-400 hover:bg-white hover:text-slate-600'}`}
-      >
-        <Award className="w-5 h-5" />
-        My Certificates
-      </button>
+      {showCertificatesTab ? (
+        <button 
+          onClick={() => { setActiveTab('certificates'); setIsMobileMenuOpen(false); }}
+          className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] transition-all ${activeTab === 'certificates' ? 'bg-[#72A0C1] text-white shadow-lg shadow-[#72A0C1]/20' : 'text-slate-400 hover:bg-white hover:text-slate-600'}`}
+        >
+          <Award className="w-5 h-5" />
+          My Certificates
+        </button>
+      ) : null}
 
-      {isBusinessOwner ? (
+      {isPartnerOwner ? (
         <button
           onClick={() => { setActiveTab('teamMembers'); setIsMobileMenuOpen(false); }}
           className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] transition-all ${activeTab === 'teamMembers' ? 'bg-[#72A0C1] text-white shadow-lg shadow-[#72A0C1]/20' : 'text-slate-400 hover:bg-white hover:text-slate-600'}`}
@@ -1101,14 +1618,16 @@ export default function DashboardPage() {
         </button>
       ) : null}
 
-      <Link
-        href="/dashboard/community"
-        onClick={() => setIsMobileMenuOpen(false)}
-        className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] text-slate-400 transition-all hover:bg-white hover:text-slate-600"
-      >
-        <Users className="w-5 h-5" />
-        Community
-      </Link>
+      {!isTeamMemberDashboard ? (
+        <Link
+          href="/dashboard/community"
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] text-slate-400 transition-all hover:bg-white hover:text-slate-600"
+        >
+          <Users className="w-5 h-5" />
+          Community
+        </Link>
+      ) : null}
 
       <button
         onClick={() => { setActiveTab('news' as TabType); setIsMobileMenuOpen(false); }}
@@ -1129,13 +1648,15 @@ export default function DashboardPage() {
       </button>
 
       <div className="pt-8 mt-8 border-t border-gray-200/50">
-         <button 
-           onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }}
-           className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] transition-all ${activeTab === 'billing' ? 'bg-[#72A0C1] text-white shadow-lg shadow-[#72A0C1]/20' : 'text-slate-400 hover:bg-white hover:text-slate-600'}`}
-         >
-           <CreditCard className="w-5 h-5" />
-           Billing & Membership
-         </button>
+         {!isTeamMemberDashboard ? (
+           <button 
+             onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }}
+             className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] transition-all ${activeTab === 'billing' ? 'bg-[#72A0C1] text-white shadow-lg shadow-[#72A0C1]/20' : 'text-slate-400 hover:bg-white hover:text-slate-600'}`}
+           >
+             <CreditCard className="w-5 h-5" />
+             Billing & Membership
+           </button>
+         ) : null}
          <button 
            onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }}
            className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] transition-all ${activeTab === 'settings' ? 'bg-[#72A0C1] text-white shadow-lg shadow-[#72A0C1]/20' : 'text-slate-400 hover:bg-white hover:text-slate-600'}`}
@@ -1188,13 +1709,13 @@ export default function DashboardPage() {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                href={`${getLandingOrigin()}/contact`}
+                href="/contact"
                 className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1] hover:text-black"
               >
                 Contact Support
               </Link>
               <Link
-                href={`${getLandingOrigin()}/apply`}
+                href="/apply"
                 className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]"
               >
                 Apply Now

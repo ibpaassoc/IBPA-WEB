@@ -28,6 +28,7 @@ const MEMBERSHIP_APPLICANT_TYPES: Record<keyof typeof MEMBERSHIP_PRICE_KEYS, str
   Business: "Business",
   Brand: "Brand",
 };
+const ORDER_ACCOUNT_TYPES = new Set(["member", "partner"]);
 
 const SPONSORSHIP_PRICE_KEYS = {
   Associate: "STRIPE_PRICE_SPONSOR_ASSOCIATE",
@@ -155,6 +156,15 @@ function normalizeMembershipPackage(category?: unknown) {
   }
 
   return (LEGACY_MEMBERSHIP_PACKAGES[category] || category) as keyof typeof MEMBERSHIP_PRICE_KEYS;
+}
+
+function normalizeOrderAccountType(value: unknown, fallback: "member" | "partner" = "member") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return ORDER_ACCOUNT_TYPES.has(normalized) ? (normalized as "member" | "partner") : fallback;
 }
 
 function getSponsorshipPriceId(tier?: string | null) {
@@ -691,6 +701,7 @@ ordersRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, r
 ordersRouter.patch("/admin/applications/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
   const id = getSingleValue(req.params.id);
   const membershipCategory = normalizeMembershipPackage(req.body?.membershipCategory);
+  const accountType = normalizeOrderAccountType(req.body?.accountType);
 
   if (!id) {
     return res.status(400).json({ error: "Invalid application id" });
@@ -718,12 +729,14 @@ ordersRouter.patch("/admin/applications/:id", adminClerkMiddleware, requireAdmin
       .update(orders)
       .set({
         membershipCategory,
+        accountType,
         package: membershipCategory,
         applicantType,
         applicationPayload: {
           ...applicationPayload,
           membershipCategory,
           applicantType,
+          accountType,
         },
       })
       .where(eq(orders.id, id))
@@ -743,6 +756,7 @@ ordersRouter.patch("/admin/applications/:id", adminClerkMiddleware, requireAdmin
 ordersRouter.patch("/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
   const id = getSingleValue(req.params.id);
   const membershipCategory = normalizeMembershipPackage(req.body?.membershipCategory);
+  const accountType = normalizeOrderAccountType(req.body?.accountType);
 
   if (!id) {
     return res.status(400).json({ error: "Invalid application id" });
@@ -770,12 +784,14 @@ ordersRouter.patch("/:id", adminClerkMiddleware, requireAdminAccess, async (req,
       .update(orders)
       .set({
         membershipCategory,
+        accountType,
         package: membershipCategory,
         applicantType,
         applicationPayload: {
           ...applicationPayload,
           membershipCategory,
           applicantType,
+          accountType,
         },
       })
       .where(eq(orders.id, id))
@@ -798,12 +814,14 @@ ordersRouter.post("/", async (req, res) => {
     email,
     name,
     package: rawMembershipPackage,
+    accountType: rawAccountType,
     applicantType,
     application,
     phone,
     honeypot,
   } = req.body;
   const membershipPackage = normalizeMembershipPackage(rawMembershipPackage);
+  const accountType = normalizeOrderAccountType(rawAccountType);
   const secureToken = crypto.randomUUID();
 
   if (typeof honeypot === "string" && honeypot.trim()) {
@@ -833,6 +851,7 @@ ordersRouter.post("/", async (req, res) => {
   const normalizedApplication: Record<string, unknown> = {
     ...(application as Record<string, unknown>),
     membershipCategory: membershipPackage,
+    accountType,
   };
 
   const ipLimit = applicationLimiter.hit(`orders:ip:${clientIp}`);
@@ -959,6 +978,7 @@ ordersRouter.post("/", async (req, res) => {
     const [newOrder] = await db.insert(orders).values({
       email,
       name,
+      accountType,
       phone: applicantPhone,
       membershipCategory: membershipPackage,
       package: membershipPackage,

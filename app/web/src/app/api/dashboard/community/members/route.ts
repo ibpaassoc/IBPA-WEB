@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServerBackendUrl } from "@/lib/backend-url";
 import { readBackendResponse } from "@/lib/read-backend-response";
+import { getSafeBackendErrorMessage } from "@/lib/safe-backend-error";
 
 const getApiUrl = () => getServerBackendUrl();
 
@@ -34,7 +35,7 @@ export async function GET() {
     if (!accessRes.ok) {
       const { data, text } = await readBackendResponse(accessRes);
       return NextResponse.json(
-        { error: data?.error || text || "Dashboard access is required." },
+        { error: getSafeBackendErrorMessage(data, text, "Dashboard access is required.") },
         { status: accessRes.status },
       );
     }
@@ -44,7 +45,7 @@ export async function GET() {
 
     if (!membersRes.ok) {
       return NextResponse.json(
-        { error: data?.error || text || "Failed to load community members." },
+        { error: getSafeBackendErrorMessage(data, text, "Failed to load community members.") },
         { status: membersRes.status },
       );
     }

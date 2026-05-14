@@ -10,10 +10,6 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || DEFAULT_ADMIN_EMAILS.join(",")
 
 const LANDING_URL = process.env.NEXT_PUBLIC_LANDING_URL || "/";
 
-const isDashboardRoute = createRouteMatcher([
-  "/dashboard(.*)",
-]);
-
 const isDashboardApiRoute = createRouteMatcher(["/api/dashboard(.*)"]);
 
 const isAdminRoute = createRouteMatcher([
@@ -36,10 +32,6 @@ export default clerkMiddleware(async (auth, req) => {
     if (!authObject.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-  }
-
-  if (isDashboardRoute(req)) {
-    await auth.protect();
   }
 
   if (isAdminRoute(req)) {

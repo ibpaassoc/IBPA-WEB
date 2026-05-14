@@ -45,7 +45,13 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      signInUrl="/sign-in"
+      signInForceRedirectUrl="/dashboard"
+      signInFallbackRedirectUrl="/dashboard"
+      signUpForceRedirectUrl="/dashboard"
+      signUpFallbackRedirectUrl="/dashboard"
+    >
       <html lang="en" className={cn("font-sans", inter.variable, cyrillicDisplay.variable, cyrillicEditorial.variable)}>
         <head>
           <Script

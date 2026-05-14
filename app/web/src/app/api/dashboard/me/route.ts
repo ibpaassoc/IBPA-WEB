@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServerBackendUrl } from "@/lib/backend-url";
 import { readBackendResponse } from "@/lib/read-backend-response";
+import { getSafeBackendErrorMessage } from "@/lib/safe-backend-error";
 
 export async function GET() {
   const apiUrl = getServerBackendUrl();
@@ -43,8 +44,9 @@ export async function GET() {
       return NextResponse.json(data);
     } else {
       console.error(`[Proxy /me] Backend error. Status: ${res.status}, Body: ${text.substring(0, 500)}`);
+      const errorMessage = getSafeBackendErrorMessage(data, text, "Unable to load dashboard data right now.");
       return NextResponse.json(
-        { error: data?.error || text || "Backend Error", backendStatus: res.status },
+        { error: errorMessage, backendStatus: res.status },
         { status: res.status }
       );
     }

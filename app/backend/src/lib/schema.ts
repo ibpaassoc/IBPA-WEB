@@ -13,6 +13,7 @@ export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: varchar("email", { length: 255 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
+  accountType: varchar("account_type", { length: 30 }).notNull().default("member"),
   membershipCategory: varchar("membership_category", { length: 50 }),
   applicantType: varchar("applicant_type", { length: 50 }),
   applicationPayload: jsonb("application_payload"),
@@ -120,6 +121,7 @@ export const teamMembers = pgTable("team_members", {
   seatKind: varchar("seat_kind", { length: 30 }).notNull().default("included"),
   billingStatus: varchar("billing_status", { length: 30 }).notNull().default("included"),
   accessStatus: varchar("access_status", { length: 30 }).notNull().default("active"),
+  status: varchar("status", { length: 30 }).notNull().default("invited"),
   registrationStatus: varchar("registration_status", { length: 30 }).notNull().default("not_registered"),
   ticketCode: varchar("ticket_code", { length: 120 }),
   attendanceStatus: varchar("attendance_status", { length: 30 }).notNull().default("not_marked"),
@@ -128,8 +130,22 @@ export const teamMembers = pgTable("team_members", {
 }, (table) => [
   index("team_members_owner_order_id_idx").on(table.ownerOrderId),
   index("team_members_owner_clerk_user_id_idx").on(table.ownerClerkUserId),
+  index("team_members_owner_order_email_idx").on(table.ownerOrderId, table.emailNormalized),
   uniqueIndex("team_members_team_member_id_uidx").on(table.teamMemberId),
-  uniqueIndex("team_members_owner_order_email_uidx").on(table.ownerOrderId, table.emailNormalized),
+]);
+
+export const teamSeatExtensions = pgTable("team_seat_extensions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  partnerOrderId: uuid("partner_order_id").references(() => orders.id, { onDelete: "cascade" }).notNull(),
+  ownerClerkUserId: varchar("owner_clerk_user_id", { length: 255 }).notNull(),
+  seatsRequested: integer("seats_requested").notNull().default(1),
+  status: varchar("status", { length: 30 }).notNull().default("payment_required"),
+  paymentSessionId: text("payment_session_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("team_seat_extensions_partner_order_id_idx").on(table.partnerOrderId),
+  index("team_seat_extensions_owner_clerk_user_id_idx").on(table.ownerClerkUserId),
 ]);
 
 export type CardRequest = typeof cardRequests.$inferSelect;
@@ -141,3 +157,4 @@ export type EmailLog = typeof emailLogs.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
+export type TeamSeatExtension = typeof teamSeatExtensions.$inferSelect;

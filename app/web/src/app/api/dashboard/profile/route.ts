@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServerBackendUrl } from "@/lib/backend-url";
 import { readBackendResponse } from "@/lib/read-backend-response";
+import { getSafeBackendErrorMessage } from "@/lib/safe-backend-error";
 
 const getApiUrl = () => getServerBackendUrl();
 
@@ -28,7 +29,10 @@ export async function GET() {
       return NextResponse.json(data);
     } else {
       console.error(`[Proxy /profile GET] Backend error:`, res.status, text.substring(0, 300));
-      return NextResponse.json({ error: data?.error || text || "Backend Error" }, { status: res.status });
+      return NextResponse.json(
+        { error: getSafeBackendErrorMessage(data, text, "Unable to load dashboard profile right now.") },
+        { status: res.status },
+      );
     }
   } catch (error: any) {
     console.error(`[Proxy /profile GET] Error:`, error);
@@ -58,7 +62,10 @@ export async function PATCH(req: Request) {
       return NextResponse.json(data);
     } else {
       console.error(`[Proxy /profile PATCH] Backend error:`, res.status, text.substring(0, 300));
-      return NextResponse.json({ error: data?.error || text || "Backend Error" }, { status: res.status });
+      return NextResponse.json(
+        { error: getSafeBackendErrorMessage(data, text, "Unable to save profile changes right now.") },
+        { status: res.status },
+      );
     }
   } catch (error: any) {
     console.error(`[Proxy /profile PATCH] Error:`, error);
