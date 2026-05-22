@@ -1,7 +1,11 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const DEFAULT_ADMIN_EMAILS = ["mokich45usa@gmail.com", "info@ibpassociations.org"];
+const DEFAULT_ADMIN_EMAILS = [
+  "mokich45usa@gmail.com",
+  "info@ibpassociations.org",
+  "admin@ibpassociations.org",
+];
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || DEFAULT_ADMIN_EMAILS.join(","))
   .split(",")
   .map((email) => email.trim().toLowerCase())

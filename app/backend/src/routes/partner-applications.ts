@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { requireDb, partnerApplications } from "../lib/db";
+import crypto from "crypto";
+import { requireDb, orders, partnerApplications } from "../lib/db";
 import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
 import { stripe } from "../services/stripe";
+import { normalizeEmail, toApplicationPaymentStatus, toApplicationStatus } from "../lib/application-flow";
 
 export const partnerApplicationsRouter = Router();
 
@@ -16,8 +18,6 @@ const SPONSORSHIP_PRICE_KEYS = {
 
 type PartnerTier = keyof typeof SPONSORSHIP_PRICE_KEYS;
 const PARTNER_TIERS = new Set(Object.keys(SPONSORSHIP_PRICE_KEYS) as PartnerTier[]);
-const PARTNER_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
-const PARTNER_PAYMENT_STATUSES = new Set(["UNPAID", "PENDING", "PAID", "FAILED"]);
 
 const partnerApplicationLimiter = createRateLimiter(4, 30 * 60 * 1000);
 const partnerApplicationAgentLimiter = createRateLimiter(8, 30 * 60 * 1000);
@@ -83,6 +83,59 @@ function normalizePartnerTier(value: unknown): PartnerTier | null {
   return PARTNER_TIERS.has(normalized as PartnerTier) ? (normalized as PartnerTier) : null;
 }
 
+function normalizePartnerStatusFilter(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "pending" || normalized === "submitted" || normalized === "draft") {
+    return "submitted";
+  }
+  if (normalized === "under_review" || normalized === "review") {
+    return "under_review";
+  }
+  if (normalized === "approved") {
+    return "approved";
+  }
+  if (normalized === "rejected") {
+    return "rejected";
+  }
+
+  return null;
+}
+
+function normalizePartnerPaymentFilter(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "paid") return "paid";
+  if (normalized === "pending" || normalized === "unpaid") return "pending";
+  if (normalized === "failed") return "failed";
+  if (normalized === "refunded") return "refunded";
+  if (normalized === "not_required") return "not_required";
+
+  return null;
+}
+
+function toPartnerStatusApi(status: string) {
+  const normalized = toApplicationStatus(status);
+  if (normalized === "approved") return "APPROVED";
+  if (normalized === "rejected") return "REJECTED";
+  return "PENDING";
+}
+
+function toPartnerPaymentStatusApi(paymentStatus: string) {
+  const normalized = toApplicationPaymentStatus(paymentStatus);
+  if (normalized === "paid") return "PAID";
+  if (normalized === "failed") return "FAILED";
+  if (normalized === "refunded") return "FAILED";
+  if (normalized === "pending") return "PENDING";
+  return "UNPAID";
+}
+
 function getPartnerPriceId(tier: PartnerTier) {
   const key = SPONSORSHIP_PRICE_KEYS[tier];
   return getRequiredEnv(key);
@@ -102,6 +155,128 @@ type SqlCondition = ReturnType<typeof sql>;
 function combineConditions(...conditions: Array<SqlCondition | undefined>) {
   const active = conditions.filter((condition): condition is SqlCondition => Boolean(condition));
   return active.length > 0 ? and(...active) : undefined;
+}
+
+async function ensurePartnerOrderForApproval(params: {
+  db: ReturnType<typeof requireDb>;
+  application: typeof partnerApplications.$inferSelect;
+  selectedTier: PartnerTier;
+}) {
+  const { db, application, selectedTier } = params;
+  const partnerPayload = {
+    type: "partner",
+    partnerApplicationId: application.id,
+    partnerTier: selectedTier,
+    partnerMessage: application.message,
+    partnerPhone: application.phone,
+  };
+
+  if (application.partnerOrderId) {
+    const [linkedOrder] = await db
+      .select({
+        id: orders.id,
+        secureToken: orders.secureToken,
+        status: orders.status,
+      })
+      .from(orders)
+      .where(and(eq(orders.id, application.partnerOrderId), sql`lower(${orders.accountType}) = 'partner'`))
+      .limit(1);
+
+    if (linkedOrder) {
+      if (linkedOrder.status !== "paid") {
+        await db
+          .update(orders)
+          .set({
+            email: application.email,
+            name: application.name,
+            phone: application.phone,
+            accountType: "partner",
+            membershipCategory: "partner",
+            applicantType: "Partner",
+            package: selectedTier,
+            applicationPayload: partnerPayload,
+            status: "approved",
+          })
+          .where(eq(orders.id, linkedOrder.id));
+      }
+
+      return linkedOrder;
+    }
+  }
+
+  const [existingOrder] = await db
+    .select({
+      id: orders.id,
+      secureToken: orders.secureToken,
+      status: orders.status,
+    })
+    .from(orders)
+    .where(
+      and(
+        sql`lower(${orders.accountType}) = 'partner'`,
+        sql`${orders.applicationPayload} ->> 'partnerApplicationId' = ${application.id}`,
+      ),
+    )
+    .limit(1);
+
+  if (existingOrder) {
+    if (existingOrder.status !== "paid") {
+      await db
+        .update(orders)
+        .set({
+          email: application.email,
+          name: application.name,
+          phone: application.phone,
+          accountType: "partner",
+          membershipCategory: "partner",
+          applicantType: "Partner",
+          package: selectedTier,
+          applicationPayload: partnerPayload,
+          status: "approved",
+        })
+        .where(eq(orders.id, existingOrder.id));
+    }
+
+    await db
+      .update(partnerApplications)
+      .set({
+        partnerOrderId: existingOrder.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(partnerApplications.id, application.id));
+
+    return existingOrder;
+  }
+
+  const [createdOrder] = await db
+    .insert(orders)
+    .values({
+      email: application.email,
+      name: application.name,
+      phone: application.phone,
+      accountType: "partner",
+      membershipCategory: "partner",
+      applicantType: "Partner",
+      package: selectedTier,
+      applicationPayload: partnerPayload,
+      status: "approved",
+      secureToken: crypto.randomUUID(),
+    })
+    .returning({
+      id: orders.id,
+      secureToken: orders.secureToken,
+      status: orders.status,
+    });
+
+  await db
+    .update(partnerApplications)
+    .set({
+      partnerOrderId: createdOrder.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(partnerApplications.id, application.id));
+
+  return createdOrder;
 }
 
 async function sendPartnerApplicationReceivedEmail(params: {
@@ -272,7 +447,7 @@ partnerApplicationsRouter.post("/", async (req, res) => {
   const normalizedTier = normalizePartnerTier(requestedTier);
 
   const clientIp = getClientAddress(req);
-  const safeEmail = String(email).trim().toLowerCase();
+  const safeEmail = normalizeEmail(email);
   const userAgent = normalizeHeaderValue(req.header("user-agent"));
   const ipLimit = partnerApplicationLimiter.hit(`partner-applications:ip:${clientIp}`);
   const emailLimit = partnerApplicationLimiter.hit(`partner-applications:email:${safeEmail}`);
@@ -287,7 +462,7 @@ partnerApplicationsRouter.post("/", async (req, res) => {
     const [recentDuplicate] = await db
       .select({ id: partnerApplications.id, createdAt: partnerApplications.createdAt })
       .from(partnerApplications)
-      .where(eq(partnerApplications.email, safeEmail))
+      .where(eq(partnerApplications.emailNormalized, safeEmail))
       .orderBy(desc(partnerApplications.createdAt))
       .limit(1);
 
@@ -300,11 +475,12 @@ partnerApplicationsRouter.post("/", async (req, res) => {
       .values({
         name: safeName,
         email: safeEmail,
+        emailNormalized: safeEmail,
         phone: safePhone,
         message: safeMessage,
         requestedTier: normalizedTier,
-        status: "PENDING",
-        paymentStatus: "UNPAID",
+        status: "submitted",
+        paymentStatus: "not_required",
       })
       .returning();
 
@@ -363,16 +539,10 @@ partnerApplicationsRouter.get("/", adminClerkMiddleware, requireAdminAccess, asy
     const { limit, offset } = getPaginationParams(req.query, ADMIN_PARTNER_LIST_DEFAULT_LIMIT, ADMIN_PARTNER_LIST_MAX_LIMIT);
 
     const statusRaw = getSingleValue(req.query.status);
-    const statusFilter =
-      statusRaw && PARTNER_STATUSES.has(statusRaw.trim().toUpperCase())
-        ? statusRaw.trim().toUpperCase()
-        : null;
+    const statusFilter = normalizePartnerStatusFilter(statusRaw);
 
     const paymentRaw = getSingleValue(req.query.paymentStatus);
-    const paymentFilter =
-      paymentRaw && PARTNER_PAYMENT_STATUSES.has(paymentRaw.trim().toUpperCase())
-        ? paymentRaw.trim().toUpperCase()
-        : null;
+    const paymentFilter = normalizePartnerPaymentFilter(paymentRaw);
 
     const searchCondition = getPartnerSearchCondition(req.query.q);
     const whereCondition = combineConditions(
@@ -446,17 +616,23 @@ partnerApplicationsRouter.get("/", adminClerkMiddleware, requireAdminAccess, asy
       const count = countToNumber(row.count);
       summary.all += count;
 
-      const status = String(row.status || "").toUpperCase();
-      if (status === "PENDING") summary.pending += count;
-      if (status === "APPROVED") summary.approved += count;
-      if (status === "REJECTED") summary.rejected += count;
+      const status = toApplicationStatus(row.status);
+      if (status === "submitted" || status === "draft" || status === "under_review") summary.pending += count;
+      if (status === "approved") summary.approved += count;
+      if (status === "rejected") summary.rejected += count;
 
-      const paymentStatus = String(row.paymentStatus || "").toUpperCase();
-      if (paymentStatus === "PAID") summary.paid += count;
+      const paymentStatus = toApplicationPaymentStatus(row.paymentStatus);
+      if (paymentStatus === "paid") summary.paid += count;
     }
 
+    const normalizedItems = items.map((item: any) => ({
+      ...item,
+      status: toPartnerStatusApi(String(item.status || "")),
+      paymentStatus: toPartnerPaymentStatusApi(String(item.paymentStatus || "")),
+    }));
+
     return res.json({
-      items,
+      items: normalizedItems,
       total,
       summary,
       limit,
@@ -490,7 +666,11 @@ partnerApplicationsRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, 
       return res.status(404).json({ error: "Partner application not found" });
     }
 
-    return res.json(application);
+    return res.json({
+      ...application,
+      status: toPartnerStatusApi(String(application.status || "")),
+      paymentStatus: toPartnerPaymentStatusApi(String(application.paymentStatus || "")),
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -498,6 +678,92 @@ partnerApplicationsRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, 
 
     console.error("[Partner Application] Failed to fetch partner application detail", error);
     return res.status(500).json({ error: "Failed to fetch partner application detail" });
+  }
+});
+
+async function deletePartnerApplicationById(applicationId: string) {
+  const db = requireDb();
+  const [application] = await db
+    .select({
+      id: partnerApplications.id,
+      paymentStatus: partnerApplications.paymentStatus,
+      partnerOrderId: partnerApplications.partnerOrderId,
+    })
+    .from(partnerApplications)
+    .where(eq(partnerApplications.id, applicationId))
+    .limit(1);
+
+  if (!application) {
+    return { status: 404 as const, body: { error: "Partner application not found" } };
+  }
+
+  if (toApplicationPaymentStatus(application.paymentStatus) === "paid") {
+    return { status: 409 as const, body: { error: "Paid partner applications cannot be deleted." } };
+  }
+
+  if (application.partnerOrderId) {
+    const [linkedOrder] = await db
+      .select({ id: orders.id, status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, application.partnerOrderId))
+      .limit(1);
+
+    if (linkedOrder?.status === "paid") {
+      return { status: 409 as const, body: { error: "Paid partner applications cannot be deleted." } };
+    }
+
+    if (linkedOrder) {
+      await db.delete(orders).where(eq(orders.id, linkedOrder.id));
+    }
+  }
+
+  const [deletedApplication] = await db
+    .delete(partnerApplications)
+    .where(eq(partnerApplications.id, applicationId))
+    .returning({ id: partnerApplications.id });
+
+  if (!deletedApplication) {
+    return { status: 404 as const, body: { error: "Partner application not found" } };
+  }
+
+  return { status: 200 as const, body: { success: true, deletedApplication } };
+}
+
+partnerApplicationsRouter.delete("/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const applicationId = getSingleValue(req.params.id);
+  if (!applicationId) {
+    return res.status(400).json({ error: "Invalid partner application id" });
+  }
+
+  try {
+    const result = await deletePartnerApplicationById(applicationId);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+
+    console.error("[Partner Application] Failed to delete partner application", error);
+    return res.status(500).json({ error: "Failed to delete partner application" });
+  }
+});
+
+partnerApplicationsRouter.post("/admin/delete", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const applicationId = getSingleValue(req.body?.applicationId);
+  if (!applicationId) {
+    return res.status(400).json({ error: "Invalid partner application id" });
+  }
+
+  try {
+    const result = await deletePartnerApplicationById(applicationId);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+
+    console.error("[Partner Application] Failed to delete partner application", error);
+    return res.status(500).json({ error: "Failed to delete partner application" });
   }
 });
 
@@ -520,11 +786,11 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       return res.status(404).json({ error: "Partner application not found" });
     }
 
-    if (application.paymentStatus === "PAID") {
+    if (toApplicationPaymentStatus(application.paymentStatus) === "paid") {
       return res.status(409).json({ error: "This partner application is already paid." });
     }
 
-    if (application.status === "REJECTED") {
+    if (toApplicationStatus(application.status) === "rejected") {
       return res.status(409).json({ error: "Rejected partner applications cannot be approved." });
     }
 
@@ -535,6 +801,24 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       throw new Error("FRONTEND_URL is not configured");
     }
 
+    const partnerOrder = await ensurePartnerOrderForApproval({
+      db,
+      application,
+      selectedTier,
+    });
+
+    const metadata = {
+      type: "partner_application",
+      flowType: "partner_application",
+      orderKind: "partner_application",
+      applicationId: application.id,
+      orderId: partnerOrder.id,
+      partnerApplicationId: application.id,
+      partnerTier: selectedTier,
+    };
+    const price = await stripe.prices.retrieve(priceId);
+    const usesRecurringPrice = Boolean(price.recurring);
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       customer_email: application.email,
@@ -544,24 +828,21 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
           quantity: 1,
         },
       ],
-      mode: "payment",
-      success_url: `${frontendUrl}/partnership?payment=success&tier=${encodeURIComponent(selectedTier)}`,
+      mode: usesRecurringPrice ? "subscription" : "payment",
+      success_url: `${frontendUrl}/success?token=${encodeURIComponent(partnerOrder.secureToken)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/partnership?payment=cancelled&tier=${encodeURIComponent(selectedTier)}`,
-      metadata: {
-        type: "partner_application",
-        orderKind: "partner_application",
-        partnerApplicationId: application.id,
-        partnerTier: selectedTier,
-      },
+      ...(usesRecurringPrice ? { subscription_data: { metadata } } : {}),
+      metadata,
     });
 
     await db
       .update(partnerApplications)
       .set({
         requestedTier: selectedTier,
-        status: "APPROVED",
-        paymentStatus: "PENDING",
+        status: "approved",
+        paymentStatus: "pending",
         stripeCheckoutSessionId: session.id,
+        partnerOrderId: partnerOrder.id,
         approvedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -652,14 +933,15 @@ partnerApplicationsRouter.post("/admin/reject", adminClerkMiddleware, requireAdm
       return res.status(404).json({ error: "Partner application not found" });
     }
 
-    if (application.paymentStatus === "PAID") {
+    if (toApplicationPaymentStatus(application.paymentStatus) === "paid") {
       return res.status(409).json({ error: "Paid partner applications cannot be rejected." });
     }
 
     await db
       .update(partnerApplications)
       .set({
-        status: "REJECTED",
+        status: "rejected",
+        rejectedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(partnerApplications.id, applicationId));

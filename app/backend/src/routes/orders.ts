@@ -1,11 +1,26 @@
 import { Router } from "express";
 import crypto from "crypto";
-import { requireDb, orders, certificates, applicationAdditionalFiles } from "../lib/db";
+import {
+  requireDb,
+  orders,
+  certificates,
+  applicationAdditionalFiles,
+  memberApplications,
+  memberApplicationAdditionalFiles,
+} from "../lib/db";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
 import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
+import {
+  fromLegacyOrderStatus,
+  normalizeEmail,
+  toLegacyOrderStatus,
+  toApplicationStatus,
+  toApplicationPaymentStatus,
+  updateApplicationPaymentStatus,
+} from "../lib/application-flow";
 
 export const ordersRouter = Router();
 
@@ -75,13 +90,34 @@ function getOrderSearchCondition(q: unknown) {
   }
 
   const term = `%${q.trim()}%`;
-  return sql`(${orders.name} ilike ${term} or ${orders.email} ilike ${term} or ${orders.membershipCategory} ilike ${term})`;
+  return sql`(${memberApplications.fullName} ilike ${term} or ${memberApplications.email} ilike ${term} or ${memberApplications.membershipCategory} ilike ${term})`;
 }
 
 function getOrderStatusCondition(status: unknown) {
-  return typeof status === "string" && ADMIN_ORDER_STATUSES.has(status)
-    ? eq(orders.status, status)
-    : undefined;
+  if (typeof status !== "string" || !ADMIN_ORDER_STATUSES.has(status)) {
+    return undefined;
+  }
+
+  if (status === "paid") {
+    return eq(memberApplications.paymentStatus, "paid");
+  }
+
+  if (status === "approved") {
+    return and(eq(memberApplications.status, "approved"), sql`${memberApplications.paymentStatus} <> 'paid'`);
+  }
+
+  if (status === "rejected") {
+    return eq(memberApplications.status, "rejected");
+  }
+
+  if (status === "review") {
+    return eq(memberApplications.status, "under_review");
+  }
+
+  return and(
+    sql`${memberApplications.status} in ('draft', 'submitted')`,
+    sql`${memberApplications.paymentStatus} <> 'paid'`,
+  );
 }
 
 function combineConditions(...conditions: Array<ReturnType<typeof getOrderSearchCondition>>) {
@@ -186,6 +222,177 @@ function getSingleValue(value: unknown): string | null {
   }
 
   return null;
+}
+
+function getMemberApplicationPayloadRecord(application: typeof memberApplications.$inferSelect) {
+  if (!application.rawData || typeof application.rawData !== "object" || Array.isArray(application.rawData)) {
+    return {};
+  }
+
+  const payload = application.rawData as Record<string, unknown>;
+  const nestedApplication = payload.application;
+  if (nestedApplication && typeof nestedApplication === "object" && !Array.isArray(nestedApplication)) {
+    return nestedApplication as Record<string, unknown>;
+  }
+
+  return payload;
+}
+
+function mapMemberApplicationToLegacyStatus(
+  application: Pick<typeof memberApplications.$inferSelect, "status" | "paymentStatus">,
+) {
+  return toLegacyOrderStatus(
+    toApplicationStatus(application.status),
+    toApplicationPaymentStatus(application.paymentStatus),
+  );
+}
+
+function splitFullName(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { firstName: null, lastName: null };
+  }
+
+  const parts = trimmed.split(/\s+/);
+  if (parts.length <= 1) {
+    return { firstName: parts[0] || null, lastName: null };
+  }
+
+  return {
+    firstName: parts[0] || null,
+    lastName: parts.slice(1).join(" ") || null,
+  };
+}
+
+async function findOrCreateMemberApplicationByOrder(
+  db: ReturnType<typeof requireDb>,
+  order: typeof orders.$inferSelect,
+) {
+  const [existing] = await db
+    .select()
+    .from(memberApplications)
+    .where(eq(memberApplications.legacyOrderId, order.id))
+    .limit(1);
+
+  if (existing) {
+    return existing;
+  }
+
+  const normalizedEmail = normalizeEmail(order.email);
+  const payload =
+    order.applicationPayload && typeof order.applicationPayload === "object" && !Array.isArray(order.applicationPayload)
+      ? (order.applicationPayload as Record<string, unknown>)
+      : {};
+  const { status, paymentStatus } = fromLegacyOrderStatus(order.status);
+  const { firstName, lastName } = splitFullName(order.name || "");
+
+  const [created] = await db
+    .insert(memberApplications)
+    .values({
+      fullName: order.name || "Unknown Applicant",
+      firstName,
+      lastName,
+      email: normalizedEmail || order.email,
+      emailNormalized: normalizedEmail || order.email,
+      phone: order.phone,
+      membershipCategory: order.membershipCategory,
+      applicantType: order.applicantType,
+      status,
+      paymentStatus,
+      secureToken: order.secureToken || crypto.randomUUID(),
+      stripeCheckoutSessionId: order.stripeSessionId,
+      legacyOrderId: order.id,
+      rawData: payload,
+      approvedAt: status === "approved" ? order.createdAt : null,
+      rejectedAt: status === "rejected" ? order.createdAt : null,
+      paidAt: paymentStatus === "paid" ? order.createdAt : null,
+      createdAt: order.createdAt,
+      updatedAt: new Date(),
+    })
+    .returning();
+
+  return created;
+}
+
+async function ensureLegacyOrderForMemberApplication(
+  db: ReturnType<typeof requireDb>,
+  application: typeof memberApplications.$inferSelect,
+) {
+  if (application.legacyOrderId) {
+    const [existingOrder] = await db.select().from(orders).where(eq(orders.id, application.legacyOrderId)).limit(1);
+    if (existingOrder) {
+      return existingOrder;
+    }
+  }
+
+  const [byToken] = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.secureToken, application.secureToken), sql`coalesce(lower(${orders.accountType}), 'member') <> 'partner'`))
+    .limit(1);
+
+  if (byToken) {
+    await db
+      .update(memberApplications)
+      .set({
+        legacyOrderId: byToken.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(memberApplications.id, application.id));
+
+    return byToken;
+  }
+
+  const payload = getMemberApplicationPayloadRecord(application);
+  const [createdOrder] = await db
+    .insert(orders)
+    .values({
+      email: application.email,
+      name: application.fullName,
+      accountType: "member",
+      membershipCategory: application.membershipCategory,
+      applicantType: application.applicantType || MEMBERSHIP_APPLICANT_TYPES[(application.membershipCategory as keyof typeof MEMBERSHIP_APPLICANT_TYPES) || "Professional"],
+      applicationPayload: payload,
+      status: mapMemberApplicationToLegacyStatus(application),
+      stripeSessionId: application.stripeCheckoutSessionId,
+      secureToken: application.secureToken || crypto.randomUUID(),
+      package: application.membershipCategory,
+      phone: application.phone,
+      createdAt: application.createdAt,
+    })
+    .returning();
+
+  await db
+    .update(memberApplications)
+    .set({
+      legacyOrderId: createdOrder.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(memberApplications.id, application.id));
+
+  return createdOrder;
+}
+
+async function resolveLegacyOrderIdForApplicationLookup(
+  db: ReturnType<typeof requireDb>,
+  applicationIdOrLegacyOrderId: string,
+) {
+  const [memberApplication] = await db
+    .select()
+    .from(memberApplications)
+    .where(eq(memberApplications.id, applicationIdOrLegacyOrderId))
+    .limit(1);
+
+  if (!memberApplication) {
+    return applicationIdOrLegacyOrderId;
+  }
+
+  if (memberApplication.legacyOrderId) {
+    return memberApplication.legacyOrderId;
+  }
+
+  const legacyOrder = await ensureLegacyOrderForMemberApplication(db, memberApplication);
+  return legacyOrder.id;
 }
 
 function getFileExtension(fileNameOrUrl: string) {
@@ -472,8 +679,9 @@ async function createMembershipCheckoutSession(params: {
     status: string;
   };
   certificateNumber?: string;
+  memberApplicationId?: string;
 }) {
-  const { order, certificateNumber } = params;
+  const { order, certificateNumber, memberApplicationId } = params;
 
   if (order.status === "paid") {
     throw new Error("This order has already been paid.");
@@ -499,13 +707,19 @@ async function createMembershipCheckoutSession(params: {
     subscription_data: {
       metadata: {
         orderId: order.id,
-        orderKind: "membership",
+        orderKind: "member_application",
+        flowType: "member_application",
+        applicationId: memberApplicationId || "",
+        memberApplicationId: memberApplicationId || "",
         certificateNumber: resolvedCertificateNumber,
       },
     },
     metadata: {
       orderId: order.id,
-      orderKind: "membership",
+      orderKind: "member_application",
+      flowType: "member_application",
+      applicationId: memberApplicationId || "",
+      memberApplicationId: memberApplicationId || "",
       certificateNumber: resolvedCertificateNumber,
     },
   });
@@ -514,6 +728,16 @@ async function createMembershipCheckoutSession(params: {
     .update(orders)
     .set({ status: "approved", stripeSessionId: session.id })
     .where(eq(orders.id, order.id));
+
+  if (memberApplicationId) {
+    await updateApplicationPaymentStatus(db, {
+      flowType: "member_application",
+      applicationId: memberApplicationId,
+      status: "approved",
+      paymentStatus: "pending",
+      stripeCheckoutSessionId: session.id,
+    });
+  }
 
   return {
     session,
@@ -577,24 +801,28 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
 
     const itemsQuery = db
       .select({
-        id: orders.id,
-        email: orders.email,
-        name: orders.name,
-        membershipCategory: orders.membershipCategory,
-        applicantType: orders.applicantType,
-        status: orders.status,
-        createdAt: orders.createdAt,
+        id: memberApplications.id,
+        email: memberApplications.email,
+        name: memberApplications.fullName,
+        membershipCategory: memberApplications.membershipCategory,
+        applicantType: memberApplications.applicantType,
+        status: memberApplications.status,
+        paymentStatus: memberApplications.paymentStatus,
+        stripeSessionId: memberApplications.stripeCheckoutSessionId,
+        secureToken: memberApplications.secureToken,
+        applicationPayload: memberApplications.rawData,
+        createdAt: memberApplications.createdAt,
         certificateNumber: certificates.certNumber,
       })
-      .from(orders)
-      .leftJoin(certificates, eq(orders.id, certificates.orderId))
-      .orderBy(desc(orders.createdAt))
+      .from(memberApplications)
+      .leftJoin(certificates, eq(memberApplications.legacyOrderId, certificates.orderId))
+      .orderBy(desc(memberApplications.createdAt))
       .limit(limit)
       .offset(offset);
 
     const countQuery = db
       .select({ count: sql<number>`count(*)` })
-      .from(orders);
+      .from(memberApplications);
 
     if (whereCondition) {
       itemsQuery.where(whereCondition);
@@ -603,11 +831,12 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
 
     const summaryBaseQuery = db
       .select({
-        status: orders.status,
+        status: memberApplications.status,
+        paymentStatus: memberApplications.paymentStatus,
         count: sql<number>`count(*)`,
       })
-      .from(orders)
-      .groupBy(orders.status);
+      .from(memberApplications)
+      .groupBy(memberApplications.status, memberApplications.paymentStatus);
 
     if (searchOnlyCondition) {
       summaryBaseQuery.where(searchOnlyCondition);
@@ -630,20 +859,48 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
     };
 
     for (const row of summaryRows) {
-      const status = row.status as keyof typeof summary;
-      if (status in summary) {
-        summary[status] = countToNumber(row.count);
+      const count = countToNumber(row.count);
+      summary.all += count;
+
+      const status = toApplicationStatus(row.status);
+      const paymentStatus = toApplicationPaymentStatus(row.paymentStatus);
+
+      if (paymentStatus === "paid") {
+        summary.paid += count;
+        continue;
       }
-      summary.all += countToNumber(row.count);
+
+      if (status === "approved") {
+        summary.approved += count;
+      } else if (status === "rejected") {
+        summary.rejected += count;
+      } else if (status === "under_review") {
+        summary.review += count;
+      } else {
+        summary.pending += count;
+      }
     }
 
+    const normalizedItems = items.map((item: any) => {
+      const legacyStatus = mapMemberApplicationToLegacyStatus(item as any);
+
+      return {
+        ...item,
+        status: legacyStatus,
+        checkoutUrl:
+          legacyStatus === "approved" || legacyStatus === "paid"
+            ? getPaymentLinkUrl(item.secureToken)
+            : null,
+      };
+    });
+
     res.json({
-      items,
+      items: normalizedItems,
       total,
       summary,
       limit,
       offset,
-      hasMore: offset + items.length < total,
+      hasMore: offset + normalizedItems.length < total,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
@@ -664,30 +921,36 @@ ordersRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, r
     const db = requireDb();
     const [application] = await db
       .select({
-        id: orders.id,
-        email: orders.email,
-        name: orders.name,
-        membershipCategory: orders.membershipCategory,
-        applicantType: orders.applicantType,
-        applicationPayload: orders.applicationPayload,
-        status: orders.status,
-        stripeSessionId: orders.stripeSessionId,
-        secureToken: orders.secureToken,
-        phone: orders.phone,
-        createdAt: orders.createdAt,
+        id: memberApplications.id,
+        email: memberApplications.email,
+        name: memberApplications.fullName,
+        membershipCategory: memberApplications.membershipCategory,
+        applicantType: memberApplications.applicantType,
+        applicationPayload: memberApplications.rawData,
+        status: memberApplications.status,
+        paymentStatus: memberApplications.paymentStatus,
+        stripeSessionId: memberApplications.stripeCheckoutSessionId,
+        secureToken: memberApplications.secureToken,
+        phone: memberApplications.phone,
+        createdAt: memberApplications.createdAt,
         certificateNumber: certificates.certNumber,
       })
-      .from(orders)
-      .leftJoin(certificates, eq(orders.id, certificates.orderId))
-      .where(eq(orders.id, id));
+      .from(memberApplications)
+      .leftJoin(certificates, eq(memberApplications.legacyOrderId, certificates.orderId))
+      .where(eq(memberApplications.id, id));
 
     if (!application) {
       return res.status(404).json({ error: "Application not found" });
     }
 
+    const normalizedStatus = mapMemberApplicationToLegacyStatus(application as any);
     res.json({
       ...application,
-      checkoutUrl: application.status === "approved" ? getPaymentLinkUrl(application.secureToken) : null,
+      status: normalizedStatus,
+      checkoutUrl:
+        normalizedStatus === "approved" || normalizedStatus === "paid"
+          ? getPaymentLinkUrl(application.secureToken)
+          : null,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
@@ -698,10 +961,10 @@ ordersRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, r
   }
 });
 
-ordersRouter.patch("/admin/applications/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+async function updateMemberApplicationCategory(req: any, res: any) {
   const id = getSingleValue(req.params.id);
   const membershipCategory = normalizeMembershipPackage(req.body?.membershipCategory);
-  const accountType = normalizeOrderAccountType(req.body?.accountType);
+  const accountType = normalizeOrderAccountType(req.body?.accountType, "member");
 
   if (!id) {
     return res.status(400).json({ error: "Invalid application id" });
@@ -713,36 +976,94 @@ ordersRouter.patch("/admin/applications/:id", adminClerkMiddleware, requireAdmin
 
   try {
     const db = requireDb();
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    let [memberApplication] = await db.select().from(memberApplications).where(eq(memberApplications.id, id)).limit(1);
 
-    if (!order) {
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      if (legacyOrder) {
+        memberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+      }
+    }
+
+    if (!memberApplication) {
       return res.status(404).json({ error: "Application not found" });
     }
 
     const applicationPayload =
-      order.applicationPayload && typeof order.applicationPayload === "object" && !Array.isArray(order.applicationPayload)
-        ? (order.applicationPayload as Record<string, unknown>)
-        : {};
+      getMemberApplicationPayloadRecord(memberApplication);
     const applicantType = MEMBERSHIP_APPLICANT_TYPES[membershipCategory];
 
-    const [updatedApplication] = await db
+    const [updatedMemberApplication] = await db
+      .update(memberApplications)
+      .set({
+        fullName: memberApplication.fullName,
+        firstName: memberApplication.firstName,
+        lastName: memberApplication.lastName,
+        email: memberApplication.email,
+        emailNormalized: normalizeEmail(memberApplication.email),
+        phone: memberApplication.phone,
+        membershipCategory,
+        applicantType,
+        rawData: {
+          ...applicationPayload,
+          membershipCategory,
+          applicantType,
+          accountType,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(memberApplications.id, memberApplication.id))
+      .returning();
+
+    if (!updatedMemberApplication) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const legacyOrder = await ensureLegacyOrderForMemberApplication(db, updatedMemberApplication);
+    await db
       .update(orders)
       .set({
         membershipCategory,
-        accountType,
+        accountType: "member",
         package: membershipCategory,
         applicantType,
         applicationPayload: {
           ...applicationPayload,
           membershipCategory,
           applicantType,
-          accountType,
+          accountType: "member",
         },
       })
-      .where(eq(orders.id, id))
-      .returning();
+      .where(eq(orders.id, legacyOrder.id));
 
-    return res.json({ success: true, application: updatedApplication });
+    const [certificate] = await db
+      .select({ certNumber: certificates.certNumber })
+      .from(certificates)
+      .where(eq(certificates.orderId, legacyOrder.id))
+      .limit(1);
+
+    const normalizedStatus = mapMemberApplicationToLegacyStatus(updatedMemberApplication);
+    return res.json({
+      success: true,
+      application: {
+        id: updatedMemberApplication.id,
+        email: updatedMemberApplication.email,
+        name: updatedMemberApplication.fullName,
+        membershipCategory: updatedMemberApplication.membershipCategory,
+        applicantType: updatedMemberApplication.applicantType,
+        applicationPayload: updatedMemberApplication.rawData,
+        status: normalizedStatus,
+        stripeSessionId: updatedMemberApplication.stripeCheckoutSessionId,
+        secureToken: updatedMemberApplication.secureToken,
+        phone: updatedMemberApplication.phone,
+        createdAt: updatedMemberApplication.createdAt,
+        certificateNumber: certificate?.certNumber || null,
+        checkoutUrl:
+          normalizedStatus === "approved" || normalizedStatus === "paid"
+            ? getPaymentLinkUrl(updatedMemberApplication.secureToken)
+            : null,
+      },
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -751,62 +1072,10 @@ ordersRouter.patch("/admin/applications/:id", adminClerkMiddleware, requireAdmin
     console.error("Failed to update application membership category", error);
     return res.status(500).json({ error: "Failed to update application membership category" });
   }
-});
+}
 
-ordersRouter.patch("/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
-  const id = getSingleValue(req.params.id);
-  const membershipCategory = normalizeMembershipPackage(req.body?.membershipCategory);
-  const accountType = normalizeOrderAccountType(req.body?.accountType);
-
-  if (!id) {
-    return res.status(400).json({ error: "Invalid application id" });
-  }
-
-  if (typeof membershipCategory !== "string" || !ALLOWED_MEMBERSHIP_PACKAGES.has(membershipCategory)) {
-    return res.status(400).json({ error: "Unsupported membership category." });
-  }
-
-  try {
-    const db = requireDb();
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
-
-    if (!order) {
-      return res.status(404).json({ error: "Application not found" });
-    }
-
-    const applicationPayload =
-      order.applicationPayload && typeof order.applicationPayload === "object" && !Array.isArray(order.applicationPayload)
-        ? (order.applicationPayload as Record<string, unknown>)
-        : {};
-    const applicantType = MEMBERSHIP_APPLICANT_TYPES[membershipCategory];
-
-    const [updatedApplication] = await db
-      .update(orders)
-      .set({
-        membershipCategory,
-        accountType,
-        package: membershipCategory,
-        applicantType,
-        applicationPayload: {
-          ...applicationPayload,
-          membershipCategory,
-          applicantType,
-          accountType,
-        },
-      })
-      .where(eq(orders.id, id))
-      .returning();
-
-    return res.json({ success: true, application: updatedApplication });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
-      return res.status(503).json({ error: error.message });
-    }
-
-    console.error("Failed to update application membership category", error);
-    return res.status(500).json({ error: "Failed to update application membership category" });
-  }
-});
+ordersRouter.patch("/admin/applications/:id", adminClerkMiddleware, requireAdminAccess, updateMemberApplicationCategory);
+ordersRouter.patch("/:id", adminClerkMiddleware, requireAdminAccess, updateMemberApplicationCategory);
 
 // 1. Create order
 ordersRouter.post("/", async (req, res) => {
@@ -865,12 +1134,12 @@ ordersRouter.post("/", async (req, res) => {
   const db = requireDb();
   const [recentDuplicate] = await db
     .select({
-      id: orders.id,
-      createdAt: orders.createdAt,
+      id: memberApplications.id,
+      createdAt: memberApplications.createdAt,
     })
-    .from(orders)
-    .where(eq(orders.email, safeEmail))
-    .orderBy(desc(orders.createdAt))
+    .from(memberApplications)
+    .where(eq(memberApplications.emailNormalized, safeEmail))
+    .orderBy(desc(memberApplications.createdAt))
     .limit(1);
 
   if (recentDuplicate && Date.now() - new Date(recentDuplicate.createdAt).getTime() < 5 * 60 * 1000) {
@@ -975,10 +1244,20 @@ ordersRouter.post("/", async (req, res) => {
   }
 
   try {
+    const normalizedName = typeof name === "string" ? name.trim() : "";
+    const payloadFirstName =
+      typeof normalizedApplication.firstName === "string" && normalizedApplication.firstName.trim().length > 0
+        ? normalizedApplication.firstName.trim()
+        : splitFullName(normalizedName).firstName;
+    const payloadLastName =
+      typeof normalizedApplication.lastName === "string" && normalizedApplication.lastName.trim().length > 0
+        ? normalizedApplication.lastName.trim()
+        : splitFullName(normalizedName).lastName;
+
     const [newOrder] = await db.insert(orders).values({
-      email,
-      name,
-      accountType,
+      email: safeEmail,
+      name: normalizedName,
+      accountType: "member",
       phone: applicantPhone,
       membershipCategory: membershipPackage,
       package: membershipPackage,
@@ -987,6 +1266,26 @@ ordersRouter.post("/", async (req, res) => {
       status: "pending",
       secureToken,
     }).returning();
+
+    const [memberApplication] = await db
+      .insert(memberApplications)
+      .values({
+        fullName: normalizedName,
+        firstName: payloadFirstName,
+        lastName: payloadLastName,
+        email: safeEmail,
+        emailNormalized: safeEmail,
+        phone: applicantPhone || null,
+        membershipCategory: membershipPackage,
+        applicantType: applicantType || MEMBERSHIP_APPLICANT_TYPES[membershipPackage],
+        status: "submitted",
+        paymentStatus: "not_required",
+        secureToken,
+        stripeCheckoutSessionId: null,
+        legacyOrderId: newOrder.id,
+        rawData: normalizedApplication,
+      })
+      .returning();
 
     try {
       const emailResult = await sendApplicationReceivedEmail({
@@ -1027,7 +1326,12 @@ ordersRouter.post("/", async (req, res) => {
       });
     }
 
-    res.json(newOrder);
+    res.json({
+      success: true,
+      id: memberApplication.id,
+      secureToken: memberApplication.secureToken,
+      legacyOrderId: newOrder.id,
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -1045,17 +1349,32 @@ ordersRouter.get("/:id/additional-files", adminClerkMiddleware, requireAdminAcce
 
   try {
     const db = requireDb();
-    const [order] = await db.select({ id: orders.id }).from(orders).where(eq(orders.id, id));
+    let [memberApplication] = await db
+      .select({ id: memberApplications.id, legacyOrderId: memberApplications.legacyOrderId })
+      .from(memberApplications)
+      .where(eq(memberApplications.id, id))
+      .limit(1);
 
-    if (!order) {
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      if (legacyOrder) {
+        const ensuredMemberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+        memberApplication = {
+          id: ensuredMemberApplication.id,
+          legacyOrderId: ensuredMemberApplication.legacyOrderId,
+        };
+      }
+    }
+
+    if (!memberApplication) {
       return res.status(404).json({ error: "Application not found" });
     }
 
     const files = await db
       .select()
-      .from(applicationAdditionalFiles)
-      .where(eq(applicationAdditionalFiles.applicationId, id))
-      .orderBy(desc(applicationAdditionalFiles.createdAt));
+      .from(memberApplicationAdditionalFiles)
+      .where(eq(memberApplicationAdditionalFiles.memberApplicationId, memberApplication.id))
+      .orderBy(desc(memberApplicationAdditionalFiles.createdAt));
 
     return res.json({ files });
   } catch (error) {
@@ -1101,16 +1420,27 @@ ordersRouter.post("/:id/additional-files", adminClerkMiddleware, requireAdminAcc
 
   try {
     const db = requireDb();
-    const [order] = await db.select({ id: orders.id }).from(orders).where(eq(orders.id, id));
+    let [memberApplication] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.id, id))
+      .limit(1);
 
-    if (!order) {
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      if (legacyOrder) {
+        memberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+      }
+    }
+
+    if (!memberApplication) {
       return res.status(404).json({ error: "Application not found" });
     }
 
     const savedFiles = await db
-      .insert(applicationAdditionalFiles)
+      .insert(memberApplicationAdditionalFiles)
       .values(files.map((file) => ({
-        applicationId: id,
+        memberApplicationId: memberApplication.id,
         fileName: file.fileName.slice(0, 255),
         fileUrl: file.fileUrl,
         fileKey: file.fileKey,
@@ -1139,11 +1469,29 @@ ordersRouter.delete("/:id/additional-files/:fileId", adminClerkMiddleware, requi
 
   try {
     const db = requireDb();
+    let [memberApplication] = await db
+      .select({ id: memberApplications.id })
+      .from(memberApplications)
+      .where(eq(memberApplications.id, id))
+      .limit(1);
+
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      if (legacyOrder) {
+        const ensuredMemberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+        memberApplication = { id: ensuredMemberApplication.id };
+      }
+    }
+
+    if (!memberApplication) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
     const [deletedFile] = await db
-      .delete(applicationAdditionalFiles)
+      .delete(memberApplicationAdditionalFiles)
       .where(and(
-        eq(applicationAdditionalFiles.id, fileId),
-        eq(applicationAdditionalFiles.applicationId, id),
+        eq(memberApplicationAdditionalFiles.id, fileId),
+        eq(memberApplicationAdditionalFiles.memberApplicationId, memberApplication.id),
       ))
       .returning();
 
@@ -1171,18 +1519,34 @@ ordersRouter.delete("/:id", adminClerkMiddleware, requireAdminAccess, async (req
       return res.status(400).json({ error: "Invalid order id" });
     }
 
-    await db.delete(certificates).where(eq(certificates.orderId, id));
+    let [memberApplication] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.id, id))
+      .limit(1);
 
-    const [deletedOrder] = await db
-      .delete(orders)
-      .where(eq(orders.id, id))
-      .returning();
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      if (legacyOrder) {
+        memberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+      }
+    }
 
-    if (!deletedOrder) {
+    if (!memberApplication) {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    res.json({ success: true, deletedOrder });
+    if (memberApplication.legacyOrderId) {
+      await db.delete(certificates).where(eq(certificates.orderId, memberApplication.legacyOrderId));
+      await db.delete(orders).where(eq(orders.id, memberApplication.legacyOrderId));
+    }
+
+    const [deletedApplication] = await db
+      .delete(memberApplications)
+      .where(eq(memberApplications.id, memberApplication.id))
+      .returning();
+
+    res.json({ success: true, deletedApplication });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -1202,16 +1566,38 @@ ordersRouter.post("/admin/approve", adminClerkMiddleware, requireAdminAccess, as
 
   try {
     const db = requireDb();
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-    if (!order) return res.status(404).json({ error: "Order not found" });
+    let [memberApplication] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.id, orderId))
+      .limit(1);
 
-    const { session, certificateNumber, paymentLinkUrl } = await createMembershipCheckoutSession({ order });
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (legacyOrder) {
+        memberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+      }
+    }
+
+    if (!memberApplication) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (toApplicationPaymentStatus(memberApplication.paymentStatus) === "paid") {
+      return res.status(409).json({ error: "This application has already been paid." });
+    }
+
+    const order = await ensureLegacyOrderForMemberApplication(db, memberApplication);
+    const { session, certificateNumber, paymentLinkUrl } = await createMembershipCheckoutSession({
+      order,
+      memberApplicationId: memberApplication.id,
+    });
 
     // Send email via Resend
     try {
       const emailResult = await sendApprovalEmail({
-        email: order.email,
-        name: order.name,
+        email: memberApplication.email,
+        name: memberApplication.fullName,
         certificateNumber,
         checkoutUrl: session.url,
         paymentLinkUrl,
@@ -1224,10 +1610,10 @@ ordersRouter.post("/admin/approve", adminClerkMiddleware, requireAdminAccess, as
 
       try {
         const adminEmailResult = await sendAdminPaymentLinkSentEmail({
-          email: order.email,
-          name: order.name,
+          email: memberApplication.email,
+          name: memberApplication.fullName,
           orderId: order.id,
-          membershipCategory: order.membershipCategory,
+          membershipCategory: memberApplication.membershipCategory,
           checkoutUrl: session.url,
         });
         console.log("Admin payment link notification sent", {
@@ -1243,7 +1629,7 @@ ordersRouter.post("/admin/approve", adminClerkMiddleware, requireAdminAccess, as
       }
     } catch (emailError) {
       console.error("Approval email failed", {
-        to: order.email,
+        to: memberApplication.email,
         error: emailError,
       });
       // We don't fail the whole request if email fails, but we log it
@@ -1278,26 +1664,41 @@ ordersRouter.post("/payment-link", async (req, res) => {
 
   try {
     const db = requireDb();
-    const [order] = await db.select().from(orders).where(eq(orders.secureToken, token));
+    let [memberApplication] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.secureToken, token))
+      .limit(1);
 
-    if (!order) {
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.secureToken, token)).limit(1);
+      if (legacyOrder) {
+        memberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+      }
+    }
+
+    if (!memberApplication) {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    if (order.status === "paid") {
+    if (toApplicationPaymentStatus(memberApplication.paymentStatus) === "paid") {
       return res.status(409).json({ error: "This application has already been paid." });
     }
 
-    if (order.status !== "approved") {
+    if (toApplicationStatus(memberApplication.status) !== "approved") {
       return res.status(409).json({ error: "Payment link can only be regenerated after approval." });
     }
 
-    const { session, certificateNumber, paymentLinkUrl } = await createMembershipCheckoutSession({ order });
+    const order = await ensureLegacyOrderForMemberApplication(db, memberApplication);
+    const { session, certificateNumber, paymentLinkUrl } = await createMembershipCheckoutSession({
+      order,
+      memberApplicationId: memberApplication.id,
+    });
 
     try {
       const emailResult = await sendApprovalEmail({
-        email: order.email,
-        name: order.name,
+        email: memberApplication.email,
+        name: memberApplication.fullName,
         certificateNumber,
         checkoutUrl: session.url,
         paymentLinkUrl,
@@ -1310,10 +1711,10 @@ ordersRouter.post("/payment-link", async (req, res) => {
 
       try {
         const adminEmailResult = await sendAdminPaymentLinkSentEmail({
-          email: order.email,
-          name: order.name,
+          email: memberApplication.email,
+          name: memberApplication.fullName,
           orderId: order.id,
-          membershipCategory: order.membershipCategory,
+          membershipCategory: memberApplication.membershipCategory,
           checkoutUrl: session.url,
         });
         console.log("[Payment Link] Admin payment link notification sent", {
@@ -1329,7 +1730,7 @@ ordersRouter.post("/payment-link", async (req, res) => {
       }
     } catch (emailError) {
       console.error("[Payment Link] Failed to send fresh approval email", {
-        to: order.email,
+        to: memberApplication.email,
         error: emailError,
       });
     }
@@ -1359,25 +1760,39 @@ ordersRouter.post("/admin/review", adminClerkMiddleware, requireAdminAccess, asy
 
   try {
     const db = requireDb();
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+    let [memberApplication] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.id, orderId))
+      .limit(1);
 
-    if (!order) {
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (legacyOrder) {
+        memberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+      }
+    }
+
+    if (!memberApplication) {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    await db
-      .update(orders)
-      .set({ status: "review" })
-      .where(eq(orders.id, orderId));
+    await updateApplicationPaymentStatus(db, {
+      flowType: "member_application",
+      applicationId: memberApplication.id,
+      status: "under_review",
+      paymentStatus: toApplicationPaymentStatus(memberApplication.paymentStatus),
+      stripeCheckoutSessionId: memberApplication.stripeCheckoutSessionId,
+    });
 
     try {
       await sendReviewEmail({
-        email: order.email,
-        name: order.name,
+        email: memberApplication.email,
+        name: memberApplication.fullName,
       });
     } catch (emailError) {
       console.error("Additional review email failed", {
-        to: order.email,
+        to: memberApplication.email,
         error: emailError,
       });
     }
@@ -1402,25 +1817,39 @@ ordersRouter.post("/admin/reject", adminClerkMiddleware, requireAdminAccess, asy
 
   try {
     const db = requireDb();
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+    let [memberApplication] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.id, orderId))
+      .limit(1);
 
-    if (!order) {
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (legacyOrder) {
+        memberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+      }
+    }
+
+    if (!memberApplication) {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    await db
-      .update(orders)
-      .set({ status: "rejected" })
-      .where(eq(orders.id, orderId));
+    await updateApplicationPaymentStatus(db, {
+      flowType: "member_application",
+      applicationId: memberApplication.id,
+      status: "rejected",
+      paymentStatus: "not_required",
+      stripeCheckoutSessionId: memberApplication.stripeCheckoutSessionId,
+    });
 
     try {
       await sendRejectedEmail({
-        email: order.email,
-        name: order.name,
+        email: memberApplication.email,
+        name: memberApplication.fullName,
       });
     } catch (emailError) {
       console.error("Rejected application email failed", {
-        to: order.email,
+        to: memberApplication.email,
         error: emailError,
       });
     }
@@ -1480,26 +1909,41 @@ ordersRouter.post("/:id/resend-payment-link", adminClerkMiddleware, requireAdmin
 
   try {
     const db = requireDb();
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    let [memberApplication] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.id, id))
+      .limit(1);
 
-    if (!order) {
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      if (legacyOrder) {
+        memberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+      }
+    }
+
+    if (!memberApplication) {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    if (order.status === "paid") {
+    if (toApplicationPaymentStatus(memberApplication.paymentStatus) === "paid") {
       return res.status(409).json({ error: "This application has already been paid." });
     }
 
-    if (order.status !== "approved") {
+    if (toApplicationStatus(memberApplication.status) !== "approved") {
       return res.status(409).json({ error: "Payment link can only be regenerated after approval." });
     }
 
-    const { session, certificateNumber, paymentLinkUrl } = await createMembershipCheckoutSession({ order });
+    const order = await ensureLegacyOrderForMemberApplication(db, memberApplication);
+    const { session, certificateNumber, paymentLinkUrl } = await createMembershipCheckoutSession({
+      order,
+      memberApplicationId: memberApplication.id,
+    });
 
     try {
       const emailResult = await sendApprovalEmail({
-        email: order.email,
-        name: order.name,
+        email: memberApplication.email,
+        name: memberApplication.fullName,
         certificateNumber,
         checkoutUrl: session.url,
         paymentLinkUrl,
@@ -1512,10 +1956,10 @@ ordersRouter.post("/:id/resend-payment-link", adminClerkMiddleware, requireAdmin
 
       try {
         const adminEmailResult = await sendAdminPaymentLinkSentEmail({
-          email: order.email,
-          name: order.name,
+          email: memberApplication.email,
+          name: memberApplication.fullName,
           orderId: order.id,
-          membershipCategory: order.membershipCategory,
+          membershipCategory: memberApplication.membershipCategory,
           checkoutUrl: session.url,
         });
         console.log("[Admin] Admin payment link notification sent", {
@@ -1531,7 +1975,7 @@ ordersRouter.post("/:id/resend-payment-link", adminClerkMiddleware, requireAdmin
       }
     } catch (emailError) {
       console.error("[Admin] Failed to send fresh payment link email", {
-        to: order.email,
+        to: memberApplication.email,
         error: emailError,
       });
     }
@@ -1562,50 +2006,85 @@ ordersRouter.get("/verify/:token", async (req, res) => {
 
   try {
     const db = requireDb();
-    const [order] = await db.select().from(orders).where(eq(orders.secureToken, token));
-    if (!order) return res.status(404).json({ error: "Order not found" });
+    let [memberApplication] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.secureToken, token))
+      .limit(1);
 
-    const checkoutSessionId = stripeSessionId || order.stripeSessionId;
+    if (!memberApplication) {
+      const [legacyOrder] = await db.select().from(orders).where(eq(orders.secureToken, token)).limit(1);
+      if (legacyOrder) {
+        memberApplication = await findOrCreateMemberApplicationByOrder(db, legacyOrder);
+      }
+    }
 
-    if (order.status !== "paid" && checkoutSessionId?.startsWith("cs_")) {
+    if (!memberApplication) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    const legacyOrder = await ensureLegacyOrderForMemberApplication(db, memberApplication);
+    const checkoutSessionId = stripeSessionId || memberApplication.stripeCheckoutSessionId || legacyOrder.stripeSessionId;
+
+    if (toApplicationPaymentStatus(memberApplication.paymentStatus) !== "paid" && checkoutSessionId?.startsWith("cs_")) {
       const session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
       const sessionOrderId = session.metadata?.orderId;
       const sessionOrderKind = session.metadata?.orderKind;
+      const sessionFlowType = session.metadata?.flowType;
+      const sessionApplicationId = session.metadata?.applicationId || session.metadata?.memberApplicationId;
       const isPaidSession =
         session.status === "complete" &&
         (session.payment_status === "paid" || session.payment_status === "no_payment_required");
 
-      if (sessionOrderId === order.id && sessionOrderKind === "membership" && isPaidSession) {
+      if (
+        isPaidSession &&
+        (
+          (sessionOrderId && sessionOrderId === legacyOrder.id) ||
+          (sessionApplicationId && sessionApplicationId === memberApplication.id)
+        ) &&
+        (sessionFlowType === "member_application" || sessionOrderKind === "member_application" || sessionOrderKind === "membership")
+      ) {
         const [paidOrder] = await db
           .update(orders)
           .set({ status: "paid", stripeSessionId: session.id })
-          .where(eq(orders.id, order.id))
+          .where(eq(orders.id, legacyOrder.id))
           .returning();
+
+        await updateApplicationPaymentStatus(db, {
+          flowType: "member_application",
+          applicationId: memberApplication.id,
+          status: "approved",
+          paymentStatus: "paid",
+          stripeCheckoutSessionId: session.id,
+          stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+          stripeInvoiceId: typeof session.invoice === "string" ? session.invoice : null,
+          paidAt: new Date(),
+        });
 
         try {
           const emailResult = await sendDashboardActivationEmail({
-            email: order.email,
-            name: order.name,
-            secureToken: order.secureToken,
+            email: memberApplication.email,
+            name: memberApplication.fullName,
+            secureToken: memberApplication.secureToken,
           });
           console.log("[Verify Payment] Dashboard activation email sent", {
-            to: order.email,
+            to: memberApplication.email,
             id: emailResult.data?.id ?? null,
             error: emailResult.error ?? null,
           });
         } catch (emailError) {
           console.error("[Verify Payment] Failed to send dashboard activation email", {
-            to: order.email,
+            to: memberApplication.email,
             error: emailError,
           });
         }
 
         try {
           const adminEmailResult = await sendAdminPaymentReceivedEmail({
-            email: order.email,
-            name: order.name,
-            orderId: order.id,
-            membershipCategory: order.membershipCategory,
+            email: memberApplication.email,
+            name: memberApplication.fullName,
+            orderId: legacyOrder.id,
+            membershipCategory: memberApplication.membershipCategory,
             stripeSessionId: session.id,
           });
           console.log("[Verify Payment] Admin payment received notification sent", {
@@ -1620,20 +2099,56 @@ ordersRouter.get("/verify/:token", async (req, res) => {
           });
         }
 
-        return res.json(paidOrder || { ...order, status: "paid", stripeSessionId: session.id });
+        const [updatedApplication] = await db
+          .select()
+          .from(memberApplications)
+          .where(eq(memberApplications.id, memberApplication.id))
+          .limit(1);
+
+        const paidStatus = updatedApplication
+          ? mapMemberApplicationToLegacyStatus(updatedApplication)
+          : "paid";
+
+        return res.json({
+          ...(updatedApplication || memberApplication),
+          id: memberApplication.id,
+          email: (updatedApplication || memberApplication).email,
+          name: (updatedApplication || memberApplication).fullName,
+          membershipCategory: (updatedApplication || memberApplication).membershipCategory,
+          applicantType: (updatedApplication || memberApplication).applicantType,
+          applicationPayload: (updatedApplication || memberApplication).rawData,
+          status: paidStatus,
+          stripeSessionId: session.id,
+          secureToken: (updatedApplication || memberApplication).secureToken,
+          createdAt: (updatedApplication || memberApplication).createdAt,
+        });
       }
 
       console.warn("[Verify Payment] Stripe session did not match paid order", {
-        orderId: order.id,
+        orderId: legacyOrder.id,
         stripeSessionId: checkoutSessionId,
         sessionOrderId,
         sessionOrderKind,
+        sessionFlowType,
+        sessionApplicationId,
         sessionStatus: session.status,
         paymentStatus: session.payment_status,
       });
     }
 
-    res.json(order);
+    const normalizedStatus = mapMemberApplicationToLegacyStatus(memberApplication);
+    res.json({
+      id: memberApplication.id,
+      email: memberApplication.email,
+      name: memberApplication.fullName,
+      membershipCategory: memberApplication.membershipCategory,
+      applicantType: memberApplication.applicantType,
+      applicationPayload: memberApplication.rawData,
+      status: normalizedStatus,
+      stripeSessionId: memberApplication.stripeCheckoutSessionId || legacyOrder.stripeSessionId,
+      secureToken: memberApplication.secureToken,
+      createdAt: memberApplication.createdAt,
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -1654,10 +2169,11 @@ ordersRouter.post("/:id/certificate", adminClerkMiddleware, requireAdminAccess, 
 
   try {
     const db = requireDb();
+    const orderId = await resolveLegacyOrderIdForApplicationLookup(db, id);
     const [existingCert] = await db
       .select({ id: certificates.id })
       .from(certificates)
-      .where(eq(certificates.orderId, id));
+      .where(eq(certificates.orderId, orderId));
 
     if (!existingCert) {
       return res.status(404).json({ error: "Certificate not found" });
@@ -1665,7 +2181,7 @@ ordersRouter.post("/:id/certificate", adminClerkMiddleware, requireAdminAccess, 
 
     await db.update(certificates)
       .set({ certificateUrl: url })
-      .where(eq(certificates.orderId, id));
+      .where(eq(certificates.orderId, orderId));
     res.json({ success: true, certificateUrl: url });
   } catch (error) {
     console.error("Failed to save certificate URL:", error);
@@ -1682,10 +2198,11 @@ ordersRouter.delete("/:id/certificate", adminClerkMiddleware, requireAdminAccess
 
   try {
     const db = requireDb();
+    const orderId = await resolveLegacyOrderIdForApplicationLookup(db, id);
     const [existingCert] = await db
       .select({ id: certificates.id })
       .from(certificates)
-      .where(eq(certificates.orderId, id));
+      .where(eq(certificates.orderId, orderId));
 
     if (!existingCert) {
       return res.status(404).json({ error: "Certificate not found" });
@@ -1694,7 +2211,7 @@ ordersRouter.delete("/:id/certificate", adminClerkMiddleware, requireAdminAccess
     await db
       .update(certificates)
       .set({ certificateUrl: null })
-      .where(eq(certificates.orderId, id));
+      .where(eq(certificates.orderId, orderId));
 
     res.json({ success: true });
   } catch (error) {
@@ -1713,8 +2230,9 @@ ordersRouter.post("/:id/resend-pdf", adminClerkMiddleware, requireAdminAccess, a
 
   try {
     const db = requireDb();
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
-    const [cert] = await db.select().from(certificates).where(eq(certificates.orderId, id));
+    const orderId = await resolveLegacyOrderIdForApplicationLookup(db, id);
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+    const [cert] = await db.select().from(certificates).where(eq(certificates.orderId, orderId));
 
     if (!order || !cert || !cert.certificateUrl) {
       return res.status(404).json({ error: "Order or certificate URL not found" });

@@ -326,7 +326,7 @@ export default function ClientsPage() {
     <main className="mx-auto max-w-7xl px-4 py-8 lg:py-9">
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-5">
         <div>
-          <h1 className="text-3xl uppercase tracking-tighter font-anton lg:text-[2rem]">Clients</h1>
+          <h1 className="text-3xl uppercase tracking-tighter font-anton lg:text-[2rem]">Dashboard Users</h1>
           <p className="text-slate-500 mt-1.5 text-sm font-light">Approved and paid association members</p>
           {lastSyncedAt && (
             <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">
@@ -375,7 +375,7 @@ export default function ClientsPage() {
             <Users size={32} />
           </div>
           <h3 className="text-xl font-bold text-slate-900">The list is empty</h3>
-          <p className="text-slate-500 mt-2">Clients will appear here after successful membership payment.</p>
+          <p className="text-slate-500 mt-2">Dashboard users will appear here after successful payment activation.</p>
         </div>
       ) : (
         <div className="grid gap-3">

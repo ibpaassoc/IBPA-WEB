@@ -2,10 +2,19 @@ import { Router } from "express";
 import bodyParser from "body-parser";
 import Stripe from "stripe";
 import crypto from "crypto";
-import { requireDb, orders, certificates, users, emailLogs, partnerApplications } from "../lib/db";
+import { requireDb, orders, certificates, users, emailLogs, partnerApplications, memberApplications } from "../lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
 import { adminNotificationEmail, resend, resendFrom } from "../services/email";
+import {
+  createDashboardUserFromApplication,
+  getMetadataApplicationId,
+  normalizeEmail,
+  resolveStripeFlowType,
+  toApplicationPaymentStatus,
+  toApplicationStatus,
+  updateApplicationPaymentStatus,
+} from "../lib/application-flow";
 
 export const webhooksRouter = Router();
 const processedInvoiceCopyEvents = new Set<string>();
@@ -227,7 +236,7 @@ async function ensurePartnerOrderForApplication(params: {
           .where(eq(orders.id, linkedOrder.id));
       }
 
-      return linkedOrder.id;
+      return { id: linkedOrder.id, secureToken: linkedOrder.secureToken };
     }
   }
 
@@ -252,7 +261,7 @@ async function ensurePartnerOrderForApplication(params: {
       })
       .where(eq(partnerApplications.id, application.id));
 
-    return existingByApplication.id;
+    return { id: existingByApplication.id, secureToken: existingByApplication.secureToken };
   }
 
   const [existingBySession] = await db
@@ -270,7 +279,7 @@ async function ensurePartnerOrderForApplication(params: {
       })
       .where(eq(partnerApplications.id, application.id));
 
-    return existingBySession.id;
+    return { id: existingBySession.id, secureToken: existingBySession.secureToken };
   }
 
   const [createdOrder] = await db
@@ -295,7 +304,10 @@ async function ensurePartnerOrderForApplication(params: {
       secureToken: crypto.randomUUID(),
       phone: application.phone,
     })
-    .returning({ id: orders.id });
+    .returning({
+      id: orders.id,
+      secureToken: orders.secureToken,
+    });
 
   await db
     .update(partnerApplications)
@@ -305,7 +317,251 @@ async function ensurePartnerOrderForApplication(params: {
     })
     .where(eq(partnerApplications.id, application.id));
 
-  return createdOrder.id;
+  return { id: createdOrder.id, secureToken: createdOrder.secureToken };
+}
+
+async function ensureMemberOrderForApplication(params: {
+  db: ReturnType<typeof requireDb>;
+  application: typeof memberApplications.$inferSelect;
+  sessionId: string;
+  fallbackOrderId?: string | null;
+}) {
+  const { db, application, sessionId, fallbackOrderId } = params;
+
+  const linkedOrderId = application.legacyOrderId || fallbackOrderId || null;
+  if (linkedOrderId) {
+    const [linkedOrder] = await db.select().from(orders).where(eq(orders.id, linkedOrderId)).limit(1);
+    if (linkedOrder) {
+      if (linkedOrder.status !== "paid" || linkedOrder.stripeSessionId !== sessionId) {
+        await db
+          .update(orders)
+          .set({
+            status: "paid",
+            stripeSessionId: sessionId,
+            accountType: "member",
+          })
+          .where(eq(orders.id, linkedOrder.id));
+      }
+
+      if (!application.legacyOrderId || application.legacyOrderId !== linkedOrder.id) {
+        await db
+          .update(memberApplications)
+          .set({
+            legacyOrderId: linkedOrder.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(memberApplications.id, application.id));
+      }
+
+      return { id: linkedOrder.id, secureToken: linkedOrder.secureToken };
+    }
+  }
+
+  const [existingBySession] = await db
+    .select()
+    .from(orders)
+    .where(and(sql`coalesce(lower(${orders.accountType}), 'member') <> 'partner'`, eq(orders.stripeSessionId, sessionId)))
+    .limit(1);
+
+  if (existingBySession) {
+    await db
+      .update(memberApplications)
+      .set({
+        legacyOrderId: existingBySession.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(memberApplications.id, application.id));
+
+    return { id: existingBySession.id, secureToken: existingBySession.secureToken };
+  }
+
+  const payload =
+    application.rawData && typeof application.rawData === "object" && !Array.isArray(application.rawData)
+      ? (application.rawData as Record<string, unknown>)
+      : {};
+  const [createdOrder] = await db
+    .insert(orders)
+    .values({
+      email: application.email,
+      name: application.fullName,
+      accountType: "member",
+      membershipCategory: application.membershipCategory,
+      applicantType: application.applicantType,
+      package: application.membershipCategory,
+      applicationPayload: payload,
+      status: "paid",
+      stripeSessionId: sessionId,
+      secureToken: application.secureToken || crypto.randomUUID(),
+      phone: application.phone,
+      createdAt: application.createdAt,
+    })
+    .returning({
+      id: orders.id,
+      secureToken: orders.secureToken,
+    });
+
+  await db
+    .update(memberApplications)
+    .set({
+      legacyOrderId: createdOrder.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(memberApplications.id, application.id));
+
+  return { id: createdOrder.id, secureToken: createdOrder.secureToken };
+}
+
+async function handleMemberApplicationCheckoutSession(session: Stripe.Checkout.Session) {
+  const metadata = session.metadata || {};
+  const memberApplicationId = getMetadataApplicationId(metadata);
+  const fallbackOrderId = metadata.orderId || null;
+
+  const db = requireDb();
+  let application: typeof memberApplications.$inferSelect | null = null;
+
+  if (memberApplicationId) {
+    const [byId] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.id, memberApplicationId))
+      .limit(1);
+    application = byId || null;
+  }
+
+  if (!application && fallbackOrderId) {
+    const [byOrderId] = await db
+      .select()
+      .from(memberApplications)
+      .where(eq(memberApplications.legacyOrderId, fallbackOrderId))
+      .limit(1);
+    application = byOrderId || null;
+  }
+
+  if (!application) {
+    console.warn("[Stripe Webhook] Member application not found", {
+      memberApplicationId,
+      fallbackOrderId,
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
+  const invoiceId = typeof session.invoice === "string" ? session.invoice : null;
+  const isDuplicatePaidEvent =
+    toApplicationPaymentStatus(application.paymentStatus) === "paid" &&
+    application.stripeCheckoutSessionId === session.id &&
+    Boolean(application.legacyOrderId);
+  const paidAt = application.paidAt || new Date();
+
+  const updateResult = await updateApplicationPaymentStatus(db, {
+    flowType: "member_application",
+    applicationId: application.id,
+    status: "approved",
+    paymentStatus: "paid",
+    stripeCheckoutSessionId: session.id,
+    stripePaymentIntentId: paymentIntentId,
+    stripeInvoiceId: invoiceId,
+    stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
+    paidAt,
+  });
+
+  const updatedApplication =
+    updateResult?.flowType === "member_application" ? updateResult.application : application;
+
+  const memberOrder = await ensureMemberOrderForApplication({
+    db,
+    application: updatedApplication as typeof memberApplications.$inferSelect,
+    sessionId: session.id,
+    fallbackOrderId,
+  });
+
+  await createDashboardUserFromApplication({
+    db,
+    flowType: "member_application",
+    application: updatedApplication as typeof memberApplications.$inferSelect,
+    stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
+    paymentDate: paidAt,
+  });
+
+  if (isDuplicatePaidEvent) {
+    console.log("[Stripe Webhook] Member paid event already processed", {
+      memberApplicationId: application.id,
+      memberOrderId: memberOrder.id,
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  let activationEmailAlreadySent = false;
+  try {
+    activationEmailAlreadySent = await hasSentDashboardActivationEmail(db, application.email, memberOrder.id);
+  } catch (emailLogError) {
+    console.error("[Stripe Webhook] Failed to check member dashboard activation email log", {
+      memberApplicationId: application.id,
+      memberOrderId: memberOrder.id,
+      email: application.email,
+      error: emailLogError,
+    });
+  }
+
+  if (!activationEmailAlreadySent) {
+    try {
+      const emailResult = await sendDashboardActivationEmail({
+        email: application.email,
+        name: application.fullName,
+        secureToken: memberOrder.secureToken,
+      });
+      console.log("[Stripe Webhook] Member dashboard activation email sent", {
+        to: application.email,
+        memberApplicationId: application.id,
+        memberOrderId: memberOrder.id,
+        id: emailResult.data?.id ?? null,
+        error: emailResult.error ?? null,
+      });
+
+      if (!emailResult.error) {
+        try {
+          await logDashboardActivationEmailSent(db, application.email, memberOrder.id);
+        } catch (emailLogError) {
+          console.error("[Stripe Webhook] Failed to log member dashboard activation email", {
+            memberApplicationId: application.id,
+            memberOrderId: memberOrder.id,
+            email: application.email,
+            error: emailLogError,
+          });
+        }
+      }
+    } catch (emailError) {
+      console.error("[Stripe Webhook] Failed to send member dashboard activation email", {
+        to: application.email,
+        memberApplicationId: application.id,
+        memberOrderId: memberOrder.id,
+        error: emailError,
+      });
+    }
+  }
+
+  try {
+    const adminEmailResult = await sendAdminPaymentReceivedEmail({
+      email: application.email,
+      name: application.fullName,
+      orderId: memberOrder.id,
+      membershipCategory: application.membershipCategory,
+      stripeSessionId: session.id,
+    });
+    console.log("[Stripe Webhook] Member payment received notification sent", {
+      to: adminNotificationEmail,
+      id: adminEmailResult.data?.id ?? null,
+      error: adminEmailResult.error ?? null,
+    });
+  } catch (adminEmailError) {
+    console.error("[Stripe Webhook] Member payment received notification failed", {
+      to: adminNotificationEmail,
+      applicationId: application.id,
+      error: adminEmailError,
+    });
+  }
 }
 
 async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.Session) {
@@ -338,44 +594,102 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
   const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
   const invoiceId = typeof session.invoice === "string" ? session.invoice : null;
   const isDuplicatePaidEvent =
-    application.paymentStatus === "PAID" &&
+    toApplicationPaymentStatus(application.paymentStatus) === "paid" &&
     application.stripeCheckoutSessionId === session.id &&
     Boolean(application.partnerOrderId);
   const paidAt = application.paidAt || new Date();
 
-  const [updatedApplication] = await db
-    .update(partnerApplications)
-    .set({
-      status: "APPROVED",
-      paymentStatus: "PAID",
-      stripeCheckoutSessionId: session.id,
-      stripePaymentIntentId: paymentIntentId || application.stripePaymentIntentId,
-      stripeInvoiceId: invoiceId || application.stripeInvoiceId,
-      paidAt,
-      updatedAt: new Date(),
-    })
-    .where(eq(partnerApplications.id, application.id))
-    .returning();
+  const updateResult = await updateApplicationPaymentStatus(db, {
+    flowType: "partner_application",
+    applicationId: application.id,
+    status: "approved",
+    paymentStatus: "paid",
+    stripeCheckoutSessionId: session.id,
+    stripePaymentIntentId: paymentIntentId,
+    stripeInvoiceId: invoiceId,
+    stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
+    paidAt,
+  });
 
-  const partnerOrderId = await ensurePartnerOrderForApplication({
+  const updatedApplication =
+    updateResult?.flowType === "partner_application" ? updateResult.application : application;
+
+  const partnerOrder = await ensurePartnerOrderForApplication({
     db,
     application: updatedApplication || application,
     sessionId: session.id,
   });
 
+  await createDashboardUserFromApplication({
+    db,
+    flowType: "partner_application",
+    application: updatedApplication || application,
+    stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
+    paymentDate: paidAt,
+  });
+
   if (isDuplicatePaidEvent) {
     console.log("[Stripe Webhook] Partner paid event already processed", {
       partnerApplicationId: application.id,
-      partnerOrderId,
+      partnerOrderId: partnerOrder.id,
       sessionId: session.id,
     });
     return;
   }
 
+  let activationEmailAlreadySent = false;
+  try {
+    activationEmailAlreadySent = await hasSentDashboardActivationEmail(db, application.email, partnerOrder.id);
+  } catch (emailLogError) {
+    console.error("[Stripe Webhook] Failed to check partner dashboard activation email log", {
+      partnerApplicationId: application.id,
+      partnerOrderId: partnerOrder.id,
+      email: application.email,
+      error: emailLogError,
+    });
+  }
+
+  if (!activationEmailAlreadySent) {
+    try {
+      const emailResult = await sendDashboardActivationEmail({
+        email: application.email,
+        name: application.name,
+        secureToken: partnerOrder.secureToken,
+      });
+      console.log("[Stripe Webhook] Partner dashboard activation email sent", {
+        to: application.email,
+        partnerApplicationId: application.id,
+        partnerOrderId: partnerOrder.id,
+        id: emailResult.data?.id ?? null,
+        error: emailResult.error ?? null,
+      });
+
+      if (!emailResult.error) {
+        try {
+          await logDashboardActivationEmailSent(db, application.email, partnerOrder.id);
+        } catch (emailLogError) {
+          console.error("[Stripe Webhook] Failed to log partner dashboard activation email", {
+            partnerApplicationId: application.id,
+            partnerOrderId: partnerOrder.id,
+            email: application.email,
+            error: emailLogError,
+          });
+        }
+      }
+    } catch (emailError) {
+      console.error("[Stripe Webhook] Failed to send partner dashboard activation email", {
+        to: application.email,
+        partnerApplicationId: application.id,
+        partnerOrderId: partnerOrder.id,
+        error: emailError,
+      });
+    }
+  }
+
   try {
     const adminEmailResult = await sendAdminPartnerPaymentReceivedEmail({
       applicationId: application.id,
-      orderId: partnerOrderId,
+      orderId: partnerOrder.id,
       name: application.name,
       email: application.email,
       tier: application.requestedTier,
@@ -397,7 +711,7 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
 
   console.log("[Stripe Webhook] Partner application marked as paid", {
     partnerApplicationId: application.id,
-    partnerOrderId,
+    partnerOrderId: partnerOrder.id,
     sessionId: session.id,
     paymentIntentId,
     invoiceId,
@@ -477,20 +791,27 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      const orderKind = session.metadata?.orderKind;
-      const metadataType = session.metadata?.type;
-      const orderId = session.metadata?.orderId;
+      const metadata = session.metadata || {};
+      const orderKind = metadata.orderKind;
+      const metadataType = metadata.type;
+      const orderId = metadata.orderId;
+      const flowType = resolveStripeFlowType(metadata);
 
       if (orderKind === "sponsorship") {
         console.log("[Stripe Webhook] Sponsorship checkout completed", {
           sessionId: session.id,
-          tier: session.metadata?.sponsorshipTier ?? null,
+          tier: metadata.sponsorshipTier ?? null,
         });
         return res.json({ received: true });
       }
 
-      if (orderKind === "partner_application" || metadataType === "partner_application") {
+      if (flowType === "partner_application" || orderKind === "partner_application" || metadataType === "partner_application") {
         await handlePartnerApplicationCheckoutSession(session);
+        return res.json({ received: true });
+      }
+
+      if (flowType === "member_application" || orderKind === "member_application" || metadataType === "member_application") {
+        await handleMemberApplicationCheckoutSession(session);
         return res.json({ received: true });
       }
 
@@ -518,6 +839,78 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
           !activationEmailAlreadySent && (order.status !== "paid" || !order.stripeSessionId || session.id === order.stripeSessionId);
         await markOrderPaid(orderId, session.id);
         console.log(`[Stripe Webhook] Order ${orderId} marked as paid for session ${session.id}`);
+
+        let memberApplication = await db
+          .select()
+          .from(memberApplications)
+          .where(eq(memberApplications.legacyOrderId, order.id))
+          .limit(1)
+          .then((rows: any[]) => rows[0] || null);
+
+        if (!memberApplication) {
+          const payload =
+            order.applicationPayload && typeof order.applicationPayload === "object" && !Array.isArray(order.applicationPayload)
+              ? (order.applicationPayload as Record<string, unknown>)
+              : {};
+          const fullName = order.name || "Unknown Applicant";
+          const parts = fullName.trim().split(/\s+/);
+          const firstName = parts[0] || null;
+          const lastName = parts.length > 1 ? parts.slice(1).join(" ") : null;
+
+          const [createdApplication] = await db
+            .insert(memberApplications)
+            .values({
+              fullName,
+              firstName,
+              lastName,
+              email: normalizeEmail(order.email),
+              emailNormalized: normalizeEmail(order.email),
+              phone: order.phone,
+              membershipCategory: order.membershipCategory,
+              applicantType: order.applicantType,
+              status: "approved",
+              paymentStatus: "paid",
+              secureToken: order.secureToken,
+              stripeCheckoutSessionId: session.id,
+              stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+              stripeInvoiceId: typeof session.invoice === "string" ? session.invoice : null,
+              legacyOrderId: order.id,
+              rawData: payload,
+              approvedAt: new Date(),
+              paidAt: new Date(),
+              createdAt: order.createdAt,
+              updatedAt: new Date(),
+            })
+            .returning();
+
+          memberApplication = createdApplication;
+        } else {
+          const updateResult = await updateApplicationPaymentStatus(db, {
+            flowType: "member_application",
+            applicationId: memberApplication.id,
+            status: "approved",
+            paymentStatus: "paid",
+            stripeCheckoutSessionId: session.id,
+            stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+            stripeInvoiceId: typeof session.invoice === "string" ? session.invoice : null,
+            stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
+            paidAt: new Date(),
+          });
+
+          if (updateResult?.flowType === "member_application") {
+            memberApplication = updateResult.application;
+          }
+        }
+
+        if (memberApplication) {
+          await createDashboardUserFromApplication({
+            db,
+            flowType: "member_application",
+            application: memberApplication,
+            stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
+            paymentDate: new Date(),
+          });
+        }
 
         if (typeof session.subscription === "string") {
           try {
@@ -710,39 +1103,111 @@ async function linkCertificatesByEmail(email: string, clerkUserId: string) {
 
 async function hasPaidMembership(email: string) {
   const db = requireDb();
-  const [matchingOrder] = await db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(and(sql`lower(${orders.email}) = lower(${email})`, eq(orders.status, "paid")))
-    .limit(1);
+  const normalized = normalizeEmail(email);
+  if (!normalized) {
+    return false;
+  }
 
-  return Boolean(matchingOrder);
+  const [memberPaid, partnerPaid, paidUser] = await Promise.all([
+    db
+      .select({ id: memberApplications.id })
+      .from(memberApplications)
+      .where(
+        and(
+          eq(memberApplications.emailNormalized, normalized),
+          sql`lower(${memberApplications.paymentStatus}) = 'paid'`,
+        ),
+      )
+      .limit(1),
+    db
+      .select({ id: partnerApplications.id })
+      .from(partnerApplications)
+      .where(
+        and(
+          eq(partnerApplications.emailNormalized, normalized),
+          sql`lower(${partnerApplications.paymentStatus}) = 'paid'`,
+        ),
+      )
+      .limit(1),
+    db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.emailNormalized, normalized), eq(users.accountStatus, "active")))
+      .limit(1),
+  ]);
+
+  return Boolean(memberPaid[0] || partnerPaid[0] || paidUser[0]);
 }
 
 async function upsertUser(clerkUserId: string, email: string, evtData: any) {
   const db = requireDb();
+  const normalizedEmail = normalizeEmail(email);
   
   const firstName = evtData.first_name || "";
   const lastName = evtData.last_name || "";
   const imageUrl = evtData.image_url || "";
+  const fullName = `${firstName || ""} ${lastName || ""}`.trim() || evtData.full_name || "";
+  const [paidPartnerApplication, paidMemberApplication] = await Promise.all([
+    db
+      .select({ id: partnerApplications.id })
+      .from(partnerApplications)
+      .where(
+        and(
+          eq(partnerApplications.emailNormalized, normalizedEmail),
+          sql`lower(${partnerApplications.paymentStatus}) = 'paid'`,
+        ),
+      )
+      .limit(1),
+    db
+      .select({ id: memberApplications.id })
+      .from(memberApplications)
+      .where(
+        and(
+          eq(memberApplications.emailNormalized, normalizedEmail),
+          sql`lower(${memberApplications.paymentStatus}) = 'paid'`,
+        ),
+      )
+      .limit(1),
+  ]);
+  const resolvedUserType = paidPartnerApplication[0] ? "partner" : paidMemberApplication[0] ? "member" : "member";
   
-  const existing = await db.select().from(users).where(eq(users.clerkId, clerkUserId));
+  const [existingByClerk] = await db.select().from(users).where(eq(users.clerkId, clerkUserId)).limit(1);
+  const [existingByEmail] = await db
+    .select()
+    .from(users)
+    .where(eq(users.emailNormalized, normalizedEmail))
+    .limit(1);
+
+  const existing = existingByClerk || existingByEmail || null;
   
-  if (existing.length > 0) {
+  if (existing) {
     await db.update(users).set({
-      email,
+      clerkId: clerkUserId,
+      email: normalizedEmail || email,
+      emailNormalized: normalizedEmail || email,
+      fullName: fullName || existing.fullName || null,
       firstName,
       lastName,
+      userType:
+        existing.userType === "admin"
+          ? "admin"
+          : resolvedUserType,
+      accountStatus: existing.accountStatus || "active",
       imageUrl,
       updatedAt: new Date()
-    }).where(eq(users.clerkId, clerkUserId));
+    }).where(eq(users.id, existing.id));
     console.log(`[Clerk Webhook] Updated user ${clerkUserId} in DB`);
   } else {
     await db.insert(users).values({
       clerkId: clerkUserId,
-      email,
+      email: normalizedEmail || email,
+      emailNormalized: normalizedEmail || email,
+      fullName: fullName || null,
       firstName,
       lastName,
+      userType: resolvedUserType,
+      accountStatus: "active",
+      activatedAt: new Date(),
       imageUrl,
     });
     console.log(`[Clerk Webhook] Inserted user ${clerkUserId} into DB`);
