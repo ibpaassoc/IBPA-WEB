@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { requireDb, partnerApplications } from "../lib/db";
+import crypto from "crypto";
+import { requireDb, orders, partnerApplications } from "../lib/db";
 import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
@@ -102,6 +103,128 @@ type SqlCondition = ReturnType<typeof sql>;
 function combineConditions(...conditions: Array<SqlCondition | undefined>) {
   const active = conditions.filter((condition): condition is SqlCondition => Boolean(condition));
   return active.length > 0 ? and(...active) : undefined;
+}
+
+async function ensurePartnerOrderForApproval(params: {
+  db: ReturnType<typeof requireDb>;
+  application: typeof partnerApplications.$inferSelect;
+  selectedTier: PartnerTier;
+}) {
+  const { db, application, selectedTier } = params;
+  const partnerPayload = {
+    type: "partner",
+    partnerApplicationId: application.id,
+    partnerTier: selectedTier,
+    partnerMessage: application.message,
+    partnerPhone: application.phone,
+  };
+
+  if (application.partnerOrderId) {
+    const [linkedOrder] = await db
+      .select({
+        id: orders.id,
+        secureToken: orders.secureToken,
+        status: orders.status,
+      })
+      .from(orders)
+      .where(and(eq(orders.id, application.partnerOrderId), sql`lower(${orders.accountType}) = 'partner'`))
+      .limit(1);
+
+    if (linkedOrder) {
+      if (linkedOrder.status !== "paid") {
+        await db
+          .update(orders)
+          .set({
+            email: application.email,
+            name: application.name,
+            phone: application.phone,
+            accountType: "partner",
+            membershipCategory: "partner",
+            applicantType: "Partner",
+            package: selectedTier,
+            applicationPayload: partnerPayload,
+            status: "approved",
+          })
+          .where(eq(orders.id, linkedOrder.id));
+      }
+
+      return linkedOrder;
+    }
+  }
+
+  const [existingOrder] = await db
+    .select({
+      id: orders.id,
+      secureToken: orders.secureToken,
+      status: orders.status,
+    })
+    .from(orders)
+    .where(
+      and(
+        sql`lower(${orders.accountType}) = 'partner'`,
+        sql`${orders.applicationPayload} ->> 'partnerApplicationId' = ${application.id}`,
+      ),
+    )
+    .limit(1);
+
+  if (existingOrder) {
+    if (existingOrder.status !== "paid") {
+      await db
+        .update(orders)
+        .set({
+          email: application.email,
+          name: application.name,
+          phone: application.phone,
+          accountType: "partner",
+          membershipCategory: "partner",
+          applicantType: "Partner",
+          package: selectedTier,
+          applicationPayload: partnerPayload,
+          status: "approved",
+        })
+        .where(eq(orders.id, existingOrder.id));
+    }
+
+    await db
+      .update(partnerApplications)
+      .set({
+        partnerOrderId: existingOrder.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(partnerApplications.id, application.id));
+
+    return existingOrder;
+  }
+
+  const [createdOrder] = await db
+    .insert(orders)
+    .values({
+      email: application.email,
+      name: application.name,
+      phone: application.phone,
+      accountType: "partner",
+      membershipCategory: "partner",
+      applicantType: "Partner",
+      package: selectedTier,
+      applicationPayload: partnerPayload,
+      status: "approved",
+      secureToken: crypto.randomUUID(),
+    })
+    .returning({
+      id: orders.id,
+      secureToken: orders.secureToken,
+      status: orders.status,
+    });
+
+  await db
+    .update(partnerApplications)
+    .set({
+      partnerOrderId: createdOrder.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(partnerApplications.id, application.id));
+
+  return createdOrder;
 }
 
 async function sendPartnerApplicationReceivedEmail(params: {
@@ -535,9 +658,16 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       throw new Error("FRONTEND_URL is not configured");
     }
 
+    const partnerOrder = await ensurePartnerOrderForApproval({
+      db,
+      application,
+      selectedTier,
+    });
+
     const metadata = {
       type: "partner_application",
       orderKind: "partner_application",
+      orderId: partnerOrder.id,
       partnerApplicationId: application.id,
       partnerTier: selectedTier,
     };
@@ -554,7 +684,7 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
         },
       ],
       mode: usesRecurringPrice ? "subscription" : "payment",
-      success_url: `${frontendUrl}/partnership?payment=success&tier=${encodeURIComponent(selectedTier)}`,
+      success_url: `${frontendUrl}/success?token=${encodeURIComponent(partnerOrder.secureToken)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/partnership?payment=cancelled&tier=${encodeURIComponent(selectedTier)}`,
       ...(usesRecurringPrice ? { subscription_data: { metadata } } : {}),
       metadata,
@@ -567,6 +697,7 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
         status: "APPROVED",
         paymentStatus: "PENDING",
         stripeCheckoutSessionId: session.id,
+        partnerOrderId: partnerOrder.id,
         approvedAt: new Date(),
         updatedAt: new Date(),
       })

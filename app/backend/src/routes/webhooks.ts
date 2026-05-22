@@ -227,7 +227,7 @@ async function ensurePartnerOrderForApplication(params: {
           .where(eq(orders.id, linkedOrder.id));
       }
 
-      return linkedOrder.id;
+      return { id: linkedOrder.id, secureToken: linkedOrder.secureToken };
     }
   }
 
@@ -252,7 +252,7 @@ async function ensurePartnerOrderForApplication(params: {
       })
       .where(eq(partnerApplications.id, application.id));
 
-    return existingByApplication.id;
+    return { id: existingByApplication.id, secureToken: existingByApplication.secureToken };
   }
 
   const [existingBySession] = await db
@@ -270,7 +270,7 @@ async function ensurePartnerOrderForApplication(params: {
       })
       .where(eq(partnerApplications.id, application.id));
 
-    return existingBySession.id;
+    return { id: existingBySession.id, secureToken: existingBySession.secureToken };
   }
 
   const [createdOrder] = await db
@@ -295,7 +295,10 @@ async function ensurePartnerOrderForApplication(params: {
       secureToken: crypto.randomUUID(),
       phone: application.phone,
     })
-    .returning({ id: orders.id });
+    .returning({
+      id: orders.id,
+      secureToken: orders.secureToken,
+    });
 
   await db
     .update(partnerApplications)
@@ -305,7 +308,7 @@ async function ensurePartnerOrderForApplication(params: {
     })
     .where(eq(partnerApplications.id, application.id));
 
-  return createdOrder.id;
+  return { id: createdOrder.id, secureToken: createdOrder.secureToken };
 }
 
 async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.Session) {
@@ -357,7 +360,7 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
     .where(eq(partnerApplications.id, application.id))
     .returning();
 
-  const partnerOrderId = await ensurePartnerOrderForApplication({
+  const partnerOrder = await ensurePartnerOrderForApplication({
     db,
     application: updatedApplication || application,
     sessionId: session.id,
@@ -366,16 +369,65 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
   if (isDuplicatePaidEvent) {
     console.log("[Stripe Webhook] Partner paid event already processed", {
       partnerApplicationId: application.id,
-      partnerOrderId,
+      partnerOrderId: partnerOrder.id,
       sessionId: session.id,
     });
     return;
   }
 
+  let activationEmailAlreadySent = false;
+  try {
+    activationEmailAlreadySent = await hasSentDashboardActivationEmail(db, application.email, partnerOrder.id);
+  } catch (emailLogError) {
+    console.error("[Stripe Webhook] Failed to check partner dashboard activation email log", {
+      partnerApplicationId: application.id,
+      partnerOrderId: partnerOrder.id,
+      email: application.email,
+      error: emailLogError,
+    });
+  }
+
+  if (!activationEmailAlreadySent) {
+    try {
+      const emailResult = await sendDashboardActivationEmail({
+        email: application.email,
+        name: application.name,
+        secureToken: partnerOrder.secureToken,
+      });
+      console.log("[Stripe Webhook] Partner dashboard activation email sent", {
+        to: application.email,
+        partnerApplicationId: application.id,
+        partnerOrderId: partnerOrder.id,
+        id: emailResult.data?.id ?? null,
+        error: emailResult.error ?? null,
+      });
+
+      if (!emailResult.error) {
+        try {
+          await logDashboardActivationEmailSent(db, application.email, partnerOrder.id);
+        } catch (emailLogError) {
+          console.error("[Stripe Webhook] Failed to log partner dashboard activation email", {
+            partnerApplicationId: application.id,
+            partnerOrderId: partnerOrder.id,
+            email: application.email,
+            error: emailLogError,
+          });
+        }
+      }
+    } catch (emailError) {
+      console.error("[Stripe Webhook] Failed to send partner dashboard activation email", {
+        to: application.email,
+        partnerApplicationId: application.id,
+        partnerOrderId: partnerOrder.id,
+        error: emailError,
+      });
+    }
+  }
+
   try {
     const adminEmailResult = await sendAdminPartnerPaymentReceivedEmail({
       applicationId: application.id,
-      orderId: partnerOrderId,
+      orderId: partnerOrder.id,
       name: application.name,
       email: application.email,
       tier: application.requestedTier,
@@ -397,7 +449,7 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
 
   console.log("[Stripe Webhook] Partner application marked as paid", {
     partnerApplicationId: application.id,
-    partnerOrderId,
+    partnerOrderId: partnerOrder.id,
     sessionId: session.id,
     paymentIntentId,
     invoiceId,
