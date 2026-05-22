@@ -25,38 +25,6 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const memberApplications = pgTable("member_applications", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  fullName: varchar("full_name", { length: 255 }).notNull(),
-  firstName: varchar("first_name", { length: 120 }),
-  lastName: varchar("last_name", { length: 120 }),
-  email: varchar("email", { length: 255 }).notNull(),
-  emailNormalized: varchar("email_normalized", { length: 255 }).notNull(),
-  phone: varchar("phone", { length: 50 }),
-  membershipCategory: varchar("membership_category", { length: 50 }),
-  applicantType: varchar("applicant_type", { length: 50 }),
-  status: varchar("status", { length: 30 }).notNull().default("submitted"),
-  paymentStatus: varchar("payment_status", { length: 30 }).notNull().default("not_required"),
-  secureToken: varchar("secure_token", { length: 255 }).notNull().unique(),
-  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
-  stripeCustomerId: text("stripe_customer_id"),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
-  stripeInvoiceId: text("stripe_invoice_id"),
-  legacyOrderId: uuid("legacy_order_id").references(() => orders.id, { onDelete: "set null" }),
-  rawData: jsonb("raw_data"),
-  approvedAt: timestamp("approved_at"),
-  rejectedAt: timestamp("rejected_at"),
-  paidAt: timestamp("paid_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (table) => [
-  index("member_applications_email_normalized_idx").on(table.emailNormalized),
-  index("member_applications_status_idx").on(table.status),
-  index("member_applications_payment_status_idx").on(table.paymentStatus),
-  index("member_applications_created_at_idx").on(table.createdAt),
-  index("member_applications_legacy_order_id_idx").on(table.legacyOrderId),
-]);
-
 export const certificates = pgTable("certificates", {
   id: uuid("id").primaryKey().defaultRandom(),
   orderId: uuid("order_id").references(() => orders.id).notNull(),
@@ -77,18 +45,6 @@ export const applicationAdditionalFiles = pgTable("application_additional_files"
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("application_additional_files_application_id_idx").on(table.applicationId),
-]);
-
-export const memberApplicationAdditionalFiles = pgTable("member_application_additional_files", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  memberApplicationId: uuid("member_application_id").references(() => memberApplications.id, { onDelete: "cascade" }).notNull(),
-  fileName: varchar("file_name", { length: 255 }).notNull(),
-  fileUrl: text("file_url").notNull(),
-  fileKey: text("file_key"),
-  fileType: varchar("file_type", { length: 120 }).notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (table) => [
-  index("member_application_additional_files_member_application_id_idx").on(table.memberApplicationId),
 ]);
 
 export const dashboardNotifications = pgTable("dashboard_notifications", {
@@ -127,6 +83,23 @@ export const contentItems = pgTable("content_items", {
   isPinned: boolean("is_pinned").notNull().default(false),
   publishToSite: boolean("publish_to_site").notNull().default(false),
   publishToDashboard: boolean("publish_to_dashboard").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const users = pgTable("users", {
+  clerkId: varchar("clerk_id", { length: 255 }).primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 255 }),
+  lastName: varchar("last_name", { length: 255 }),
+  imageUrl: text("image_url"),
+  bio: text("bio"),
+  specialization: varchar("specialization", { length: 255 }),
+  experienceYears: varchar("experience_years", { length: 50 }),
+  education: text("education"),
+  instagramUrl: varchar("instagram_url", { length: 255 }),
+  country: varchar("country", { length: 100 }),
+  city: varchar("city", { length: 100 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -179,74 +152,30 @@ export const partnerApplications = pgTable("partner_applications", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),
-  emailNormalized: varchar("email_normalized", { length: 255 }).notNull().default(""),
   phone: varchar("phone", { length: 50 }),
   message: text("message").notNull(),
   requestedTier: varchar("requested_tier", { length: 50 }),
-  status: varchar("status", { length: 30 }).notNull().default("submitted"),
-  paymentStatus: varchar("payment_status", { length: 30 }).notNull().default("not_required"),
+  status: varchar("status", { length: 30 }).notNull().default("PENDING"),
+  paymentStatus: varchar("payment_status", { length: 30 }).notNull().default("UNPAID"),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
-  stripeCustomerId: text("stripe_customer_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   stripeInvoiceId: text("stripe_invoice_id"),
   partnerOrderId: uuid("partner_order_id").references(() => orders.id, { onDelete: "set null" }),
   approvedAt: timestamp("approved_at"),
-  rejectedAt: timestamp("rejected_at"),
   paidAt: timestamp("paid_at"),
-  rawData: jsonb("raw_data"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
   index("partner_applications_email_idx").on(table.email),
-  index("partner_applications_email_normalized_idx").on(table.emailNormalized),
   index("partner_applications_status_idx").on(table.status),
   index("partner_applications_payment_status_idx").on(table.paymentStatus),
   index("partner_applications_created_at_idx").on(table.createdAt),
 ]);
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  clerkId: varchar("clerk_id", { length: 255 }),
-  email: varchar("email", { length: 255 }).notNull(),
-  emailNormalized: varchar("email_normalized", { length: 255 }).notNull().default(""),
-  fullName: varchar("full_name", { length: 255 }),
-  firstName: varchar("first_name", { length: 255 }),
-  lastName: varchar("last_name", { length: 255 }),
-  userType: varchar("user_type", { length: 20 }).notNull().default("member"),
-  accountStatus: varchar("account_status", { length: 20 }).notNull().default("active"),
-  memberApplicationId: uuid("member_application_id").references(() => memberApplications.id, { onDelete: "set null" }),
-  partnerApplicationId: uuid("partner_application_id").references(() => partnerApplications.id, { onDelete: "set null" }),
-  memberOrderId: uuid("member_order_id").references(() => orders.id, { onDelete: "set null" }),
-  partnerOrderId: uuid("partner_order_id").references(() => orders.id, { onDelete: "set null" }),
-  stripeCustomerId: text("stripe_customer_id"),
-  activatedAt: timestamp("activated_at"),
-  lastPaymentAt: timestamp("last_payment_at"),
-  rawData: jsonb("raw_data"),
-  imageUrl: text("image_url"),
-  bio: text("bio"),
-  specialization: varchar("specialization", { length: 255 }),
-  experienceYears: varchar("experience_years", { length: 50 }),
-  education: text("education"),
-  instagramUrl: varchar("instagram_url", { length: 255 }),
-  country: varchar("country", { length: 100 }),
-  city: varchar("city", { length: 100 }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (table) => [
-  uniqueIndex("users_clerk_id_unique_idx").on(table.clerkId),
-  index("users_email_normalized_idx").on(table.emailNormalized),
-  index("users_user_type_idx").on(table.userType),
-  index("users_account_status_idx").on(table.accountStatus),
-  index("users_member_application_id_idx").on(table.memberApplicationId),
-  index("users_partner_application_id_idx").on(table.partnerApplicationId),
-]);
-
 export type CardRequest = typeof cardRequests.$inferSelect;
 export type Order = typeof orders.$inferSelect;
-export type MemberApplication = typeof memberApplications.$inferSelect;
 export type Certificate = typeof certificates.$inferSelect;
 export type ApplicationAdditionalFile = typeof applicationAdditionalFiles.$inferSelect;
-export type MemberApplicationAdditionalFile = typeof memberApplicationAdditionalFiles.$inferSelect;
 export type DashboardNotificationRecord = typeof dashboardNotifications.$inferSelect;
 export type EmailLog = typeof emailLogs.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;

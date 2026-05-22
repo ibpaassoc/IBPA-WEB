@@ -11,7 +11,7 @@ export function AdminNav() {
   const navItems = [
     { href: "/admin/applications", label: "Applications", icon: ClipboardList },
     { href: "/admin/partner-applications", label: "Partner Apps", icon: Building2 },
-    { href: "/admin/clients", label: "Users", icon: Users },
+    { href: "/admin/clients", label: "Clients", icon: Users },
     { href: "/admin/content", label: "Content", icon: Newspaper },
     { href: "/admin/partners", label: "Partners", icon: Handshake },
     { href: "/admin/mailing", label: "Mailing", icon: Mail },

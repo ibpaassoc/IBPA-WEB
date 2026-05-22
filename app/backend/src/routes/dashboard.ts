@@ -1,15 +1,5 @@
 import { Router } from "express";
-import {
-  requireDb,
-  orders,
-  certificates,
-  users,
-  dashboardNotifications,
-  teamMembers,
-  teamSeatExtensions,
-  memberApplications,
-  partnerApplications,
-} from "../lib/db";
+import { requireDb, orders, certificates, users, dashboardNotifications, teamMembers, teamSeatExtensions } from "../lib/db";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { clerkMiddleware, getAuth, clerkOptions, clerkClient } from "../services/clerk";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
@@ -229,8 +219,6 @@ async function ensureUserRecord(
 
   const db = requireDb();
   const [existing] = await db.select().from(users).where(eq(users.clerkId, clerkUserId));
-  const normalizedEmail = normalizeEmail(primaryEmail);
-  const fullName = `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim();
 
   if (existing) {
     await db
@@ -238,12 +226,8 @@ async function ensureUserRecord(
       .set({
         // Preserve historical email linkage when available for legacy dashboard matching.
         email: existing.email || primaryEmail,
-        emailNormalized: existing.emailNormalized || normalizedEmail || "",
-        fullName: fullName || existing.fullName || null,
         firstName: clerkUser.firstName || existing.firstName || "",
         lastName: clerkUser.lastName || existing.lastName || "",
-        userType: existing.userType || "member",
-        accountStatus: existing.accountStatus || "active",
         imageUrl: clerkUser.imageUrl || existing.imageUrl || null,
         updatedAt: new Date(),
       })
@@ -254,12 +238,8 @@ async function ensureUserRecord(
   await db.insert(users).values({
     clerkId: clerkUserId,
     email: primaryEmail,
-    emailNormalized: normalizedEmail || "",
-    fullName: fullName || null,
     firstName: clerkUser.firstName || "",
     lastName: clerkUser.lastName || "",
-    userType: existing?.userType || "member",
-    accountStatus: "active",
     imageUrl: clerkUser.imageUrl || null,
   });
 }
@@ -398,74 +378,6 @@ async function requireDashboardAccess(clerkUserId: string): Promise<DashboardAcc
     paidOrdersMap.set(order.id, order);
   }
 
-  if (storedUser?.memberOrderId) {
-    const [linkedMemberOrder] = await db
-      .select()
-      .from(orders)
-      .where(and(eq(orders.id, storedUser.memberOrderId), eq(orders.status, "paid")))
-      .limit(1);
-
-    if (linkedMemberOrder) {
-      paidOrdersMap.set(linkedMemberOrder.id, linkedMemberOrder);
-    }
-  }
-
-  if (storedUser?.partnerOrderId) {
-    const [linkedPartnerOrder] = await db
-      .select()
-      .from(orders)
-      .where(and(eq(orders.id, storedUser.partnerOrderId), eq(orders.status, "paid")))
-      .limit(1);
-
-    if (linkedPartnerOrder) {
-      paidOrdersMap.set(linkedPartnerOrder.id, linkedPartnerOrder);
-    }
-  }
-
-  if (storedUser?.memberApplicationId) {
-    const [memberApplication] = await db
-      .select({
-        legacyOrderId: memberApplications.legacyOrderId,
-      })
-      .from(memberApplications)
-      .where(eq(memberApplications.id, storedUser.memberApplicationId))
-      .limit(1);
-
-    if (memberApplication?.legacyOrderId) {
-      const [linkedOrder] = await db
-        .select()
-        .from(orders)
-        .where(and(eq(orders.id, memberApplication.legacyOrderId), eq(orders.status, "paid")))
-        .limit(1);
-
-      if (linkedOrder) {
-        paidOrdersMap.set(linkedOrder.id, linkedOrder);
-      }
-    }
-  }
-
-  if (storedUser?.partnerApplicationId) {
-    const [partnerApplication] = await db
-      .select({
-        partnerOrderId: partnerApplications.partnerOrderId,
-      })
-      .from(partnerApplications)
-      .where(eq(partnerApplications.id, storedUser.partnerApplicationId))
-      .limit(1);
-
-    if (partnerApplication?.partnerOrderId) {
-      const [linkedOrder] = await db
-        .select()
-        .from(orders)
-        .where(and(eq(orders.id, partnerApplication.partnerOrderId), eq(orders.status, "paid")))
-        .limit(1);
-
-      if (linkedOrder) {
-        paidOrdersMap.set(linkedOrder.id, linkedOrder);
-      }
-    }
-  }
-
   const paidOrders = Array.from(paidOrdersMap.values()).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
@@ -495,8 +407,9 @@ async function requireDashboardAccess(clerkUserId: string): Promise<DashboardAcc
     }
   }
 
+  await ensureUserRecord(clerkUserId, primaryEmail, clerkUser);
+
   if (paidOrders.length > 0) {
-    await ensureUserRecord(clerkUserId, primaryEmail, clerkUser);
     const latestPaidOrder = paidOrders[0] || null;
     const accessType: DashboardAccessType = resolveOrderAccountType(latestPaidOrder) === "partner" ? "partner_owner" : "member";
     const mappedOrderEmail = normalizeEmail(latestPaidOrder?.email);
@@ -558,8 +471,6 @@ async function requireDashboardAccess(clerkUserId: string): Promise<DashboardAcc
     });
     return null;
   }
-
-  await ensureUserRecord(clerkUserId, primaryEmail, clerkUser);
 
   dashboardDebugLog("access_match_team_member", {
     clerkUserId,
