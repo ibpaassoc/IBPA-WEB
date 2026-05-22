@@ -8,7 +8,8 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || DEFAULT_ADMIN_EMAILS.join(",")
   .filter(Boolean);
 
 export async function getAdminProxyContext(requestUrl?: string) {
-  const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+  const backendUrlRaw = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+  const backendUrl = backendUrlRaw.replace(/\/+$/, "");
   const internalAdminKey = process.env.ADMIN_INTERNAL_KEY || "";
 
   if (!backendUrl) {
@@ -45,17 +46,6 @@ export async function getAdminProxyContext(requestUrl?: string) {
     }
   }
 
-  if (!internalAdminKey) {
-    return {
-      backendUrl,
-      authHeaders: null,
-      error: NextResponse.json(
-        { error: "Admin internal key is not configured." },
-        { status: 500 },
-      ),
-    };
-  }
-
   const authData = await auth();
   const { userId, getToken } = authData;
 
@@ -90,13 +80,18 @@ export async function getAdminProxyContext(requestUrl?: string) {
     };
   }
 
+  const authHeaders: Record<string, string> = {
+    "Authorization": `Bearer ${token}`,
+    "x-admin-user-email": primaryEmail.toLowerCase(),
+  };
+
+  if (internalAdminKey) {
+    authHeaders["x-admin-internal-key"] = internalAdminKey;
+  }
+
   return {
     backendUrl,
-    authHeaders: {
-      "Authorization": `Bearer ${token}`,
-      "x-admin-internal-key": internalAdminKey,
-      "x-admin-user-email": primaryEmail.toLowerCase(),
-    },
+    authHeaders,
     error: null,
   };
 }

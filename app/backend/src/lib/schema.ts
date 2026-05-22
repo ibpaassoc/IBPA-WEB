@@ -148,6 +148,30 @@ export const teamSeatExtensions = pgTable("team_seat_extensions", {
   index("team_seat_extensions_owner_clerk_user_id_idx").on(table.ownerClerkUserId),
 ]);
 
+export const partnerApplications = pgTable("partner_applications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  message: text("message").notNull(),
+  requestedTier: varchar("requested_tier", { length: 50 }),
+  status: varchar("status", { length: 30 }).notNull().default("PENDING"),
+  paymentStatus: varchar("payment_status", { length: 30 }).notNull().default("UNPAID"),
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeInvoiceId: text("stripe_invoice_id"),
+  partnerOrderId: uuid("partner_order_id").references(() => orders.id, { onDelete: "set null" }),
+  approvedAt: timestamp("approved_at"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("partner_applications_email_idx").on(table.email),
+  index("partner_applications_status_idx").on(table.status),
+  index("partner_applications_payment_status_idx").on(table.paymentStatus),
+  index("partner_applications_created_at_idx").on(table.createdAt),
+]);
+
 export type CardRequest = typeof cardRequests.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type Certificate = typeof certificates.$inferSelect;
@@ -158,3 +182,4 @@ export type ContentItem = typeof contentItems.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type TeamSeatExtension = typeof teamSeatExtensions.$inferSelect;
+export type PartnerApplication = typeof partnerApplications.$inferSelect;
