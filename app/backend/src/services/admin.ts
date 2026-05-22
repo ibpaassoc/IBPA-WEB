@@ -1,7 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import { clerkClient, clerkMiddleware, clerkOptions, getAuth } from "./clerk";
 
-const DEFAULT_ADMIN_EMAILS = ["mokich45usa@gmail.com", "info@ibpassociations.org"];
+const DEFAULT_ADMIN_EMAILS = [
+  "mokich45usa@gmail.com",
+  "info@ibpassociations.org",
+  "admin@ibpassociations.org",
+];
 const INTERNAL_ADMIN_KEY = process.env.ADMIN_INTERNAL_KEY || "";
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || DEFAULT_ADMIN_EMAILS.join(","))
