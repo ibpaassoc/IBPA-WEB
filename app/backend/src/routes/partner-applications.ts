@@ -535,6 +535,15 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       throw new Error("FRONTEND_URL is not configured");
     }
 
+    const metadata = {
+      type: "partner_application",
+      orderKind: "partner_application",
+      partnerApplicationId: application.id,
+      partnerTier: selectedTier,
+    };
+    const price = await stripe.prices.retrieve(priceId);
+    const usesRecurringPrice = Boolean(price.recurring);
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       customer_email: application.email,
@@ -544,15 +553,11 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
           quantity: 1,
         },
       ],
-      mode: "payment",
+      mode: usesRecurringPrice ? "subscription" : "payment",
       success_url: `${frontendUrl}/partnership?payment=success&tier=${encodeURIComponent(selectedTier)}`,
       cancel_url: `${frontendUrl}/partnership?payment=cancelled&tier=${encodeURIComponent(selectedTier)}`,
-      metadata: {
-        type: "partner_application",
-        orderKind: "partner_application",
-        partnerApplicationId: application.id,
-        partnerTier: selectedTier,
-      },
+      ...(usesRecurringPrice ? { subscription_data: { metadata } } : {}),
+      metadata,
     });
 
     await db
