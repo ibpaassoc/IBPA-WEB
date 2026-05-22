@@ -6,6 +6,7 @@ import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
 import { stripe } from "../services/stripe";
+import { normalizeEmail, toApplicationPaymentStatus, toApplicationStatus } from "../lib/application-flow";
 
 export const partnerApplicationsRouter = Router();
 
@@ -17,8 +18,6 @@ const SPONSORSHIP_PRICE_KEYS = {
 
 type PartnerTier = keyof typeof SPONSORSHIP_PRICE_KEYS;
 const PARTNER_TIERS = new Set(Object.keys(SPONSORSHIP_PRICE_KEYS) as PartnerTier[]);
-const PARTNER_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
-const PARTNER_PAYMENT_STATUSES = new Set(["UNPAID", "PENDING", "PAID", "FAILED"]);
 
 const partnerApplicationLimiter = createRateLimiter(4, 30 * 60 * 1000);
 const partnerApplicationAgentLimiter = createRateLimiter(8, 30 * 60 * 1000);
@@ -82,6 +81,59 @@ function normalizePartnerTier(value: unknown): PartnerTier | null {
 
   const normalized = value.trim();
   return PARTNER_TIERS.has(normalized as PartnerTier) ? (normalized as PartnerTier) : null;
+}
+
+function normalizePartnerStatusFilter(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "pending" || normalized === "submitted" || normalized === "draft") {
+    return "submitted";
+  }
+  if (normalized === "under_review" || normalized === "review") {
+    return "under_review";
+  }
+  if (normalized === "approved") {
+    return "approved";
+  }
+  if (normalized === "rejected") {
+    return "rejected";
+  }
+
+  return null;
+}
+
+function normalizePartnerPaymentFilter(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "paid") return "paid";
+  if (normalized === "pending" || normalized === "unpaid") return "pending";
+  if (normalized === "failed") return "failed";
+  if (normalized === "refunded") return "refunded";
+  if (normalized === "not_required") return "not_required";
+
+  return null;
+}
+
+function toPartnerStatusApi(status: string) {
+  const normalized = toApplicationStatus(status);
+  if (normalized === "approved") return "APPROVED";
+  if (normalized === "rejected") return "REJECTED";
+  return "PENDING";
+}
+
+function toPartnerPaymentStatusApi(paymentStatus: string) {
+  const normalized = toApplicationPaymentStatus(paymentStatus);
+  if (normalized === "paid") return "PAID";
+  if (normalized === "failed") return "FAILED";
+  if (normalized === "refunded") return "FAILED";
+  if (normalized === "pending") return "PENDING";
+  return "UNPAID";
 }
 
 function getPartnerPriceId(tier: PartnerTier) {
@@ -395,7 +447,7 @@ partnerApplicationsRouter.post("/", async (req, res) => {
   const normalizedTier = normalizePartnerTier(requestedTier);
 
   const clientIp = getClientAddress(req);
-  const safeEmail = String(email).trim().toLowerCase();
+  const safeEmail = normalizeEmail(email);
   const userAgent = normalizeHeaderValue(req.header("user-agent"));
   const ipLimit = partnerApplicationLimiter.hit(`partner-applications:ip:${clientIp}`);
   const emailLimit = partnerApplicationLimiter.hit(`partner-applications:email:${safeEmail}`);
@@ -410,7 +462,7 @@ partnerApplicationsRouter.post("/", async (req, res) => {
     const [recentDuplicate] = await db
       .select({ id: partnerApplications.id, createdAt: partnerApplications.createdAt })
       .from(partnerApplications)
-      .where(eq(partnerApplications.email, safeEmail))
+      .where(eq(partnerApplications.emailNormalized, safeEmail))
       .orderBy(desc(partnerApplications.createdAt))
       .limit(1);
 
@@ -423,11 +475,12 @@ partnerApplicationsRouter.post("/", async (req, res) => {
       .values({
         name: safeName,
         email: safeEmail,
+        emailNormalized: safeEmail,
         phone: safePhone,
         message: safeMessage,
         requestedTier: normalizedTier,
-        status: "PENDING",
-        paymentStatus: "UNPAID",
+        status: "submitted",
+        paymentStatus: "not_required",
       })
       .returning();
 
@@ -486,16 +539,10 @@ partnerApplicationsRouter.get("/", adminClerkMiddleware, requireAdminAccess, asy
     const { limit, offset } = getPaginationParams(req.query, ADMIN_PARTNER_LIST_DEFAULT_LIMIT, ADMIN_PARTNER_LIST_MAX_LIMIT);
 
     const statusRaw = getSingleValue(req.query.status);
-    const statusFilter =
-      statusRaw && PARTNER_STATUSES.has(statusRaw.trim().toUpperCase())
-        ? statusRaw.trim().toUpperCase()
-        : null;
+    const statusFilter = normalizePartnerStatusFilter(statusRaw);
 
     const paymentRaw = getSingleValue(req.query.paymentStatus);
-    const paymentFilter =
-      paymentRaw && PARTNER_PAYMENT_STATUSES.has(paymentRaw.trim().toUpperCase())
-        ? paymentRaw.trim().toUpperCase()
-        : null;
+    const paymentFilter = normalizePartnerPaymentFilter(paymentRaw);
 
     const searchCondition = getPartnerSearchCondition(req.query.q);
     const whereCondition = combineConditions(
@@ -569,17 +616,23 @@ partnerApplicationsRouter.get("/", adminClerkMiddleware, requireAdminAccess, asy
       const count = countToNumber(row.count);
       summary.all += count;
 
-      const status = String(row.status || "").toUpperCase();
-      if (status === "PENDING") summary.pending += count;
-      if (status === "APPROVED") summary.approved += count;
-      if (status === "REJECTED") summary.rejected += count;
+      const status = toApplicationStatus(row.status);
+      if (status === "submitted" || status === "draft" || status === "under_review") summary.pending += count;
+      if (status === "approved") summary.approved += count;
+      if (status === "rejected") summary.rejected += count;
 
-      const paymentStatus = String(row.paymentStatus || "").toUpperCase();
-      if (paymentStatus === "PAID") summary.paid += count;
+      const paymentStatus = toApplicationPaymentStatus(row.paymentStatus);
+      if (paymentStatus === "paid") summary.paid += count;
     }
 
+    const normalizedItems = items.map((item: any) => ({
+      ...item,
+      status: toPartnerStatusApi(String(item.status || "")),
+      paymentStatus: toPartnerPaymentStatusApi(String(item.paymentStatus || "")),
+    }));
+
     return res.json({
-      items,
+      items: normalizedItems,
       total,
       summary,
       limit,
@@ -613,7 +666,11 @@ partnerApplicationsRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, 
       return res.status(404).json({ error: "Partner application not found" });
     }
 
-    return res.json(application);
+    return res.json({
+      ...application,
+      status: toPartnerStatusApi(String(application.status || "")),
+      paymentStatus: toPartnerPaymentStatusApi(String(application.paymentStatus || "")),
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -640,7 +697,7 @@ async function deletePartnerApplicationById(applicationId: string) {
     return { status: 404 as const, body: { error: "Partner application not found" } };
   }
 
-  if (application.paymentStatus === "PAID") {
+  if (toApplicationPaymentStatus(application.paymentStatus) === "paid") {
     return { status: 409 as const, body: { error: "Paid partner applications cannot be deleted." } };
   }
 
@@ -729,11 +786,11 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       return res.status(404).json({ error: "Partner application not found" });
     }
 
-    if (application.paymentStatus === "PAID") {
+    if (toApplicationPaymentStatus(application.paymentStatus) === "paid") {
       return res.status(409).json({ error: "This partner application is already paid." });
     }
 
-    if (application.status === "REJECTED") {
+    if (toApplicationStatus(application.status) === "rejected") {
       return res.status(409).json({ error: "Rejected partner applications cannot be approved." });
     }
 
@@ -752,7 +809,9 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
 
     const metadata = {
       type: "partner_application",
+      flowType: "partner_application",
       orderKind: "partner_application",
+      applicationId: application.id,
       orderId: partnerOrder.id,
       partnerApplicationId: application.id,
       partnerTier: selectedTier,
@@ -780,8 +839,8 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       .update(partnerApplications)
       .set({
         requestedTier: selectedTier,
-        status: "APPROVED",
-        paymentStatus: "PENDING",
+        status: "approved",
+        paymentStatus: "pending",
         stripeCheckoutSessionId: session.id,
         partnerOrderId: partnerOrder.id,
         approvedAt: new Date(),
@@ -874,14 +933,15 @@ partnerApplicationsRouter.post("/admin/reject", adminClerkMiddleware, requireAdm
       return res.status(404).json({ error: "Partner application not found" });
     }
 
-    if (application.paymentStatus === "PAID") {
+    if (toApplicationPaymentStatus(application.paymentStatus) === "paid") {
       return res.status(409).json({ error: "Paid partner applications cannot be rejected." });
     }
 
     await db
       .update(partnerApplications)
       .set({
-        status: "REJECTED",
+        status: "rejected",
+        rejectedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(partnerApplications.id, applicationId));
