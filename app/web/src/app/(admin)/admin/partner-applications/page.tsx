@@ -12,6 +12,7 @@ import {
   Mail,
   Search,
   Sparkles,
+  Trash2,
   X,
   XCircle,
 } from "lucide-react";
@@ -93,6 +94,7 @@ export default function PartnerApplicationsPage() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [approvalTier, setApprovalTier] = useState<string>("Associate");
   const latestDetailRequestRef = useRef(0);
 
@@ -264,6 +266,39 @@ export default function PartnerApplicationsPage() {
     }
   };
 
+  const handleDelete = async (applicationId: string, event?: { stopPropagation: () => void }) => {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    if (!window.confirm("Are you sure you want to delete this partner application? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeletingId(applicationId);
+    try {
+      const resp = await fetch(`/api/admin/partner-applications/${encodeURIComponent(applicationId)}`, {
+        method: "DELETE",
+      });
+      const data = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        throw new Error(data?.error || "Failed to delete partner application.");
+      }
+
+      if (selected?.id === applicationId) {
+        closeModal();
+      }
+
+      await fetchItems();
+      toast.success("Partner application deleted.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete partner application.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const summaryCards = useMemo(
     () => [
       { label: "Total", value: summary.all },
@@ -398,6 +433,15 @@ export default function PartnerApplicationsPage() {
                   <div className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition-all group-hover:bg-slate-50 group-hover:text-slate-600">
                     <Info className="h-4 w-4" />
                   </div>
+                  <button
+                    type="button"
+                    onClick={(event) => void handleDelete(item.id, event)}
+                    disabled={deletingId === item.id}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                    title="Delete application"
+                  >
+                    {deletingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
             </div>
@@ -432,6 +476,15 @@ export default function PartnerApplicationsPage() {
               className="absolute right-6 top-6 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
             >
               <X className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={(event) => void handleDelete(selected.id, event)}
+              disabled={deletingId === selected.id}
+              className="absolute right-[4.75rem] top-6 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-50 focus:outline-none"
+              title="Delete application"
+            >
+              {deletingId === selected.id ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
             </button>
 
             <div className="max-h-[95vh] overflow-y-auto p-7 md:p-9">
