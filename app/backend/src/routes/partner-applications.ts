@@ -624,6 +624,54 @@ partnerApplicationsRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, 
   }
 });
 
+async function deletePartnerApplicationById(applicationId: string) {
+  const db = requireDb();
+  const [application] = await db
+    .select({
+      id: partnerApplications.id,
+      paymentStatus: partnerApplications.paymentStatus,
+      partnerOrderId: partnerApplications.partnerOrderId,
+    })
+    .from(partnerApplications)
+    .where(eq(partnerApplications.id, applicationId))
+    .limit(1);
+
+  if (!application) {
+    return { status: 404 as const, body: { error: "Partner application not found" } };
+  }
+
+  if (application.paymentStatus === "PAID") {
+    return { status: 409 as const, body: { error: "Paid partner applications cannot be deleted." } };
+  }
+
+  if (application.partnerOrderId) {
+    const [linkedOrder] = await db
+      .select({ id: orders.id, status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, application.partnerOrderId))
+      .limit(1);
+
+    if (linkedOrder?.status === "paid") {
+      return { status: 409 as const, body: { error: "Paid partner applications cannot be deleted." } };
+    }
+
+    if (linkedOrder) {
+      await db.delete(orders).where(eq(orders.id, linkedOrder.id));
+    }
+  }
+
+  const [deletedApplication] = await db
+    .delete(partnerApplications)
+    .where(eq(partnerApplications.id, applicationId))
+    .returning({ id: partnerApplications.id });
+
+  if (!deletedApplication) {
+    return { status: 404 as const, body: { error: "Partner application not found" } };
+  }
+
+  return { status: 200 as const, body: { success: true, deletedApplication } };
+}
+
 partnerApplicationsRouter.delete("/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
   const applicationId = getSingleValue(req.params.id);
   if (!applicationId) {
@@ -631,51 +679,27 @@ partnerApplicationsRouter.delete("/:id", adminClerkMiddleware, requireAdminAcces
   }
 
   try {
-    const db = requireDb();
-    const [application] = await db
-      .select({
-        id: partnerApplications.id,
-        paymentStatus: partnerApplications.paymentStatus,
-        partnerOrderId: partnerApplications.partnerOrderId,
-      })
-      .from(partnerApplications)
-      .where(eq(partnerApplications.id, applicationId))
-      .limit(1);
-
-    if (!application) {
-      return res.status(404).json({ error: "Partner application not found" });
+    const result = await deletePartnerApplicationById(applicationId);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
     }
 
-    if (application.paymentStatus === "PAID") {
-      return res.status(409).json({ error: "Paid partner applications cannot be deleted." });
-    }
+    console.error("[Partner Application] Failed to delete partner application", error);
+    return res.status(500).json({ error: "Failed to delete partner application" });
+  }
+});
 
-    if (application.partnerOrderId) {
-      const [linkedOrder] = await db
-        .select({ id: orders.id, status: orders.status })
-        .from(orders)
-        .where(eq(orders.id, application.partnerOrderId))
-        .limit(1);
+partnerApplicationsRouter.post("/admin/delete", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const applicationId = getSingleValue(req.body?.applicationId);
+  if (!applicationId) {
+    return res.status(400).json({ error: "Invalid partner application id" });
+  }
 
-      if (linkedOrder?.status === "paid") {
-        return res.status(409).json({ error: "Paid partner applications cannot be deleted." });
-      }
-
-      if (linkedOrder) {
-        await db.delete(orders).where(eq(orders.id, linkedOrder.id));
-      }
-    }
-
-    const [deletedApplication] = await db
-      .delete(partnerApplications)
-      .where(eq(partnerApplications.id, applicationId))
-      .returning({ id: partnerApplications.id });
-
-    if (!deletedApplication) {
-      return res.status(404).json({ error: "Partner application not found" });
-    }
-
-    return res.json({ success: true, deletedApplication });
+  try {
+    const result = await deletePartnerApplicationById(applicationId);
+    return res.status(result.status).json(result.body);
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });

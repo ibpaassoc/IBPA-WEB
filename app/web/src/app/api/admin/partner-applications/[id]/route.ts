@@ -43,11 +43,23 @@ export async function DELETE(
   if (error || !authHeaders) return error!;
 
   try {
-    const resp = await fetch(`${backendUrl}/api/partner-applications/${encodeURIComponent(id)}`, {
+    let resp = await fetch(`${backendUrl}/api/partner-applications/${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers: authHeaders,
       cache: "no-store",
     });
+
+    if (resp.status === 404) {
+      resp = await fetch(`${backendUrl}/api/partner-applications/admin/delete`, {
+        method: "POST",
+        headers: {
+          ...authHeaders,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ applicationId: id }),
+        cache: "no-store",
+      });
+    }
 
     const { data, text } = await readBackendResponse(resp);
 
