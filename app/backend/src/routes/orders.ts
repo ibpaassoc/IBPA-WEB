@@ -570,10 +570,11 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
   try {
     const db = requireDb();
     const { limit, offset } = getPaginationParams(req.query, ADMIN_ORDER_LIST_DEFAULT_LIMIT, ADMIN_ORDER_LIST_MAX_LIMIT);
+    const memberOnlyCondition = sql`coalesce(lower(${orders.accountType}), 'member') <> 'partner'`;
     const searchCondition = getOrderSearchCondition(req.query.q);
     const statusCondition = getOrderStatusCondition(req.query.status);
-    const whereCondition = combineConditions(searchCondition, statusCondition);
-    const searchOnlyCondition = combineConditions(searchCondition);
+    const whereCondition = combineConditions(memberOnlyCondition, searchCondition, statusCondition);
+    const searchOnlyCondition = combineConditions(memberOnlyCondition, searchCondition);
 
     const itemsQuery = db
       .select({
@@ -596,10 +597,8 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
       .select({ count: sql<number>`count(*)` })
       .from(orders);
 
-    if (whereCondition) {
-      itemsQuery.where(whereCondition);
-      countQuery.where(whereCondition);
-    }
+    itemsQuery.where(whereCondition);
+    countQuery.where(whereCondition);
 
     const summaryBaseQuery = db
       .select({
@@ -609,9 +608,7 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
       .from(orders)
       .groupBy(orders.status);
 
-    if (searchOnlyCondition) {
-      summaryBaseQuery.where(searchOnlyCondition);
-    }
+    summaryBaseQuery.where(searchOnlyCondition);
 
     const [items, countRows, summaryRows] = await Promise.all([
       itemsQuery,
@@ -679,7 +676,7 @@ ordersRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, r
       })
       .from(orders)
       .leftJoin(certificates, eq(orders.id, certificates.orderId))
-      .where(eq(orders.id, id));
+      .where(and(eq(orders.id, id), sql`coalesce(lower(${orders.accountType}), 'member') <> 'partner'`));
 
     if (!application) {
       return res.status(404).json({ error: "Application not found" });
