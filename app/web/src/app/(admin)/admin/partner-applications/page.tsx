@@ -42,15 +42,16 @@ const STATUS_OPTIONS: Array<{ value: "all" | PartnerApplicationStatus; label: st
   { value: "REJECTED", label: "Rejected" },
 ];
 
-const PAYMENT_OPTIONS: Array<{ value: "all" | PartnerPaymentStatus; label: string }> = [
-  { value: "all", label: "All payments" },
-  { value: "UNPAID", label: "Unpaid" },
-  { value: "PENDING", label: "Pending" },
-  { value: "PAID", label: "Paid" },
-  { value: "FAILED", label: "Failed" },
-];
+function UnifiedStatusBadge({ status, paymentStatus }: { status: PartnerApplicationStatus; paymentStatus: PartnerPaymentStatus }) {
+  if (paymentStatus === "PAID") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-green-100 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-600">
+        <CheckCircle2 className="h-3 w-3" />
+        Paid
+      </span>
+    );
+  }
 
-function ApplicationStatusBadge({ status }: { status: PartnerApplicationStatus }) {
   const styles = {
     PENDING: "bg-orange-50 text-orange-600 border-orange-100",
     APPROVED: "bg-blue-50 text-blue-600 border-blue-100",
@@ -77,24 +78,6 @@ function ApplicationStatusBadge({ status }: { status: PartnerApplicationStatus }
   );
 }
 
-function PaymentStatusBadge({ status }: { status: PartnerPaymentStatus }) {
-  const styles = {
-    UNPAID: "bg-slate-100 text-slate-600 border-slate-200",
-    PENDING: "bg-amber-50 text-amber-700 border-amber-100",
-    PAID: "bg-green-50 text-green-600 border-green-100",
-    FAILED: "bg-rose-50 text-rose-600 border-rose-100",
-  } as const;
-
-  const labels = {
-    UNPAID: "Unpaid",
-    PENDING: "Pending",
-    PAID: "Paid",
-    FAILED: "Failed",
-  } as const;
-
-  return <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${styles[status]}`}>{labels[status]}</span>;
-}
-
 export default function PartnerApplicationsPage() {
   const [items, setItems] = useState<AdminPartnerApplication[]>([]);
   const [summary, setSummary] = useState<AdminPartnerApplicationsSummary>(DEFAULT_SUMMARY);
@@ -105,7 +88,6 @@ export default function PartnerApplicationsPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [selected, setSelected] = useState<AdminPartnerApplication | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | PartnerApplicationStatus>("all");
-  const [paymentFilter, setPaymentFilter] = useState<"all" | PartnerPaymentStatus>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
@@ -129,9 +111,6 @@ export default function PartnerApplicationsPage() {
 
         if (statusFilter !== "all") {
           params.set("status", statusFilter);
-        }
-        if (paymentFilter !== "all") {
-          params.set("paymentStatus", paymentFilter);
         }
         if (debouncedSearch.trim()) {
           params.set("q", debouncedSearch.trim());
@@ -169,7 +148,7 @@ export default function PartnerApplicationsPage() {
         setLoadingMore(false);
       }
     },
-    [debouncedSearch, paymentFilter, selected, statusFilter],
+    [debouncedSearch, selected, statusFilter],
   );
 
   useEffect(() => {
@@ -315,20 +294,6 @@ export default function PartnerApplicationsPage() {
             </select>
           </div>
 
-          <div className="relative min-w-47.5">
-            <Filter className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
-            <select
-              value={paymentFilter}
-              onChange={(event) => setPaymentFilter(event.target.value as "all" | PartnerPaymentStatus)}
-              className="w-full appearance-none rounded-xl border border-slate-100 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-slate-600 shadow-sm outline-none transition-all focus:border-[#72A0C1] focus:ring-2 focus:ring-[#72A0C1]/15"
-            >
-              {PAYMENT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 
@@ -406,8 +371,7 @@ export default function PartnerApplicationsPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <ApplicationStatusBadge status={item.status} />
-                  <PaymentStatusBadge status={item.paymentStatus} />
+                  <UnifiedStatusBadge status={item.status} paymentStatus={item.paymentStatus} />
                   <div className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition-all group-hover:bg-slate-50 group-hover:text-slate-600">
                     <Info className="h-4 w-4" />
                   </div>
@@ -461,8 +425,7 @@ export default function PartnerApplicationsPage() {
                       </div>
                     </div>
                     <div className="flex flex-col items-start gap-2 md:items-end">
-                      <ApplicationStatusBadge status={selected.status} />
-                      <PaymentStatusBadge status={selected.paymentStatus} />
+                      <UnifiedStatusBadge status={selected.status} paymentStatus={selected.paymentStatus} />
                     </div>
                   </header>
 
@@ -481,13 +444,6 @@ export default function PartnerApplicationsPage() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Message</p>
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{selected.message}</p>
                   </div>
-
-                  {selected.stripeCheckoutSessionId && (
-                    <div className="rounded-2xl border border-slate-100 bg-white px-4 py-4">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Stripe Checkout Session</p>
-                      <p className="mt-2 break-all text-xs font-medium text-slate-600">{selected.stripeCheckoutSessionId}</p>
-                    </div>
-                  )}
 
                   {(selected.status === "PENDING" || selected.status === "APPROVED") && selected.paymentStatus !== "PAID" && (
                     <div className="space-y-3">
