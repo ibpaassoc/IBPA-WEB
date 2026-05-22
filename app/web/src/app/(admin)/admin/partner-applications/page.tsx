@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2,
   CheckCircle2,
@@ -94,6 +94,7 @@ export default function PartnerApplicationsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [approvalTier, setApprovalTier] = useState<string>("Associate");
+  const latestDetailRequestRef = useRef(0);
 
   const fetchItems = useCallback(
     async ({ append = false, offset = 0 }: { append?: boolean; offset?: number } = {}) => {
@@ -132,9 +133,6 @@ export default function PartnerApplicationsPage() {
         setHasMore(Boolean(listData.hasMore));
         setLastSyncedAt(new Date().toISOString());
 
-        if (!selected && incomingItems.length > 0 && !append) {
-          setSelected(incomingItems[0]);
-        }
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to load partner applications.");
         if (!append) {
@@ -148,7 +146,7 @@ export default function PartnerApplicationsPage() {
         setLoadingMore(false);
       }
     },
-    [debouncedSearch, selected, statusFilter],
+    [debouncedSearch, statusFilter],
   );
 
   useEffect(() => {
@@ -169,6 +167,8 @@ export default function PartnerApplicationsPage() {
   }, [selected?.requestedTier]);
 
   const openItem = useCallback(async (id: string) => {
+    latestDetailRequestRef.current += 1;
+    const requestId = latestDetailRequestRef.current;
     setLoadingDetail(true);
     try {
       const resp = await fetch(`/api/admin/partner-applications/${id}`, { cache: "no-store" });
@@ -176,13 +176,36 @@ export default function PartnerApplicationsPage() {
       if (!resp.ok) {
         throw new Error(data?.error || "Failed to load partner application detail.");
       }
-      setSelected(data as AdminPartnerApplication);
+      if (latestDetailRequestRef.current === requestId) {
+        setSelected(data as AdminPartnerApplication);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load partner application detail.");
     } finally {
-      setLoadingDetail(false);
+      if (latestDetailRequestRef.current === requestId) {
+        setLoadingDetail(false);
+      }
     }
   }, []);
+
+  const closeModal = useCallback(() => {
+    latestDetailRequestRef.current += 1;
+    setLoadingDetail(false);
+    setSelected(null);
+  }, []);
+
+  useEffect(() => {
+    if (!selected) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeModal();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [closeModal, selected]);
 
   const handleLoadMore = async () => {
     if (loadingMore || !hasMore) return;
@@ -395,10 +418,17 @@ export default function PartnerApplicationsPage() {
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[6px]">
-          <div className="relative max-h-[95vh] w-full max-w-4xl overflow-hidden rounded-[36px] border border-slate-100 bg-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[6px]"
+          onClick={closeModal}
+        >
+          <div
+            className="relative max-h-[95vh] w-full max-w-4xl overflow-hidden rounded-[36px] border border-slate-100 bg-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)]"
+            onClick={(event) => event.stopPropagation()}
+          >
             <button
-              onClick={() => setSelected(null)}
+              type="button"
+              onClick={closeModal}
               className="absolute right-6 top-6 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
             >
               <X className="h-5 w-5" />
