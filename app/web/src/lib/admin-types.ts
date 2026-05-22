@@ -95,3 +95,37 @@ export type AdminContentItem = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type PartnerApplicationStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type PartnerPaymentStatus = "UNPAID" | "PENDING" | "PAID" | "FAILED";
+
+export type AdminPartnerApplication = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  message: string;
+  requestedTier?: string | null;
+  status: PartnerApplicationStatus;
+  paymentStatus: PartnerPaymentStatus;
+  stripeCheckoutSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  stripeInvoiceId?: string | null;
+  partnerOrderId?: string | null;
+  approvedAt?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminPartnerApplicationsSummary = {
+  all: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  paid: number;
+};
+
+export type AdminPartnerApplicationsResponse = AdminListResponse<AdminPartnerApplication> & {
+  summary: AdminPartnerApplicationsSummary;
+};

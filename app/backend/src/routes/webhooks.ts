@@ -1,7 +1,8 @@
 import { Router } from "express";
 import bodyParser from "body-parser";
 import Stripe from "stripe";
-import { requireDb, orders, certificates, users, emailLogs } from "../lib/db";
+import crypto from "crypto";
+import { requireDb, orders, certificates, users, emailLogs, partnerApplications } from "../lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
 import { adminNotificationEmail, resend, resendFrom } from "../services/email";
@@ -159,6 +160,250 @@ async function sendAdminPaymentReceivedEmail(params: {
   });
 }
 
+async function sendAdminPartnerPaymentReceivedEmail(params: {
+  applicationId: string;
+  orderId: string;
+  name: string;
+  email: string;
+  tier?: string | null;
+  stripeSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+}) {
+  const { applicationId, orderId, name, email, tier, stripeSessionId, stripePaymentIntentId } = params;
+
+  return resend.emails.send({
+    from: resendFrom,
+    to: adminNotificationEmail,
+    subject: `IBPA partner payment received: ${name || email}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
+        <h1 style="margin: 0 0 16px; font-size: 24px;">Partner payment received</h1>
+        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${name || "Unknown"}</p>
+        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${email}</p>
+        <p style="margin: 0 0 10px;"><strong>Tier:</strong> ${tier || "N/A"}</p>
+        <p style="margin: 0 0 10px;"><strong>Partner application ID:</strong> ${applicationId}</p>
+        <p style="margin: 0 0 10px;"><strong>Partner order ID:</strong> ${orderId}</p>
+        <p style="margin: 0 0 10px;"><strong>Stripe session:</strong> ${stripeSessionId || "N/A"}</p>
+        <p style="margin: 0;"><strong>Stripe payment intent:</strong> ${stripePaymentIntentId || "N/A"}</p>
+      </div>
+    `,
+  });
+}
+
+async function findPartnerOrderByApplicationId(db: ReturnType<typeof requireDb>, applicationId: string) {
+  const [existing] = await db
+    .select()
+    .from(orders)
+    .where(
+      and(
+        sql`lower(${orders.accountType}) = 'partner'`,
+        sql`${orders.applicationPayload} ->> 'partnerApplicationId' = ${applicationId}`,
+      ),
+    )
+    .limit(1);
+
+  return existing || null;
+}
+
+async function ensurePartnerOrderForApplication(params: {
+  db: ReturnType<typeof requireDb>;
+  application: typeof partnerApplications.$inferSelect;
+  sessionId: string;
+}) {
+  const { db, application, sessionId } = params;
+
+  const linkedOrderId = application.partnerOrderId || null;
+  if (linkedOrderId) {
+    const [linkedOrder] = await db.select().from(orders).where(eq(orders.id, linkedOrderId));
+    if (linkedOrder) {
+      if (linkedOrder.status !== "paid" || linkedOrder.stripeSessionId !== sessionId) {
+        await db
+          .update(orders)
+          .set({
+            status: "paid",
+            stripeSessionId: sessionId,
+            accountType: "partner",
+          })
+          .where(eq(orders.id, linkedOrder.id));
+      }
+
+      return linkedOrder.id;
+    }
+  }
+
+  const existingByApplication = await findPartnerOrderByApplicationId(db, application.id);
+  if (existingByApplication) {
+    if (existingByApplication.status !== "paid" || existingByApplication.stripeSessionId !== sessionId) {
+      await db
+        .update(orders)
+        .set({
+          status: "paid",
+          stripeSessionId: sessionId,
+          accountType: "partner",
+        })
+        .where(eq(orders.id, existingByApplication.id));
+    }
+
+    await db
+      .update(partnerApplications)
+      .set({
+        partnerOrderId: existingByApplication.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(partnerApplications.id, application.id));
+
+    return existingByApplication.id;
+  }
+
+  const [existingBySession] = await db
+    .select()
+    .from(orders)
+    .where(and(sql`lower(${orders.accountType}) = 'partner'`, eq(orders.stripeSessionId, sessionId)))
+    .limit(1);
+
+  if (existingBySession) {
+    await db
+      .update(partnerApplications)
+      .set({
+        partnerOrderId: existingBySession.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(partnerApplications.id, application.id));
+
+    return existingBySession.id;
+  }
+
+  const [createdOrder] = await db
+    .insert(orders)
+    .values({
+      email: application.email,
+      name: application.name,
+      accountType: "partner",
+      membershipCategory: "partner",
+      applicantType: "Partner",
+      package: application.requestedTier || "partner",
+      applicationPayload: {
+        type: "partner",
+        partnerApplicationId: application.id,
+        partnerTier: application.requestedTier,
+        partnerMessage: application.message,
+        partnerPhone: application.phone,
+        paymentStatus: "paid",
+      },
+      status: "paid",
+      stripeSessionId: sessionId,
+      secureToken: crypto.randomUUID(),
+      phone: application.phone,
+    })
+    .returning({ id: orders.id });
+
+  await db
+    .update(partnerApplications)
+    .set({
+      partnerOrderId: createdOrder.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(partnerApplications.id, application.id));
+
+  return createdOrder.id;
+}
+
+async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.Session) {
+  const partnerApplicationId =
+    session.metadata?.partnerApplicationId ||
+    session.metadata?.partner_application_id ||
+    null;
+
+  if (!partnerApplicationId) {
+    console.warn("[Stripe Webhook] Partner application metadata missing id", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const db = requireDb();
+  const [application] = await db
+    .select()
+    .from(partnerApplications)
+    .where(eq(partnerApplications.id, partnerApplicationId));
+
+  if (!application) {
+    console.warn("[Stripe Webhook] Partner application not found", {
+      partnerApplicationId,
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
+  const invoiceId = typeof session.invoice === "string" ? session.invoice : null;
+  const isDuplicatePaidEvent =
+    application.paymentStatus === "PAID" &&
+    application.stripeCheckoutSessionId === session.id &&
+    Boolean(application.partnerOrderId);
+  const paidAt = application.paidAt || new Date();
+
+  const [updatedApplication] = await db
+    .update(partnerApplications)
+    .set({
+      status: "APPROVED",
+      paymentStatus: "PAID",
+      stripeCheckoutSessionId: session.id,
+      stripePaymentIntentId: paymentIntentId || application.stripePaymentIntentId,
+      stripeInvoiceId: invoiceId || application.stripeInvoiceId,
+      paidAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(partnerApplications.id, application.id))
+    .returning();
+
+  const partnerOrderId = await ensurePartnerOrderForApplication({
+    db,
+    application: updatedApplication || application,
+    sessionId: session.id,
+  });
+
+  if (isDuplicatePaidEvent) {
+    console.log("[Stripe Webhook] Partner paid event already processed", {
+      partnerApplicationId: application.id,
+      partnerOrderId,
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  try {
+    const adminEmailResult = await sendAdminPartnerPaymentReceivedEmail({
+      applicationId: application.id,
+      orderId: partnerOrderId,
+      name: application.name,
+      email: application.email,
+      tier: application.requestedTier,
+      stripeSessionId: session.id,
+      stripePaymentIntentId: paymentIntentId,
+    });
+    console.log("[Stripe Webhook] Partner payment received notification sent", {
+      to: adminNotificationEmail,
+      id: adminEmailResult.data?.id ?? null,
+      error: adminEmailResult.error ?? null,
+    });
+  } catch (adminEmailError) {
+    console.error("[Stripe Webhook] Partner payment received notification failed", {
+      to: adminNotificationEmail,
+      applicationId: application.id,
+      error: adminEmailError,
+    });
+  }
+
+  console.log("[Stripe Webhook] Partner application marked as paid", {
+    partnerApplicationId: application.id,
+    partnerOrderId,
+    sessionId: session.id,
+    paymentIntentId,
+    invoiceId,
+  });
+}
+
 function escapeHtml(value: unknown) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -233,6 +478,7 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const orderKind = session.metadata?.orderKind;
+      const metadataType = session.metadata?.type;
       const orderId = session.metadata?.orderId;
 
       if (orderKind === "sponsorship") {
@@ -240,6 +486,11 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
           sessionId: session.id,
           tier: session.metadata?.sponsorshipTier ?? null,
         });
+        return res.json({ received: true });
+      }
+
+      if (orderKind === "partner_application" || metadataType === "partner_application") {
+        await handlePartnerApplicationCheckoutSession(session);
         return res.json({ received: true });
       }
 

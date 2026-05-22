@@ -3,13 +3,14 @@
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, ClipboardList, Users, Mail, Newspaper, Handshake } from "lucide-react";
+import { Sparkles, ClipboardList, Users, Mail, Newspaper, Handshake, Building2 } from "lucide-react";
 
 export function AdminNav() {
   const pathname = usePathname();
 
   const navItems = [
     { href: "/admin/applications", label: "Applications", icon: ClipboardList },
+    { href: "/admin/partner-applications", label: "Partner Apps", icon: Building2 },
     { href: "/admin/clients", label: "Clients", icon: Users },
     { href: "/admin/content", label: "Content", icon: Newspaper },
     { href: "/admin/partners", label: "Partners", icon: Handshake },

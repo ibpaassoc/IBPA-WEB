@@ -32,7 +32,8 @@ export default function PartnershipPage() {
   const [honeypot, setHoneypot] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitState, setSubmitState] = React.useState<"idle" | "success" | "error">("idle");
-  const [checkoutTier, setCheckoutTier] = React.useState<SponsorshipTier | null>(null);
+  const [submitError, setSubmitError] = React.useState<string>("");
+  const [selectedTier, setSelectedTier] = React.useState<SponsorshipTier | null>(null);
   const [partnerCards, setPartnerCards] = React.useState(() => getDefaultPartnerCards(locale));
 
   React.useEffect(() => {
@@ -130,7 +131,7 @@ export default function PartnershipPage() {
       ? "Спонсорские пакеты IBPA отделены от Brand Membership. Спонсорство — это маркетинговое соглашение и формат видимости без review-заявки и без membership status."
       : isUk
         ? "Спонсорські пакети IBPA відокремлені від Brand Membership. Спонсорство — це маркетингова угода та формат видимості без review-заявки і без membership status."
-        : "IBPA sponsorship packages are separate from Brand Membership. Sponsorship is a marketing and visibility agreement with no application review and no membership status.",
+        : "IBPA sponsorship packages are separate from Brand Membership. Sponsorship is a marketing and visibility agreement reviewed by our team and does not grant membership status.",
     sponsorshipIntro: isRu
       ? "Этот формат создан для брендов, которым нужна видимость перед профессиональной аудиторией IBPA через упоминания, co-branded content и присутствие на событиях. Уже есть Brand Membership? Спонсорство даёт дополнительную видимость поверх membership benefits."
       : isUk
@@ -175,8 +176,8 @@ export default function PartnershipPage() {
     phone: isRu ? "Телефон" : isUk ? "Телефон" : "Phone",
     message: isRu ? "Сообщение" : isUk ? "Повідомлення" : "Message",
     submit: isRu ? "Отправить заявку" : isUk ? "Надіслати заявку" : "Send Inquiry",
-    buyNow: isRu ? "Оплатить пакет" : isUk ? "Оплатити пакет" : "Purchase package",
-    checkoutLoading: isRu ? "Переход к оплате..." : isUk ? "Перехід до оплати..." : "Redirecting to checkout...",
+    buyNow: isRu ? "Выбрать пакет" : isUk ? "Обрати пакет" : "Select package",
+    checkoutLoading: isRu ? "Пакет выбран" : isUk ? "Пакет обрано" : "Package selected",
     success: isRu ? "Спасибо! Запрос отправлен команде IBPA." : isUk ? "Дякуємо! Запит надіслано команді IBPA." : "Thank you. Your inquiry has been sent to the IBPA team.",
     error: isRu ? "Не удалось отправить заявку. Попробуйте еще раз." : isUk ? "Не вдалося надіслати заявку. Спробуйте ще раз." : "We couldn't send your inquiry. Please try again.",
     placeholders: {
@@ -233,58 +234,53 @@ export default function PartnershipPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
     setIsSubmitting(true);
     setSubmitState("idle");
+    setSubmitError("");
 
     try {
-      const response = await fetch("/api/contact", {
+      const response = await fetch("/api/partner-applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          source: "Partnership page",
+          requestedTier: selectedTier,
           honeypot,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Request failed");
+        let message = "Request failed";
+        try {
+          const data = await response.json();
+          if (data && typeof data.error === "string" && data.error.trim()) {
+            message = data.error;
+          }
+        } catch {}
+        throw new Error(message);
       }
 
       setForm({ name: "", email: "", phone: "", message: "" });
       setSubmitState("success");
-    } catch {
+      setSelectedTier(null);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Failed to submit partner application.");
       setSubmitState("error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const startCheckout = async (tier: SponsorshipTier) => {
-    try {
-      setCheckoutTier(tier);
-      setSubmitState("idle");
-
-      const response = await fetch("/api/orders/sponsorship/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Checkout request failed");
-      }
-
-      const data = await response.json();
-      if (!data.url) {
-        throw new Error("Missing checkout URL");
-      }
-
-      window.location.href = data.url;
-    } catch (error) {
-      console.error(error);
-      setCheckoutTier(null);
-      setSubmitState("error");
+  const selectTierForApplication = (tier: SponsorshipTier) => {
+    setSelectedTier(tier);
+    setSubmitState("idle");
+    setSubmitError("");
+    const section = document.getElementById("partnership-inquiry");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -357,11 +353,10 @@ export default function PartnershipPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => startCheckout(pkg.tier)}
-                  disabled={checkoutTier !== null}
-                  className={`mt-8 inline-flex w-full items-center justify-center gap-3 rounded-full bg-black px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.14em] text-white transition-transform hover:scale-[1.01] disabled:cursor-wait disabled:opacity-70 ${uiClassName}`}
+                  onClick={() => selectTierForApplication(pkg.tier)}
+                  className={`mt-8 inline-flex w-full items-center justify-center gap-3 rounded-full bg-black px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.14em] text-white transition-transform hover:scale-[1.01] ${uiClassName}`}
                 >
-                  {checkoutTier === pkg.tier ? copy.checkoutLoading : copy.buyNow}
+                  {selectedTier === pkg.tier ? copy.checkoutLoading : copy.buyNow}
                   <ArrowRight size={16} />
                 </button>
               </article>
@@ -493,6 +488,9 @@ export default function PartnershipPage() {
                 />
               </label>
               <div className="md:col-span-2 pt-2">
+                <p className={`mb-3 text-xs text-slate-500 ${bodyClassName}`}>
+                  {selectedTier ? `Selected package: ${selectedTier}` : "Select a sponsorship package above before submitting (optional)."}
+                </p>
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -502,7 +500,7 @@ export default function PartnershipPage() {
                   <ArrowRight size={16} />
                 </button>
                 {submitState === "success" && <p className={`mt-3 text-sm text-emerald-600 ${bodyClassName}`}>{copy.success}</p>}
-                {submitState === "error" && <p className={`mt-3 text-sm text-red-500 ${bodyClassName}`}>{copy.error}</p>}
+                {submitState === "error" && <p className={`mt-3 text-sm text-red-500 ${bodyClassName}`}>{submitError || copy.error}</p>}
               </div>
             </form>
           </div>

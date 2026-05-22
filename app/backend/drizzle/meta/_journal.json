@@ -36,6 +36,13 @@
       "when": 1778200000000,
       "tag": "0004_add_partner_team_access",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778300000000,
+      "tag": "0005_add_partner_applications",
+      "breakpoints": true
     }
   ]
 }

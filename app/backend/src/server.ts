@@ -7,6 +7,7 @@ import { mailingRouter } from "./routes/mailing";
 import { contentRouter } from "./routes/content";
 import { contactRouter } from "./routes/contact";
 import { membersRouter } from "./routes/members";
+import { partnerApplicationsRouter } from "./routes/partner-applications";
 
 const app = express();
 const port = process.env.PORT || 3003;
@@ -53,6 +54,7 @@ app.use("/api/mailing", mailingRouter);
 app.use("/api/content", contentRouter);
 app.use("/api/contact", contactRouter);
 app.use("/api/members", membersRouter);
+app.use("/api/partner-applications", partnerApplicationsRouter);
 
 app.listen(port, () => {
   console.log(`Backend listening at port ${port}`);
