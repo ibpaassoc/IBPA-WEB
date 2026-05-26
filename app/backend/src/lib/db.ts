@@ -20,9 +20,18 @@ function getDbInstance() {
   }
 
   // Lazy-load drizzle so backend startup does not hang before the server binds to the port.
+  // Use Neon HTTP mode to avoid long-lived WebSocket pool crashes in local/dev.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { drizzle } = require("drizzle-orm/neon-serverless");
-  dbSingleton = drizzle(databaseUrl, { schema });
+  const { neon, neonConfig } = require("@neondatabase/serverless");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { drizzle } = require("drizzle-orm/neon-http");
+
+  if (neonConfig && typeof neonConfig === "object") {
+    neonConfig.fetchConnectionCache = true;
+  }
+
+  const sqlClient = neon(databaseUrl);
+  dbSingleton = drizzle(sqlClient, { schema });
   return dbSingleton;
 }
 

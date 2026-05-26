@@ -130,7 +130,7 @@ export const Footer = () => {
             </p>
             <div className="flex flex-wrap gap-3">
               <a
-                href="mailto:info@ibpassociations.org"
+                href="mailto:support@ibpassociations.org"
                 className={`inline-flex items-center gap-2 rounded-full border border-slate-600 px-4 py-2 text-xs uppercase text-slate-200 transition-colors hover:border-[#72A0C1] hover:text-white ${uiClassName}`}
               >
                 <Mail size={14} />
@@ -184,7 +184,7 @@ export const Footer = () => {
               </li>
               <li className="flex gap-4">
                 <Mail size={18} className="flex-shrink-0 text-[#72A0C1]" />
-                <span className={`whitespace-nowrap text-sm text-slate-300 ${bodyClassName}`}>info@ibpassociations.org</span>
+                <span className={`whitespace-nowrap text-sm text-slate-300 ${bodyClassName}`}>support@ibpassociations.org</span>
               </li>
             </ul>
             <div className="space-y-4 pt-2">

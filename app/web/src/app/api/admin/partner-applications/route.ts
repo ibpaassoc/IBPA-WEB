@@ -24,9 +24,15 @@ export async function GET(request: Request) {
       { status: res.status },
     );
   } catch (err: any) {
+    const backendUnavailable =
+      err?.cause?.code === "ECONNREFUSED" || String(err?.message || "").toLowerCase().includes("fetch failed");
     return NextResponse.json(
-      { error: err?.message || "Failed to load partner applications." },
-      { status: 500 },
+      {
+        error: backendUnavailable
+          ? "Backend service is temporarily unavailable. Please retry in a few seconds."
+          : err?.message || "Failed to load partner applications.",
+      },
+      { status: backendUnavailable ? 503 : 500 },
     );
   }
 }

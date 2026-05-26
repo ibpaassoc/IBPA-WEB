@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { SignOutButton, UserButton, useUser, UserProfile } from "@clerk/nextjs";
-import { AlertCircle, CheckCircle2, LayoutDashboard, Settings, User, Bell, LogIn, Loader2, Award, FileText, Menu, X, CreditCard, ChevronRight, Download, Newspaper, CalendarDays, Users, UserPlus } from "lucide-react";
+import { LayoutDashboard, Settings, User, Bell, LogIn, Loader2, Award, FileText, Menu, X, CreditCard, ChevronRight, Download, Newspaper, CalendarDays, Users, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -1219,66 +1219,28 @@ export default function DashboardPage() {
       if (isTeamMemberDashboard) {
         return (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="space-y-6">
-            <section className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
-              <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">Team Member Dashboard</p>
-              <h3 className="mt-4 text-2xl uppercase font-anton text-slate-900 md:text-4xl">Educational Access</h3>
-              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-500 md:text-base">
-                Your dashboard provides educational resources and selected member pricing from your parent partner account.
+            <section className="rounded-3xl bg-white p-6 shadow-[0_10px_36px_rgba(15,23,42,0.08)] md:p-8">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#72A0C1]">Team Access</p>
+              <h3 className="mt-3 text-3xl font-semibold tracking-tight text-[#0F2240] md:text-4xl">Partner Learning Access</h3>
+              <p className="mt-3 max-w-2xl text-sm text-slate-500 md:text-base">
+                Access is assigned to your individual email through your partner business.
               </p>
             </section>
 
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Team Member ID</p>
-                <p className="mt-2 text-xl font-bold text-slate-900">{teamMemberAccess?.teamMemberId || "Pending"}</p>
+            <section className="grid gap-4 md:grid-cols-3">
+              <article className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+                <p className="text-xs font-medium text-slate-500">Role</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">{teamMemberAccess?.role || "Team Member"}</p>
               </article>
-              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Role</p>
-                <p className="mt-2 text-xl font-bold text-slate-900">{teamMemberAccess?.role || "Team Member"}</p>
-              </article>
-              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Partner Business</p>
+              <article className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+                <p className="text-xs font-medium text-slate-500">Partner Business</p>
                 <p className="mt-2 text-sm font-semibold text-slate-900">{teamMemberAccess?.partnerBusinessName || "Partner Account"}</p>
+                <p className="mt-1 text-sm text-slate-500">{teamMemberAccess?.partnerBusinessEmail || "Not provided"}</p>
               </article>
-              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Owner ID</p>
-                <p className="mt-2 text-xl font-bold text-slate-900">{teamMemberAccess?.ownerMemberId || "IBPA-BO-001"}</p>
-              </article>
-            </section>
-
-            <section className="grid gap-4 xl:grid-cols-2">
-              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
-                <h4 className="text-lg uppercase font-anton text-slate-900">Available To You</h4>
-                <ul className="mt-4 space-y-2 text-sm text-slate-600">
-                  {[
-                    "Educational resources",
-                    "Webinars and master classes",
-                    "Selected event/member pricing",
-                    "Participation and certificates area (if enabled)",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-              <article className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm">
-                <h4 className="text-lg uppercase font-anton text-slate-900">Not Included</h4>
-                <ul className="mt-4 space-y-2 text-sm text-slate-600">
-                  {[
-                    "Full membership certificate",
-                    "Voting rights",
-                    "Public member listing controls",
-                    "Leadership features",
-                    "Full owner/member privileges",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
+              <article className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+                <p className="text-xs font-medium text-slate-500">Access Status</p>
+                <p className="mt-2 text-lg font-semibold capitalize text-slate-900">{teamMemberAccess?.status || "invited"}</p>
+                <p className="mt-1 text-xs text-slate-500">Individual login required</p>
               </article>
             </section>
           </motion.div>
