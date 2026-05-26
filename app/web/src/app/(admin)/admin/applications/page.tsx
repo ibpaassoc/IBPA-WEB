@@ -225,17 +225,28 @@ export default function ApplicationsPage() {
   const [showAllPortfolioImages, setShowAllPortfolioImages] = useState(false);
   const [showAllTrainerImages, setShowAllTrainerImages] = useState(false);
 
-  const readErrorMessage = async (resp: Response) => {
+  const parseResponseJson = async <T,>(resp: Response): Promise<T | null> => {
+    const raw = await resp.text();
+    if (!raw) {
+      return null;
+    }
+
     try {
-      const data = await resp.json();
-      if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
-        return data.error;
-      }
+      return JSON.parse(raw) as T;
     } catch {
-      try {
-        const text = await resp.text();
-        if (text) return text;
-      } catch {}
+      return null;
+    }
+  };
+
+  const readErrorMessage = async (resp: Response) => {
+    const data = await parseResponseJson<{ error?: string }>(resp.clone());
+    if (data && typeof data.error === "string" && data.error.trim().length > 0) {
+      return data.error;
+    }
+
+    const text = await resp.clone().text();
+    if (text && text.trim().length > 0) {
+      return text;
     }
 
     return "Could not complete the request.";
@@ -269,13 +280,13 @@ export default function ApplicationsPage() {
       }
 
       const resp = await fetch(`/api/orders?${params.toString()}`, { cache: "no-store" });
-      const data = (await resp.json()) as AdminOrdersResponse | { error?: string };
+      const data = await parseResponseJson<AdminOrdersResponse | { error?: string }>(resp);
 
       if (!resp.ok) {
         const message =
           data && typeof data === "object" && "error" in data && typeof data.error === "string"
             ? data.error
-            : "Could not load applications.";
+            : `Could not load applications (HTTP ${resp.status}).`;
         throw new Error(message);
       }
 
@@ -324,7 +335,7 @@ export default function ApplicationsPage() {
     setIsLoadingAdditionalFiles(true);
     try {
       const resp = await fetch(`/api/admin/orders/${applicationId}/additional-files`, { cache: "no-store" });
-      const data = await resp.json();
+      const data = await parseResponseJson<{ files?: ApplicationAdditionalFile[]; error?: string }>(resp);
 
       if (!resp.ok) {
         const message =
@@ -394,9 +405,17 @@ export default function ApplicationsPage() {
 
     try {
       const resp = await fetch(`/api/admin/orders/${order.id}`, { cache: "no-store" });
-      const data = await resp.json();
+      const data = await parseResponseJson<AdminOrder | { error?: string }>(resp);
       if (!resp.ok) {
-        throw new Error(data?.error || "Could not load application details.");
+        throw new Error(
+          data && typeof data === "object" && "error" in data && typeof data.error === "string"
+            ? data.error
+            : "Could not load application details.",
+        );
+      }
+
+      if (!data || typeof data !== "object" || !("id" in data)) {
+        throw new Error("Application detail response was empty or invalid.");
       }
 
       setSelectedOrder(data as AdminOrder);
@@ -443,7 +462,12 @@ export default function ApplicationsPage() {
         throw new Error(await readErrorMessage(resp));
       }
 
-      const { certificateNumber, checkoutUrl } = await resp.json();
+      const responseData = await parseResponseJson<{ certificateNumber?: string; checkoutUrl?: string | null }>(resp);
+      if (!responseData) {
+        throw new Error("Approve request succeeded but returned an empty response.");
+      }
+      const certificateNumber = typeof responseData.certificateNumber === "string" ? responseData.certificateNumber : undefined;
+      const checkoutUrl = typeof responseData.checkoutUrl === "string" ? responseData.checkoutUrl : null;
       const updatedStatus: OrderStatus = "approved";
 
       setOrders((prev) =>
@@ -491,7 +515,12 @@ export default function ApplicationsPage() {
         throw new Error(await readErrorMessage(resp));
       }
 
-      const { checkoutUrl, paymentLinkUrl } = await resp.json();
+      const responseData = await parseResponseJson<{ checkoutUrl?: string | null; paymentLinkUrl?: string | null }>(resp);
+      if (!responseData) {
+        throw new Error("Resend payment link succeeded but returned an empty response.");
+      }
+      const checkoutUrl = typeof responseData.checkoutUrl === "string" ? responseData.checkoutUrl : null;
+      const paymentLinkUrl = typeof responseData.paymentLinkUrl === "string" ? responseData.paymentLinkUrl : null;
 
       setOrders((prev) =>
         prev.map((order) =>
@@ -551,7 +580,7 @@ export default function ApplicationsPage() {
         throw new Error(await readErrorMessage(resp));
       }
 
-      const data = await resp.json();
+      const data = await parseResponseJson<{ application?: AdminOrder }>(resp);
       const updatedApplication = data?.application as AdminOrder | undefined;
 
       if (!updatedApplication) {
@@ -602,7 +631,7 @@ export default function ApplicationsPage() {
         throw new Error(await readErrorMessage(resp));
       }
 
-      const data = await resp.json();
+      const data = await parseResponseJson<{ files?: ApplicationAdditionalFile[] }>(resp);
       const savedFiles = Array.isArray(data?.files) ? data.files : [];
       setAdditionalFiles((prev) => [...savedFiles, ...prev]);
       toast.success("Additional document uploaded.");

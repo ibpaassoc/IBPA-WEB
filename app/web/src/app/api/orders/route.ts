@@ -26,7 +26,16 @@ export async function GET(request: Request) {
     );
   } catch (error: any) {
     console.error("[Admin API] Failed to reach backend orders API GET:", error);
-    return NextResponse.json({ error: `Failed to reach backend orders API: ${error?.message || "Unknown error"}` }, { status: 500 });
+    const backendUnavailable =
+      error?.cause?.code === "ECONNREFUSED" || String(error?.message || "").toLowerCase().includes("fetch failed");
+    return NextResponse.json(
+      {
+        error: backendUnavailable
+          ? "Backend service is temporarily unavailable. Please retry in a few seconds."
+          : `Failed to reach backend orders API: ${error?.message || "Unknown error"}`,
+      },
+      { status: backendUnavailable ? 503 : 500 },
+    );
   }
 }
 

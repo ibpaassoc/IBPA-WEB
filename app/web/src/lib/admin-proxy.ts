@@ -1,4 +1,4 @@
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const DEFAULT_ADMIN_EMAILS = [
@@ -10,6 +10,50 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || DEFAULT_ADMIN_EMAILS.join(",")
   .split(",")
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
+
+function getEmailFromSessionClaims(sessionClaims: unknown) {
+  if (!sessionClaims || typeof sessionClaims !== "object") {
+    return null;
+  }
+
+  const claims = sessionClaims as Record<string, unknown>;
+  const candidateKeys = ["email", "primaryEmail", "email_address"] as const;
+
+  for (const key of candidateKeys) {
+    const value = claims[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function getEmailFromToken(token: string) {
+  const parts = token.split(".");
+  if (parts.length < 2) {
+    return null;
+  }
+
+  try {
+    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = payloadBase64.padEnd(Math.ceil(payloadBase64.length / 4) * 4, "=");
+    const payloadJson = Buffer.from(normalized, "base64").toString("utf8");
+    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    const candidateKeys = ["email", "email_address", "primaryEmail"] as const;
+
+    for (const key of candidateKeys) {
+      const value = payload[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
 
 export async function getAdminProxyContext(requestUrl?: string) {
   const backendUrlRaw = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
@@ -70,13 +114,9 @@ export async function getAdminProxyContext(requestUrl?: string) {
     };
   }
 
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const primaryEmail = user.emailAddresses.find(
-    (emailAddress) => emailAddress.id === user.primaryEmailAddressId,
-  )?.emailAddress;
+  const primaryEmail = getEmailFromSessionClaims(authData.sessionClaims) || getEmailFromToken(token);
 
-  if (!primaryEmail || !ADMIN_EMAILS.includes(primaryEmail.toLowerCase())) {
+  if (primaryEmail && !ADMIN_EMAILS.includes(primaryEmail.toLowerCase())) {
     return {
       backendUrl,
       authHeaders: null,
@@ -86,10 +126,13 @@ export async function getAdminProxyContext(requestUrl?: string) {
 
   const authHeaders: Record<string, string> = {
     "Authorization": `Bearer ${token}`,
-    "x-admin-user-email": primaryEmail.toLowerCase(),
   };
 
-  if (internalAdminKey) {
+  if (primaryEmail) {
+    authHeaders["x-admin-user-email"] = primaryEmail.toLowerCase();
+  }
+
+  if (internalAdminKey && primaryEmail) {
     authHeaders["x-admin-internal-key"] = internalAdminKey;
   }
 

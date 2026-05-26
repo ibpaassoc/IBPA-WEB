@@ -1,7 +1,15 @@
 import { Router } from "express";
 import { requireDb, orders, certificates, users, dashboardNotifications, teamMembers, teamSeatExtensions } from "../lib/db";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { clerkMiddleware, getAuth, clerkOptions, clerkClient } from "../services/clerk";
+import {
+  clerkMiddleware,
+  getAuth,
+  clerkOptions,
+  getClerkUserWithRetry,
+  getAllEmailsFromClerkUser,
+  getEmailFromSessionClaims,
+  getPrimaryEmailFromClerkUser,
+} from "../services/clerk";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 
 export const dashboardRouter = Router();
@@ -334,17 +342,31 @@ async function getPartnerOwnerMemberId(db: ReturnType<typeof requireDb>, ownerOr
   return `IBPA-BO-${String(normalizedIndex).padStart(3, "0")}`;
 }
 
-async function requireDashboardAccess(clerkUserId: string): Promise<DashboardAccessContext | null> {
+async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unknown): Promise<DashboardAccessContext | null> {
   const db = requireDb();
-  const clerkUser = await clerkClient.users.getUser(clerkUserId);
-  const primaryEmail =
-    clerkUser.emailAddresses.find((email: any) => email.id === clerkUser.primaryEmailAddressId)?.emailAddress ||
-    null;
   const [storedUser] = await db.select().from(users).where(eq(users.clerkId, clerkUserId));
+  const clerkEmailFromClaims = getEmailFromSessionClaims(sessionClaims);
+  let clerkUser: any = null;
+  let primaryEmail = clerkEmailFromClaims || normalizeEmail(storedUser?.email) || null;
+  let clerkKnownEmails: string[] = [];
+
+  try {
+    clerkUser = await getClerkUserWithRetry(clerkUserId);
+    primaryEmail = getPrimaryEmailFromClerkUser(clerkUser) || primaryEmail;
+    clerkKnownEmails = getAllEmailsFromClerkUser(clerkUser).map((email) => normalizeEmail(email)).filter(Boolean);
+  } catch (error) {
+    dashboardDebugLog("clerk_user_lookup_failed", {
+      clerkUserId,
+      hasClaimsEmail: Boolean(clerkEmailFromClaims),
+      hasStoredEmail: Boolean(storedUser?.email),
+      error: error instanceof Error ? error.message : "unknown",
+    });
+  }
+
   const storedApplicationEmail = normalizeEmail(storedUser?.email);
   const primaryEmailNormalized = normalizeEmail(primaryEmail);
   const candidateEmails = Array.from(
-    new Set([primaryEmailNormalized, storedApplicationEmail].filter((value) => value.length > 0)),
+    new Set([primaryEmailNormalized, storedApplicationEmail, ...clerkKnownEmails].filter((value) => value.length > 0)),
   );
 
   const paidByLinkedCertificate = await db
@@ -407,7 +429,9 @@ async function requireDashboardAccess(clerkUserId: string): Promise<DashboardAcc
     }
   }
 
-  await ensureUserRecord(clerkUserId, primaryEmail, clerkUser);
+  if (clerkUser) {
+    await ensureUserRecord(clerkUserId, primaryEmail, clerkUser);
+  }
 
   if (paidOrders.length > 0) {
     const latestPaidOrder = paidOrders[0] || null;
@@ -642,7 +666,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
   }
 
   try {
-    const access = await requireDashboardAccess(clerkUserId);
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
     if (!access) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -793,7 +817,7 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
   if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const access = await requireDashboardAccess(clerkUserId);
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
     if (!access) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -933,7 +957,7 @@ dashboardRouter.get("/notifications", clerkMiddleware(clerkOptions), async (req,
   if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const access = await requireDashboardAccess(clerkUserId);
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
     if (!access) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -968,7 +992,7 @@ dashboardRouter.patch("/notifications", clerkMiddleware(clerkOptions), async (re
   if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const access = await requireDashboardAccess(clerkUserId);
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
     if (!access) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -1008,7 +1032,7 @@ dashboardRouter.get("/team-members", clerkMiddleware(clerkOptions), async (req, 
   if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const access = await requireDashboardAccess(clerkUserId);
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
     if (!access) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -1057,7 +1081,7 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
   if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const access = await requireDashboardAccess(clerkUserId);
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
     if (!access) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -1191,7 +1215,7 @@ dashboardRouter.post("/team-members/extend-seats", clerkMiddleware(clerkOptions)
   if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const access = await requireDashboardAccess(clerkUserId);
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
     if (!access) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -1235,7 +1259,7 @@ dashboardRouter.delete("/team-members/:id", clerkMiddleware(clerkOptions), async
   }
 
   try {
-    const access = await requireDashboardAccess(clerkUserId);
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
     if (!access) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -1277,7 +1301,7 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
   if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const access = await requireDashboardAccess(clerkUserId);
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
     if (!access) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
