@@ -1,5 +1,10 @@
 import { Router } from "express";
-import { adminNotificationEmail, resend, resendFrom } from "../services/email";
+import {
+  SUPPORT_REPLY_TO,
+  SUPPORT_SENDER,
+  adminNotificationEmail,
+  sendEmail,
+} from "../services/email";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
 
 export const contactRouter = Router();
@@ -68,10 +73,10 @@ contactRouter.post("/", async (req, res) => {
   const safePhone = typeof phone === "string" ? phone.trim() : "";
 
   try {
-    const response = await resend.emails.send({
-      from: resendFrom,
+    const response = await sendEmail({
+      from: SUPPORT_SENDER,
       to: adminNotificationEmail,
-      replyTo: String(email).trim(),
+      replyTo: SUPPORT_REPLY_TO,
       subject: `New ${safeSource} lead: ${safeName}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
@@ -90,6 +95,10 @@ contactRouter.post("/", async (req, res) => {
         </div>
       `,
     });
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
 
     return res.json({ success: true, id: response.data?.id ?? null });
   } catch (error) {

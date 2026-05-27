@@ -165,7 +165,7 @@ export default function CancellationPolicy() {
                     <Mail size={20} />
                     <span className={`text-[10px] uppercase ${uiClassName}`}>{isRu ? "Поддержка по email" : "Email Support"}</span>
                   </div>
-                  <p className={`text-lg ${bodyClassName}`}>info@ibpassociations.org</p>
+                  <p className={`text-lg ${bodyClassName}`}>support@ibpassociations.org</p>
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 text-[#B9D9EB]">

@@ -5,7 +5,13 @@ import crypto from "crypto";
 import { requireDb, orders, certificates, users, emailLogs, partnerApplications, stripeWebhookEvents } from "../lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
-import { adminNotificationEmail, resend, resendFrom } from "../services/email";
+import {
+  PAYMENTS_REPLY_TO,
+  PAYMENTS_SENDER,
+  adminNotificationEmail,
+  paymentsEmail,
+  sendEmail,
+} from "../services/email";
 
 export const webhooksRouter = Router();
 const dashboardActivationSubject = "Complete your IBPA dashboard access";
@@ -200,9 +206,10 @@ async function sendDashboardActivationEmail(params: {
   const dashboardUrl = process.env.DASHBOARD_URL || process.env.FRONTEND_URL || "";
   const activationUrl = `${dashboardUrl.replace(/\/$/, "")}/success?token=${secureToken}`;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: PAYMENTS_SENDER,
     to: email,
+    replyTo: PAYMENTS_REPLY_TO,
     subject: dashboardActivationSubject,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
@@ -243,9 +250,10 @@ async function sendAdminPaymentReceivedEmail(params: {
 }) {
   const { email, name, orderId, membershipCategory, stripeSessionId } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
+    replyTo: PAYMENTS_REPLY_TO,
     subject: `IBPA payment received: ${name || email}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
@@ -271,9 +279,10 @@ async function sendAdminPartnerPaymentReceivedEmail(params: {
 }) {
   const { applicationId, orderId, name, email, tier, stripeSessionId, stripePaymentIntentId } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
+    replyTo: PAYMENTS_REPLY_TO,
     subject: `IBPA partner payment received: ${name || email}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
@@ -626,9 +635,10 @@ async function sendStripeInvoiceCopyEmail(invoice: Stripe.Invoice) {
   const hostedInvoiceUrl = invoice.hosted_invoice_url || "";
   const invoicePdfUrl = invoice.invoice_pdf || "";
 
-  return resend.emails.send({
-    from: resendFrom,
-    to: resendFrom,
+  return sendEmail({
+    from: PAYMENTS_SENDER,
+    to: paymentsEmail,
+    replyTo: PAYMENTS_REPLY_TO,
     subject: `Stripe invoice sent: ${invoiceLabel}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
@@ -925,14 +935,14 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "*/*" }), async (req, res)
 
         if (copyEmailResult?.error) {
           console.error("[Stripe Webhook] Stripe invoice copy notification failed", {
-            to: resendFrom,
+            to: paymentsEmail,
             invoiceId: invoice.id,
             invoiceNumber: invoice.number ?? null,
             error: copyEmailResult.error,
           });
         } else if (copyEmailResult) {
           console.log("[Stripe Webhook] Stripe invoice copy notification sent", {
-            to: resendFrom,
+            to: paymentsEmail,
             invoiceId: invoice.id,
             invoiceNumber: invoice.number ?? null,
             id: copyEmailResult.data?.id ?? null,
@@ -941,7 +951,7 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "*/*" }), async (req, res)
         }
       } catch (copyEmailError) {
         console.error("[Stripe Webhook] Stripe invoice copy notification failed", {
-          to: resendFrom,
+          to: paymentsEmail,
           invoiceId: invoice.id,
           invoiceNumber: invoice.number ?? null,
           error: copyEmailError,

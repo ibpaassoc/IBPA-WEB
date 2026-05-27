@@ -3,7 +3,15 @@ import crypto from "crypto";
 import { requireDb, orders, certificates, applicationAdditionalFiles } from "../lib/db";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
-import { adminNotificationEmail, resend, resendFrom } from "../services/email";
+import {
+  APPLICATIONS_REPLY_TO,
+  APPLICATIONS_SENDER,
+  PAYMENTS_REPLY_TO,
+  PAYMENTS_SENDER,
+  adminNotificationEmail,
+  applicationsEmail,
+  sendEmail,
+} from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
 
@@ -230,9 +238,10 @@ async function sendApplicationReceivedEmail(params: {
 }) {
   const { email, name, membershipPackage } = params;
 
-  const response = await resend.emails.send({
-    from: resendFrom,
+  const response = await sendEmail({
+    from: APPLICATIONS_SENDER,
     to: email,
+    replyTo: APPLICATIONS_REPLY_TO,
     subject: "IBPA application received",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
@@ -257,7 +266,7 @@ async function sendApplicationReceivedEmail(params: {
           </p>
         </div>
         <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #64748b;">
-          Need help? Contact us at <a href="mailto:info@ibpassociations.org" style="color: #0f172a;">info@ibpassociations.org</a>.
+          Need help? Contact us at <a href="mailto:${applicationsEmail}" style="color: #0f172a;">${applicationsEmail}</a>.
         </p>
       </div>
     `,
@@ -320,9 +329,10 @@ async function sendAdminNewApplicationEmail(params: {
     ["Website", typeof application?.websiteLink === "string" ? application.websiteLink : null],
   ].filter(([, value]) => value);
 
-  const response = await resend.emails.send({
-    from: resendFrom,
+  const response = await sendEmail({
+    from: APPLICATIONS_SENDER,
     to: adminNotificationEmail,
+    replyTo: APPLICATIONS_REPLY_TO,
     subject: `New IBPA application: ${name || email}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
@@ -360,9 +370,10 @@ async function sendApprovalEmail(params: {
 }) {
   const { email, name, certificateNumber, checkoutUrl, paymentLinkUrl } = params;
 
-  const response = await resend.emails.send({
-    from: resendFrom,
+  const response = await sendEmail({
+    from: APPLICATIONS_SENDER,
     to: email,
+    replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA application has been approved",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
@@ -398,9 +409,10 @@ async function sendDashboardActivationEmail(params: {
   const dashboardUrl = process.env.DASHBOARD_URL || process.env.FRONTEND_URL || "";
   const activationUrl = `${dashboardUrl.replace(/\/$/, "")}/success?token=${encodeURIComponent(secureToken)}`;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: PAYMENTS_SENDER,
     to: email,
+    replyTo: PAYMENTS_REPLY_TO,
     subject: "Complete your IBPA dashboard access",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
@@ -425,9 +437,10 @@ async function sendAdminPaymentLinkSentEmail(params: {
 }) {
   const { email, name, orderId, membershipCategory, checkoutUrl } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
+    replyTo: PAYMENTS_REPLY_TO,
     subject: `IBPA payment link sent: ${name || email}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
@@ -451,9 +464,10 @@ async function sendAdminPaymentReceivedEmail(params: {
 }) {
   const { email, name, orderId, membershipCategory, stripeSessionId } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
+    replyTo: PAYMENTS_REPLY_TO,
     subject: `IBPA payment received: ${name || email}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
@@ -569,16 +583,17 @@ async function sendReviewEmail(params: {
 }) {
   const { email, name } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: APPLICATIONS_SENDER,
     to: email,
+    replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA application requires additional review",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
         <h2 style="color: #333; text-transform: uppercase;">Hello, ${name}!</h2>
         <p>Your IBPA application is currently under additional review.</p>
         <p>Our team may need a little more time to verify the details and finalize the decision. We will contact you as soon as the review is complete.</p>
-        <p style="color: #666; font-size: 14px;">If you have questions, reply to this email or contact us at info@ibpassociations.org.</p>
+        <p style="color: #666; font-size: 14px;">If you have questions, reply to this email or contact us at ${applicationsEmail}.</p>
       </div>
     `,
   });
@@ -590,9 +605,10 @@ async function sendRejectedEmail(params: {
 }) {
   const { email, name } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: APPLICATIONS_SENDER,
     to: email,
+    replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA application was not approved",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
@@ -600,7 +616,7 @@ async function sendRejectedEmail(params: {
         <p>Thank you for your interest in IBPA and for taking the time to complete your application.</p>
         <p>After review, we are unable to approve your application at this time.</p>
         <p>This decision does not prevent you from applying again in the future if your qualifications, materials, or professional profile change.</p>
-        <p style="color: #666; font-size: 14px;">If you have questions, reply to this email or contact us at info@ibpassociations.org.</p>
+        <p style="color: #666; font-size: 14px;">If you have questions, reply to this email or contact us at ${applicationsEmail}.</p>
       </div>
     `,
   });
@@ -1839,9 +1855,10 @@ ordersRouter.post("/:id/resend-pdf", adminClerkMiddleware, requireAdminAccess, a
       return res.status(404).json({ error: "Order or certificate URL not found" });
     }
 
-    const emailResult = await resend.emails.send({
-      from: resendFrom,
+    const emailResult = await sendEmail({
+      from: APPLICATIONS_SENDER,
       to: order.email,
+      replyTo: APPLICATIONS_REPLY_TO,
       subject: "Ваш физический сертификат IBPA готов",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 20px;">

@@ -2,7 +2,15 @@ import { Router } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { requireDb, orders, partnerApplications } from "../lib/db";
-import { adminNotificationEmail, resend, resendFrom } from "../services/email";
+import {
+  APPLICATIONS_REPLY_TO,
+  APPLICATIONS_SENDER,
+  PAYMENTS_REPLY_TO,
+  PAYMENTS_SENDER,
+  adminNotificationEmail,
+  applicationsEmail,
+  sendEmail,
+} from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
 import { stripe } from "../services/stripe";
@@ -243,9 +251,10 @@ async function sendPartnerApplicationReceivedEmail(params: {
 }) {
   const { email, name, requestedTier } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: APPLICATIONS_SENDER,
     to: email,
+    replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA partnership application has been received",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
@@ -278,9 +287,10 @@ async function sendAdminPartnerApplicationEmail(params: {
 }) {
   const { name, email, phone, message, requestedTier } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: APPLICATIONS_SENDER,
     to: adminNotificationEmail,
+    replyTo: APPLICATIONS_REPLY_TO,
     subject: `New IBPA partner application: ${name || email}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
@@ -309,9 +319,10 @@ async function sendPartnerApprovalEmail(params: {
 }) {
   const { email, name, requestedTier, checkoutUrl } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: APPLICATIONS_SENDER,
     to: email,
+    replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA partner application has been approved",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
@@ -344,9 +355,10 @@ async function sendAdminPartnerPaymentLinkSentEmail(params: {
 }) {
   const { applicationId, name, email, requestedTier, checkoutUrl } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
+    replyTo: PAYMENTS_REPLY_TO,
     subject: `IBPA partner payment link sent: ${name || email}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
@@ -364,16 +376,17 @@ async function sendAdminPartnerPaymentLinkSentEmail(params: {
 async function sendPartnerRejectedEmail(params: { email: string; name: string }) {
   const { email, name } = params;
 
-  return resend.emails.send({
-    from: resendFrom,
+  return sendEmail({
+    from: APPLICATIONS_SENDER,
     to: email,
+    replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA partner application was not approved",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
         <h2 style="color: #333; text-transform: uppercase;">Hello, ${escapeHtml(name || "there")}!</h2>
         <p>Thank you for your interest in partnering with IBPA.</p>
         <p>After review, we are unable to approve your partner application at this time.</p>
-        <p style="color: #666; font-size: 14px;">If you have questions, reply to this email or contact us at info@ibpassociations.org.</p>
+        <p style="color: #666; font-size: 14px;">If you have questions, reply to this email or contact us at ${applicationsEmail}.</p>
       </div>
     `,
   });
