@@ -102,6 +102,15 @@ function isValidEmail(value: unknown) {
   return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function getRequiredEnv(name: string) {
   const value = process.env[name];
   if (!value) {
@@ -186,6 +195,20 @@ function getSingleValue(value: unknown): string | null {
   }
 
   return null;
+}
+
+function toVerificationResponse(order: typeof orders.$inferSelect) {
+  return {
+    id: order.id,
+    email: order.email,
+    name: order.name,
+    membershipCategory: order.membershipCategory,
+    applicantType: order.applicantType,
+    accountType: order.accountType,
+    status: order.status,
+    stripeSessionId: order.stripeSessionId,
+    createdAt: order.createdAt,
+  };
 }
 
 function getFileExtension(fileNameOrUrl: string) {
@@ -307,17 +330,17 @@ async function sendAdminNewApplicationEmail(params: {
           New IBPA application
         </p>
         <h1 style="margin: 0 0 20px; font-size: 28px; line-height: 1.1;">
-          ${name || "New applicant"}
+          ${escapeHtml(name || "New applicant")}
         </h1>
         <p style="margin: 0 0 18px; font-size: 16px; line-height: 1.7;">
           A new application was submitted on the IBPA website.
         </p>
         <div style="margin: 24px 0; padding: 16px 18px; background: #f8fafc; border-radius: 18px;">
-          <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Email:</strong> ${email}</p>
+          <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Email:</strong> ${escapeHtml(email)}</p>
           ${importantFields
             .map(
               ([label, value]) =>
-                `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>${label}:</strong> ${String(value)}</p>`,
+                `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(value))}</p>`,
             )
             .join("")}
         </div>
@@ -826,14 +849,12 @@ ordersRouter.post("/", async (req, res) => {
     email,
     name,
     package: rawMembershipPackage,
-    accountType: rawAccountType,
-    applicantType,
     application,
     phone,
     honeypot,
   } = req.body;
   const membershipPackage = normalizeMembershipPackage(rawMembershipPackage);
-  const accountType = normalizeOrderAccountType(rawAccountType);
+  const accountType: "member" = "member";
   const secureToken = crypto.randomUUID();
 
   if (typeof honeypot === "string" && honeypot.trim()) {
@@ -842,13 +863,14 @@ ordersRouter.post("/", async (req, res) => {
 
   const clientIp = getClientAddress(req);
   const safeEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const safeName = typeof name === "string" ? name.trim() : "";
   const userAgent = normalizeHeaderValue(req.header("user-agent"));
 
   if (!isValidEmail(email)) {
     return res.status(400).json({ error: "Please provide a valid email address." });
   }
 
-  if (typeof name !== "string" || name.trim().length < 2 || name.trim().length > 120) {
+  if (safeName.length < 2 || safeName.length > 120) {
     return res.status(400).json({ error: "Please provide a valid applicant name." });
   }
 
@@ -881,7 +903,7 @@ ordersRouter.post("/", async (req, res) => {
       createdAt: orders.createdAt,
     })
     .from(orders)
-    .where(eq(orders.email, safeEmail))
+    .where(sql`lower(${orders.email}) = lower(${safeEmail})`)
     .orderBy(desc(orders.createdAt))
     .limit(1);
 
@@ -890,7 +912,12 @@ ordersRouter.post("/", async (req, res) => {
   }
 
   // Try to get phone from top-level body or fallback to application payload
-  const applicantPhone = phone || (application ? application.phone : null);
+  const applicantType = MEMBERSHIP_APPLICANT_TYPES[membershipPackage];
+  const rawPhoneCandidate = phone ?? (application ? (application as Record<string, unknown>).phone : null);
+  const applicantPhone =
+    typeof rawPhoneCandidate === "string" && rawPhoneCandidate.trim().length > 0
+      ? rawPhoneCandidate.trim().slice(0, 50)
+      : null;
 
   const portfolioImages =
     Array.isArray(normalizedApplication.portfolioImages)
@@ -988,8 +1015,8 @@ ordersRouter.post("/", async (req, res) => {
 
   try {
     const [newOrder] = await db.insert(orders).values({
-      email,
-      name,
+      email: safeEmail,
+      name: safeName,
       accountType,
       phone: applicantPhone,
       membershipCategory: membershipPackage,
@@ -1002,26 +1029,26 @@ ordersRouter.post("/", async (req, res) => {
 
     try {
       const emailResult = await sendApplicationReceivedEmail({
-        email,
-        name,
+        email: safeEmail,
+        name: safeName,
         membershipPackage,
       });
       console.log("Application confirmation email sent", {
-        to: email,
+        to: safeEmail,
         id: emailResult.data?.id ?? null,
         error: emailResult.error ?? null,
       });
     } catch (emailError) {
       console.error("Application confirmation email failed", {
-        to: email,
+        to: safeEmail,
         error: emailError,
       });
     }
 
     try {
       const adminEmailResult = await sendAdminNewApplicationEmail({
-        email,
-        name,
+        email: safeEmail,
+        name: safeName,
         phone: applicantPhone,
         membershipPackage,
         applicantType,
@@ -1632,7 +1659,7 @@ ordersRouter.get("/verify/:token", async (req, res) => {
           });
         }
 
-        return res.json(paidOrder || { ...order, status: "paid", stripeSessionId: session.id });
+        return res.json(toVerificationResponse(paidOrder || { ...order, status: "paid", stripeSessionId: session.id }));
       }
 
       console.warn("[Verify Payment] Stripe session did not match paid order", {
@@ -1645,7 +1672,7 @@ ordersRouter.get("/verify/:token", async (req, res) => {
       });
     }
 
-    res.json(order);
+    res.json(toVerificationResponse(order));
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });

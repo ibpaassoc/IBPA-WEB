@@ -66,6 +66,15 @@ function isValidEmail(value: unknown) {
   return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function getRequiredEnv(name: string) {
   const value = process.env[name];
   if (!value) {
@@ -247,10 +256,10 @@ async function sendPartnerApplicationReceivedEmail(params: {
           Partnership application received
         </h1>
         <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
-          Hello ${name || "there"},
+          Hello ${escapeHtml(name || "there")},
         </p>
         <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
-          Thank you for your interest in partnering with IBPA. Our team has received your application${requestedTier ? ` for the <strong>${requestedTier}</strong> tier` : ""} and will review it shortly.
+          Thank you for your interest in partnering with IBPA. Our team has received your application${requestedTier ? ` for the <strong>${escapeHtml(requestedTier)}</strong> tier` : ""} and will review it shortly.
         </p>
         <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
           If approved, we will send your payment link with next steps.
@@ -279,13 +288,13 @@ async function sendAdminPartnerApplicationEmail(params: {
           New partner application
         </p>
         <h1 style="margin: 0 0 20px; font-size: 28px; line-height: 1.1;">
-          ${name || "New applicant"}
+          ${escapeHtml(name || "New applicant")}
         </h1>
         <div style="margin: 24px 0; padding: 16px 18px; background: #f8fafc; border-radius: 18px;">
-          <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Email:</strong> ${email}</p>
-          ${phone ? `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Phone:</strong> ${phone}</p>` : ""}
-          ${requestedTier ? `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Requested tier:</strong> ${requestedTier}</p>` : ""}
-          <p style="margin: 0; font-size: 14px; line-height: 1.7;"><strong>Message:</strong><br/>${message.replace(/\n/g, "<br/>")}</p>
+          <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Email:</strong> ${escapeHtml(email)}</p>
+          ${phone ? `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Phone:</strong> ${escapeHtml(phone)}</p>` : ""}
+          ${requestedTier ? `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Requested tier:</strong> ${escapeHtml(requestedTier)}</p>` : ""}
+          <p style="margin: 0; font-size: 14px; line-height: 1.7;"><strong>Message:</strong><br/>${escapeHtml(message).replace(/\n/g, "<br/>")}</p>
         </div>
       </div>
     `,
@@ -306,9 +315,9 @@ async function sendPartnerApprovalEmail(params: {
     subject: "Your IBPA partner application has been approved",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
-        <h1 style="margin: 0 0 18px; font-size: 30px; line-height: 1.1;">Congratulations, ${name || "there"}!</h1>
+        <h1 style="margin: 0 0 18px; font-size: 30px; line-height: 1.1;">Congratulations, ${escapeHtml(name || "there")}!</h1>
         <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
-          Your IBPA partner application has been approved for the <strong>${requestedTier}</strong> tier.
+          Your IBPA partner application has been approved for the <strong>${escapeHtml(requestedTier)}</strong> tier.
         </p>
         <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
           To activate your partner account, complete payment with the link below:
@@ -319,7 +328,7 @@ async function sendPartnerApprovalEmail(params: {
           </a>
         </div>
         <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #64748b;">
-          If the button does not work, copy this link:<br />${checkoutUrl || ""}
+          If the button does not work, copy this link:<br />${escapeHtml(checkoutUrl || "")}
         </p>
       </div>
     `,
@@ -342,11 +351,11 @@ async function sendAdminPartnerPaymentLinkSentEmail(params: {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
         <h1 style="margin: 0 0 16px; font-size: 24px;">Partner payment link sent</h1>
-        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${name || "Unknown"}</p>
-        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${email}</p>
-        <p style="margin: 0 0 10px;"><strong>Tier:</strong> ${requestedTier}</p>
-        <p style="margin: 0 0 10px;"><strong>Partner application ID:</strong> ${applicationId}</p>
-        ${checkoutUrl ? `<p style="margin: 18px 0 0;"><a href="${checkoutUrl}">Stripe checkout link</a></p>` : ""}
+        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${escapeHtml(name || "Unknown")}</p>
+        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${escapeHtml(email)}</p>
+        <p style="margin: 0 0 10px;"><strong>Tier:</strong> ${escapeHtml(requestedTier)}</p>
+        <p style="margin: 0 0 10px;"><strong>Partner application ID:</strong> ${escapeHtml(applicationId)}</p>
+        ${checkoutUrl ? `<p style="margin: 18px 0 0;"><a href="${escapeHtml(checkoutUrl)}">Stripe checkout link</a></p>` : ""}
       </div>
     `,
   });
@@ -361,7 +370,7 @@ async function sendPartnerRejectedEmail(params: { email: string; name: string })
     subject: "Your IBPA partner application was not approved",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
-        <h2 style="color: #333; text-transform: uppercase;">Hello, ${name || "there"}!</h2>
+        <h2 style="color: #333; text-transform: uppercase;">Hello, ${escapeHtml(name || "there")}!</h2>
         <p>Thank you for your interest in partnering with IBPA.</p>
         <p>After review, we are unable to approve your partner application at this time.</p>
         <p style="color: #666; font-size: 14px;">If you have questions, reply to this email or contact us at info@ibpassociations.org.</p>

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerBackendUrl } from "@/lib/backend-url";
+import { readBackendResponse } from "@/lib/read-backend-response";
+import { getSafeBackendErrorMessage } from "@/lib/safe-backend-error";
 
 function getBackendUrl() {
   return getServerBackendUrl();
@@ -28,13 +30,16 @@ export async function GET(
       cache: "no-store",
     });
 
-    if (res.ok) {
-      const data = await res.json();
-      return NextResponse.json(data);
-    } else {
-      const text = await res.text();
-      return NextResponse.json({ error: text || "Backend Error" }, { status: res.status });
+    const { data, text } = await readBackendResponse(res);
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: getSafeBackendErrorMessage(data, text, "Unable to verify payment link right now.") },
+        { status: res.status },
+      );
     }
+
+    return NextResponse.json(data);
   } catch (error: any) {
     console.error("[Orders verify proxy] Failed to reach backend:", error);
     return NextResponse.json({ error: "Failed to reach backend verification API" }, { status: 500 });
