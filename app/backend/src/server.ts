@@ -8,6 +8,7 @@ import { contentRouter } from "./routes/content";
 import { contactRouter } from "./routes/contact";
 import { membersRouter } from "./routes/members";
 import { partnerApplicationsRouter } from "./routes/partner-applications";
+import { ensureRuntimeSchemaCompat } from "./lib/runtime-schema-compat";
 
 const app = express();
 const port = process.env.PORT || 3003;
@@ -56,6 +57,17 @@ app.use("/api/contact", contactRouter);
 app.use("/api/members", membersRouter);
 app.use("/api/partner-applications", partnerApplicationsRouter);
 
-app.listen(port, () => {
-  console.log(`Backend listening at port ${port}`);
-});
+async function startServer() {
+  try {
+    await ensureRuntimeSchemaCompat();
+    console.log("[Startup] Runtime schema compatibility check complete.");
+  } catch (error) {
+    console.error("[Startup] Runtime schema compatibility check failed.", error);
+  }
+
+  app.listen(port, () => {
+    console.log(`Backend listening at port ${port}`);
+  });
+}
+
+void startServer();

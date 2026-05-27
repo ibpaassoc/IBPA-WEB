@@ -8,7 +8,8 @@
     "start": "tsx src/dev-server.ts",
     "lint": "eslint .",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "repair:payments": "tsx scripts/repair-application-payment-state.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.0.4",

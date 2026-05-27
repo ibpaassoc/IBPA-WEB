@@ -29,6 +29,7 @@ const DEFAULT_SUMMARY: AdminPartnerApplicationsSummary = {
   all: 0,
   pending: 0,
   approved: 0,
+  submitted: 0,
   rejected: 0,
   paid: 0,
 };
@@ -40,6 +41,7 @@ const STATUS_OPTIONS: Array<{ value: "all" | PartnerApplicationStatus; label: st
   { value: "all", label: "All statuses" },
   { value: "PENDING", label: "Pending" },
   { value: "APPROVED", label: "Approved" },
+  { value: "SUBMITTED", label: "Submitted" },
   { value: "REJECTED", label: "Rejected" },
 ];
 
@@ -56,18 +58,21 @@ function UnifiedStatusBadge({ status, paymentStatus }: { status: PartnerApplicat
   const styles = {
     PENDING: "bg-orange-50 text-orange-600 border-orange-100",
     APPROVED: "bg-blue-50 text-blue-600 border-blue-100",
+    SUBMITTED: "bg-emerald-50 text-emerald-700 border-emerald-100",
     REJECTED: "bg-rose-50 text-rose-600 border-rose-100",
   } as const;
 
   const labels = {
     PENDING: "Pending",
     APPROVED: "Approved",
+    SUBMITTED: "Submitted",
     REJECTED: "Rejected",
   } as const;
 
   const icon = {
     PENDING: <Clock3 className="h-3 w-3" />,
     APPROVED: <ExternalLink className="h-3 w-3" />,
+    SUBMITTED: <CheckCircle2 className="h-3 w-3" />,
     REJECTED: <XCircle className="h-3 w-3" />,
   } as const;
 
@@ -304,6 +309,7 @@ export default function PartnerApplicationsPage() {
       { label: "Total", value: summary.all },
       { label: "Pending", value: summary.pending },
       { label: "Approved", value: summary.approved },
+      { label: "Submitted", value: summary.submitted },
       { label: "Rejected", value: summary.rejected },
       { label: "Paid", value: summary.paid },
     ],
@@ -355,7 +361,7 @@ export default function PartnerApplicationsPage() {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         {summaryCards.map((card) => (
           <div key={card.label} className="rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{card.label}</p>

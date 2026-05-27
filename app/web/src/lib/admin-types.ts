@@ -96,7 +96,7 @@ export type AdminContentItem = {
   updatedAt: string;
 };
 
-export type PartnerApplicationStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type PartnerApplicationStatus = "PENDING" | "APPROVED" | "SUBMITTED" | "REJECTED";
 export type PartnerPaymentStatus = "UNPAID" | "PENDING" | "PAID" | "FAILED";
 
 export type AdminPartnerApplication = {
@@ -122,6 +122,7 @@ export type AdminPartnerApplicationsSummary = {
   all: number;
   pending: number;
   approved: number;
+  submitted: number;
   rejected: number;
   paid: number;
 };

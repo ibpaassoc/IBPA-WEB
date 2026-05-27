@@ -19,6 +19,9 @@ export const orders = pgTable("orders", {
   applicationPayload: jsonb("application_payload"),
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, review, approved, paid
   stripeSessionId: text("stripe_session_id"),
+  confirmationEmailStatus: varchar("confirmation_email_status", { length: 30 }).notNull().default("NOT_SENT"),
+  emailSentAt: timestamp("email_sent_at"),
+  emailError: text("email_error"),
   secureToken: varchar("secure_token", { length: 255 }).notNull().unique(),
   package: varchar("package", { length: 50 }),
   phone: varchar("phone", { length: 50 }),
@@ -161,6 +164,9 @@ export const partnerApplications = pgTable("partner_applications", {
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   stripeInvoiceId: text("stripe_invoice_id"),
   partnerOrderId: uuid("partner_order_id").references(() => orders.id, { onDelete: "set null" }),
+  confirmationEmailStatus: varchar("confirmation_email_status", { length: 30 }).notNull().default("NOT_SENT"),
+  emailSentAt: timestamp("email_sent_at"),
+  emailError: text("email_error"),
   approvedAt: timestamp("approved_at"),
   paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -171,6 +177,15 @@ export const partnerApplications = pgTable("partner_applications", {
   index("partner_applications_payment_status_idx").on(table.paymentStatus),
   index("partner_applications_created_at_idx").on(table.createdAt),
 ]);
+
+export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventId: text("event_id").notNull().unique(),
+  eventType: varchar("event_type", { length: 120 }).notNull(),
+  livemode: boolean("livemode").notNull().default(false),
+  processedAt: timestamp("processed_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
 export type CardRequest = typeof cardRequests.$inferSelect;
 export type Order = typeof orders.$inferSelect;
@@ -183,3 +198,4 @@ export type User = typeof users.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type TeamSeatExtension = typeof teamSeatExtensions.$inferSelect;
 export type PartnerApplication = typeof partnerApplications.$inferSelect;
+export type StripeWebhookEvent = typeof stripeWebhookEvents.$inferSelect;

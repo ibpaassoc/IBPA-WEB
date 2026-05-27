@@ -2,17 +2,117 @@ import { Router } from "express";
 import bodyParser from "body-parser";
 import Stripe from "stripe";
 import crypto from "crypto";
-import { requireDb, orders, certificates, users, emailLogs, partnerApplications } from "../lib/db";
+import { requireDb, orders, certificates, users, emailLogs, partnerApplications, stripeWebhookEvents } from "../lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { stripe } from "../services/stripe";
 import { adminNotificationEmail, resend, resendFrom } from "../services/email";
 
 export const webhooksRouter = Router();
-const processedInvoiceCopyEvents = new Set<string>();
 const dashboardActivationSubject = "Complete your IBPA dashboard access";
+const stripeWebhookSecretEnvKeys = [
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_WEBHOOK_SECRET_LIVE",
+  "STRIPE_WEBHOOK_SECRET_TEST",
+] as const;
 
 function dashboardActivationLogBody(orderId: string) {
   return `stripe-dashboard-activation:${orderId}`;
+}
+
+function normalizeStripeSignatureHeader(header: string | string[] | undefined) {
+  if (typeof header === "string" && header.trim()) {
+    return header.trim();
+  }
+
+  if (Array.isArray(header)) {
+    const first = header.find((value) => typeof value === "string" && value.trim());
+    return first ? first.trim() : null;
+  }
+
+  return null;
+}
+
+function parseSecrets(value: string | undefined) {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getStripeWebhookSecrets() {
+  const secrets = new Set<string>();
+
+  for (const key of stripeWebhookSecretEnvKeys) {
+    for (const secret of parseSecrets(process.env[key])) {
+      secrets.add(secret);
+    }
+  }
+
+  for (const secret of parseSecrets(process.env.STRIPE_WEBHOOK_SECRETS)) {
+    secrets.add(secret);
+  }
+
+  return Array.from(secrets);
+}
+
+function maskWebhookSecret(secret: string) {
+  if (secret.length <= 8) {
+    return "***";
+  }
+
+  return `${secret.slice(0, 6)}...${secret.slice(-4)}`;
+}
+
+function getRawBodyBuffer(body: unknown) {
+  if (Buffer.isBuffer(body)) {
+    return body;
+  }
+
+  if (body instanceof Uint8Array) {
+    return Buffer.from(body);
+  }
+
+  return null;
+}
+
+function getStripeSecretKeyMode() {
+  const key = process.env.STRIPE_SECRET_KEY?.trim() || "";
+  if (key.startsWith("sk_live_")) {
+    return "live";
+  }
+  if (key.startsWith("sk_test_")) {
+    return "test";
+  }
+  return "unknown";
+}
+
+async function hasProcessedStripeEvent(db: ReturnType<typeof requireDb>, eventId: string) {
+  const [existing] = await db
+    .select({ id: stripeWebhookEvents.id })
+    .from(stripeWebhookEvents)
+    .where(eq(stripeWebhookEvents.eventId, eventId))
+    .limit(1);
+
+  return Boolean(existing);
+}
+
+async function markStripeEventProcessed(db: ReturnType<typeof requireDb>, event: Stripe.Event) {
+  const inserted = await db
+    .insert(stripeWebhookEvents)
+    .values({
+      eventId: event.id,
+      eventType: event.type,
+      livemode: Boolean(event.livemode),
+      processedAt: new Date(),
+    })
+    .onConflictDoNothing({ target: stripeWebhookEvents.eventId })
+    .returning({ eventId: stripeWebhookEvents.eventId });
+
+  return inserted.length > 0;
 }
 
 async function ensureEmailLogsTable(db: ReturnType<typeof requireDb>) {
@@ -349,7 +449,7 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
   const [updatedApplication] = await db
     .update(partnerApplications)
     .set({
-      status: "APPROVED",
+      status: "SUBMITTED",
       paymentStatus: "PAID",
       stripeCheckoutSessionId: session.id,
       stripePaymentIntentId: paymentIntentId || application.stripePaymentIntentId,
@@ -363,6 +463,13 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
   const partnerOrder = await ensurePartnerOrderForApplication({
     db,
     application: updatedApplication || application,
+    sessionId: session.id,
+  });
+
+  console.log("[Stripe Webhook] payment:matched", {
+    source: "partner_application",
+    partnerApplicationId: application.id,
+    partnerOrderId: partnerOrder.id,
     sessionId: session.id,
   });
 
@@ -387,6 +494,17 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
     });
   }
 
+  if (activationEmailAlreadySent && application.confirmationEmailStatus !== "SENT") {
+    await db
+      .update(partnerApplications)
+      .set({
+        confirmationEmailStatus: "SENT",
+        emailError: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(partnerApplications.id, application.id));
+  }
+
   if (!activationEmailAlreadySent) {
     try {
       const emailResult = await sendDashboardActivationEmail({
@@ -394,6 +512,18 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
         name: application.name,
         secureToken: partnerOrder.secureToken,
       });
+      const emailSentSuccessfully = !emailResult.error;
+
+      await db
+        .update(partnerApplications)
+        .set({
+          confirmationEmailStatus: emailSentSuccessfully ? "SENT" : "FAILED",
+          emailSentAt: emailSentSuccessfully ? new Date() : application.emailSentAt,
+          emailError: emailSentSuccessfully ? null : JSON.stringify(emailResult.error),
+          updatedAt: new Date(),
+        })
+        .where(eq(partnerApplications.id, application.id));
+
       console.log("[Stripe Webhook] Partner dashboard activation email sent", {
         to: application.email,
         partnerApplicationId: application.id,
@@ -415,6 +545,15 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
         }
       }
     } catch (emailError) {
+      await db
+        .update(partnerApplications)
+        .set({
+          confirmationEmailStatus: "FAILED",
+          emailError: emailError instanceof Error ? emailError.message : String(emailError),
+          updatedAt: new Date(),
+        })
+        .where(eq(partnerApplications.id, application.id));
+
       console.error("[Stripe Webhook] Failed to send partner dashboard activation email", {
         to: application.email,
         partnerApplicationId: application.id,
@@ -447,9 +586,10 @@ async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.
     });
   }
 
-  console.log("[Stripe Webhook] Partner application marked as paid", {
+  console.log("[Stripe Webhook] Partner application marked as submitted", {
     partnerApplicationId: application.id,
     partnerOrderId: partnerOrder.id,
+    status: "SUBMITTED",
     sessionId: session.id,
     paymentIntentId,
     invoiceId,
@@ -506,24 +646,97 @@ async function sendStripeInvoiceCopyEmail(invoice: Stripe.Invoice) {
 }
 
 // 1. Stripe Webhook (needs raw body parser)
-webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), async (req, res) => {
-  const sig = req.headers["stripe-signature"];
-  let event;
+webhooksRouter.post("/stripe", bodyParser.raw({ type: "*/*" }), async (req, res) => {
+  const signature = normalizeStripeSignatureHeader(req.headers["stripe-signature"]);
+  const rawBody = getRawBodyBuffer(req.body);
+  const webhookSecrets = getStripeWebhookSecrets();
 
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    console.error("Stripe Webhook Error: STRIPE_WEBHOOK_SECRET is not configured");
-    return res.status(500).send("Webhook Error: Stripe webhook secret is not configured");
+  console.log("[Stripe Webhook] received", {
+    path: req.originalUrl || req.url,
+    hasSignatureHeader: Boolean(signature),
+    bodyType: Buffer.isBuffer(req.body) ? "buffer" : typeof req.body,
+    rawBodyLength: rawBody?.length ?? null,
+    configuredSecretCount: webhookSecrets.length,
+  });
+
+  if (!signature) {
+    console.error("[Stripe Webhook] Missing stripe-signature header");
+    return res.status(400).json({ error: "Webhook Error: missing stripe-signature header" });
   }
 
+  if (!rawBody) {
+    console.error("[Stripe Webhook] Raw request body is unavailable for signature verification", {
+      bodyType: typeof req.body,
+    });
+    return res.status(400).json({ error: "Webhook Error: raw request body is required" });
+  }
+
+  if (!webhookSecrets.length) {
+    console.error("[Stripe Webhook] No webhook secret is configured", {
+      requiredEnv: ["STRIPE_WEBHOOK_SECRET", "STRIPE_WEBHOOK_SECRET_LIVE", "STRIPE_WEBHOOK_SECRET_TEST", "STRIPE_WEBHOOK_SECRETS"],
+    });
+    return res.status(500).json({ error: "Webhook Error: Stripe webhook secret is not configured" });
+  }
+
+  let event: Stripe.Event | null = null;
+  let matchedSecret: string | null = null;
+  let verificationError: unknown = null;
+
+  for (const secret of webhookSecrets) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+      matchedSecret = secret;
+      break;
+    } catch (error) {
+      verificationError = error;
+    }
+  }
+
+  if (!event || !matchedSecret) {
+    console.error("[Stripe Webhook] Signature verification failed", {
+      rawBodyLength: rawBody.length,
+      configuredSecrets: webhookSecrets.map(maskWebhookSecret),
+      error: verificationError instanceof Error ? verificationError.message : String(verificationError),
+    });
+    return res.status(400).json({ error: "Webhook Error: signature verification failed" });
+  }
+
+  console.log("[Stripe Webhook] verified", {
+    eventId: event.id,
+    eventType: event.type,
+    livemode: event.livemode,
+    matchedSecret: maskWebhookSecret(matchedSecret),
+  });
+
+  const stripeKeyMode = getStripeSecretKeyMode();
+  if ((event.livemode && stripeKeyMode === "test") || (!event.livemode && stripeKeyMode === "live")) {
+    console.warn("[Stripe Webhook] Stripe mode mismatch detected", {
+      eventId: event.id,
+      livemode: event.livemode,
+      stripeKeyMode,
+      hint: "Check STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET values for this deployment.",
+    });
+  }
+
+  const db = requireDb();
+  let alreadyProcessed = false;
   try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig!,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err: any) {
-    console.error("Stripe Webhook Error:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    alreadyProcessed = await hasProcessedStripeEvent(db, event.id);
+  } catch (idempotencyLookupError) {
+    console.error("[Stripe Webhook] Failed to check processed event id", {
+      eventId: event.id,
+      eventType: event.type,
+      error: idempotencyLookupError,
+    });
+    return res.status(500).json({ error: "Failed to verify webhook idempotency state" });
+  }
+
+  if (alreadyProcessed) {
+    console.log("[Stripe Webhook] duplicate:event-skipped", {
+      eventId: event.id,
+      eventType: event.type,
+    });
+    return res.json({ received: true, duplicate: true });
   }
 
   try {
@@ -538,114 +751,149 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
           sessionId: session.id,
           tier: session.metadata?.sponsorshipTier ?? null,
         });
-        return res.json({ received: true });
-      }
-
-      if (orderKind === "partner_application" || metadataType === "partner_application") {
+      } else if (orderKind === "partner_application" || metadataType === "partner_application") {
         await handlePartnerApplicationCheckoutSession(session);
-        return res.json({ received: true });
-      }
-
-      if (orderId) {
-        const db = requireDb();
+      } else if (orderId) {
         const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
 
         if (!order) {
           console.warn(`[Stripe Webhook] Order ${orderId} not found for paid session ${session.id}`);
-          return res.json({ received: true });
-        }
-
-        let activationEmailAlreadySent = false;
-        try {
-          activationEmailAlreadySent = await hasSentDashboardActivationEmail(db, order.email, order.id);
-        } catch (emailLogError) {
-          console.error("[Stripe Webhook] Failed to check dashboard activation email log", {
-            orderId: order.id,
-            email: order.email,
-            error: emailLogError,
-          });
-        }
-
-        const shouldSendActivationEmail =
-          !activationEmailAlreadySent && (order.status !== "paid" || !order.stripeSessionId || session.id === order.stripeSessionId);
-        await markOrderPaid(orderId, session.id);
-        console.log(`[Stripe Webhook] Order ${orderId} marked as paid for session ${session.id}`);
-
-        if (typeof session.subscription === "string") {
-          try {
-            const { expiresAt } = await getMembershipSubscriptionExpiry(session.subscription);
-            await updateCertificateExpiry(orderId, expiresAt);
-            console.log(`[Stripe Webhook] Membership order ${orderId} expiresAt synced: ${expiresAt.toISOString()}`);
-          } catch (expiryError) {
-            console.error("[Stripe Webhook] Failed to sync membership expiry", {
-              orderId,
-              sessionId: session.id,
-              subscriptionId: session.subscription,
-              error: expiryError,
-            });
-          }
-        }
-
-        if (shouldSendActivationEmail) {
-          try {
-            const emailResult = await sendDashboardActivationEmail({
-              email: order.email,
-              name: order.name,
-              secureToken: order.secureToken,
-            });
-            console.log("[Stripe Webhook] Dashboard activation email sent", {
-              to: order.email,
-              id: emailResult.data?.id ?? null,
-              error: emailResult.error ?? null,
-            });
-
-            if (!emailResult.error) {
-              try {
-                await logDashboardActivationEmailSent(db, order.email, order.id);
-              } catch (emailLogError) {
-                console.error("[Stripe Webhook] Failed to log dashboard activation email", {
-                  orderId: order.id,
-                  email: order.email,
-                  error: emailLogError,
-                });
-              }
-            }
-          } catch (emailError) {
-            console.error("[Stripe Webhook] Failed to send dashboard activation email", {
-              to: order.email,
-              error: emailError,
-            });
-          }
-
-          try {
-            const adminEmailResult = await sendAdminPaymentReceivedEmail({
-              email: order.email,
-              name: order.name,
-              orderId: order.id,
-              membershipCategory: order.membershipCategory,
-              stripeSessionId: session.id,
-            });
-            console.log("[Stripe Webhook] Admin payment received notification sent", {
-              to: adminNotificationEmail,
-              id: adminEmailResult.data?.id ?? null,
-              error: adminEmailResult.error ?? null,
-            });
-          } catch (adminEmailError) {
-            console.error("[Stripe Webhook] Admin payment received notification failed", {
-              to: adminNotificationEmail,
-              error: adminEmailError,
-            });
-          }
         } else {
-          console.log("[Stripe Webhook] Dashboard activation email skipped", {
+          console.log("[Stripe Webhook] payment:matched", {
+            source: "membership",
             orderId: order.id,
-            email: order.email,
-            activationEmailAlreadySent,
-            orderStatus: order.status,
-            existingStripeSessionId: order.stripeSessionId ?? null,
-            eventStripeSessionId: session.id,
+            sessionId: session.id,
           });
+
+          let activationEmailAlreadySent = false;
+          try {
+            activationEmailAlreadySent = await hasSentDashboardActivationEmail(db, order.email, order.id);
+          } catch (emailLogError) {
+            console.error("[Stripe Webhook] Failed to check dashboard activation email log", {
+              orderId: order.id,
+              email: order.email,
+              error: emailLogError,
+            });
+          }
+
+          if (activationEmailAlreadySent && order.confirmationEmailStatus !== "SENT") {
+            await db
+              .update(orders)
+              .set({
+                confirmationEmailStatus: "SENT",
+                emailError: null,
+              })
+              .where(eq(orders.id, order.id));
+          }
+
+          const shouldSendActivationEmail =
+            !activationEmailAlreadySent && (order.status !== "paid" || !order.stripeSessionId || session.id === order.stripeSessionId);
+          await markOrderPaid(orderId, session.id);
+          console.log(`[Stripe Webhook] Order ${orderId} marked as paid for session ${session.id}`);
+
+          if (typeof session.subscription === "string") {
+            try {
+              const { expiresAt } = await getMembershipSubscriptionExpiry(session.subscription);
+              await updateCertificateExpiry(orderId, expiresAt);
+              console.log(`[Stripe Webhook] Membership order ${orderId} expiresAt synced: ${expiresAt.toISOString()}`);
+            } catch (expiryError) {
+              console.error("[Stripe Webhook] Failed to sync membership expiry", {
+                orderId,
+                sessionId: session.id,
+                subscriptionId: session.subscription,
+                error: expiryError,
+              });
+            }
+          }
+
+          if (shouldSendActivationEmail) {
+            try {
+              const emailResult = await sendDashboardActivationEmail({
+                email: order.email,
+                name: order.name,
+                secureToken: order.secureToken,
+              });
+              const emailSentSuccessfully = !emailResult.error;
+
+              await db
+                .update(orders)
+                .set({
+                  confirmationEmailStatus: emailSentSuccessfully ? "SENT" : "FAILED",
+                  emailSentAt: emailSentSuccessfully ? new Date() : order.emailSentAt,
+                  emailError: emailSentSuccessfully ? null : JSON.stringify(emailResult.error),
+                })
+                .where(eq(orders.id, order.id));
+
+              console.log("[Stripe Webhook] Dashboard activation email sent", {
+                to: order.email,
+                orderId: order.id,
+                id: emailResult.data?.id ?? null,
+                error: emailResult.error ?? null,
+              });
+
+              if (!emailResult.error) {
+                try {
+                  await logDashboardActivationEmailSent(db, order.email, order.id);
+                } catch (emailLogError) {
+                  console.error("[Stripe Webhook] Failed to log dashboard activation email", {
+                    orderId: order.id,
+                    email: order.email,
+                    error: emailLogError,
+                  });
+                }
+              }
+            } catch (emailError) {
+              await db
+                .update(orders)
+                .set({
+                  confirmationEmailStatus: "FAILED",
+                  emailError: emailError instanceof Error ? emailError.message : String(emailError),
+                })
+                .where(eq(orders.id, order.id));
+
+              console.error("[Stripe Webhook] Failed to send dashboard activation email", {
+                to: order.email,
+                orderId: order.id,
+                error: emailError,
+              });
+            }
+
+            try {
+              const adminEmailResult = await sendAdminPaymentReceivedEmail({
+                email: order.email,
+                name: order.name,
+                orderId: order.id,
+                membershipCategory: order.membershipCategory,
+                stripeSessionId: session.id,
+              });
+              console.log("[Stripe Webhook] Admin payment received notification sent", {
+                to: adminNotificationEmail,
+                id: adminEmailResult.data?.id ?? null,
+                error: adminEmailResult.error ?? null,
+              });
+            } catch (adminEmailError) {
+              console.error("[Stripe Webhook] Admin payment received notification failed", {
+                to: adminNotificationEmail,
+                error: adminEmailError,
+              });
+            }
+          } else {
+            console.log("[Stripe Webhook] Dashboard activation email skipped", {
+              orderId: order.id,
+              email: order.email,
+              activationEmailAlreadySent,
+              orderStatus: order.status,
+              existingStripeSessionId: order.stripeSessionId ?? null,
+              eventStripeSessionId: session.id,
+            });
+          }
         }
+      } else {
+        console.warn("[Stripe Webhook] checkout.session.completed missing order metadata", {
+          sessionId: session.id,
+          orderKind: orderKind || null,
+          metadataType: metadataType || null,
+        });
       }
     }
 
@@ -672,40 +920,32 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
     if (event.type === "invoice.sent") {
       const invoice = event.data.object as Stripe.Invoice;
 
-      if (processedInvoiceCopyEvents.has(event.id)) {
-        console.log("[Stripe Webhook] Invoice copy email already processed for event", {
-          eventId: event.id,
-          invoiceId: invoice.id,
-        });
-      } else {
-        try {
-          const copyEmailResult = await sendStripeInvoiceCopyEmail(invoice);
+      try {
+        const copyEmailResult = await sendStripeInvoiceCopyEmail(invoice);
 
-          if (copyEmailResult?.error) {
-            console.error("[Stripe Webhook] Stripe invoice copy notification failed", {
-              to: resendFrom,
-              invoiceId: invoice.id,
-              invoiceNumber: invoice.number ?? null,
-              error: copyEmailResult.error,
-            });
-          } else if (copyEmailResult) {
-            processedInvoiceCopyEvents.add(event.id);
-            console.log("[Stripe Webhook] Stripe invoice copy notification sent", {
-              to: resendFrom,
-              invoiceId: invoice.id,
-              invoiceNumber: invoice.number ?? null,
-              id: copyEmailResult.data?.id ?? null,
-              error: copyEmailResult.error ?? null,
-            });
-          }
-        } catch (copyEmailError) {
+        if (copyEmailResult?.error) {
           console.error("[Stripe Webhook] Stripe invoice copy notification failed", {
             to: resendFrom,
             invoiceId: invoice.id,
             invoiceNumber: invoice.number ?? null,
-            error: copyEmailError,
+            error: copyEmailResult.error,
+          });
+        } else if (copyEmailResult) {
+          console.log("[Stripe Webhook] Stripe invoice copy notification sent", {
+            to: resendFrom,
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.number ?? null,
+            id: copyEmailResult.data?.id ?? null,
+            error: copyEmailResult.error ?? null,
           });
         }
+      } catch (copyEmailError) {
+        console.error("[Stripe Webhook] Stripe invoice copy notification failed", {
+          to: resendFrom,
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.number ?? null,
+          error: copyEmailError,
+        });
       }
     }
 
@@ -735,7 +975,23 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "application/json" }), asy
     return res.status(500).json({ error: "Failed to process Stripe webhook event" });
   }
 
-  res.json({ received: true });
+  try {
+    const eventMarked = await markStripeEventProcessed(db, event);
+    if (!eventMarked) {
+      console.log("[Stripe Webhook] duplicate:event-mark-race", {
+        eventId: event.id,
+        eventType: event.type,
+      });
+    }
+  } catch (eventMarkError) {
+    console.error("[Stripe Webhook] Failed to persist processed event id", {
+      eventId: event.id,
+      eventType: event.type,
+      error: eventMarkError,
+    });
+  }
+
+  return res.json({ received: true });
 });
 
 // Helper: link certificates to a Clerk user by email (case-insensitive)
@@ -803,7 +1059,7 @@ async function upsertUser(clerkUserId: string, email: string, evtData: any) {
 
 // 2. Clerk Webhook
 // NOTE: Must ensure this route gets parsed by express.json() in server.ts
-webhooksRouter.post("/clerk", async (req, res) => {
+webhooksRouter.post("/clerk", bodyParser.json({ type: "application/json" }), async (req, res) => {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 
   if (!WEBHOOK_SECRET) {

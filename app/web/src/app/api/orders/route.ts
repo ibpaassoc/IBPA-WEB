@@ -55,13 +55,17 @@ export async function POST(request: Request) {
     });
 
     if (res.ok) {
-      const data = await res.json();
+      const { data } = await readBackendResponse(res);
       return NextResponse.json(data);
-    } else {
-      const text = await res.text();
-      return NextResponse.json({ error: text || "Backend Error" }, { status: res.status });
     }
+
+    const { data, text } = await readBackendResponse(res);
+    return NextResponse.json(
+      { error: data?.error || text || "Backend Error" },
+      { status: res.status },
+    );
   } catch (error: any) {
+    console.error("[Public API] Failed to proxy orders POST:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
