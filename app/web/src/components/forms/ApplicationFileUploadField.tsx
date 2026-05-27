@@ -3,6 +3,7 @@
 import React from "react";
 import { FileText, Loader2, Trash2, UploadCloud } from "lucide-react";
 import { genUploader } from "uploadthing/client";
+import { toast } from "sonner";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { isImageLikeFile, prepareUploadFiles, withHeicAccept } from "@/lib/heic-upload";
 import type { OurFileRouter } from "@/app/api/uploadthing/core";
@@ -11,6 +12,7 @@ const { uploadFiles } = genUploader<OurFileRouter>({
   url: "/api/uploadthing",
   package: "@uploadthing/react",
 });
+const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 
 type ApplicationFileUploadFieldProps = {
   endpoint: keyof OurFileRouter;
@@ -59,7 +61,9 @@ export function ApplicationFileUploadField({
 
       setIsUploading(true);
       try {
-        const preparedFiles = await prepareUploadFiles(filesToUpload);
+        const preparedFiles = await prepareUploadFiles(filesToUpload, {
+          maxImageBytes: imageOnly ? MAX_IMAGE_BYTES : 16 * 1024 * 1024,
+        });
         const result = await uploadFiles(endpoint, { files: preparedFiles });
         const uploadedUrls = result
           .map((item) => item.serverData?.url || item.ufsUrl || item.url)
@@ -68,6 +72,7 @@ export function ApplicationFileUploadField({
         onChange([...value, ...uploadedUrls].slice(0, maxFiles));
       } catch (error) {
         console.error(`Failed to upload files for ${String(endpoint)}`, error);
+        toast.error(error instanceof Error ? error.message : `Failed to upload files for ${String(endpoint)}.`);
       } finally {
         setIsUploading(false);
       }

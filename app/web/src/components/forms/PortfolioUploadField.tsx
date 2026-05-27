@@ -3,6 +3,7 @@
 import React from "react";
 import { Loader2, Trash2, UploadCloud } from "lucide-react";
 import { genUploader } from "uploadthing/client";
+import { toast } from "sonner";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { isImageLikeFile, prepareUploadFiles } from "@/lib/heic-upload";
 import type { OurFileRouter } from "@/app/api/uploadthing/core";
@@ -22,6 +23,7 @@ type PortfolioUploadFieldProps = {
 
 const MIN_FILES = 5;
 const MAX_FILES = 10;
+const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 
 export function PortfolioUploadField({
   isRu,
@@ -53,7 +55,7 @@ export function PortfolioUploadField({
 
       setIsUploading(true);
       try {
-        const preparedFiles = await prepareUploadFiles(filesToUpload);
+        const preparedFiles = await prepareUploadFiles(filesToUpload, { maxImageBytes: MAX_IMAGE_BYTES });
         const result = await uploadFiles("portfolioUploader", { files: preparedFiles });
         const uploadedUrls = result
           .map((item) => item.serverData?.url || item.ufsUrl || item.url)
@@ -62,6 +64,7 @@ export function PortfolioUploadField({
         onChange([...value, ...uploadedUrls].slice(0, MAX_FILES));
       } catch (error) {
         console.error("Failed to upload portfolio images", error);
+        toast.error(error instanceof Error ? error.message : "Failed to upload portfolio images.");
       } finally {
         setIsUploading(false);
       }
@@ -137,7 +140,7 @@ export function PortfolioUploadField({
             </p>
             <p className="text-xs text-slate-400">
               {t(
-                "JPG, PNG, WEBP. Up to 10 files total.",
+                "JPG, PNG, WEBP. Up to 10 files, max 16MB each.",
                 "JPG, PNG, WEBP. Всего до 10 файлов.",
                 "JPG, PNG, WEBP. Усього до 10 файлів.",
               )}
