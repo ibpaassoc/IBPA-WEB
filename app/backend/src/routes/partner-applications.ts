@@ -17,7 +17,7 @@ const SPONSORSHIP_PRICE_KEYS = {
 
 type PartnerTier = keyof typeof SPONSORSHIP_PRICE_KEYS;
 const PARTNER_TIERS = new Set(Object.keys(SPONSORSHIP_PRICE_KEYS) as PartnerTier[]);
-const PARTNER_STATUSES = new Set(["PENDING", "APPROVED", "REJECTED"]);
+const PARTNER_STATUSES = new Set(["PENDING", "APPROVED", "SUBMITTED", "REJECTED"]);
 const PARTNER_PAYMENT_STATUSES = new Set(["UNPAID", "PENDING", "PAID", "FAILED"]);
 
 const partnerApplicationLimiter = createRateLimiter(4, 30 * 60 * 1000);
@@ -415,6 +415,12 @@ partnerApplicationsRouter.post("/", async (req, res) => {
   }
 
   try {
+    console.log("[Partner Application] create:start", {
+      email: safeEmail,
+      requestedTier: normalizedTier,
+      clientIp,
+    });
+
     const db = requireDb();
     const [recentDuplicate] = await db
       .select({ id: partnerApplications.id, createdAt: partnerApplications.createdAt })
@@ -439,6 +445,12 @@ partnerApplicationsRouter.post("/", async (req, res) => {
         paymentStatus: "UNPAID",
       })
       .returning();
+
+    console.log("[Partner Application] db:saved", {
+      applicationId: created.id,
+      email: safeEmail,
+      requestedTier: normalizedTier,
+    });
 
     try {
       const emailResult = await sendPartnerApplicationReceivedEmail({
@@ -570,6 +582,7 @@ partnerApplicationsRouter.get("/", adminClerkMiddleware, requireAdminAccess, asy
       all: 0,
       pending: 0,
       approved: 0,
+      submitted: 0,
       rejected: 0,
       paid: 0,
     };
@@ -581,6 +594,7 @@ partnerApplicationsRouter.get("/", adminClerkMiddleware, requireAdminAccess, asy
       const status = String(row.status || "").toUpperCase();
       if (status === "PENDING") summary.pending += count;
       if (status === "APPROVED") summary.approved += count;
+      if (status === "SUBMITTED") summary.submitted += count;
       if (status === "REJECTED") summary.rejected += count;
 
       const paymentStatus = String(row.paymentStatus || "").toUpperCase();
@@ -742,6 +756,10 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       return res.status(409).json({ error: "This partner application is already paid." });
     }
 
+    if (application.status === "SUBMITTED") {
+      return res.status(409).json({ error: "This partner application is already submitted." });
+    }
+
     if (application.status === "REJECTED") {
       return res.status(409).json({ error: "Rejected partner applications cannot be approved." });
     }
@@ -759,12 +777,22 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       selectedTier,
     });
 
+    console.log("[Partner Application] checkout:create:start", {
+      applicationId: application.id,
+      partnerOrderId: partnerOrder.id,
+      requestedTier: selectedTier,
+    });
+
     const metadata = {
       type: "partner_application",
       orderKind: "partner_application",
       orderId: partnerOrder.id,
       partnerApplicationId: application.id,
       partnerTier: selectedTier,
+      applicationId: application.id,
+      applicantEmail: application.email,
+      applicationType: "partner_application",
+      environment: process.env.NODE_ENV || "development",
     };
     const price = await stripe.prices.retrieve(priceId);
     const usesRecurringPrice = Boolean(price.recurring);
@@ -783,6 +811,13 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       cancel_url: `${frontendUrl}/partnership?payment=cancelled&tier=${encodeURIComponent(selectedTier)}`,
       ...(usesRecurringPrice ? { subscription_data: { metadata } } : {}),
       metadata,
+    });
+
+    console.log("[Partner Application] checkout:created", {
+      applicationId: application.id,
+      partnerOrderId: partnerOrder.id,
+      sessionId: session.id,
+      mode: usesRecurringPrice ? "subscription" : "payment",
     });
 
     await db

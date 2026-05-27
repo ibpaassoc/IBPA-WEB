@@ -506,6 +506,21 @@ async function createMembershipCheckoutSession(params: {
   const resolvedCertificateNumber = await ensureCertificateRecord(order.id, certificateNumber);
   const priceId = getMembershipPriceId(order.membershipCategory);
   const paymentLinkUrl = getPaymentLinkUrl(order.secureToken);
+  const metadata = {
+    orderId: order.id,
+    orderKind: "membership",
+    certificateNumber: resolvedCertificateNumber,
+    applicationId: order.id,
+    applicantEmail: order.email,
+    applicationType: order.membershipCategory || "membership",
+    environment: process.env.NODE_ENV || "development",
+  };
+
+  console.log("[Order Checkout] stripe:create:start", {
+    orderId: order.id,
+    membershipCategory: order.membershipCategory || null,
+    status: order.status,
+  });
 
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ["card"],
@@ -520,23 +535,26 @@ async function createMembershipCheckoutSession(params: {
     success_url: getSuccessUrl(order.secureToken),
     cancel_url: `${process.env.DASHBOARD_URL || process.env.FRONTEND_URL}/`,
     subscription_data: {
-      metadata: {
-        orderId: order.id,
-        orderKind: "membership",
-        certificateNumber: resolvedCertificateNumber,
-      },
+      metadata,
     },
-    metadata: {
-      orderId: order.id,
-      orderKind: "membership",
-      certificateNumber: resolvedCertificateNumber,
-    },
+    metadata,
+  });
+
+  console.log("[Order Checkout] stripe:created", {
+    orderId: order.id,
+    sessionId: session.id,
   });
 
   await db
     .update(orders)
     .set({ status: "approved", stripeSessionId: session.id })
     .where(eq(orders.id, order.id));
+
+  console.log("[Order Checkout] db:updated", {
+    orderId: order.id,
+    status: "approved",
+    stripeSessionId: session.id,
+  });
 
   return {
     session,
@@ -866,6 +884,12 @@ ordersRouter.post("/", async (req, res) => {
   const safeName = typeof name === "string" ? name.trim() : "";
   const userAgent = normalizeHeaderValue(req.header("user-agent"));
 
+  console.log("[Order Create] start", {
+    email: safeEmail || null,
+    membershipPackage: membershipPackage || null,
+    clientIp,
+  });
+
   if (!isValidEmail(email)) {
     return res.status(400).json({ error: "Please provide a valid email address." });
   }
@@ -896,16 +920,34 @@ ordersRouter.post("/", async (req, res) => {
     return res.status(429).json({ error: "Too many application attempts. Please try again later." });
   }
 
-  const db = requireDb();
-  const [recentDuplicate] = await db
-    .select({
-      id: orders.id,
-      createdAt: orders.createdAt,
-    })
-    .from(orders)
-    .where(sql`lower(${orders.email}) = lower(${safeEmail})`)
-    .orderBy(desc(orders.createdAt))
-    .limit(1);
+  let db: ReturnType<typeof requireDb> | null = null;
+  let recentDuplicate: { id: string; createdAt: Date } | undefined;
+  try {
+    db = requireDb();
+    [recentDuplicate] = await db
+      .select({
+        id: orders.id,
+        createdAt: orders.createdAt,
+      })
+      .from(orders)
+      .where(sql`lower(${orders.email}) = lower(${safeEmail})`)
+      .orderBy(desc(orders.createdAt))
+      .limit(1);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+
+    console.error("[Order Create] failed to check duplicate submissions", {
+      email: safeEmail || null,
+      error,
+    });
+    return res.status(500).json({ error: "Failed to validate application submission" });
+  }
+
+  if (!db) {
+    return res.status(503).json({ error: "Database connection is not available." });
+  }
 
   if (recentDuplicate && Date.now() - new Date(recentDuplicate.createdAt).getTime() < 5 * 60 * 1000) {
     return res.status(409).json({ error: "A recent application already exists for this email. Please wait a few minutes before trying again." });
@@ -1027,6 +1069,13 @@ ordersRouter.post("/", async (req, res) => {
       secureToken,
     }).returning();
 
+    console.log("[Order Create] db:saved", {
+      orderId: newOrder.id,
+      email: safeEmail,
+      membershipPackage,
+      status: newOrder.status,
+    });
+
     try {
       const emailResult = await sendApplicationReceivedEmail({
         email: safeEmail,
@@ -1066,11 +1115,16 @@ ordersRouter.post("/", async (req, res) => {
       });
     }
 
-    res.json(newOrder);
+    res.status(201).json(newOrder);
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
     }
+    console.error("[Order Create] failed", {
+      email: safeEmail || null,
+      membershipPackage: membershipPackage || null,
+      error,
+    });
     res.status(500).json({ error: "Failed to create order" });
   }
 });
@@ -1621,22 +1675,48 @@ ordersRouter.get("/verify/:token", async (req, res) => {
           .where(eq(orders.id, order.id))
           .returning();
 
-        try {
-          const emailResult = await sendDashboardActivationEmail({
-            email: order.email,
-            name: order.name,
-            secureToken: order.secureToken,
-          });
-          console.log("[Verify Payment] Dashboard activation email sent", {
-            to: order.email,
-            id: emailResult.data?.id ?? null,
-            error: emailResult.error ?? null,
-          });
-        } catch (emailError) {
-          console.error("[Verify Payment] Failed to send dashboard activation email", {
-            to: order.email,
-            error: emailError,
-          });
+        const latestOrder = paidOrder || order;
+        const shouldSendConfirmationEmail = latestOrder.confirmationEmailStatus !== "SENT";
+
+        if (shouldSendConfirmationEmail) {
+          try {
+            const emailResult = await sendDashboardActivationEmail({
+              email: order.email,
+              name: order.name,
+              secureToken: order.secureToken,
+            });
+
+            const emailSentSuccessfully = !emailResult.error;
+            await db
+              .update(orders)
+              .set({
+                confirmationEmailStatus: emailSentSuccessfully ? "SENT" : "FAILED",
+                emailSentAt: emailSentSuccessfully ? new Date() : latestOrder.emailSentAt,
+                emailError: emailSentSuccessfully ? null : JSON.stringify(emailResult.error),
+              })
+              .where(eq(orders.id, order.id));
+
+            console.log("[Verify Payment] Dashboard activation email sent", {
+              to: order.email,
+              orderId: order.id,
+              id: emailResult.data?.id ?? null,
+              error: emailResult.error ?? null,
+            });
+          } catch (emailError) {
+            await db
+              .update(orders)
+              .set({
+                confirmationEmailStatus: "FAILED",
+                emailError: emailError instanceof Error ? emailError.message : String(emailError),
+              })
+              .where(eq(orders.id, order.id));
+
+            console.error("[Verify Payment] Failed to send dashboard activation email", {
+              to: order.email,
+              orderId: order.id,
+              error: emailError,
+            });
+          }
         }
 
         try {

@@ -617,7 +617,20 @@ export default function ApplyPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to submit application");
+        let message = "Failed to submit application";
+        try {
+          const payload = await response.json();
+          if (payload && typeof payload.error === "string" && payload.error.trim()) {
+            message = payload.error;
+          }
+        } catch {
+          const fallbackText = await response.text().catch(() => "");
+          if (fallbackText.trim()) {
+            message = fallbackText;
+          }
+        }
+
+        throw new Error(message);
       }
 
       const { default: confetti } = await import("canvas-confetti");
@@ -635,11 +648,9 @@ export default function ApplyPage() {
     } catch (error) {
       console.error(error);
       toast.error(
-        isRu
-          ? "Не удалось отправить заявку. Пожалуйста, попробуйте еще раз."
-          : isUk
-            ? "Не вдалося надіслати заявку. Будь ласка, спробуйте ще раз."
-            : "We couldn't submit your application. Please try again.",
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "We couldn't submit your application. Please try again.",
       );
     } finally {
       setIsSubmitting(false);

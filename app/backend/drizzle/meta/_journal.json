@@ -43,6 +43,13 @@
       "when": 1778300000000,
       "tag": "0005_add_partner_applications",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778400000000,
+      "tag": "0006_add_webhook_event_and_email_status_tracking",
+      "breakpoints": true
     }
   ]
 }
