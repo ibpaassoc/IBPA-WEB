@@ -44,9 +44,9 @@ export default function Contact() {
     },
     { 
       label: isRu ? "Напишите нам" : isUk ? "Напишіть нам" : "Email Us", 
-      value: "info@ibpassociations.org",
+      value: "support@ibpassociations.org",
       icon: <Mail size={24} strokeWidth={1.8} />, 
-      link: "mailto:info@ibpassociations.org", 
+      link: "mailto:support@ibpassociations.org", 
       color: "#708090" 
     },
     { 

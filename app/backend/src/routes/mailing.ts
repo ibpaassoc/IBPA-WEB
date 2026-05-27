@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { desc, eq, sql } from "drizzle-orm";
 import { dashboardNotifications, emailLogs, requireDb } from "../lib/db";
-import { resend, resendFrom } from "../services/email";
+import { SUPPORT_REPLY_TO, SUPPORT_SENDER, sendBatchEmail } from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 
 export const mailingRouter = Router();
@@ -60,8 +60,9 @@ mailingRouter.post("/send", adminClerkMiddleware, requireAdminAccess, async (req
   try {
     // Resend Batch Sending API
     const batchData = targetEmails.map(email => ({
-      from: resendFrom,
+      from: SUPPORT_SENDER,
       to: [email],
+      replyTo: SUPPORT_REPLY_TO,
       subject,
       html,
     }));
@@ -74,7 +75,7 @@ mailingRouter.post("/send", adminClerkMiddleware, requireAdminAccess, async (req
     }
 
     for (const chunk of chunkedArr) {
-      const { error } = await resend.batch.send(chunk);
+      const { error } = await sendBatchEmail(chunk);
       if (error) {
         console.error("Resend Batch Error:", error);
         await safeLogEmails(targetEmails, subject, html, "failed");

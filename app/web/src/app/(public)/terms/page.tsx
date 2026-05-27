@@ -172,7 +172,7 @@ const termsSections = [
     title: "Contact Information",
     paragraphs: [
       "International Beauty Professionals Association, Inc.",
-      "Email: info@ibpassociations.org",
+      "Email: support@ibpassociations.org",
       "Address: 1220 Melody Ln, Suite 110, Roseville, CA 95678, United States",
     ],
   },

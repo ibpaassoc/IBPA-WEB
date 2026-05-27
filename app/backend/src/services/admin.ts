@@ -11,7 +11,7 @@ import { requireDb, users } from "../lib/db";
 
 const DEFAULT_ADMIN_EMAILS = [
   "mokich45usa@gmail.com",
-  "info@ibpassociations.org",
+  "support@ibpassociations.org",
   "admin@ibpassociations.org",
 ];
 const INTERNAL_ADMIN_KEY = process.env.ADMIN_INTERNAL_KEY || "";

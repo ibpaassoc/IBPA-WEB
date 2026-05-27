@@ -1,6 +1,6 @@
 const DEFAULT_ADMIN_EMAILS = [
   "mokich45usa@gmail.com",
-  "info@ibpassociations.org",
+  "support@ibpassociations.org",
   "admin@ibpassociations.org",
 ];
 
