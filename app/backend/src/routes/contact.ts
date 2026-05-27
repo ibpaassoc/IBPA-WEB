@@ -19,6 +19,15 @@ function isValidEmail(value: unknown) {
   return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 contactRouter.post("/", async (req, res) => {
   const { name, email, phone, message, source, honeypot } = req.body ?? {};
 
@@ -70,13 +79,13 @@ contactRouter.post("/", async (req, res) => {
             IBPA lead form
           </p>
           <h1 style="margin: 0 0 20px; font-size: 28px; line-height: 1.1;">
-            ${safeName}
+            ${escapeHtml(safeName)}
           </h1>
           <div style="margin: 24px 0; padding: 16px 18px; background: #f8fafc; border-radius: 18px;">
-            <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Source:</strong> ${safeSource}</p>
-            <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Email:</strong> ${email}</p>
-            ${safePhone ? `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Phone:</strong> ${safePhone}</p>` : ""}
-            <p style="margin: 0; font-size: 14px; line-height: 1.7;"><strong>Message:</strong><br/>${safeMessage.replace(/\n/g, "<br/>")}</p>
+            <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Source:</strong> ${escapeHtml(safeSource)}</p>
+            <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Email:</strong> ${escapeHtml(email)}</p>
+            ${safePhone ? `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Phone:</strong> ${escapeHtml(safePhone)}</p>` : ""}
+            <p style="margin: 0; font-size: 14px; line-height: 1.7;"><strong>Message:</strong><br/>${escapeHtml(safeMessage).replace(/\n/g, "<br/>")}</p>
           </div>
         </div>
       `,

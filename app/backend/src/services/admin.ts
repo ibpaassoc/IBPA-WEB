@@ -30,37 +30,6 @@ function isAdminEmail(value: unknown) {
   return normalized.length > 0 && ADMIN_EMAILS.includes(normalized);
 }
 
-function getEmailFromAuthHeader(authorizationHeader: string | undefined) {
-  if (!authorizationHeader || !authorizationHeader.toLowerCase().startsWith("bearer ")) {
-    return null;
-  }
-
-  const token = authorizationHeader.slice(7).trim();
-  const parts = token.split(".");
-  if (parts.length < 2) {
-    return null;
-  }
-
-  try {
-    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const normalized = payloadBase64.padEnd(Math.ceil(payloadBase64.length / 4) * 4, "=");
-    const payloadJson = Buffer.from(normalized, "base64").toString("utf8");
-    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
-    const candidateKeys = ["email", "email_address", "primaryEmail"] as const;
-
-    for (const key of candidateKeys) {
-      const value = payload[key];
-      if (typeof value === "string" && value.trim().length > 0) {
-        return value.trim();
-      }
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
 export const adminClerkMiddleware = clerkMiddleware(clerkOptions);
 
 export async function requireAdminAccess(req: Request, res: Response, next: NextFunction) {
@@ -85,11 +54,10 @@ export async function requireAdminAccess(req: Request, res: Response, next: Next
 
     const candidateEmails = new Set<string>();
     const claimsEmail = getEmailFromSessionClaims(auth.sessionClaims);
-    const tokenEmail = getEmailFromAuthHeader(req.header("authorization"));
     const trustedProxyEmail =
       INTERNAL_ADMIN_KEY && internalKey === INTERNAL_ADMIN_KEY ? internalEmail : null;
 
-    for (const candidate of [claimsEmail, tokenEmail, trustedProxyEmail]) {
+    for (const candidate of [claimsEmail, trustedProxyEmail]) {
       const normalized = normalizeEmail(candidate);
       if (normalized) {
         candidateEmails.add(normalized);

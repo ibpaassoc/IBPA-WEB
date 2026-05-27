@@ -1,15 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-
-const DEFAULT_ADMIN_EMAILS = [
-  "mokich45usa@gmail.com",
-  "info@ibpassociations.org",
-  "admin@ibpassociations.org",
-];
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || DEFAULT_ADMIN_EMAILS.join(","))
-  .split(",")
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
+import { isAdminEmail } from "@/lib/admin-auth";
 
 function getEmailFromSessionClaims(sessionClaims: unknown) {
   if (!sessionClaims || typeof sessionClaims !== "object") {
@@ -116,7 +107,7 @@ export async function getAdminProxyContext(requestUrl?: string) {
 
   const primaryEmail = getEmailFromSessionClaims(authData.sessionClaims) || getEmailFromToken(token);
 
-  if (primaryEmail && !ADMIN_EMAILS.includes(primaryEmail.toLowerCase())) {
+  if (primaryEmail && !isAdminEmail(primaryEmail)) {
     return {
       backendUrl,
       authHeaders: null,

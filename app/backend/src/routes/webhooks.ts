@@ -113,7 +113,7 @@ async function sendDashboardActivationEmail(params: {
           Payment confirmed
         </h1>
         <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
-          Hello ${name || "there"},
+          Hello ${escapeHtml(name || "there")},
         </p>
         <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
           Your IBPA payment has been received. The final step is to activate your personal dashboard using the same email address you used in your application.
@@ -124,10 +124,10 @@ async function sendDashboardActivationEmail(params: {
           </a>
         </div>
         <p style="margin: 0 0 12px; font-size: 14px; line-height: 1.7; color: #475569;">
-          If you already have an account, sign in. If not, create one with this email: <strong>${email}</strong>.
+          If you already have an account, sign in. If not, create one with this email: <strong>${escapeHtml(email)}</strong>.
         </p>
         <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #64748b;">
-          If the button does not work, copy this link:<br />${activationUrl}
+          If the button does not work, copy this link:<br />${escapeHtml(activationUrl)}
         </p>
       </div>
     `,
@@ -150,11 +150,11 @@ async function sendAdminPaymentReceivedEmail(params: {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
         <h1 style="margin: 0 0 16px; font-size: 24px;">Payment received</h1>
-        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${name || "Unknown"}</p>
-        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${email}</p>
-        <p style="margin: 0 0 10px;"><strong>Membership:</strong> ${membershipCategory || "N/A"}</p>
-        <p style="margin: 0 0 10px;"><strong>Order ID:</strong> ${orderId}</p>
-        <p style="margin: 0;"><strong>Stripe session:</strong> ${stripeSessionId || "N/A"}</p>
+        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${escapeHtml(name || "Unknown")}</p>
+        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${escapeHtml(email)}</p>
+        <p style="margin: 0 0 10px;"><strong>Membership:</strong> ${escapeHtml(membershipCategory || "N/A")}</p>
+        <p style="margin: 0 0 10px;"><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>
+        <p style="margin: 0;"><strong>Stripe session:</strong> ${escapeHtml(stripeSessionId || "N/A")}</p>
       </div>
     `,
   });
@@ -178,13 +178,13 @@ async function sendAdminPartnerPaymentReceivedEmail(params: {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
         <h1 style="margin: 0 0 16px; font-size: 24px;">Partner payment received</h1>
-        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${name || "Unknown"}</p>
-        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${email}</p>
-        <p style="margin: 0 0 10px;"><strong>Tier:</strong> ${tier || "N/A"}</p>
-        <p style="margin: 0 0 10px;"><strong>Partner application ID:</strong> ${applicationId}</p>
-        <p style="margin: 0 0 10px;"><strong>Partner order ID:</strong> ${orderId}</p>
-        <p style="margin: 0 0 10px;"><strong>Stripe session:</strong> ${stripeSessionId || "N/A"}</p>
-        <p style="margin: 0;"><strong>Stripe payment intent:</strong> ${stripePaymentIntentId || "N/A"}</p>
+        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${escapeHtml(name || "Unknown")}</p>
+        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${escapeHtml(email)}</p>
+        <p style="margin: 0 0 10px;"><strong>Tier:</strong> ${escapeHtml(tier || "N/A")}</p>
+        <p style="margin: 0 0 10px;"><strong>Partner application ID:</strong> ${escapeHtml(applicationId)}</p>
+        <p style="margin: 0 0 10px;"><strong>Partner order ID:</strong> ${escapeHtml(orderId)}</p>
+        <p style="margin: 0 0 10px;"><strong>Stripe session:</strong> ${escapeHtml(stripeSessionId || "N/A")}</p>
+        <p style="margin: 0;"><strong>Stripe payment intent:</strong> ${escapeHtml(stripePaymentIntentId || "N/A")}</p>
       </div>
     `,
   });
