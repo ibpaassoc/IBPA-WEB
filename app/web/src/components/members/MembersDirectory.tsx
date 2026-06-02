@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Globe, Instagram, MapPin, Sparkles } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { getPublicProfileHref } from "@/lib/member-identity";
 import { cn } from "@/lib/utils";
 import type { PublicMember } from "@/lib/public-members";
 
@@ -160,9 +161,31 @@ export function MembersDirectory({ items, locale, mode = "full", surface = "publ
   const teaserItems = items.slice(0, 20);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [country, setCountry] = useState("all");
+  const [specialization, setSpecialization] = useState("all");
 
   const categories = useMemo(
     () => ["all", ...Array.from(new Set(items.map((item) => item.membershipCategory).filter(Boolean)))],
+    [items],
+  );
+
+  const countries = useMemo(
+    () => ["all", ...Array.from(new Set(items.map((item) => item.country).filter(Boolean))).sort((a, b) => a.localeCompare(b))],
+    [items],
+  );
+
+  const specializations = useMemo(
+    () =>
+      [
+        "all",
+        ...Array.from(
+          new Set(
+            items
+              .flatMap((item) => item.specializations || [])
+              .filter(Boolean),
+          ),
+        ).sort((a, b) => a.localeCompare(b)),
+      ],
     [items],
   );
 
@@ -171,13 +194,18 @@ export function MembersDirectory({ items, locale, mode = "full", surface = "publ
 
     return items.filter((item) => {
       const matchesCategory = category === "all" || item.membershipCategory === category;
+      const matchesCountry = country === "all" || item.country === country;
+      const matchesSpecialization =
+        specialization === "all" ||
+        (item.specializations || []).some((value) => value.toLowerCase() === specialization.toLowerCase()) ||
+        item.title.toLowerCase().includes(specialization.toLowerCase());
       const haystack = [item.fullName, item.title, item.specializations?.join(" "), item.location, item.description, item.highlights.join(" ")]
         .join(" ")
         .toLowerCase();
       const matchesQuery = !query || haystack.includes(query);
-      return matchesCategory && matchesQuery;
+      return matchesCategory && matchesCountry && matchesSpecialization && matchesQuery;
     });
-  }, [category, items, search]);
+  }, [category, country, items, search, specialization]);
 
   const list = mode === "teaser" ? teaserItems : filteredItems;
 
@@ -254,7 +282,7 @@ export function MembersDirectory({ items, locale, mode = "full", surface = "publ
           <p className="mt-5 text-base leading-relaxed text-slate-600 md:text-lg">{copy.description}</p>
         </div>
 
-        <div className="mt-10 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-[minmax(0,1fr)_220px] md:p-5">
+        <div className="mt-10 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-4 md:p-5">
           <label className="grid gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{copy.filtersTitle}</span>
             <input
@@ -274,6 +302,34 @@ export function MembersDirectory({ items, locale, mode = "full", surface = "publ
               {categories.map((item) => (
                 <option key={item} value={item}>
                   {item === "all" ? copy.allCategories : membershipLabels[item] || item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Country</span>
+            <select
+              value={country}
+              onChange={(event) => setCountry(event.target.value)}
+              className="h-12 rounded-md border border-slate-200 px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
+            >
+              {countries.map((item) => (
+                <option key={item} value={item}>
+                  {item === "all" ? "All countries" : item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Specialization</span>
+            <select
+              value={specialization}
+              onChange={(event) => setSpecialization(event.target.value)}
+              className="h-12 rounded-md border border-slate-200 px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
+            >
+              {specializations.map((item) => (
+                <option key={item} value={item}>
+                  {item === "all" ? "All specializations" : item}
                 </option>
               ))}
             </select>
@@ -324,6 +380,7 @@ function MemberCard({
 }) {
   const instagramUrl = normalizeUrl(member.instagramUrl);
   const websiteUrl = normalizeUrl(member.websiteUrl);
+  const publicProfileHref = getPublicProfileHref(member.id);
   const memberSince = new Date(member.memberSince).toLocaleDateString("en-US", {
     month: "short",
     year: "numeric",
@@ -374,11 +431,28 @@ function MemberCard({
         </div>
 
         <div className="mt-auto p-5 pt-0">
-          <DialogTrigger asChild>
-            <button className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800">
-              {copy.openProfile} <ArrowRight className="h-4 w-4" />
-            </button>
-          </DialogTrigger>
+          <div className="space-y-3">
+            {(instagramUrl || websiteUrl) && (
+              <div className="flex items-center justify-center gap-3 text-slate-500">
+                {instagramUrl ? (
+                  <a href={instagramUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:border-[#72A0C1]/40 hover:text-[#4C7D9D]">
+                    <Instagram className="h-4 w-4" />
+                  </a>
+                ) : null}
+                {websiteUrl ? (
+                  <a href={websiteUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:border-[#72A0C1]/40 hover:text-[#4C7D9D]">
+                    <Globe className="h-4 w-4" />
+                  </a>
+                ) : null}
+              </div>
+            )}
+
+            <DialogTrigger asChild>
+              <button className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800">
+                {copy.openProfile} <ArrowRight className="h-4 w-4" />
+              </button>
+            </DialogTrigger>
+          </div>
         </div>
       </div>
 
@@ -503,7 +577,18 @@ function MemberCard({
           ) : null}
 
           <div className="border-t border-white/10 px-5 py-4 md:px-8">
-            <p className="text-xs text-white/35">{copy.closeHint}</p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <p className="text-xs text-white/35">{copy.closeHint}</p>
+              {publicProfileHref ? (
+                <Link
+                  href={publicProfileHref}
+                  className="inline-flex items-center gap-2 text-sm text-[#8DD4F7] transition hover:text-white"
+                >
+                  Public profile
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : null}
+            </div>
           </div>
         </div>
       </DialogContent>

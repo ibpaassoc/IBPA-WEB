@@ -133,7 +133,7 @@ export default function EditApplicationPage() {
       }
 
       toast.success("Application information updated");
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } catch (error: any) {
       toast.error(error?.message || "Failed to save changes");
@@ -166,7 +166,7 @@ export default function EditApplicationPage() {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/"
+                href="/dashboard"
                 className="inline-flex items-center justify-center rounded-[20px] bg-black px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1] hover:text-black"
               >
                 Back to Dashboard
@@ -189,7 +189,7 @@ export default function EditApplicationPage() {
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
           <Link
-            href="/"
+            href="/dashboard"
             className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 transition-colors hover:text-[#72A0C1]"
           >
             <ArrowLeft className="h-4 w-4" />

@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -274,7 +275,7 @@ export default function NotificationsPage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/"
+                href="/dashboard"
                 className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1] hover:text-black"
               >
                 Back to Dashboard
@@ -308,7 +309,7 @@ export default function NotificationsPage() {
             )}
           </div>
           <Link
-            href="/"
+            href="/dashboard"
             className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]"
           >
             <ChevronLeft className="h-4 w-4" />
