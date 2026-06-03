@@ -279,14 +279,10 @@ export function DashboardContent(props: Props) {
           memberIdDisplay={memberIdDisplay}
           dashboardContactEmail={dashboardContactEmail}
           certificateStatusDisplay={certificateStatusDisplay}
-          copyPublicLink={copyPublicLink}
-          publicProfileHref={publicProfileHref}
           alertCards={alertCards}
           getNotificationMeta={getNotificationMeta}
           setActiveTab={setActiveTab}
           quickActions={quickActions}
-          certificates={certificates}
-          billingEntries={billingEntries}
           dashboardEvents={dashboardEvents}
         />
       );

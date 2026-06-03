@@ -227,6 +227,8 @@ async function ensureUserRecord(
 
   const db = requireDb();
   const [existing] = await db.select().from(users).where(eq(users.clerkId, clerkUserId));
+  const preserveSeededImage =
+    typeof existing?.imageUrl === "string" && existing.imageUrl.trim().startsWith("/");
 
   if (existing) {
     await db
@@ -236,7 +238,9 @@ async function ensureUserRecord(
         email: existing.email || primaryEmail,
         firstName: clerkUser.firstName || existing.firstName || "",
         lastName: clerkUser.lastName || existing.lastName || "",
-        imageUrl: clerkUser.imageUrl || existing.imageUrl || null,
+        imageUrl: preserveSeededImage
+          ? existing.imageUrl
+          : clerkUser.imageUrl || existing.imageUrl || null,
         updatedAt: new Date(),
       })
       .where(eq(users.clerkId, clerkUserId));
@@ -319,6 +323,13 @@ function resolveOrderAccountType(order: typeof orders.$inferSelect | null | unde
   }
 
   return "member";
+}
+
+function getPartnerBusinessName(order: typeof orders.$inferSelect | null | undefined) {
+  return firstText(
+    getApplicationField(order, "bizName", "brandName", "companyName", "organizationName"),
+    order?.name,
+  );
 }
 
 function trimValue(value: unknown, max = 255) {
@@ -698,7 +709,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
           type: accessType,
           accountType: "partner",
           partnerOrderId: latestPaidOrder.id,
-          partnerName: latestPaidOrder.name,
+          partnerName: getPartnerBusinessName(latestPaidOrder),
           partnerEmail: latestPaidOrder.email,
           ownerMemberId: teamMember.ownerMemberId,
           teamMemberId: teamMember.teamMemberId,
@@ -884,7 +895,7 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
             status: teamMember.status,
             portfolioLink: teamMember.portfolioLink,
             ownerMemberId: teamMember.ownerMemberId,
-            partnerBusinessName: latestPaidOrder.name,
+            partnerBusinessName: getPartnerBusinessName(latestPaidOrder),
             partnerBusinessEmail: latestPaidOrder.email,
           },
         },
@@ -1048,7 +1059,7 @@ dashboardRouter.get("/team-members", clerkMiddleware(clerkOptions), async (req, 
     res.json({
       ownerMemberId,
       ...summary,
-      partnerBusinessName: latestPaidOrder.name,
+      partnerBusinessName: getPartnerBusinessName(latestPaidOrder),
       partnerBusinessEmail: latestPaidOrder.email,
       members: records.map((item: any) => ({
         id: item.id,
@@ -1056,6 +1067,10 @@ dashboardRouter.get("/team-members", clerkMiddleware(clerkOptions), async (req, 
         fullName: item.fullName,
         email: item.email,
         role: item.role,
+        avatarUrl: item.avatarUrl,
+        bio: item.bio,
+        location: item.location,
+        joinedAt: item.joinedAt,
         portfolioLink: item.portfolioLink,
         licenseNumber: item.license,
         status: item.status,

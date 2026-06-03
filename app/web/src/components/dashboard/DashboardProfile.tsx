@@ -9,6 +9,7 @@ import {
   Copy,
   Edit3,
   ExternalLink,
+  Globe,
   GraduationCap,
   Instagram,
   LinkIcon,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { StatusPill } from "@/components/dashboard/DashboardShared";
+import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import type { TeamMemberAccessInfo } from "@/components/dashboard/dashboard-types";
 import type { CombinedProfileData } from "@/lib/application-profile";
 
@@ -150,6 +152,7 @@ export function DashboardProfile({
   locationDisplay,
   specializationDisplay,
   instagramUrl,
+  websiteUrl,
   publicProfileHref,
   mergedProfileData,
   certificateSummary,
@@ -199,6 +202,15 @@ export function DashboardProfile({
   const industry =
     snapshotItems.find((item) => item.label.toLowerCase() === "industry")
       ?.value || specializationDisplay;
+
+  const galleryImages = useMemo(() => {
+    const raw = mergedProfileData.applicationPayload?.portfolioImages;
+    if (!Array.isArray(raw)) {
+      return [] as string[];
+    }
+
+    return raw.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 6);
+  }, [mergedProfileData.applicationPayload]);
 
   const handleCopyProfileLink = async () => {
     if (!publicProfileHref) return;
@@ -312,6 +324,18 @@ export function DashboardProfile({
                   <Instagram className="h-4 w-4" />
                 </a>
               ) : null}
+
+              {websiteUrl ? (
+                <a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white text-[#10203B] shadow-sm transition hover:border-[#2B5C99]/40 hover:bg-[#F5F9FF]"
+                  aria-label="Open website"
+                >
+                  <Globe className="h-4 w-4" />
+                </a>
+              ) : null}
             </div>
           </div>
 
@@ -412,11 +436,25 @@ export function DashboardProfile({
         </Panel>
 
         <Panel title="Work gallery">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <GallerySlot label="Featured Brow Work" />
-            <GallerySlot label="Featured Lash Work" />
-            <GallerySlot label="Before & After Sample" />
-          </div>
+          {galleryImages.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {galleryImages.map((image, index) => (
+                <div key={`${image}-${index}`} className="overflow-hidden rounded-[24px] border border-[#D4E0F0] bg-[#F5F9FF]">
+                  <ImageWithFallback
+                    src={image}
+                    alt={`${fullName} gallery image ${index + 1}`}
+                    className="aspect-square w-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <GallerySlot label="Featured Brow Work" />
+              <GallerySlot label="Featured Lash Work" />
+              <GallerySlot label="Before & After Sample" />
+            </div>
+          )}
 
           {publicProfileHref ? (
             <button

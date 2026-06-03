@@ -38,4 +38,12 @@ export async function ensureRuntimeSchemaCompat() {
     create index if not exists "stripe_webhook_events_event_id_idx"
       on "stripe_webhook_events" using btree ("event_id")
   `);
+
+  await db.execute(sql`
+    alter table "team_members"
+      add column if not exists "avatar_url" text,
+      add column if not exists "bio" text,
+      add column if not exists "location" varchar(255),
+      add column if not exists "joined_at" timestamp
+  `);
 }

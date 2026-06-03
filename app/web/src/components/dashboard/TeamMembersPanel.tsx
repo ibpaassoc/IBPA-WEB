@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, Loader2, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckCircle2, ExternalLink, Loader2, MapPin, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { sanitizeBackendErrorMessage } from "@/lib/safe-backend-error";
+import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 
 type TeamMemberRecord = {
   id: string;
@@ -11,6 +12,10 @@ type TeamMemberRecord = {
   fullName: string;
   email: string;
   role: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  joinedAt?: string | null;
   portfolioLink?: string | null;
   licenseNumber: string;
   status: "invited" | "active" | "removed";
@@ -385,35 +390,81 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
             </button>
           </div>
         ) : (
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 grid gap-4 xl:grid-cols-2">
             {visibleMembers.map((member) => {
               const seatBadge = getSeatBadge(member);
               const statusBadge = getStatusBadge(member);
+              const joinedDate = member.joinedAt
+                ? new Date(member.joinedAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : null;
 
               return (
-                <article key={member.id} className="rounded-2xl bg-[#F8FAFD] p-4">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <article key={member.id} className="rounded-[26px] border border-[#E3ECF8] bg-[#F8FAFD] p-5 shadow-[0_8px_28px_rgba(15,23,42,0.04)]">
+                  <div className="flex flex-col gap-4">
                     <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#DCEBFF] text-sm font-semibold text-[#1F4D84]">
-                        {getInitials(member.fullName)}
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#DCEBFF] text-sm font-semibold text-[#1F4D84]">
+                        {member.avatarUrl ? (
+                          <ImageWithFallback
+                            src={member.avatarUrl}
+                            alt={member.fullName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          getInitials(member.fullName)
+                        )}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">{member.fullName}</p>
-                        <p className="truncate text-sm text-slate-500">{member.email}</p>
-                        <p className="mt-1 text-xs text-slate-500">{member.role}</p>
-                        {member.portfolioLink ? (
-                          <a
-                            href={member.portfolioLink.startsWith("http") ? member.portfolioLink : `https://${member.portfolioLink}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-2 inline-flex text-xs font-medium text-[#2A5D97] hover:underline"
-                          >
-                            Instagram / Portfolio
-                          </a>
-                        ) : null}
+                        <p className="break-words text-base font-semibold text-slate-900">{member.fullName}</p>
+                        <p className="mt-1 break-all text-sm text-slate-500">{member.email}</p>
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#2A5D97]">{member.role}</p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+
+                    {member.bio ? (
+                      <p
+                        className="text-sm leading-6 text-slate-600"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitBoxOrient: "vertical",
+                          WebkitLineClamp: 3,
+                          overflow: "hidden",
+                        }}
+                      >
+                        {member.bio}
+                      </p>
+                    ) : null}
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {member.location ? (
+                        <div className="rounded-2xl bg-white px-4 py-3">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                            Location
+                          </p>
+                          <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-[#10203B]">
+                            <MapPin className="h-4 w-4 text-[#4C7D9D]" />
+                            <span className="break-words">{member.location}</span>
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {joinedDate ? (
+                        <div className="rounded-2xl bg-white px-4 py-3">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                            Joined
+                          </p>
+                          <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-[#10203B]">
+                            <CalendarDays className="h-4 w-4 text-[#4C7D9D]" />
+                            {joinedDate}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
                         Seat #{member.seatNumber}
                       </span>
@@ -423,6 +474,17 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
                       <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${statusBadge.className}`}>
                         {statusBadge.label}
                       </span>
+                      {member.portfolioLink ? (
+                        <a
+                          href={member.portfolioLink.startsWith("http") ? member.portfolioLink : `https://${member.portfolioLink}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#2A5D97] transition-colors hover:border-[#BFD1EA] hover:text-[#17386B]"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Portfolio
+                        </a>
+                      ) : null}
                       <button
                         type="button"
                         disabled={removingId === member.id}
