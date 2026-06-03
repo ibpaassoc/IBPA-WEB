@@ -2,6 +2,12 @@ export type MembershipCategory = "Specialist" | "Student" | "Professional" | "Tr
 
 export type ApplicationPayload = Record<string, unknown> | null | undefined;
 
+export type ProfileService = {
+  id: string;
+  title: string;
+  description?: string;
+};
+
 export type CombinedProfileData = {
   imageUrl?: string | null;
   bio?: string | null;
@@ -14,6 +20,7 @@ export type CombinedProfileData = {
   membershipCategory?: MembershipCategory;
   applicantType?: string | null;
   orderId?: string | null;
+  services?: ProfileService[] | null;
   applicationPayload?: ApplicationPayload;
 };
 

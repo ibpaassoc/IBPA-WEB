@@ -283,6 +283,7 @@ export function DashboardContent(props: Props) {
           getNotificationMeta={getNotificationMeta}
           setActiveTab={setActiveTab}
           quickActions={quickActions}
+          teamMembers={partnerTeamSummary?.invitedMembers || []}
           dashboardEvents={dashboardEvents}
         />
       );

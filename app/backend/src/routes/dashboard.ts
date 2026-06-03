@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireDb, orders, certificates, users, dashboardNotifications, teamMembers, teamSeatExtensions } from "../lib/db";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { UserService } from "../lib/schema";
 import {
   clerkMiddleware,
   getAuth,
@@ -339,6 +340,82 @@ function trimValue(value: unknown, max = 255) {
 function optionalTrimmedValue(value: unknown, max = 500) {
   const next = trimValue(value, max);
   return next.length > 0 ? next : null;
+}
+
+function createServiceId() {
+  return `svc_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function sanitizeServices(value: unknown): UserService[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seenIds = new Set<string>();
+  const normalized: UserService[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      continue;
+    }
+
+    const record = item as Record<string, unknown>;
+    const title = trimValue(record.title, 80);
+    const description = trimValue(record.description, 500);
+
+    if (!title) {
+      continue;
+    }
+
+    let id = trimValue(record.id, 120) || createServiceId();
+    while (seenIds.has(id)) {
+      id = createServiceId();
+    }
+
+    seenIds.add(id);
+    normalized.push({
+      id,
+      title,
+      ...(description ? { description } : {}),
+    });
+  }
+
+  return normalized;
+}
+
+function validateServicesInput(value: unknown) {
+  if (typeof value === "undefined") {
+    return null;
+  }
+
+  if (!Array.isArray(value)) {
+    return "Services must be an array.";
+  }
+
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return "Each service must be an object.";
+    }
+
+    const record = item as Record<string, unknown>;
+    const rawTitle = typeof record.title === "string" ? record.title.trim() : "";
+    const rawDescription =
+      typeof record.description === "string" ? record.description.trim() : "";
+
+    if (!rawTitle) {
+      return "Service title is required.";
+    }
+
+    if (rawTitle.length > 80) {
+      return "Service title must be 80 characters or fewer.";
+    }
+
+    if (rawDescription.length > 500) {
+      return "Service description must be 500 characters or fewer.";
+    }
+  }
+
+  return null;
 }
 
 async function getPartnerOwnerMemberId(db: ReturnType<typeof requireDb>, ownerOrderId: string) {
@@ -873,6 +950,7 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       return res.json({
         profile: {
           ...(userProfile || {}),
+          services: sanitizeServices(userProfile?.services),
           applicationPayload: {},
           type: "partner",
           accountType: "partner",
@@ -905,6 +983,7 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
     res.json({
       profile: {
         ...(userProfile || {}),
+        services: sanitizeServices(userProfile?.services),
         applicationPayload: ownerApplicationPayload,
         firstName: ownerProfileMapping.mapped.firstName || userProfile?.firstName || null,
         lastName: ownerProfileMapping.mapped.lastName || userProfile?.lastName || null,
@@ -1338,8 +1417,15 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
       instagramUrl,
       country,
       city,
+      services,
       applicationPayload,
     } = req.body;
+    const servicesValidationError = validateServicesInput(services);
+    if (servicesValidationError) {
+      return res.status(400).json({ error: servicesValidationError });
+    }
+
+    const nextServices = sanitizeServices(services);
     
     const [existing] = await db.select().from(users).where(eq(users.clerkId, clerkUserId));
 
@@ -1376,6 +1462,7 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
         instagramUrl: instagramUrl || (nextApplicationPayload.instagramLink as string) || existing.instagramUrl,
         country: country || (nextApplicationPayload.country as string) || existing.country,
         city: city || (nextApplicationPayload.city as string) || existing.city,
+        services: Array.isArray(services) ? nextServices : sanitizeServices(existing.services),
         updatedAt: new Date()
       }).where(eq(users.clerkId, clerkUserId));
     } else {
@@ -1392,6 +1479,7 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
         instagramUrl: instagramUrl || (nextApplicationPayload.instagramLink as string) || null,
         country: country || (nextApplicationPayload.country as string) || null,
         city: city || (nextApplicationPayload.city as string) || null,
+        services: nextServices,
       });
     }
 

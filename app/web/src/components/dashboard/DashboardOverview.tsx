@@ -1,11 +1,8 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   CalendarDays,
   Check,
   ChevronRight,
-  Copy,
-  ExternalLink,
   MapPin,
   ShieldCheck,
   Sparkles,
@@ -45,7 +42,8 @@ type DashboardTab =
   | "certificates"
   | "events"
   | "support"
-  | "directory";
+  | "directory"
+  | "teamMembers";
 
 type TeamMemberPreview = {
   id?: string;
@@ -64,6 +62,8 @@ type DashboardEventPreview = {
   date?: string;
   startsAt?: string;
   startDate?: string;
+  eventDate?: string;
+  dateDisplay?: string;
   location?: string;
 };
 
@@ -143,7 +143,7 @@ export function DashboardOverview({
           <TeamMembersCard
             members={visibleTeamMembers}
             total={teamMembers.length}
-            onViewAll={() => setActiveTab("directory")}
+            onViewAll={() => setActiveTab("teamMembers")}
           />
         </main>
 
@@ -243,8 +243,20 @@ function EventsCard({
         {events.length > 0 ? (
           events.map((event, index) => {
             const title = event.title || event.name || "Upcoming event";
-            const date =
-              event.date || event.startsAt || event.startDate || "Date pending";
+            const rawDate =
+              event.dateDisplay ||
+              event.date ||
+              event.eventDate ||
+              event.startsAt ||
+              event.startDate;
+
+            const date = rawDate
+              ? new Date(rawDate).toLocaleDateString("en-US", {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "2-digit",
+                })
+              : "Date pending";
 
             return (
               <button

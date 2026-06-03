@@ -1,4 +1,4 @@
-import type { CombinedProfileData } from "@/lib/application-profile";
+import type { CombinedProfileData, ProfileService } from "@/lib/application-profile";
 
 export interface Certificate {
   certNumber: string;
@@ -120,3 +120,4 @@ export type DashboardContentItem = {
 };
 
 export type SupportMode = "question" | "idea" | "problem";
+

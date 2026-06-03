@@ -46,4 +46,15 @@ export async function ensureRuntimeSchemaCompat() {
       add column if not exists "location" varchar(255),
       add column if not exists "joined_at" timestamp
   `);
+
+  await db.execute(sql`
+    alter table "users"
+      add column if not exists "services" jsonb default '[]'::jsonb not null
+  `);
+
+  await db.execute(sql`
+    update "users"
+      set "services" = '[]'::jsonb
+      where "services" is null
+  `);
 }

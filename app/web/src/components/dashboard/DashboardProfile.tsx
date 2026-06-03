@@ -1,18 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useMemo } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   Award,
-  Check,
-  Copy,
   Edit3,
   ExternalLink,
   Globe,
   GraduationCap,
   Instagram,
-  LinkIcon,
   MapPin,
   Sparkles,
   Trophy,
@@ -20,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { StatusPill } from "@/components/dashboard/DashboardShared";
+import { ServicesSection } from "@/components/dashboard/profile/ServicesSection";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import type { TeamMemberAccessInfo } from "@/components/dashboard/dashboard-types";
 import type { CombinedProfileData } from "@/lib/application-profile";
@@ -75,22 +73,6 @@ function InfoItem({
   );
 }
 
-function ActionIconButton({
-  children,
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  children: ReactNode;
-}) {
-  return (
-    <button
-      {...props}
-      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white text-[#10203B] shadow-sm transition hover:border-[#2B5C99]/40 hover:bg-[#F5F9FF]"
-    >
-      {children}
-    </button>
-  );
-}
-
 function MetricCard({
   icon,
   label,
@@ -109,22 +91,6 @@ function MetricCard({
       <p className="mt-1 break-words text-sm font-semibold leading-6 text-[#10203B]">
         {value}
       </p>
-    </div>
-  );
-}
-
-function ServiceCard({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-3xl border border-[#D4E0F0] bg-white p-4 shadow-sm">
-      <div className="mb-4 h-10 rounded-2xl bg-[linear-gradient(135deg,#DCEAFB_0%,#C7DCF7_50%,#EAF2FD_100%)]" />
-      <h4 className="text-base font-semibold text-[#10203B]">{title}</h4>
-      <p className="mt-2 text-xs leading-5 text-slate-600">{description}</p>
     </div>
   );
 }
@@ -185,8 +151,6 @@ export function DashboardProfile({
     value: string;
   }[];
 }) {
-  const [copied, setCopied] = useState(false);
-
   const initials = useMemo(
     () =>
       fullName
@@ -211,14 +175,6 @@ export function DashboardProfile({
 
     return raw.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 6);
   }, [mergedProfileData.applicationPayload]);
-
-  const handleCopyProfileLink = async () => {
-    if (!publicProfileHref) return;
-
-    await navigator.clipboard.writeText(buildProfileUrl(publicProfileHref));
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  };
 
   if (isTeamMemberDashboard) {
     return (
@@ -290,20 +246,6 @@ export function DashboardProfile({
               </Link>
 
               {publicProfileHref ? (
-                <ActionIconButton
-                  type="button"
-                  onClick={handleCopyProfileLink}
-                  aria-label="Copy profile link"
-                >
-                  {copied ? (
-                    <Check className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </ActionIconButton>
-              ) : null}
-
-              {publicProfileHref ? (
                 <Link
                   href={publicProfileHref}
                   className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white text-[#10203B] shadow-sm transition hover:border-[#2B5C99]/40 hover:bg-[#F5F9FF]"
@@ -353,33 +295,9 @@ export function DashboardProfile({
                   label="Specialization"
                   value={specializationDisplay}
                 />
-
-                <p className="text-sm leading-6 text-slate-600">
-                  {mergedProfileData.bio ||
-                    "Add a short professional biography to describe your expertise, services, and achievements."}
-                </p>
               </div>
             </Panel>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <ServiceCard
-                title="Brow Artistry"
-                description={
-                  specializationDisplay.toLowerCase().includes("brow")
-                    ? "Brow mapping, shaping, styling, and beauty-focused brow services."
-                    : "Highlight your main professional service here."
-                }
-              />
-
-              <ServiceCard
-                title="Lash Artistry"
-                description={
-                  specializationDisplay.toLowerCase().includes("lash")
-                    ? "Classic extensions, volume lashes, lash lift, and tint services."
-                    : "Highlight another specialty or service category here."
-                }
-              />
-            </div>
+            <ServicesSection initialServices={mergedProfileData.services} />
           </div>
         </div>
       </section>
@@ -439,13 +357,19 @@ export function DashboardProfile({
           {galleryImages.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {galleryImages.map((image, index) => (
-                <div key={`${image}-${index}`} className="overflow-hidden rounded-[24px] border border-[#D4E0F0] bg-[#F5F9FF]">
+                <a
+                  key={`${image}-${index}`}
+                  href={buildProfileUrl(image)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group overflow-hidden rounded-[24px] border border-[#D4E0F0] bg-[#F5F9FF]"
+                >
                   <ImageWithFallback
                     src={image}
                     alt={`${fullName} gallery image ${index + 1}`}
-                    className="aspect-square w-full object-cover"
+                    className="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
                   />
-                </div>
+                </a>
               ))}
             </div>
           ) : (
@@ -455,21 +379,6 @@ export function DashboardProfile({
               <GallerySlot label="Before & After Sample" />
             </div>
           )}
-
-          {publicProfileHref ? (
-            <button
-              type="button"
-              onClick={handleCopyProfileLink}
-              className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#D4E0F0] bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-[#2B5C99]/40 hover:bg-[#F5F9FF]"
-            >
-              {copied ? (
-                <Check className="h-4 w-4 text-emerald-600" />
-              ) : (
-                <LinkIcon className="h-4 w-4 text-[#2B5C99]" />
-              )}
-              {copied ? "Profile link copied" : "Copy profile link"}
-            </button>
-          ) : null}
         </Panel>
       </div>
     </div>

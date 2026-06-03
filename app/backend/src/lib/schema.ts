@@ -1,4 +1,11 @@
+import { sql } from "drizzle-orm";
 import { boolean, doublePrecision, index, integer, jsonb, pgTable, uuid, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+
+export type UserService = {
+  id: string;
+  title: string;
+  description?: string;
+};
 
 export const cardRequests = pgTable("card_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -103,6 +110,7 @@ export const users = pgTable("users", {
   instagramUrl: varchar("instagram_url", { length: 255 }),
   country: varchar("country", { length: 100 }),
   city: varchar("city", { length: 100 }),
+  services: jsonb("services").$type<UserService[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

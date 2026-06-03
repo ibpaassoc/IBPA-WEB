@@ -26,6 +26,33 @@ const galleryImages = [
   "/home/why-join-ibpa.webp",
 ];
 
+const seededServices = [
+  {
+    id: "service-membership-activation",
+    title: "Membership Activation",
+    description:
+      "Account setup, onboarding guidance, profile completion support, and renewal-ready member workflows.",
+  },
+  {
+    id: "service-partner-operations",
+    title: "Partner Operations Support",
+    description:
+      "Seat planning, team profile coordination, access troubleshooting, and partner dashboard enablement.",
+  },
+  {
+    id: "service-education-programming",
+    title: "Education Programming",
+    description:
+      "Workshop planning, educator scheduling, standards alignment, and member-facing learning sessions.",
+  },
+  {
+    id: "service-event-production",
+    title: "Event Production",
+    description:
+      "Regional activations, board sessions, summit logistics, and RSVP-ready event publishing across channels.",
+  },
+] as const;
+
 const richApplicationPayload = {
   firstName: "Anastasiia",
   lastName: "Shevchenko",
@@ -423,6 +450,7 @@ async function seedUsers(order: typeof orders.$inferSelect, linkedClerkUserId: s
     instagramUrl: "https://instagram.com/ibpassociations",
     country: "United States",
     city: "Roseville",
+    services: seededServices.map((service) => ({ ...service })),
     updatedAt: new Date(),
   };
 
