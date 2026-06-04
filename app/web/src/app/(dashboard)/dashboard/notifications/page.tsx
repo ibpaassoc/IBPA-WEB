@@ -11,7 +11,7 @@ import {
   dashboardSecondaryButtonClassName,
   SectionCard,
   SectionHeader,
-} from "@/components/dashboard/DashboardShared";
+} from "@/shared/components/DashboardShared";
 import {
   buildSystemNotifications,
   normalizeNotifications,

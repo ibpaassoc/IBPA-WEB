@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronRight, X } from "lucide-react";
-import { SectionCard, NavButton } from "./DashboardShared";
+import { X } from "lucide-react";
+import { SectionCard, NavButton } from "../../shared/components/DashboardShared";
 import type { TabType } from "./dashboard-types";
 
 type NavItem = {

@@ -1,4 +1,4 @@
-import { SectionCard, SectionHeader } from "@/components/dashboard/DashboardShared";
+import { SectionCard, SectionHeader } from "@/shared/components/DashboardShared";
 import { TeamMembersPanel } from "@/components/dashboard/TeamMembersPanel";
 
 export function DashboardTeamMembers({

@@ -7,7 +7,7 @@ import {
   dashboardSubtlePanelClassName,
   SectionCard,
   SectionHeader,
-} from "@/components/dashboard/DashboardShared";
+} from "@/shared/components/DashboardShared";
 import type {
   Certificate,
   PartnerTeamSummary,

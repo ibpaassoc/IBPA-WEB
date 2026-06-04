@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react";
 
-import { SectionCard, SectionHeader } from "@/components/dashboard/DashboardShared";
+import { SectionCard, SectionHeader } from "@/shared/components/DashboardShared";
 import type { DashboardContentItem } from "@/components/dashboard/dashboard-types";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 

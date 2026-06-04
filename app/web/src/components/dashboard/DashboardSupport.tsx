@@ -14,7 +14,7 @@ import {
   dashboardTextareaClassName,
   SectionCard,
   SectionHeader,
-} from "@/components/dashboard/DashboardShared";
+} from "@/shared/components/DashboardShared";
 import type { SupportMode } from "@/components/dashboard/dashboard-types";
 
 const SUPPORT_OPTIONS: Array<{

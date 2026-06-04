@@ -16,7 +16,7 @@ import {
   Upload,
 } from "lucide-react";
 
-import { StatusPill } from "@/components/dashboard/DashboardShared";
+import { StatusPill } from "@/shared/components/DashboardShared";
 import { ServicesSection } from "@/components/dashboard/profile/ServicesSection";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import type { TeamMemberAccessInfo } from "@/components/dashboard/dashboard-types";

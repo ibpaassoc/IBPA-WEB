@@ -15,6 +15,7 @@ import { DashboardBilling } from "./DashboardBilling";
 import { DashboardEvents } from "./DashboardEvents";
 import { DashboardSupport } from "./DashboardSupport";
 import { DashboardNotifications } from "./DashboardNotifications";
+import { UnderDevelopmentPage } from "@/shared/components/UnderDevelopment";
 
 type EventAudienceFilter = "all" | "members" | "open";
 
@@ -180,6 +181,7 @@ export function DashboardContent(props: Props) {
 
     case "certificates":
       return (
+        /*
         <DashboardCertificates
           certificates={certificates}
           showCertificatesTab={showCertificatesTab}
@@ -188,6 +190,8 @@ export function DashboardContent(props: Props) {
           publicProfileHref={publicProfileHref}
           setActiveTab={setActiveTab}
         />
+        */
+        <UnderDevelopmentPage title="Certificates is under development" />
       );
 
     case "billing":
@@ -239,12 +243,13 @@ export function DashboardContent(props: Props) {
 
     case "notifications":
       return (
-        <DashboardNotifications
+        /* <DashboardNotifications
           allNotifications={allNotifications}
           getNotificationMeta={getNotificationMeta}
           notificationPreferences={notificationPreferences}
           togglePreference={togglePreference}
-        />
+        /> */
+        <UnderDevelopmentPage title="Notifications is under development" />
       );
 
     case "teamMembers":

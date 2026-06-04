@@ -20,7 +20,7 @@ import {
   dashboardPrimaryButtonClassName,
   dashboardSecondaryButtonClassName,
   dashboardSubtlePanelClassName,
-} from "@/components/dashboard/DashboardShared";
+} from "@/shared/components/DashboardShared";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { sanitizeBackendErrorMessage } from "@/lib/safe-backend-error";
 

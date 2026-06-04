@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Award, Download, ExternalLink, Users } from "lucide-react";
 
-import { SectionCard, SectionHeader, StatusPill } from "@/components/dashboard/DashboardShared";
+import { SectionCard, SectionHeader, StatusPill } from "@/shared/components/DashboardShared";
 import type { Certificate } from "@/components/dashboard/dashboard-types";
 import { formatStatusLabel } from "@/lib/dashboard-cabinet";
 

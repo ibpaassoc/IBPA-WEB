@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Bell, LayoutDashboard, LogIn, Menu } from "lucide-react";
 import Link from "next/link";
 
-import { dashboardPrimaryButtonClassName } from "@/components/dashboard/DashboardShared";
+import { dashboardPrimaryButtonClassName } from "@/shared/components/DashboardShared";
 import type { DashboardNotification } from "@/lib/notifications";
 
 type Props = {

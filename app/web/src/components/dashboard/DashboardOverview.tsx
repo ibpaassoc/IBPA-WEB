@@ -9,7 +9,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { SectionCard } from "@/components/dashboard/DashboardShared";
+import { SectionCard } from "@/shared/components/DashboardShared";
 import type { DashboardNotification } from "@/lib/notifications";
 
 type OverviewCard = {
