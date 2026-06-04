@@ -50,6 +50,13 @@
       "when": 1778400000000,
       "tag": "0006_add_webhook_event_and_email_status_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780613428847,
+      "tag": "0007_domain_refactor_foundation",
+      "breakpoints": true
     }
   ]
 }

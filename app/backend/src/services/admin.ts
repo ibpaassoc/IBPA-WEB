@@ -10,7 +10,6 @@ import {
 import { requireDb, users } from "../lib/db";
 
 const DEFAULT_ADMIN_EMAILS = [
-  "mokich45usa@gmail.com",
   "support@ibpassociations.org",
   "admin@ibpassociations.org",
 ];

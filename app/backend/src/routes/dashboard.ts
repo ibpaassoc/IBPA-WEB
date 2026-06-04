@@ -11,6 +11,7 @@ import {
   getPrimaryEmailFromClerkUser,
 } from "../services/clerk";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
+import { saveDashboardProfile } from "../features/profiles/server/profile.service";
 
 export const dashboardRouter = Router();
 export const cardsRouter = Router();
@@ -1326,8 +1327,6 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
       applicationPayload,
     } = req.body;
     
-    const [existing] = await db.select().from(users).where(eq(users.clerkId, clerkUserId));
-
     const existingPayload =
       latestPaidOrder?.applicationPayload && typeof latestPaidOrder.applicationPayload === "object"
         ? (latestPaidOrder.applicationPayload as Record<string, unknown>)
@@ -1339,48 +1338,24 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
         applicationPayload && typeof applicationPayload === "object" ? applicationPayload as Record<string, unknown> : {},
       ),
     };
-    const nextSpecialization = textValue(nextApplicationPayload.specialization);
+    const saved = await saveDashboardProfile(db, {
+      clerkUserId,
+      email,
+      firstName: clerkUser?.firstName || "",
+      lastName: clerkUser?.lastName || "",
+      imageUrl,
+      bio,
+      specialization: specialization || textValue(nextApplicationPayload.specialization) || null,
+      experienceYears: experienceYears || (nextApplicationPayload.yearsExperience as string) || null,
+      education: education || (nextApplicationPayload.educationDesc as string) || null,
+      instagramUrl: instagramUrl || (nextApplicationPayload.instagramLink as string) || null,
+      country: country || (nextApplicationPayload.country as string) || null,
+      city: city || (nextApplicationPayload.city as string) || null,
+      applicationPayload: nextApplicationPayload,
+      legacyOrder: latestPaidOrder,
+    });
 
-    if (latestPaidOrder) {
-      await db
-        .update(orders)
-        .set({
-          phone: (nextApplicationPayload.phone as string) || latestPaidOrder.phone || null,
-          applicationPayload: nextApplicationPayload,
-        })
-        .where(eq(orders.id, latestPaidOrder.id));
-    }
-    
-    if (existing) {
-      await db.update(users).set({
-        imageUrl: imageUrl ?? existing.imageUrl,
-        bio,
-        specialization: specialization || nextSpecialization || existing.specialization,
-        experienceYears: experienceYears || (nextApplicationPayload.yearsExperience as string) || existing.experienceYears,
-        education: education || (nextApplicationPayload.educationDesc as string) || existing.education,
-        instagramUrl: instagramUrl || (nextApplicationPayload.instagramLink as string) || existing.instagramUrl,
-        country: country || (nextApplicationPayload.country as string) || existing.country,
-        city: city || (nextApplicationPayload.city as string) || existing.city,
-        updatedAt: new Date()
-      }).where(eq(users.clerkId, clerkUserId));
-    } else {
-      await db.insert(users).values({
-        clerkId: clerkUserId,
-        email,
-        firstName: clerkUser.firstName || "",
-        lastName: clerkUser.lastName || "",
-        imageUrl: imageUrl ?? null,
-        bio,
-        specialization: specialization || nextSpecialization || null,
-        experienceYears: experienceYears || (nextApplicationPayload.yearsExperience as string) || null,
-        education: education || (nextApplicationPayload.educationDesc as string) || null,
-        instagramUrl: instagramUrl || (nextApplicationPayload.instagramLink as string) || null,
-        country: country || (nextApplicationPayload.country as string) || null,
-        city: city || (nextApplicationPayload.city as string) || null,
-      });
-    }
-
-    res.json({ success: true, applicationPayload: nextApplicationPayload });
+    res.json({ success: true, applicationPayload: saved.nextApplicationPayload });
   } catch (error) {
     console.error("[Dashboard /profile PATCH] Error:", error);
     res.status(500).json({ error: "Failed to update profile" });
