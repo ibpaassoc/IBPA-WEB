@@ -12,7 +12,6 @@ import {
   dashboardSecondaryButtonClassName,
   dashboardSubtlePanelClassName,
   dashboardTextareaClassName,
-  getDashboardSelectableCardClassName,
   SectionCard,
   SectionHeader,
 } from "@/components/dashboard/DashboardShared";
@@ -44,6 +43,12 @@ const SUPPORT_OPTIONS: Array<{
   },
 ];
 
+const SUPPORT_MODE_INDEX: Record<SupportMode, number> = {
+  question: 0,
+  idea: 1,
+  problem: 2,
+};
+
 export function DashboardSupport({
   supportMode,
   setSupportMode,
@@ -56,7 +61,7 @@ export function DashboardSupport({
   setSupportMessage,
   handleSupportSubmit,
   supportSubmitting,
-  quickAnswers,
+  quickAnswers: _quickAnswers,
   faqItems,
 }: {
   supportMode: SupportMode;
@@ -76,74 +81,108 @@ export function DashboardSupport({
     answer: string;
   }[];
 }) {
+  const activeIndex = SUPPORT_MODE_INDEX[supportMode] ?? 0;
+
   return (
     <div className="space-y-6">
       <SectionCard>
         <SectionHeader title="Support" />
 
-        <div className="mt-6 grid gap-3 lg:grid-cols-3">
-          {SUPPORT_OPTIONS.map((option) => {
-            const Icon = option.icon;
+        <div className="mt-6 overflow-hidden rounded-[28px] border border-slate-200 bg-white p-2 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+          <div className="relative grid gap-2 lg:grid-cols-3">
+            <div
+              className="pointer-events-none absolute left-0 top-0 z-0 h-[calc((100%-16px)/3)] w-full rounded-[24px] bg-[#071E41] shadow-[0_18px_45px_rgba(7,30,65,0.24)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden"
+              style={{
+                transform:
+                  activeIndex === 0
+                    ? "translate3d(0, 0, 0)"
+                    : activeIndex === 1
+                      ? "translate3d(0, calc(100% + 8px), 0)"
+                      : "translate3d(0, calc(200% + 16px), 0)",
+              }}
+            />
 
-            return (
-              <button
-                key={option.key}
-                type="button"
-                onClick={() => setSupportMode(option.key)}
-                className={getDashboardSelectableCardClassName(
-                  supportMode === option.key,
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${
-                      supportMode === option.key
-                        ? "bg-white/12 text-white"
-                        : "bg-slate-100 text-[#4C7D9D]"
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </div>
+            <div
+              className="pointer-events-none absolute left-0 top-0 z-0 hidden h-full w-[calc((100%-16px)/3)] rounded-[24px] bg-[#071E41] shadow-[0_18px_45px_rgba(7,30,65,0.24)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:block"
+              style={{
+                transform:
+                  activeIndex === 0
+                    ? "translate3d(0, 0, 0)"
+                    : activeIndex === 1
+                      ? "translate3d(calc(100% + 8px), 0, 0)"
+                      : "translate3d(calc(200% + 16px), 0, 0)",
+              }}
+            />
 
-                  <div className="text-left">
-                    <p className="text-sm font-semibold">{option.label}</p>
-                    <p
-                      className={`mt-1 text-sm leading-6 ${
-                        supportMode === option.key
-                          ? "text-white/75"
-                          : "text-slate-500"
+            {SUPPORT_OPTIONS.map((option) => {
+              const Icon = option.icon;
+              const isActive = supportMode === option.key;
+
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setSupportMode(option.key)}
+                  className={`relative z-10 min-h-[116px] rounded-[24px] px-5 py-5 text-left transition-colors duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 lg:min-h-[132px] ${
+                    isActive ? "text-white" : "text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex h-full items-start gap-4">
+                    <div
+                      className={`flex size-12 shrink-0 items-center justify-center rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                        isActive
+                          ? "bg-white/14 text-white shadow-sm scale-105"
+                          : "bg-slate-100 text-[#4C7D9D] scale-100"
                       }`}
                     >
-                      {option.description}
-                    </p>
+                      <Icon
+                        className={`h-5 w-5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                          isActive ? "scale-110 opacity-100" : "scale-95 opacity-80"
+                        }`}
+                      />
+                    </div>
+
+                    <div className="min-w-0 pt-0.5">
+                      <p className="text-sm font-semibold leading-5 transition-colors duration-300">
+                        {option.label}
+                      </p>
+                      <p
+                        className={`mt-2 text-sm leading-6 transition-colors duration-300 ${
+                          isActive ? "text-white/76" : "text-slate-500"
+                        }`}
+                      >
+                        {option.description}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <form
             onSubmit={(event) => {
               event.preventDefault();
               void handleSupportSubmit();
             }}
-            className={`${dashboardSubtlePanelClassName} p-5`}
+            className={`${dashboardSubtlePanelClassName} p-5 sm:p-6`}
           >
-            <div className="border-b border-slate-200 pb-4">
+            <div className="flex items-center gap-3 border-b border-slate-200 pb-5">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#071E41] text-white shadow-[0_12px_28px_rgba(7,30,65,0.18)]">
+                <MessageSquareText className="h-5 w-5" />
+              </div>
               <h3 className="text-lg font-semibold tracking-tight text-slate-900">
-                Submit a Request
+                {SUPPORT_OPTIONS.find((option) => option.key === supportMode)?.label ??
+                  "Support Request"}
               </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Use the existing support workflow and the team will follow up by email.
-              </p>
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
                 <p className="text-xs font-medium text-slate-500">Member email</p>
-                <p className="mt-2 text-sm font-semibold text-slate-900">
+                <p className="truncate mt-2 break-words text-sm font-semibold text-slate-900">
                   {dashboardContactEmail || "Unavailable"}
                 </p>
               </div>
@@ -156,7 +195,7 @@ export function DashboardSupport({
               </div>
             </div>
 
-            <div className="mt-4 flex flex-col gap-4">
+            <div className="mt-5 flex flex-col gap-4">
               <label className="flex flex-col gap-2">
                 <span className="text-xs font-medium text-slate-600">
                   Phone (optional)
@@ -182,7 +221,7 @@ export function DashboardSupport({
               </label>
             </div>
 
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 type="submit"
                 disabled={supportSubmitting}
@@ -205,46 +244,27 @@ export function DashboardSupport({
             </div>
           </form>
 
-          <div className="space-y-4">
-            <section className={`${dashboardSubtlePanelClassName} p-5`}>
-              <h3 className="text-lg font-semibold tracking-tight text-slate-900">
-                Quick Help
-              </h3>
+          <section className={`${dashboardSubtlePanelClassName} p-5 sm:p-6`}>
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+              FAQ
+            </h3>
 
-              <div className="mt-4 space-y-3">
-                {quickAnswers.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-[20px] border border-slate-200 bg-white px-4 py-4 text-sm leading-6 text-slate-600"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className={`${dashboardSubtlePanelClassName} p-5`}>
-              <h3 className="text-lg font-semibold tracking-tight text-slate-900">
-                FAQ
-              </h3>
-
-              <div className="mt-4 space-y-3">
-                {faqItems.map((item) => (
-                  <div
-                    key={item.question}
-                    className="rounded-[20px] border border-slate-200 bg-white px-4 py-4"
-                  >
-                    <p className="text-sm font-semibold text-slate-900">
-                      {item.question}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      {item.answer}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
+            <div className="mt-4 space-y-3">
+              {faqItems.map((item) => (
+                <div
+                  key={item.question}
+                  className="rounded-[20px] border border-slate-200 bg-white px-4 py-4"
+                >
+                  <p className="text-sm font-semibold text-slate-900">
+                    {item.question}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    {item.answer}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       </SectionCard>
     </div>

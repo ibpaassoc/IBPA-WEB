@@ -26,7 +26,6 @@ export function DashboardEvents({
         <SectionHeader
           eyebrow="Events & Benefits"
           title="Member opportunities"
-          description="Professional events, education opportunities, and member-only perks with clear filters and clean registration actions."
         />
 
         <div className="mt-6 flex flex-wrap items-center gap-3">

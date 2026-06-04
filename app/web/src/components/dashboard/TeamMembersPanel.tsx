@@ -380,9 +380,6 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
             <h3 className="text-lg font-semibold tracking-tight text-slate-900">
               Team Members
             </h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Keep invited professionals, access status, and actions in one place.
-            </p>
           </div>
 
           <span className="inline-flex w-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
@@ -497,9 +494,6 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
           <h3 className="text-lg font-semibold tracking-tight text-slate-900">
             Invite Team Member
           </h3>
-          <p className="mt-1 text-sm text-slate-500">
-            Add a professional and assign an individual seat.
-          </p>
         </div>
 
         {!payload?.canInvite && payload?.inviteDisabledReason ? (
