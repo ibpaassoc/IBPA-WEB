@@ -9,21 +9,18 @@ export function DashboardDirectory({
 }) {
   return (
     <div className="space-y-6">
-      <SectionCard className="p-0 overflow-hidden">
-        <div className="border-b border-slate-200 px-5 py-5 md:px-7">
-          <SectionHeader
-            eyebrow="Member Directory"
-            title="Networking and collaborations"
-            description="Search active members, filter by level, country, and specialization, and open public-ready profile previews."
+      <SectionCard>
+        <SectionHeader title="Member Directory" />
+
+        <div className="mt-6">
+          <MembersDirectory
+            locale="en"
+            items={directoryMembers}
+            mode="full"
+            surface="dashboard"
+            showIntro={false}
           />
         </div>
-
-        <MembersDirectory
-          locale="en"
-          items={directoryMembers}
-          mode="full"
-          surface="dashboard"
-        />
       </SectionCard>
     </div>
   );

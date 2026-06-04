@@ -167,7 +167,6 @@ export default function DashboardPage() {
       contentProps={{
         activeTab,
         setActiveTab,
-        isSignedIn: Boolean(isSignedIn),
         isTeamMemberDashboard: finalDerived.isTeamMemberDashboard,
         isPartnerOwner: finalDerived.isPartnerOwner,
         isMembershipActive: finalDerived.isMembershipActive,

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { cn } from "@/lib/utils";
+
 export function StatusPill({
   label,
   tone,
@@ -32,7 +34,10 @@ export function SectionCard({
 }) {
   return (
     <section
-      className={`rounded-[28px] border border-white/80 bg-white p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] md:p-7 ${className}`}
+      className={cn(
+        "rounded-[26px] border border-slate-200/80 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,0.06)] md:p-6",
+        className,
+      )}
     >
       {children}
     </section>
@@ -45,7 +50,7 @@ export function SectionHeader({
   description,
   action,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description?: string;
   action?: ReactNode;
@@ -53,14 +58,21 @@ export function SectionHeader({
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#4C7D9D]">
-          {eyebrow}
-        </p>
-        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[#10203B] md:text-4xl">
+        {eyebrow ? (
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#4C7D9D]">
+            {eyebrow}
+          </p>
+        ) : null}
+        <h2
+          className={cn(
+            "text-2xl font-semibold tracking-tight text-[#10203B] md:text-3xl",
+            eyebrow ? "mt-2.5" : "",
+          )}
+        >
           {title}
         </h2>
         {description ? (
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500 md:text-base">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 md:text-base">
             {description}
           </p>
         ) : null}
@@ -89,8 +101,8 @@ export function NavButton({
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition-all ${
         active
-          ? "bg-[#10203B] text-white shadow-[0_16px_36px_rgba(16,32,59,0.18)]"
-          : "text-slate-600 hover:bg-[#F3F7FB] hover:text-[#10203B]"
+          ? "bg-[#10203B] text-white shadow-[0_12px_28px_rgba(16,32,59,0.16)]"
+          : "text-slate-600 hover:bg-slate-50 hover:text-[#10203B]"
       }`}
     >
       <span className={active ? "text-white" : "text-[#4C7D9D]"}>
@@ -99,5 +111,41 @@ export function NavButton({
       <span className="truncate">{label}</span>
       {accent ? <span className="ml-auto">{accent}</span> : null}
     </button>
+  );
+}
+
+export const dashboardSubtlePanelClassName =
+  "rounded-[22px] border border-slate-200 bg-slate-50/70";
+
+export const dashboardMetricCardClassName =
+  "rounded-[20px] border border-slate-200 bg-slate-50/80 p-4";
+
+export const dashboardInputClassName =
+  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-[#10203B] outline-none transition focus:border-[#4C7D9D] focus:ring-2 focus:ring-[#4C7D9D]/10";
+
+export const dashboardTextareaClassName =
+  "min-h-[160px] w-full rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-[#10203B] outline-none transition focus:border-[#4C7D9D] focus:ring-2 focus:ring-[#4C7D9D]/10";
+
+export const dashboardPrimaryButtonClassName =
+  "inline-flex items-center justify-center gap-2 rounded-2xl bg-[#10203B] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#1a3157] disabled:cursor-not-allowed disabled:opacity-60";
+
+export const dashboardSecondaryButtonClassName =
+  "inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-[#4C7D9D]/40 hover:text-[#10203B] disabled:cursor-not-allowed disabled:opacity-60";
+
+export function getDashboardFilterButtonClassName(active: boolean) {
+  return cn(
+    "inline-flex items-center justify-center rounded-2xl border px-4 py-2.5 text-sm font-medium transition",
+    active
+      ? "border-[#10203B] bg-[#10203B] text-white shadow-[0_10px_24px_rgba(16,32,59,0.14)]"
+      : "border-slate-200 bg-white text-slate-600 hover:border-[#4C7D9D]/40 hover:text-[#10203B]",
+  );
+}
+
+export function getDashboardSelectableCardClassName(active: boolean) {
+  return cn(
+    "rounded-[22px] border p-4 text-left transition",
+    active
+      ? "border-[#10203B] bg-[#10203B] text-white shadow-[0_14px_30px_rgba(16,32,59,0.14)]"
+      : "border-slate-200 bg-white text-slate-700 hover:border-[#4C7D9D]/30 hover:bg-slate-50",
   );
 }

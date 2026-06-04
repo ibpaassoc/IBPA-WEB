@@ -14,7 +14,6 @@ import { DashboardProfile } from "./DashboardProfile";
 import { DashboardBilling } from "./DashboardBilling";
 import { DashboardEvents } from "./DashboardEvents";
 import { DashboardSupport } from "./DashboardSupport";
-import { DashboardSettings } from "./DashboardSettings";
 import { DashboardNotifications } from "./DashboardNotifications";
 
 type EventAudienceFilter = "all" | "members" | "open";
@@ -27,7 +26,6 @@ type Props = {
   activeTab: TabType;
   setActiveTab: Dispatch<SetStateAction<TabType>>;
 
-  isSignedIn: boolean;
   isTeamMemberDashboard: boolean;
   isPartnerOwner: boolean;
   isMembershipActive: boolean;
@@ -100,7 +98,6 @@ export function DashboardContent(props: Props) {
   const {
     activeTab,
     setActiveTab,
-    isSignedIn,
     isTeamMemberDashboard,
     isPartnerOwner,
     isMembershipActive,
@@ -204,7 +201,6 @@ export function DashboardContent(props: Props) {
           statusSummary={statusSummary}
           billingEntries={billingEntries}
           lastSyncedAt={lastSyncedAt}
-          memberIdDisplay={memberIdDisplay}
           partnerSeatPrice={partnerSeatPrice}
           setActiveTab={setActiveTab}
         />
@@ -248,14 +244,6 @@ export function DashboardContent(props: Props) {
           getNotificationMeta={getNotificationMeta}
           notificationPreferences={notificationPreferences}
           togglePreference={togglePreference}
-        />
-      );
-
-    case "settings":
-      return (
-        <DashboardSettings
-          isSignedIn={isSignedIn}
-          notificationPreferences={notificationPreferences}
         />
       );
 

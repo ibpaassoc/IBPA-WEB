@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Search,
-  Settings,
   ShieldCheck,
   User,
   UserPlus,
@@ -510,11 +509,6 @@ export function useDashboardDerivedData({
         unreadNotificationsCount > 0 ? (
           <span className="h-2.5 w-2.5 rounded-full bg-current" />
         ) : null,
-    },
-    {
-      key: "settings" as const,
-      label: "Settings",
-      icon: <Settings className="h-4 w-4" />,
     },
   ];
 

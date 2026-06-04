@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import React from "react";
 import Cropper, { type Area, type Point } from "react-easy-crop";

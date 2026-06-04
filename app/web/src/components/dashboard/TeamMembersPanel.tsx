@@ -1,10 +1,28 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
-import { AlertCircle, CalendarDays, CheckCircle2, ExternalLink, Loader2, MapPin, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  Loader2,
+  Plus,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { sanitizeBackendErrorMessage } from "@/lib/safe-backend-error";
+
+import {
+  dashboardInputClassName,
+  dashboardMetricCardClassName,
+  dashboardPrimaryButtonClassName,
+  dashboardSecondaryButtonClassName,
+  dashboardSubtlePanelClassName,
+} from "@/components/dashboard/DashboardShared";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { sanitizeBackendErrorMessage } from "@/lib/safe-backend-error";
 
 type TeamMemberRecord = {
   id: string;
@@ -71,20 +89,6 @@ const INITIAL_FORM: FormState = {
 
 const FALLBACK_LICENSE_NUMBER = "Not provided";
 
-function getSeatBadge(member: TeamMemberRecord) {
-  if (member.seatKind === "additional") {
-    return {
-      label: "Additional Seat",
-      className: "border border-emerald-200 bg-emerald-50 text-emerald-700",
-    };
-  }
-
-  return {
-    label: "Included Seat",
-    className: "border border-sky-200 bg-sky-50 text-sky-700",
-  };
-}
-
 function getStatusBadge(member: TeamMemberRecord) {
   if (member.status === "removed") {
     return {
@@ -108,6 +112,41 @@ function getStatusBadge(member: TeamMemberRecord) {
 
 function getSafeTeamErrorMessage(value: unknown, fallback: string) {
   return sanitizeBackendErrorMessage(value, fallback);
+}
+
+function getInitials(name: string) {
+  const parts = name
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "TM";
+  }
+
+  const first = parts[0]?.[0] || "";
+  const second = parts.length > 1 ? parts[1]?.[0] || "" : "";
+  return `${first}${second}`.toUpperCase();
+}
+
+function SummaryMetric({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string | number;
+  helper?: string;
+}) {
+  return (
+    <article className={dashboardMetricCardClassName}>
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+        {value}
+      </p>
+      {helper ? <p className="mt-1 text-xs text-slate-400">{helper}</p> : null}
+    </article>
+  );
 }
 
 export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
@@ -146,7 +185,6 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
   }, [enabled]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadTeamMembers();
   }, [loadTeamMembers]);
 
@@ -158,20 +196,25 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
   const onSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!enabled || !payload?.canInvite) return;
+      if (!enabled || !payload?.canInvite) {
+        return;
+      }
 
       if (!form.fullName.trim()) {
         toast.error("Full name is required.");
         return;
       }
+
       if (!form.email.trim()) {
         toast.error("Email is required.");
         return;
       }
+
       if (!form.role.trim()) {
         toast.error("Position / role is required.");
         return;
       }
+
       if (!form.affiliationConfirmed) {
         toast.error("Affiliation confirmation is required.");
         return;
@@ -272,11 +315,10 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
 
   if (!enabled) {
     return (
-      <div className="rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.08)] md:p-8">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#72A0C1]">Team Access</p>
-        <h3 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Partner Account Required</h3>
-        <p className="mt-3 max-w-2xl text-sm text-slate-500">
-          Team access is available only for partner accounts.
+      <div className={`${dashboardSubtlePanelClassName} p-6`}>
+        <p className="text-sm font-medium text-slate-900">Partner account required</p>
+        <p className="mt-2 text-sm text-slate-500">
+          Team access is available only for partner memberships.
         </p>
       </div>
     );
@@ -284,217 +326,164 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[260px] items-center justify-center rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.08)] md:p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-[#72A0C1]" />
+      <div className="flex min-h-[220px] items-center justify-center rounded-[22px] border border-slate-200 bg-slate-50/70">
+        <Loader2 className="h-8 w-8 animate-spin text-[#4C7D9D]" />
       </div>
     );
   }
 
   const additionalSeats = Number(payload?.paidAdditionalSeats || 0);
-
-  function getInitials(name: string) {
-    const parts = name
-      .split(/\s+/)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (parts.length === 0) return "TM";
-    const first = parts[0]?.[0] || "";
-    const second = parts.length > 1 ? parts[1]?.[0] || "" : "";
-    return `${first}${second}`.toUpperCase();
-  }
+  const pendingSeatRequests = Number(payload?.pendingSeatExtensionRequests || 0);
 
   return (
-    <div className="space-y-8">
-      <section className="rounded-3xl bg-white p-6 shadow-[0_10px_36px_rgba(15,23,42,0.08)] md:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#72A0C1]">Business Owner</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#0F2240] md:text-4xl">Partner Team Access</h2>
-            <p className="mt-3 max-w-2xl text-sm text-slate-500 md:text-base">
-              Manage affiliated professionals with individual educational access.
-            </p>
-          </div>
-          <span className="inline-flex w-fit items-center rounded-full bg-[#ECF4FF] px-4 py-2 text-[11px] font-semibold text-[#1E3A6D]">
-            Business Owner Membership
-          </span>
+    <div className="space-y-6">
+      {serverError ? (
+        <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {serverError}
         </div>
-      </section>
+      ) : null}
 
-      <section className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <article className="rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-medium text-slate-500">Included Seats</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{payload?.includedSeats || 5}</p>
-          </article>
-          <article className="rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-medium text-slate-500">Used Seats</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{payload?.usedSeats || 0}</p>
-          </article>
-          <article className="rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-medium text-slate-500">Remaining Seats</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{payload?.remainingSeats || 0}</p>
-          </article>
-          <article className="rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-medium text-slate-500">Additional Seats</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{additionalSeats}</p>
-            {Number(payload?.pendingSeatExtensionRequests || 0) > 0 ? (
-              <p className="mt-1 text-xs text-amber-600">
-                {payload?.pendingSeatExtensionRequests || 0} pending request
-                {(payload?.pendingSeatExtensionRequests || 0) > 1 ? "s" : ""}
-              </p>
-            ) : null}
-          </article>
+          <SummaryMetric label="Included seats" value={payload?.includedSeats || 5} />
+          <SummaryMetric label="Used seats" value={payload?.usedSeats || 0} />
+          <SummaryMetric label="Remaining seats" value={payload?.remainingSeats || 0} />
+          <SummaryMetric
+            label="Additional seats"
+            value={additionalSeats}
+            helper={
+              pendingSeatRequests > 0
+                ? `${pendingSeatRequests} pending request${pendingSeatRequests === 1 ? "" : "s"}`
+                : undefined
+            }
+          />
         </div>
-        <div className="flex justify-start">
-          <button
-            type="button"
-            disabled={extending}
-            onClick={handleExtendSeats}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0F2240] px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#17386B] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {extending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Extend Seats
-          </button>
-        </div>
+
+        <button
+          type="button"
+          disabled={extending}
+          onClick={handleExtendSeats}
+          className={dashboardSecondaryButtonClassName}
+        >
+          {extending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          Extend Seats
+        </button>
       </section>
 
-      <section className="rounded-3xl bg-white p-6 shadow-[0_10px_36px_rgba(15,23,42,0.08)] md:p-8">
-        <div className="flex items-center justify-between gap-3">
+      <section className={`${dashboardSubtlePanelClassName} p-5`}>
+        <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-xl font-semibold tracking-tight text-slate-900">Team Members</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+              Team Members
+            </h3>
             <p className="mt-1 text-sm text-slate-500">
-              {payload?.partnerBusinessName ? `For ${payload.partnerBusinessName}` : "Manage your current invited team"}
+              Keep invited professionals, access status, and actions in one place.
             </p>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+
+          <span className="inline-flex w-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
             {visibleMembers.length} member{visibleMembers.length === 1 ? "" : "s"}
           </span>
         </div>
 
         {visibleMembers.length === 0 ? (
-          <div className="mt-6 rounded-2xl bg-[#F7FAFF] p-8 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#E7F0FF] text-[#2C5A91]">
-              <Users className="h-6 w-6" />
+          <div className="mt-4 rounded-[20px] border border-dashed border-slate-200 bg-white px-6 py-10 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-slate-100 text-[#4C7D9D]">
+              <Users className="h-5 w-5" />
             </div>
-            <p className="mt-4 text-base font-medium text-slate-900">No team members yet</p>
-            <p className="mt-1 text-sm text-slate-500">Invite your first professional to activate a seat.</p>
+            <p className="mt-4 text-base font-medium text-slate-900">
+              No team members yet
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Invite your first professional to activate a seat.
+            </p>
             <button
               type="button"
-              onClick={() => {
-                const element = document.getElementById("team-member-full-name");
-                element?.focus();
-              }}
-              className="mt-5 inline-flex items-center justify-center rounded-xl bg-[#0F2240] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#17386B]"
+              onClick={() => document.getElementById("team-member-full-name")?.focus()}
+              className={`${dashboardPrimaryButtonClassName} mt-5`}
             >
               Invite Team Member
             </button>
           </div>
         ) : (
-          <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
             {visibleMembers.map((member) => {
-              const seatBadge = getSeatBadge(member);
               const statusBadge = getStatusBadge(member);
-              const joinedDate = member.joinedAt
-                ? new Date(member.joinedAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })
+              const portfolioHref = member.portfolioLink
+                ? member.portfolioLink.startsWith("http")
+                  ? member.portfolioLink
+                  : `https://${member.portfolioLink}`
                 : null;
 
               return (
-                <article key={member.id} className="rounded-[26px] border border-[#E3ECF8] bg-[#F8FAFD] p-5 shadow-[0_8px_28px_rgba(15,23,42,0.04)]">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#DCEBFF] text-sm font-semibold text-[#1F4D84]">
-                        {member.avatarUrl ? (
-                          <ImageWithFallback
-                            src={member.avatarUrl}
-                            alt={member.fullName}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          getInitials(member.fullName)
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="break-words text-base font-semibold text-slate-900">{member.fullName}</p>
-                        <p className="mt-1 break-all text-sm text-slate-500">{member.email}</p>
-                        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#2A5D97]">{member.role}</p>
-                      </div>
+                <article
+                  key={member.id}
+                  className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
+                >
+                  <div className="flex gap-3">
+                    <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#DCEBFF] text-sm font-semibold text-[#1F4D84]">
+                      {member.avatarUrl ? (
+                        <ImageWithFallback
+                          src={member.avatarUrl}
+                          alt={member.fullName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        getInitials(member.fullName)
+                      )}
                     </div>
 
-                    {member.bio ? (
-                      <p
-                        className="text-sm leading-6 text-slate-600"
-                        style={{
-                          display: "-webkit-box",
-                          WebkitBoxOrient: "vertical",
-                          WebkitLineClamp: 3,
-                          overflow: "hidden",
-                        }}
-                      >
-                        {member.bio}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {member.fullName}
+                        </p>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${statusBadge.className}`}
+                        >
+                          {statusBadge.label}
+                        </span>
+                      </div>
+
+                      <p className="mt-1 break-all text-sm text-slate-500">
+                        {member.email}
                       </p>
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#2A5D97]">
+                        {member.role}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {portfolioHref ? (
+                      <a
+                        href={portfolioHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={dashboardSecondaryButtonClassName}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Portfolio
+                      </a>
                     ) : null}
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {member.location ? (
-                        <div className="rounded-2xl bg-white px-4 py-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                            Location
-                          </p>
-                          <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-[#10203B]">
-                            <MapPin className="h-4 w-4 text-[#4C7D9D]" />
-                            <span className="break-words">{member.location}</span>
-                          </p>
-                        </div>
-                      ) : null}
-
-                      {joinedDate ? (
-                        <div className="rounded-2xl bg-white px-4 py-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                            Joined
-                          </p>
-                          <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-[#10203B]">
-                            <CalendarDays className="h-4 w-4 text-[#4C7D9D]" />
-                            {joinedDate}
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
-                        Seat #{member.seatNumber}
-                      </span>
-                      <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${seatBadge.className}`}>
-                        {seatBadge.label}
-                      </span>
-                      <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${statusBadge.className}`}>
-                        {statusBadge.label}
-                      </span>
-                      {member.portfolioLink ? (
-                        <a
-                          href={member.portfolioLink.startsWith("http") ? member.portfolioLink : `https://${member.portfolioLink}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#2A5D97] transition-colors hover:border-[#BFD1EA] hover:text-[#17386B]"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          Portfolio
-                        </a>
-                      ) : null}
-                      <button
-                        type="button"
-                        disabled={removingId === member.id}
-                        onClick={() => void handleRemoveMember(member.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition-colors hover:border-rose-200 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {removingId === member.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                        Remove
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      disabled={removingId === member.id}
+                      onClick={() => void handleRemoveMember(member.id)}
+                      className={dashboardSecondaryButtonClassName}
+                    >
+                      {removingId === member.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      Remove
+                    </button>
                   </div>
                 </article>
               );
@@ -503,70 +492,91 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
         )}
       </section>
 
-      <section className="rounded-3xl bg-white p-6 shadow-[0_10px_36px_rgba(15,23,42,0.08)] md:p-8">
-        <h3 className="text-xl font-semibold tracking-tight text-slate-900">Invite Team Member</h3>
-        <p className="mt-1 text-sm text-slate-500">Add a professional and assign an individual seat.</p>
+      <section className={`${dashboardSubtlePanelClassName} p-5`}>
+        <div className="border-b border-slate-200 pb-4">
+          <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+            Invite Team Member
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Add a professional and assign an individual seat.
+          </p>
+        </div>
 
         {!payload?.canInvite && payload?.inviteDisabledReason ? (
-          <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <div className="mt-4 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             {payload.inviteDisabledReason}
           </div>
         ) : null}
 
-        <form onSubmit={onSubmit} className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="space-y-2">
+        <form onSubmit={onSubmit} className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="flex flex-col gap-2">
             <span className="text-xs font-medium text-slate-600">Full Name</span>
             <input
               id="team-member-full-name"
               type="text"
               value={form.fullName}
-              onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#72A0C1]"
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, fullName: event.target.value }))
+              }
+              className={dashboardInputClassName}
               placeholder="Full Name"
               required
             />
           </label>
 
-          <label className="space-y-2">
+          <label className="flex flex-col gap-2">
             <span className="text-xs font-medium text-slate-600">Email</span>
             <input
               type="email"
               value={form.email}
-              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#72A0C1]"
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, email: event.target.value }))
+              }
+              className={dashboardInputClassName}
               placeholder="member@company.com"
               required
             />
           </label>
 
-          <label className="space-y-2">
+          <label className="flex flex-col gap-2">
             <span className="text-xs font-medium text-slate-600">Role / Position</span>
             <input
               type="text"
               value={form.role}
-              onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#72A0C1]"
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, role: event.target.value }))
+              }
+              className={dashboardInputClassName}
               placeholder="Educator, Artist, Assistant"
               required
             />
           </label>
 
-          <label className="space-y-2">
-            <span className="text-xs font-medium text-slate-600">Instagram or Portfolio Link (optional)</span>
+          <label className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-slate-600">
+              Instagram or Portfolio Link
+            </span>
             <input
               type="url"
               value={form.portfolioLink}
-              onChange={(e) => setForm((prev) => ({ ...prev, portfolioLink: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#72A0C1]"
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, portfolioLink: event.target.value }))
+              }
+              className={dashboardInputClassName}
               placeholder="https://instagram.com/username"
             />
           </label>
 
-          <label className="md:col-span-2 flex items-start gap-3 rounded-2xl bg-[#F7FAFF] p-4">
+          <label className="md:col-span-2 flex items-start gap-3 rounded-[20px] border border-slate-200 bg-white px-4 py-4">
             <input
               type="checkbox"
               checked={form.affiliationConfirmed}
-              onChange={(e) => setForm((prev) => ({ ...prev, affiliationConfirmed: e.target.checked }))}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  affiliationConfirmed: event.target.checked,
+                }))
+              }
               className="mt-1 h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
               required
             />
@@ -575,47 +585,40 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
             </span>
           </label>
 
-          {serverError ? (
-            <div className="md:col-span-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {serverError}
-            </div>
-          ) : null}
-
           <div className="md:col-span-2">
             <button
               type="submit"
               disabled={submitting || !payload?.canInvite}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0F2240] px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#17386B] disabled:cursor-not-allowed disabled:opacity-60"
+              className={dashboardPrimaryButtonClassName}
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
               {submitting ? "Inviting..." : "Invite Member"}
             </button>
           </div>
         </form>
       </section>
 
-      <section className="rounded-3xl bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] md:p-6">
+      <section className={`${dashboardSubtlePanelClassName} p-5`}>
         <div className="flex items-start gap-3">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#2A5D97]" />
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#4C7D9D]" />
           <div>
             <h4 className="text-sm font-semibold text-slate-900">Team Access Rules</h4>
-            <ul className="mt-2 space-y-1.5 text-sm text-slate-600">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2A5D97]" />
-                <span>Individual email-based access</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2A5D97]" />
-                <span>No credential sharing</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2A5D97]" />
-                <span>Trackable access</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2A5D97]" />
-                <span>Professional affiliation required</span>
-              </li>
+            <ul className="mt-3 flex flex-col gap-2 text-sm text-slate-600">
+              {[
+                "Individual email-based access",
+                "No credential sharing",
+                "Trackable access",
+                "Professional affiliation required",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#4C7D9D]" />
+                  <span>{item}</span>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

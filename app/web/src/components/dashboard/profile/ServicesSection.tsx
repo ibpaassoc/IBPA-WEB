@@ -146,7 +146,7 @@ export function ServicesSection({
           <div className="rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#F8FBFF] px-5 py-6 text-sm leading-6 text-slate-500">
             No services added yet.
             <br />
-            Click "Add Service" to showcase your professional offerings.
+            Click &quot;Add Service&quot; to showcase your professional offerings.
           </div>
         ) : null}
 

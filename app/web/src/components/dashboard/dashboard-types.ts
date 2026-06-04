@@ -99,7 +99,6 @@ export type TabType =
   | "events"
   | "directory"
   | "support"
-  | "settings"
   | "notifications"
   | "teamMembers";
 

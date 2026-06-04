@@ -4,6 +4,8 @@ import { SignOutButton, UserButton } from "@clerk/nextjs";
 import { AnimatePresence, motion } from "motion/react";
 import { Bell, LayoutDashboard, LogIn, Menu } from "lucide-react";
 import Link from "next/link";
+
+import { dashboardPrimaryButtonClassName } from "@/components/dashboard/DashboardShared";
 import type { DashboardNotification } from "@/lib/notifications";
 
 type Props = {
@@ -131,13 +133,13 @@ export function DashboardHeader({
                   </div>
 
                   <div className="border-t border-slate-100 px-4 py-4">
-                    <button
-                      type="button"
+                    <Link
+                      href="/dashboard/notifications"
                       onClick={() => setIsNotificationsOpen(false)}
-                      className="block w-full rounded-2xl bg-[#10203B] px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-[#1a3157]"
+                      className={`${dashboardPrimaryButtonClassName} w-full`}
                     >
                       Open notification center
-                    </button>
+                    </Link>
                   </div>
                 </motion.div>
               </>

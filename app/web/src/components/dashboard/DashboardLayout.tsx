@@ -3,7 +3,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardSidebar } from "./DashboardSideBar";
-import { DashboardPageHero } from "./DashboardPageHero";
 import { DashboardContent } from "./DashboardContent";
 import type { TabType } from "./dashboard-types";
 import type { DashboardNotification } from "@/lib/notifications";
@@ -74,7 +73,6 @@ export function DashboardLayout({
         />
 
         <section className="space-y-6">
-
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}

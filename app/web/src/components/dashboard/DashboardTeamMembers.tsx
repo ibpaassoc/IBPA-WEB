@@ -10,9 +10,7 @@ export function DashboardTeamMembers({
     <div className="space-y-6">
       <SectionCard>
         <SectionHeader
-          eyebrow="Team Members"
-          title="Partner team management"
-          description="Invite specialists, review seat usage, and manage partner team access without changing existing partner logic."
+          title="Team Members"
         />
 
         <div className="mt-6">

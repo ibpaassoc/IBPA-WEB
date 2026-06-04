@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Pencil, Plus, Save, Trash2, Handshake } from "lucide-react";

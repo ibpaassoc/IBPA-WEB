@@ -16,6 +16,7 @@ type MembersDirectoryProps = {
   locale: Locale;
   mode?: "teaser" | "full";
   surface?: "public" | "dashboard";
+  showIntro?: boolean;
 };
 
 function getMembershipLabels(locale: Locale): Record<string, string> {
@@ -81,7 +82,13 @@ function normalizeUrl(value?: string | null) {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-export function MembersDirectory({ items, locale, mode = "full", surface = "public" }: MembersDirectoryProps) {
+export function MembersDirectory({
+  items,
+  locale,
+  mode = "full",
+  surface = "public",
+  showIntro = true,
+}: MembersDirectoryProps) {
   const membershipLabels = getMembershipLabels(locale);
   const copy =
     locale === "ru"
@@ -273,23 +280,48 @@ export function MembersDirectory({ items, locale, mode = "full", surface = "publ
     );
   }
 
-  return (
-    <section className="bg-[#F8FAFC] py-16 text-slate-900 md:py-20">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#72A0C1]">{copy.eyebrow}</p>
-          <h1 className="mt-5 text-[2.7rem] uppercase leading-[0.95] text-slate-900 md:text-[4.2rem]">{copy.title}</h1>
-          <p className="mt-5 text-base leading-relaxed text-slate-600 md:text-lg">{copy.description}</p>
-        </div>
+  const isDashboardSurface = surface === "dashboard";
 
-        <div className="mt-10 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-4 md:p-5">
+  return (
+    <section
+      className={cn(
+        "text-slate-900",
+        isDashboardSurface ? "bg-transparent py-0" : "bg-[#F8FAFC] py-16 md:py-20",
+      )}
+    >
+      <div
+        className={cn(
+          "mx-auto",
+          isDashboardSurface ? "max-w-none px-0" : "max-w-7xl px-6",
+        )}
+      >
+        {showIntro ? (
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#72A0C1]">
+              {copy.eyebrow}
+            </p>
+            <h1 className="mt-5 text-[2.7rem] uppercase leading-[0.95] text-slate-900 md:text-[4.2rem]">
+              {copy.title}
+            </h1>
+            <p className="mt-5 text-base leading-relaxed text-slate-600 md:text-lg">
+              {copy.description}
+            </p>
+          </div>
+        ) : null}
+
+        <div
+          className={cn(
+            "grid gap-4 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 md:grid-cols-2 xl:grid-cols-4 md:p-5",
+            showIntro ? "mt-10" : "",
+          )}
+        >
           <label className="grid gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{copy.filtersTitle}</span>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={copy.searchPlaceholder}
-              className="h-12 rounded-md border border-slate-200 px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
             />
           </label>
           <label className="grid gap-2">
@@ -297,7 +329,7 @@ export function MembersDirectory({ items, locale, mode = "full", surface = "publ
             <select
               value={category}
               onChange={(event) => setCategory(event.target.value)}
-              className="h-12 rounded-md border border-slate-200 px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
             >
               {categories.map((item) => (
                 <option key={item} value={item}>
@@ -311,7 +343,7 @@ export function MembersDirectory({ items, locale, mode = "full", surface = "publ
             <select
               value={country}
               onChange={(event) => setCountry(event.target.value)}
-              className="h-12 rounded-md border border-slate-200 px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
             >
               {countries.map((item) => (
                 <option key={item} value={item}>
@@ -325,7 +357,7 @@ export function MembersDirectory({ items, locale, mode = "full", surface = "publ
             <select
               value={specialization}
               onChange={(event) => setSpecialization(event.target.value)}
-              className="h-12 rounded-md border border-slate-200 px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-[#72A0C1]"
             >
               {specializations.map((item) => (
                 <option key={item} value={item}>
@@ -337,11 +369,11 @@ export function MembersDirectory({ items, locale, mode = "full", surface = "publ
         </div>
 
         {list.length === 0 ? (
-          <div className="mt-10 rounded-lg border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-500">
+          <div className="mt-6 rounded-[24px] border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-500">
             {items.length === 0 ? copy.empty : copy.noResults}
           </div>
         ) : (
-          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {list.map((member) => (
               <MemberCard key={member.id} member={member} copy={copy} membershipLabels={membershipLabels} />
             ))}
@@ -395,64 +427,78 @@ function MemberCard({
 
   return (
     <Dialog>
-      <div className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-transform duration-300 hover:-translate-y-1 hover:shadow-xl">
-        <div className="relative bg-[linear-gradient(180deg,#f7fbfe_0%,#edf5fa_100%)] px-6 pb-7 pt-8 text-center">
-          <div className="absolute left-1/2 top-0 h-24 w-24 -translate-x-1/2 rounded-full bg-[#72A0C1]/18 blur-3xl" />
-          <div className="relative z-10 mb-5 flex justify-center">
-            <MemberAvatar member={member} className="h-28 w-28 md:h-32 md:w-32" />
-          </div>
+      <div className="group flex h-full flex-col rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
+        <div className="flex items-start gap-4">
+          <MemberAvatar member={member} className="h-[72px] w-[72px]" />
 
-          {member.membershipCategory ? (
-            <span className="inline-flex rounded-full border border-[#72A0C1]/20 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#4C7D9D]">
-              {membershipLabels[member.membershipCategory] || member.membershipCategory}
-            </span>
-          ) : null}
+          <div className="min-w-0 flex-1">
+            {member.membershipCategory ? (
+              <span className="inline-flex rounded-full border border-[#72A0C1]/20 bg-[#F4FAFF] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#4C7D9D]">
+                {membershipLabels[member.membershipCategory] || member.membershipCategory}
+              </span>
+            ) : null}
 
-          <p className="mt-4 text-[1.6rem] font-semibold leading-tight text-slate-900">{member.fullName}</p>
-          {specializations.length > 0 ? (
-            <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {specializations.map((item) => (
-                <span
-                  key={item}
-                  className="inline-flex rounded-full border border-[#72A0C1]/20 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#4C7D9D]"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          ) : null}
-
-          {member.location ? (
-            <p className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
-              <MapPin className="h-4 w-4 text-[#72A0C1]" />
-              {member.location}
+            <p className="mt-3 text-lg font-semibold leading-tight text-slate-900">
+              {member.fullName}
             </p>
-          ) : null}
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              {specializationText}
+            </p>
+
+            {member.location ? (
+              <p className="mt-2 inline-flex items-center gap-2 text-sm text-slate-500">
+                <MapPin className="h-4 w-4 text-[#72A0C1]" />
+                {member.location}
+              </p>
+            ) : null}
+          </div>
         </div>
 
-        <div className="mt-auto p-5 pt-0">
-          <div className="space-y-3">
-            {(instagramUrl || websiteUrl) && (
-              <div className="flex items-center justify-center gap-3 text-slate-500">
-                {instagramUrl ? (
-                  <a href={instagramUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:border-[#72A0C1]/40 hover:text-[#4C7D9D]">
-                    <Instagram className="h-4 w-4" />
-                  </a>
-                ) : null}
-                {websiteUrl ? (
-                  <a href={websiteUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:border-[#72A0C1]/40 hover:text-[#4C7D9D]">
-                    <Globe className="h-4 w-4" />
-                  </a>
-                ) : null}
-              </div>
-            )}
-
-            <DialogTrigger asChild>
-              <button className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800">
-                {copy.openProfile} <ArrowRight className="h-4 w-4" />
-              </button>
-            </DialogTrigger>
+        {specializations.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {specializations.slice(0, 3).map((item) => (
+              <span
+                key={item}
+                className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] text-slate-600"
+              >
+                {item}
+              </span>
+            ))}
           </div>
+        ) : null}
+
+        <div className="mt-auto pt-4">
+          {(instagramUrl || websiteUrl) && (
+            <div className="mb-3 flex items-center gap-2 text-slate-500">
+              {instagramUrl ? (
+                <a
+                  href={instagramUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white transition hover:border-[#72A0C1]/40 hover:text-[#4C7D9D]"
+                >
+                  <Instagram className="h-4 w-4" />
+                </a>
+              ) : null}
+              {websiteUrl ? (
+                <a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white transition hover:border-[#72A0C1]/40 hover:text-[#4C7D9D]"
+                >
+                  <Globe className="h-4 w-4" />
+                </a>
+              ) : null}
+            </div>
+          )}
+
+          <DialogTrigger asChild>
+            <button className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#10203B] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#1a3157]">
+              {copy.openProfile}
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </DialogTrigger>
         </div>
       </div>
 
