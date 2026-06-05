@@ -77,22 +77,16 @@ function InfoItem({
   );
 }
 
-function MetricCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
+function ExperienceText({ value }: { value: string }) {
   return (
-    <div className="flex h-full flex-col justify-between rounded-[24px] border border-[#D4E0F0] bg-[#FBFDFF] p-4 shadow-[0_14px_35px_rgba(11,31,68,0.05)]">
-      <div className="mb-3 text-[#2B5C99]">{icon}</div>
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 break-words text-lg font-semibold leading-7 text-[#10203B]">
+    <div className="px-1 py-2">
+      <div className="mb-3 flex items-center gap-2 text-[#2B5C99]">
+        <Sparkles className="h-4 w-4" />
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+          Years of experience
+        </p>
+      </div>
+      <p className="text-2xl font-semibold tracking-tight text-[#10203B]">
         {value}
       </p>
     </div>
@@ -103,19 +97,18 @@ function textValue(value: unknown) {
   if (Array.isArray(value)) {
     return value
       .map((item) =>
-        typeof item === "string" ? item.trim() : typeof item === "number" ? String(item) : "",
+        typeof item === "string"
+          ? item.trim()
+          : typeof item === "number"
+            ? String(item)
+            : "",
       )
       .filter(Boolean)
       .join(", ");
   }
 
-  if (typeof value === "string") {
-    return value.trim();
-  }
-
-  if (typeof value === "number") {
-    return String(value);
-  }
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number") return String(value);
 
   return "";
 }
@@ -124,9 +117,7 @@ function formatDate(value?: string | null) {
   if (!value) return null;
 
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
+  if (Number.isNaN(parsed.getTime())) return null;
 
   return parsed.toLocaleDateString("en-US", {
     month: "short",
@@ -154,7 +145,7 @@ function ExpandableTextCard({
   return (
     <motion.article
       layout
-      className="flex h-full flex-col rounded-[24px] border border-[#D4E0F0] bg-[#FBFDFF] p-4 shadow-[0_14px_35px_rgba(11,31,68,0.05)]"
+      className="min-h-[190px] rounded-[24px] border border-[#D4E0F0] bg-[#FBFDFF] p-4 shadow-[0_14px_35px_rgba(11,31,68,0.05)]"
       transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
     >
       <div className="flex items-center gap-2">
@@ -164,10 +155,10 @@ function ExpandableTextCard({
         </p>
       </div>
 
-      <motion.div layout className="mt-3 flex-1">
+      <motion.div layout className="mt-3">
         <p
           className={`break-words text-sm leading-6 text-[#10203B] ${
-            !expanded && isExpandable ? "line-clamp-4" : ""
+            !expanded && isExpandable ? "line-clamp-5" : ""
           } ${normalizedValue ? "font-medium" : "text-slate-500"}`}
         >
           {displayValue}
@@ -178,7 +169,7 @@ function ExpandableTextCard({
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className="mt-3 inline-flex items-center rounded-full border border-[#D4E0F0] bg-white px-3 py-1.5 text-xs font-semibold text-[#21466D] transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
+          className="mt-4 inline-flex items-center rounded-full border border-[#D4E0F0] bg-white px-3 py-1.5 text-xs font-semibold text-[#21466D] transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
         >
           {expanded ? "Show less" : "See all"}
         </button>
@@ -189,14 +180,11 @@ function ExpandableTextCard({
 
 function CertificatePreviewCard({
   certificate,
-  fullName,
   membershipExpiresDisplay,
 }: {
   certificate?: Certificate;
-  fullName: string;
   membershipExpiresDisplay: string;
 }) {
-  const issuedAt = formatDate(certificate?.createdAt);
   const expiresAt =
     formatDate(certificate?.expiresAt) || membershipExpiresDisplay || "Pending";
   const isIssued =
@@ -205,24 +193,21 @@ function CertificatePreviewCard({
   return (
     <motion.article
       layout
-      className="flex h-full flex-col rounded-[28px] border border-[#D4E0F0] bg-[radial-gradient(circle_at_top_left,rgba(111,162,212,0.18),transparent_28%),linear-gradient(180deg,#F7FBFF_0%,#FFFFFF_100%)] p-5 shadow-[0_18px_40px_rgba(11,31,68,0.07)]"
+      className="rounded-[24px] border border-[#D4E0F0] bg-[#FBFDFF] p-4 shadow-[0_14px_35px_rgba(11,31,68,0.05)]"
       transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[#2B5C99]">
-              <Award className="h-4 w-4" />
-            </span>
+            <Award className="h-4 w-4 text-[#2B5C99]" />
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-              Official certificate
+              IBPA certificate
             </p>
           </div>
 
           <p className="mt-3 text-base font-semibold text-[#10203B]">
-            IBPA Certificate
+            Official certificate
           </p>
-          <p className="mt-1 text-sm text-slate-500">{fullName}</p>
         </div>
 
         <StatusPill
@@ -232,63 +217,47 @@ function CertificatePreviewCard({
       </div>
 
       {certificate ? (
-        <>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                Certificate ID
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-[#DCE7F4] bg-white px-3 py-3">
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                ID
               </p>
-              <p className="mt-2 text-sm font-semibold text-[#10203B]">
+              <p className="mt-1 break-all text-xs font-semibold leading-5 text-[#10203B]">
                 {certificate.certNumber}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+            <div className="rounded-2xl border border-[#DCE7F4] bg-white px-3 py-3">
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
                 Valid through
               </p>
-              <p className="mt-2 text-sm font-semibold text-[#10203B]">
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#10203B]">
                 {expiresAt}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                Issued
-              </p>
-              <p className="mt-2 text-sm font-semibold text-[#10203B]">
-                {issuedAt || "Pending review"}
               </p>
             </div>
           </div>
 
           {certificate.certificateUrl ? (
-            <div className="mt-5">
-              <a
-                href={certificate.certificateUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-[#D4E0F0] bg-white px-4 py-2.5 text-xs font-semibold text-[#10203B] transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Open certificate
-              </a>
-            </div>
+            <a
+              href={certificate.certificateUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0D1F3D] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#16386D]"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open certificate
+            </a>
           ) : (
-            <div className="mt-5 rounded-[22px] border border-dashed border-[#D4E0F0] bg-white/80 px-4 py-4 text-sm leading-6 text-slate-500">
-              Your official certificate record is active. The downloadable file will appear here after it is uploaded.
-            </div>
+            <p className="rounded-2xl border border-dashed border-[#D4E0F0] bg-white/80 px-3 py-3 text-xs leading-5 text-slate-500">
+              Certificate file is not uploaded yet.
+            </p>
           )}
-        </>
-      ) : (
-        <div className="mt-5 rounded-[22px] border border-dashed border-[#D4E0F0] bg-white/80 px-4 py-4">
-          <p className="text-sm font-medium text-[#10203B]">
-            No IBPA certificate issued yet
-          </p>
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            Once your official certificate is created, its status, issue date, and file link will appear here.
-          </p>
         </div>
+      ) : (
+        <p className="mt-4 rounded-2xl border border-dashed border-[#D4E0F0] bg-white/80 px-3 py-3 text-sm leading-6 text-slate-500">
+          No IBPA certificate issued yet.
+        </p>
       )}
     </motion.article>
   );
@@ -370,15 +339,21 @@ export function DashboardProfile({
 
   const galleryImages = useMemo(() => {
     const raw = mergedProfileData.applicationPayload?.portfolioImages;
-    if (!Array.isArray(raw)) {
-      return [] as string[];
-    }
+    if (!Array.isArray(raw)) return [] as string[];
 
-    return raw.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 6);
+    return raw
+      .filter(
+        (item): item is string =>
+          typeof item === "string" && item.trim().length > 0,
+      )
+      .slice(0, 6);
   }, [mergedProfileData.applicationPayload]);
 
   const profileServices = useMemo(
-    () => (Array.isArray(mergedProfileData.services) ? mergedProfileData.services : []),
+    () =>
+      Array.isArray(mergedProfileData.services)
+        ? mergedProfileData.services
+        : [],
     [mergedProfileData.services],
   );
 
@@ -389,38 +364,10 @@ export function DashboardProfile({
       ? mergedProfileData.applicationPayload
       : null;
 
-  const biographySections = useMemo(
-    () => [
-      {
-        key: "biography",
-        label: "Biography",
-        icon: <Sparkles className="h-4 w-4" />,
-        value:
-          mergedProfileData.bio || textValue(applicationPayload?.professionalDesc),
-        emptyLabel: "No biography added yet.",
-      },
-      {
-        key: "achievements",
-        label: "Achievements",
-        icon: <Trophy className="h-4 w-4" />,
-        value: achievementsSummary,
-        emptyLabel: "No achievements added yet.",
-      },
-      {
-        key: "contribution",
-        label: "Industry contribution",
-        icon: <Globe className="h-4 w-4" />,
-        value: textValue(applicationPayload?.contributionDesc),
-        emptyLabel: "No contribution details added yet.",
-      },
-    ],
-    [
-      achievementsSummary,
-      applicationPayload,
-      mergedProfileData.bio,
-    ],
-  );
-  const [biographyCard, achievementsCard, contributionCard] = biographySections;
+  const biography =
+    mergedProfileData.bio || textValue(applicationPayload?.professionalDesc);
+
+  const contribution = textValue(applicationPayload?.contributionDesc);
 
   if (isTeamMemberDashboard) {
     return (
@@ -527,7 +474,7 @@ export function DashboardProfile({
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr]">
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <Panel title="Location and specialization">
               <div className="space-y-3">
                 <InfoItem
@@ -543,64 +490,50 @@ export function DashboardProfile({
                 />
               </div>
             </Panel>
+
             <ServicesSection initialServices={profileServices} />
           </div>
         </div>
       </section>
 
       <Panel title="Professional biography">
-        <div className="grid gap-4 rounded-3xl border border-[#D4E0F0] bg-white p-4 xl:grid-cols-3 xl:auto-rows-fr">
-          <div className="h-full">
-            <MetricCard
-              icon={<Sparkles className="h-5 w-5" />}
-              label="Years of experience"
-              value={mergedProfileData.experienceYears || "Not added yet"}
-            />
-          </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <ExperienceText
+            value={mergedProfileData.experienceYears || "Not added yet"}
+          />
 
-          <div className="h-full">
-            <ExpandableTextCard
-              label={biographyCard.label}
-              icon={biographyCard.icon}
-              value={biographyCard.value}
-              emptyLabel={biographyCard.emptyLabel}
-            />
-          </div>
+          <ExpandableTextCard
+            label="Biography"
+            icon={<Sparkles className="h-4 w-4" />}
+            value={biography}
+            emptyLabel="No biography added yet."
+          />
 
-          <div className="h-full">
-            <ExpandableTextCard
-              label={achievementsCard.label}
-              icon={achievementsCard.icon}
-              value={achievementsCard.value}
-              emptyLabel={achievementsCard.emptyLabel}
-            />
-          </div>
+          <ExpandableTextCard
+            label="Achievements"
+            icon={<Trophy className="h-4 w-4" />}
+            value={achievementsSummary}
+            emptyLabel="No achievements added yet."
+          />
 
-          <div className="h-full">
-            <CertificatePreviewCard
-              certificate={primaryCertificate}
-              fullName={fullName}
-              membershipExpiresDisplay={membershipExpiresDisplay}
-            />
-          </div>
+          <CertificatePreviewCard
+            certificate={primaryCertificate}
+            membershipExpiresDisplay={membershipExpiresDisplay}
+          />
 
-          <div className="h-full">
-            <ExpandableTextCard
-              label={contributionCard.label}
-              icon={contributionCard.icon}
-              value={contributionCard.value}
-              emptyLabel={contributionCard.emptyLabel}
-            />
-          </div>
+          <ExpandableTextCard
+            label="Industry contribution"
+            icon={<Globe className="h-4 w-4" />}
+            value={contribution}
+            emptyLabel="No contribution details added yet."
+          />
 
-          <div className="h-full">
-            <ExpandableTextCard
-              label="Education"
-              icon={<GraduationCap className="h-4 w-4" />}
-              value={mergedProfileData.education || ""}
-              emptyLabel="No education details added yet."
-            />
-          </div>
+          <ExpandableTextCard
+            label="Education"
+            icon={<GraduationCap className="h-4 w-4" />}
+            value={mergedProfileData.education || ""}
+            emptyLabel="No education details added yet."
+          />
         </div>
       </Panel>
 

@@ -180,7 +180,7 @@ export function DashboardCertificates({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="space-y-6">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#21466D]">
           My Certificates
@@ -190,8 +190,8 @@ export function DashboardCertificates({
         </h1>
       </div>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
-        <section className={`${shellCardClassName} min-w-0 p-5 md:p-6`}>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.16fr)_320px]">
+        <section className={shellCardClassName}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/75">
@@ -212,9 +212,9 @@ export function DashboardCertificates({
               certificates.map((cert) => (
                 <article
                   key={cert.certNumber}
-                  className="overflow-hidden rounded-[28px] border border-[#D8E3F1] bg-[linear-gradient(180deg,#FBFDFF_0%,#F4F9FF_100%)] p-5 shadow-[0_18px_45px_rgba(11,31,68,0.06)]"
+                  className="rounded-[28px] border border-[#D8E3F1] bg-[linear-gradient(180deg,#FBFDFF_0%,#F4F9FF_100%)] p-5 shadow-[0_18px_45px_rgba(11,31,68,0.06)]"
                 >
-                  <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-3">
                         <p className="text-lg font-semibold text-[#10203B]">
@@ -271,13 +271,13 @@ export function DashboardCertificates({
                       </div>
                     </div>
 
-                    <div className="flex w-full items-end justify-end xl:w-auto">
+                    <div className="flex items-end justify-end">
                       {cert.certificateUrl ? (
                         <a
                           href={cert.certificateUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#10203B] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1a3157] sm:w-auto sm:min-w-[150px]"
+                          className="inline-flex min-w-[150px] items-center justify-center gap-2 rounded-2xl bg-[#10203B] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1a3157]"
                         >
                           <Download className="h-4 w-4" />
                           Download
@@ -286,7 +286,7 @@ export function DashboardCertificates({
                         <button
                           type="button"
                           disabled
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-400 sm:w-auto sm:min-w-[170px]"
+                          className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-400"
                         >
                           <Download className="h-4 w-4" />
                           Not available yet
@@ -310,7 +310,7 @@ export function DashboardCertificates({
           </div>
         </section>
 
-        <section className={`${shellCardClassName} min-w-0 p-5 md:p-6`}>
+        <section className={`${shellCardClassName} h-fit p-4`}>
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/75">
             Upload certificate
           </p>
@@ -318,7 +318,7 @@ export function DashboardCertificates({
             Add personal certificate
           </h2>
 
-          <div className="mt-4 flex flex-col gap-3">
+          <div className="mt-4 space-y-3">
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                 Certificate title
@@ -345,18 +345,20 @@ export function DashboardCertificates({
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex w-full min-w-0 items-center gap-3 rounded-[24px] border border-dashed border-[#C8D8EA] bg-[#F8FBFF] px-4 py-3 text-left transition hover:border-[#72A0C1]/45 hover:bg-white"
+              className="flex w-full items-center justify-between rounded-[24px] border border-dashed border-[#C8D8EA] bg-[#F8FBFF] px-4 py-3 text-left transition hover:border-[#72A0C1]/45 hover:bg-white"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2B5C99] shadow-sm">
-                <UploadCloud className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[#10203B]">
-                  {selectedFile ? selectedFile.name : "Choose document or image"}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  PDF, DOC, DOCX, JPG, PNG or WEBP
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#2B5C99] shadow-sm">
+                  <UploadCloud className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#10203B]">
+                    {selectedFile ? selectedFile.name : "Choose document or image"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    PDF, DOC, DOCX, JPG, PNG or WEBP
+                  </p>
+                </div>
               </div>
             </button>
 
@@ -381,7 +383,7 @@ export function DashboardCertificates({
         </section>
       </div>
 
-      <section className={`${shellCardClassName} min-w-0 p-5 md:p-6`}>
+      <section className={shellCardClassName}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/75">
@@ -398,11 +400,11 @@ export function DashboardCertificates({
         </div>
 
         {externalCertificates.length > 0 ? (
-          <div className="mt-5 grid max-w-[1080px] gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {externalCertificates.map((item) => (
               <article
                 key={item.id}
-                className="group min-w-0 rounded-[28px] border border-[#D8E3F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FBFF_100%)] p-5 shadow-[0_18px_45px_rgba(11,31,68,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(11,31,68,0.10)]"
+                className="group rounded-[28px] border border-[#D8E3F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FBFF_100%)] p-5 shadow-[0_18px_45px_rgba(11,31,68,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(11,31,68,0.10)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
@@ -450,12 +452,12 @@ export function DashboardCertificates({
             ))}
           </div>
         ) : (
-          <div className="mt-5 rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#FBFDFF] px-6 py-12 text-center md:px-10">
+          <div className="mt-5 rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#FBFDFF] px-6 py-12 text-center">
             <FileBadge2 className="mx-auto h-10 w-10 text-[#9EB7D2]" />
             <p className="mt-4 text-lg font-semibold text-[#10203B]">
               No personal certificates uploaded yet
             </p>
-            <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-500">
+            <p className="mt-2 text-sm text-slate-500">
               Upload external training and credential files to keep them alongside your official IBPA certificate.
             </p>
           </div>
