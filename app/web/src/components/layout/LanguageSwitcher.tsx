@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Globe } from "lucide-react";
-import { useI18n } from "@/lib/i18n";
+import { getLocaleCookieValue, resolveLocale, useI18n } from "@/lib/i18n";
 
 export const LanguageSwitcher = ({ mobile = false, scrolled = false }: { mobile?: boolean; scrolled?: boolean }) => {
   const { locale, setLocale, t } = useI18n();
@@ -34,10 +34,12 @@ export const LanguageSwitcher = ({ mobile = false, scrolled = false }: { mobile?
   const languages = [
     { code: "en" as const, label: "EN" },
     { code: "ru" as const, label: "RU" },
-    { code: "uk" as const, label: "UA" },
+    { code: "ua" as const, label: "UA" },
   ];
 
-  const currentLanguage = languages.find((item) => item.code === locale) ?? languages[0];
+  const currentLanguage =
+    languages.find((item) => item.code === getLocaleCookieValue(locale)) ??
+    languages[0];
 
   return (
     <div ref={wrapperRef} className={`relative ${mobile ? "w-full" : "w-fit"}`}>
@@ -74,7 +76,7 @@ export const LanguageSwitcher = ({ mobile = false, scrolled = false }: { mobile?
           }`}
         >
           {languages.map((item) => {
-            const isActive = locale === item.code;
+            const isActive = getLocaleCookieValue(locale) === item.code;
 
             return (
               <button
@@ -82,7 +84,7 @@ export const LanguageSwitcher = ({ mobile = false, scrolled = false }: { mobile?
                 type="button"
                 role="menuitem"
                 onClick={() => {
-                  setLocale(item.code);
+                  setLocale(resolveLocale(item.code));
                   setOpen(false);
                 }}
                 className={`flex w-full items-center justify-center px-4 py-3 text-center text-sm font-bold uppercase tracking-[0.2em] transition-colors ${

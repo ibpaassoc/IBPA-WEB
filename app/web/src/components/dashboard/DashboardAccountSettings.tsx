@@ -1,9 +1,11 @@
 "use client";
 
 import { SignInButton, UserProfile, useUser } from "@clerk/nextjs";
+import { useI18n } from "@/lib/i18n";
 
 export function DashboardAccountSettings() {
   const { isSignedIn } = useUser();
+  const { t } = useI18n();
 
   return (
     <div className="space-y-5">
@@ -42,10 +44,10 @@ export function DashboardAccountSettings() {
         <section className="max-w-[760px] rounded-[32px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_22px_60px_rgba(11,31,68,0.09)]">
           <div className="rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#F8FBFF] px-6 py-10 text-center">
             <p className="text-base font-semibold text-[#10203B]">
-              Sign in to manage account settings
+              {t.dashboard.account.signInTitle}
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Your profile, security, and account preferences appear here once you are signed in.
+              {t.dashboard.account.signInDescription}
             </p>
 
             <div className="mt-5">
@@ -54,7 +56,7 @@ export function DashboardAccountSettings() {
                   type="button"
                   className="inline-flex items-center justify-center rounded-2xl bg-[#10203B] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#1A3157]"
                 >
-                  Sign in
+                  {t.dashboard.account.signIn}
                 </button>
               </SignInButton>
             </div>

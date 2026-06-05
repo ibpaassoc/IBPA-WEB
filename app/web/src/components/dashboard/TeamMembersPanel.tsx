@@ -19,6 +19,7 @@ import {
   dashboardSecondaryButtonClassName,
 } from "@/shared/components/DashboardShared";
 import { sanitizeBackendErrorMessage } from "@/lib/safe-backend-error";
+import { useI18n } from "@/lib/i18n";
 
 type TeamMemberRecord = {
   id: string;
@@ -94,23 +95,26 @@ const floatingMemberCardClassName =
 const metricCardClassName =
   "rounded-[24px] border border-[#D4E0F0] bg-white/90 px-5 py-4 shadow-[0_18px_45px_rgba(11,31,68,0.07)]";
 
-function getStatusBadge(member: TeamMemberRecord) {
+function getStatusBadge(
+  member: TeamMemberRecord,
+  labels: ReturnType<typeof useI18n>["t"]["dashboard"]["teamMembers"],
+) {
   if (member.status === "removed") {
     return {
-      label: "Removed",
+      label: labels.removed,
       className: "border border-slate-200 bg-slate-100 text-slate-600",
     };
   }
 
   if (member.status === "active") {
     return {
-      label: "Active",
+      label: labels.active,
       className: "border border-emerald-200 bg-emerald-50 text-emerald-700",
     };
   }
 
   return {
-    label: "Invited",
+    label: labels.invited,
     className: "border border-amber-200 bg-amber-50 text-amber-700",
   };
 }
@@ -210,6 +214,7 @@ function TeamMembersPanelSkeleton() {
 }
 
 export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [extending, setExtending] = useState(false);
@@ -235,18 +240,18 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
 
       if (!res.ok) {
         setServerError(
-          getSafeTeamErrorMessage(data?.error, "Failed to load Team Members."),
+          getSafeTeamErrorMessage(data?.error, t.dashboard.teamMembers.loadError),
         );
         return;
       }
 
       setPayload(data as TeamMembersPayload);
     } catch {
-      setServerError("Connection error while loading Team Members.");
+      setServerError(t.dashboard.teamMembers.connectionLoadError);
     } finally {
       setLoading(false);
     }
-  }, [enabled]);
+  }, [enabled, t.dashboard.teamMembers.connectionLoadError, t.dashboard.teamMembers.loadError]);
 
   useEffect(() => {
     void loadTeamMembers();
@@ -264,22 +269,22 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
       if (!enabled || !payload?.canInvite) return;
 
       if (!form.fullName.trim()) {
-        toast.error("Full name is required.");
+        toast.error(t.dashboard.teamMembers.fullNameRequired);
         return;
       }
 
       if (!form.email.trim()) {
-        toast.error("Email is required.");
+        toast.error(t.dashboard.teamMembers.emailRequired);
         return;
       }
 
       if (!form.role.trim()) {
-        toast.error("Position / role is required.");
+        toast.error(t.dashboard.teamMembers.roleRequired);
         return;
       }
 
       if (!form.affiliationConfirmed) {
-        toast.error("Affiliation confirmation is required.");
+        toast.error(t.dashboard.teamMembers.affiliationRequired);
         return;
       }
 
@@ -301,24 +306,36 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
         if (!res.ok) {
           const errorText = getSafeTeamErrorMessage(
             data?.error,
-            "Failed to invite team member.",
+            t.dashboard.teamMembers.inviteError,
           );
           setServerError(errorText);
           toast.error(errorText);
           return;
         }
 
-        toast.success("Team member invited.");
+        toast.success(t.dashboard.teamMembers.inviteSuccess);
         setForm(INITIAL_FORM);
         await loadTeamMembers();
       } catch {
-        setServerError("Connection error while inviting team member.");
-        toast.error("Connection error while inviting team member.");
+        setServerError(t.dashboard.teamMembers.inviteConnectionError);
+        toast.error(t.dashboard.teamMembers.inviteConnectionError);
       } finally {
         setSubmitting(false);
       }
     },
-    [enabled, form, loadTeamMembers, payload?.canInvite],
+    [
+      enabled,
+      form,
+      loadTeamMembers,
+      payload?.canInvite,
+      t.dashboard.teamMembers.affiliationRequired,
+      t.dashboard.teamMembers.emailRequired,
+      t.dashboard.teamMembers.fullNameRequired,
+      t.dashboard.teamMembers.inviteConnectionError,
+      t.dashboard.teamMembers.inviteError,
+      t.dashboard.teamMembers.inviteSuccess,
+      t.dashboard.teamMembers.roleRequired,
+    ],
   );
 
   const handleRemoveMember = useCallback(
@@ -339,23 +356,28 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
         if (!res.ok) {
           const errorText = getSafeTeamErrorMessage(
             data?.error,
-            "Failed to remove team member.",
+            t.dashboard.teamMembers.removeError,
           );
           setServerError(errorText);
           toast.error(errorText);
           return;
         }
 
-        toast.success("Team member removed.");
+        toast.success(t.dashboard.teamMembers.removeSuccess);
         await loadTeamMembers();
       } catch {
-        setServerError("Connection error while removing team member.");
-        toast.error("Connection error while removing team member.");
+        setServerError(t.dashboard.teamMembers.removeConnectionError);
+        toast.error(t.dashboard.teamMembers.removeConnectionError);
       } finally {
         setRemovingId(null);
       }
     },
-    [loadTeamMembers],
+    [
+      loadTeamMembers,
+      t.dashboard.teamMembers.removeConnectionError,
+      t.dashboard.teamMembers.removeError,
+      t.dashboard.teamMembers.removeSuccess,
+    ],
   );
 
   const handleExtendSeats = useCallback(async () => {
@@ -374,29 +396,34 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
       if (!res.ok) {
         const errorText = getSafeTeamErrorMessage(
           data?.error,
-          "Failed to extend seat capacity.",
+          t.dashboard.teamMembers.extendError,
         );
         setServerError(errorText);
         toast.error(errorText);
         return;
       }
 
-      toast.success("Seat capacity updated.");
+      toast.success(t.dashboard.teamMembers.extendSuccess);
       await loadTeamMembers();
     } catch {
-      setServerError("Connection error while extending seats.");
-      toast.error("Connection error while extending seats.");
+      setServerError(t.dashboard.teamMembers.extendConnectionError);
+      toast.error(t.dashboard.teamMembers.extendConnectionError);
     } finally {
       setExtending(false);
     }
-  }, [loadTeamMembers]);
+  }, [
+    loadTeamMembers,
+    t.dashboard.teamMembers.extendConnectionError,
+    t.dashboard.teamMembers.extendError,
+    t.dashboard.teamMembers.extendSuccess,
+  ]);
 
   if (!enabled) {
     return (
       <div className={floatingSectionClassName}>
-        <p className="text-sm font-medium text-slate-900">Partner account required</p>
+        <p className="text-sm font-medium text-slate-900">{t.dashboard.teamMembers.partnerRequired}</p>
         <p className="mt-2 text-sm text-slate-500">
-          Team access is available only for partner memberships.
+          {t.dashboard.teamMembers.partnerRequiredDescription}
         </p>
       </div>
     );
@@ -418,17 +445,15 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryMetric label="Included seats" value={payload?.includedSeats || 5} />
-        <SummaryMetric label="Used seats" value={payload?.usedSeats || 0} />
-        <SummaryMetric label="Remaining seats" value={payload?.remainingSeats || 0} />
+        <SummaryMetric label={t.dashboard.teamMembers.includedSeats} value={payload?.includedSeats || 5} />
+        <SummaryMetric label={t.dashboard.teamMembers.usedSeats} value={payload?.usedSeats || 0} />
+        <SummaryMetric label={t.dashboard.teamMembers.remainingSeats} value={payload?.remainingSeats || 0} />
         <SummaryMetric
-          label="Additional seats"
+          label={t.dashboard.teamMembers.additionalSeats}
           value={additionalSeats}
           helper={
             pendingSeatRequests > 0
-              ? `${pendingSeatRequests} pending request${
-                  pendingSeatRequests === 1 ? "" : "s"
-                }`
+              ? t.dashboard.teamMembers.pendingRequests(pendingSeatRequests)
               : undefined
           }
         />
@@ -442,11 +467,11 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
             </div>
 
             <p className="mt-4 text-base font-medium text-[#10203B]">
-              No team members yet
+              {t.dashboard.teamMembers.noMembersTitle}
             </p>
 
             <p className="mt-1 text-sm text-slate-500">
-              Invite your first professional to activate a seat.
+              {t.dashboard.teamMembers.noMembersDescription}
             </p>
 
             <button
@@ -454,7 +479,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
               onClick={() => document.getElementById("team-member-full-name")?.focus()}
               className={`${dashboardPrimaryButtonClassName} mt-5`}
             >
-              Invite Team Member
+              {t.dashboard.teamMembers.inviteFirst}
             </button>
           </div>
         </div>
@@ -462,8 +487,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
         <section>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-semibold text-[#10203B]">
-              {visibleMembers.length} active member
-              {visibleMembers.length === 1 ? "" : "s"}
+              {t.dashboard.teamMembers.activeMembers(visibleMembers.length)}
             </p>
 
             <button
@@ -477,13 +501,13 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
               ) : (
                 <Plus className="h-4 w-4" />
               )}
-              Extend seats
+              {t.dashboard.teamMembers.extendSeats}
             </button>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             {visibleMembers.map((member) => {
-              const statusBadge = getStatusBadge(member);
+              const statusBadge = getStatusBadge(member, t.dashboard.teamMembers);
 
               return (
                 <article key={member.id} className={floatingMemberCardClassName}>
@@ -503,7 +527,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
                         </p>
 
                         <p className="mt-3 line-clamp-1 text-xs font-bold uppercase tracking-[0.18em] text-[#16386D]">
-                          {member.role || "Team member"}
+                          {member.role || t.dashboard.teamMembers.teamMemberRoleFallback}
                         </p>
                       </div>
                     </div>
@@ -527,7 +551,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
                       ) : (
                         <Trash2 className="h-3.5 w-3.5" />
                       )}
-                      Remove
+                      {t.dashboard.teamMembers.remove}
                     </button>
                   </div>
                 </article>
@@ -540,7 +564,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
       <section className={floatingSectionClassName}>
         <div className="border-b border-[#D4E0F0] pb-4">
           <h3 className="text-lg font-semibold tracking-tight text-[#10203B]">
-            Invite Team Member
+            {t.dashboard.teamMembers.inviteTitle}
           </h3>
         </div>
 
@@ -552,7 +576,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
 
         <form onSubmit={onSubmit} className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-slate-600">Full Name</span>
+            <span className="text-xs font-medium text-slate-600">{t.dashboard.teamMembers.fullName}</span>
             <input
               id="team-member-full-name"
               type="text"
@@ -561,13 +585,13 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
                 setForm((prev) => ({ ...prev, fullName: event.target.value }))
               }
               className={dashboardInputClassName}
-              placeholder="Full Name"
+              placeholder={t.dashboard.teamMembers.fullName}
               required
             />
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-slate-600">Email</span>
+            <span className="text-xs font-medium text-slate-600">{t.dashboard.teamMembers.email}</span>
             <input
               type="email"
               value={form.email}
@@ -581,7 +605,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-slate-600">Role / Position</span>
+            <span className="text-xs font-medium text-slate-600">{t.dashboard.teamMembers.role}</span>
             <input
               type="text"
               value={form.role}
@@ -589,14 +613,14 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
                 setForm((prev) => ({ ...prev, role: event.target.value }))
               }
               className={dashboardInputClassName}
-              placeholder="Educator, Artist, Assistant"
+              placeholder={t.dashboard.teamMembers.role}
               required
             />
           </label>
 
           <label className="flex flex-col gap-2">
             <span className="text-xs font-medium text-slate-600">
-              Instagram or Portfolio Link
+              {t.dashboard.teamMembers.portfolioLink}
             </span>
             <input
               type="url"
@@ -624,7 +648,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
             />
 
             <span className="text-sm text-slate-600">
-              I confirm that this person is professionally affiliated with my business.
+              {t.dashboard.teamMembers.affiliationConfirmation}
             </span>
           </label>
 
@@ -639,7 +663,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
               ) : (
                 <UserPlus className="h-4 w-4" />
               )}
-              {submitting ? "Inviting..." : "Invite Member"}
+              {submitting ? t.dashboard.teamMembers.inviting : t.dashboard.teamMembers.inviteMember}
             </button>
           </div>
         </form>
@@ -651,16 +675,11 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
 
           <div>
             <h4 className="text-sm font-semibold text-[#10203B]">
-              Team Access Rules
+              {t.dashboard.teamMembers.rulesTitle}
             </h4>
 
             <ul className="mt-3 flex flex-col gap-2 text-sm text-slate-600">
-              {[
-                "Individual email-based access",
-                "No credential sharing",
-                "Trackable access",
-                "Professional affiliation required",
-              ].map((item) => (
+              {t.dashboard.teamMembers.rules.map((item) => (
                 <li key={item} className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#4C7D9D]" />
                   <span>{item}</span>

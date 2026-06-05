@@ -25,6 +25,7 @@ import type {
   TeamMemberAccessInfo,
 } from "@/components/dashboard/dashboard-types";
 import type { CombinedProfileData } from "@/lib/application-profile";
+import { getLocaleNumberFormat, useI18n } from "@/lib/i18n";
 
 function buildProfileUrl(href: string) {
   if (href.startsWith("http")) return href;
@@ -78,12 +79,13 @@ function InfoItem({
 }
 
 function ExperienceText({ value }: { value: string }) {
+  const { t } = useI18n();
   return (
     <div className="px-1 py-2">
       <div className="mb-3 flex items-center gap-2 text-[#2B5C99]">
         <Sparkles className="h-4 w-4" />
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-          Years of experience
+          {t.dashboard.profile.yearsOfExperience}
         </p>
       </div>
       <p className="text-2xl font-semibold tracking-tight text-[#10203B]">
@@ -113,13 +115,13 @@ function textValue(value: unknown) {
   return "";
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value: string | null | undefined, localeCode: string) {
   if (!value) return null;
 
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
 
-  return parsed.toLocaleDateString("en-US", {
+  return parsed.toLocaleDateString(localeCode, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -137,6 +139,7 @@ function ExpandableTextCard({
   value: string;
   emptyLabel: string;
 }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const normalizedValue = value.trim();
   const displayValue = normalizedValue || emptyLabel;
@@ -171,7 +174,7 @@ function ExpandableTextCard({
           onClick={() => setExpanded((current) => !current)}
           className="mt-4 inline-flex items-center rounded-full border border-[#D4E0F0] bg-white px-3 py-1.5 text-xs font-semibold text-[#21466D] transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
         >
-          {expanded ? "Show less" : "See all"}
+          {expanded ? t.dashboard.profile.showLess : t.dashboard.profile.seeAll}
         </button>
       ) : null}
     </motion.article>
@@ -181,12 +184,17 @@ function ExpandableTextCard({
 function CertificatePreviewCard({
   certificate,
   membershipExpiresDisplay,
+  localeCode,
 }: {
   certificate?: Certificate;
   membershipExpiresDisplay: string;
+  localeCode: string;
 }) {
+  const { t } = useI18n();
   const expiresAt =
-    formatDate(certificate?.expiresAt) || membershipExpiresDisplay || "Pending";
+    formatDate(certificate?.expiresAt, localeCode) ||
+    membershipExpiresDisplay ||
+    t.dashboard.statuses.pending;
   const isIssued =
     certificate?.status === "paid" || certificate?.status === "approved";
 
@@ -201,17 +209,21 @@ function CertificatePreviewCard({
           <div className="flex items-center gap-2">
             <Award className="h-4 w-4 text-[#2B5C99]" />
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-              IBPA certificate
+              {t.dashboard.profile.ibpaCertificate}
             </p>
           </div>
 
           <p className="mt-3 text-base font-semibold text-[#10203B]">
-            Official certificate
+            {t.dashboard.profile.officialCertificate}
           </p>
         </div>
 
         <StatusPill
-          label={isIssued ? "Verified" : "Pending"}
+          label={
+            isIssued
+              ? t.dashboard.statuses.verified
+              : t.dashboard.statuses.pending
+          }
           tone={isIssued ? "verified" : "pending"}
         />
       </div>
@@ -220,9 +232,9 @@ function CertificatePreviewCard({
         <div className="mt-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-[#DCE7F4] bg-white px-3 py-3">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                ID
-              </p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  ID
+                </p>
               <p className="mt-1 break-all text-xs font-semibold leading-5 text-[#10203B]">
                 {certificate.certNumber}
               </p>
@@ -230,7 +242,7 @@ function CertificatePreviewCard({
 
             <div className="rounded-2xl border border-[#DCE7F4] bg-white px-3 py-3">
               <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                Valid through
+                {t.dashboard.profile.validThrough}
               </p>
               <p className="mt-1 text-xs font-semibold leading-5 text-[#10203B]">
                 {expiresAt}
@@ -246,17 +258,17 @@ function CertificatePreviewCard({
               className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0D1F3D] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#16386D]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              Open certificate
+              {t.dashboard.profile.openCertificate}
             </a>
           ) : (
             <p className="rounded-2xl border border-dashed border-[#D4E0F0] bg-white/80 px-3 py-3 text-xs leading-5 text-slate-500">
-              Certificate file is not uploaded yet.
+              {t.dashboard.profile.certificatePendingFile}
             </p>
           )}
         </div>
       ) : (
         <p className="mt-4 rounded-2xl border border-dashed border-[#D4E0F0] bg-white/80 px-3 py-3 text-sm leading-6 text-slate-500">
-          No IBPA certificate issued yet.
+          {t.dashboard.profile.noCertificate}
         </p>
       )}
     </motion.article>
@@ -321,6 +333,9 @@ export function DashboardProfile({
     value: string;
   }[];
 }) {
+  const { locale, t } = useI18n();
+  const dashboard = t.dashboard;
+  const localeCode = getLocaleNumberFormat(locale);
   const initials = useMemo(
     () =>
       fullName
@@ -372,21 +387,21 @@ export function DashboardProfile({
   if (isTeamMemberDashboard) {
     return (
       <div className="grid gap-4 md:grid-cols-3">
-        <Panel title="Role">
+        <Panel title={dashboard.profile.role}>
           <p className="text-sm font-semibold text-[#10203B]">
-            {teamMemberAccess?.role || "Team Member"}
+            {teamMemberAccess?.role || dashboard.profile.teamMember}
           </p>
         </Panel>
 
-        <Panel title="Partner business">
+        <Panel title={dashboard.profile.partnerBusiness}>
           <p className="text-sm font-semibold text-[#10203B]">
-            {teamMemberAccess?.partnerBusinessName || "Partner account"}
+            {teamMemberAccess?.partnerBusinessName || dashboard.profile.partnerAccount}
           </p>
         </Panel>
 
-        <Panel title="Access">
+        <Panel title={dashboard.profile.access}>
           <p className="text-sm font-semibold text-[#10203B]">
-            {teamMemberAccess?.status || "Invited"}
+            {teamMemberAccess?.status || dashboard.profile.invited}
           </p>
         </Panel>
       </div>
@@ -433,7 +448,7 @@ export function DashboardProfile({
               <Link
                 href="/dashboard/profile/edit"
                 className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white text-[#10203B] shadow-sm transition hover:border-[#2B5C99]/40 hover:bg-[#F5F9FF]"
-                aria-label="Edit profile"
+                aria-label={dashboard.profile.editProfile}
               >
                 <Edit3 className="h-4 w-4" />
               </Link>
@@ -442,7 +457,7 @@ export function DashboardProfile({
                 <Link
                   href={publicProfileHref}
                   className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white text-[#10203B] shadow-sm transition hover:border-[#2B5C99]/40 hover:bg-[#F5F9FF]"
-                  aria-label="Open public profile"
+                  aria-label={dashboard.profile.openPublicProfile}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Link>
@@ -454,7 +469,7 @@ export function DashboardProfile({
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white text-[#10203B] shadow-sm transition hover:border-[#2B5C99]/40 hover:bg-[#F5F9FF]"
-                  aria-label="Open Instagram"
+                  aria-label={dashboard.profile.openInstagram}
                 >
                   <Instagram className="h-4 w-4" />
                 </a>
@@ -466,7 +481,7 @@ export function DashboardProfile({
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white text-[#10203B] shadow-sm transition hover:border-[#2B5C99]/40 hover:bg-[#F5F9FF]"
-                  aria-label="Open website"
+                  aria-label={dashboard.profile.openWebsite}
                 >
                   <Globe className="h-4 w-4" />
                 </a>
@@ -475,17 +490,17 @@ export function DashboardProfile({
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            <Panel title="Location and specialization">
+            <Panel title={dashboard.profile.locationAndSpecialization}>
               <div className="space-y-3">
                 <InfoItem
                   icon={<MapPin className="h-4 w-4" />}
-                  label="Location"
+                  label={dashboard.overview.location}
                   value={locationDisplay}
                 />
 
                 <InfoItem
                   icon={<Sparkles className="h-4 w-4" />}
-                  label="Specialization"
+                  label={dashboard.overview.specialty}
                   value={specializationDisplay}
                 />
               </div>
@@ -496,66 +511,67 @@ export function DashboardProfile({
         </div>
       </section>
 
-      <Panel title="Professional biography">
+      <Panel title={dashboard.profile.professionalBiography}>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <ExperienceText
-            value={mergedProfileData.experienceYears || "Not added yet"}
+            value={mergedProfileData.experienceYears || dashboard.profile.notAddedYet}
           />
 
           <ExpandableTextCard
-            label="Biography"
+            label={dashboard.profile.biography}
             icon={<Sparkles className="h-4 w-4" />}
             value={biography}
-            emptyLabel="No biography added yet."
+            emptyLabel={dashboard.profile.noBiography}
           />
 
           <ExpandableTextCard
-            label="Achievements"
+            label={dashboard.profile.achievements}
             icon={<Trophy className="h-4 w-4" />}
             value={achievementsSummary}
-            emptyLabel="No achievements added yet."
+            emptyLabel={dashboard.profile.noAchievements}
           />
 
           <CertificatePreviewCard
             certificate={primaryCertificate}
             membershipExpiresDisplay={membershipExpiresDisplay}
+            localeCode={localeCode}
           />
 
           <ExpandableTextCard
-            label="Industry contribution"
+            label={dashboard.profile.industryContribution}
             icon={<Globe className="h-4 w-4" />}
             value={contribution}
-            emptyLabel="No contribution details added yet."
+            emptyLabel={dashboard.profile.noContribution}
           />
 
           <ExpandableTextCard
-            label="Education"
+            label={dashboard.profile.education}
             icon={<GraduationCap className="h-4 w-4" />}
             value={mergedProfileData.education || ""}
-            emptyLabel="No education details added yet."
+            emptyLabel={dashboard.profile.noEducation}
           />
         </div>
       </Panel>
 
       <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
         <Panel
-          title="Community identity"
+          title={dashboard.profile.communityIdentity}
           className="bg-[radial-gradient(circle_at_20%_0%,rgba(59,130,246,0.18),transparent_35%),linear-gradient(135deg,#F5F9FF_0%,#EAF2FD_100%)]"
         >
           <div className="rounded-3xl border border-white/80 bg-white/80 p-5 shadow-sm">
-            <InfoItem label="Member ID" value={memberIdDisplay} />
+            <InfoItem label={dashboard.profile.memberId} value={memberIdDisplay} />
 
             <div className="mt-5">
-              <InfoItem label="Membership" value={membershipCategoryLabel} />
+              <InfoItem label={dashboard.profile.membership} value={membershipCategoryLabel} />
             </div>
 
             <div className="mt-5">
-              <InfoItem label="Industry" value={industry} />
+              <InfoItem label={dashboard.profile.industry} value={industry} />
             </div>
           </div>
         </Panel>
 
-        <Panel title="Work gallery">
+        <Panel title={dashboard.profile.workGallery}>
           {galleryImages.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {galleryImages.map((image, index) => (
@@ -568,7 +584,7 @@ export function DashboardProfile({
                 >
                   <ImageWithFallback
                     src={image}
-                    alt={`${fullName} gallery image ${index + 1}`}
+                    alt={dashboard.profile.galleryImageAlt(fullName, index + 1)}
                     className="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
                   />
                 </a>
@@ -576,9 +592,9 @@ export function DashboardProfile({
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-3">
-              <GallerySlot label="Featured Brow Work" />
-              <GallerySlot label="Featured Lash Work" />
-              <GallerySlot label="Before & After Sample" />
+              <GallerySlot label={dashboard.profile.galleryFallbackOne} />
+              <GallerySlot label={dashboard.profile.galleryFallbackTwo} />
+              <GallerySlot label={dashboard.profile.galleryFallbackThree} />
             </div>
           )}
         </Panel>

@@ -10,6 +10,7 @@ import {
 } from "@/shared/components/DashboardShared";
 import type { Certificate } from "@/components/dashboard/dashboard-types";
 import { formatStatusLabel, getMembershipAmount } from "@/lib/dashboard-cabinet";
+import { useI18n } from "@/lib/i18n";
 
 type BillingEntry = {
   id: string;
@@ -46,23 +47,24 @@ export function DashboardBilling({
   partnerSeatPrice: number;
   setActiveTab: (tab: "support") => void;
 }) {
+  const { t } = useI18n();
   const membershipType = isPartnerOwner
-    ? "Account"
+    ? t.dashboard.billing.account
     : getMembershipAmount(primaryCertificate?.membershipCategory);
 
   const paymentTitle = isPartnerOwner
-    ? "Partner Membership Payment"
-    : "Membership Payment";
+    ? t.dashboard.billing.partnerPaymentTitle
+    : t.dashboard.billing.membershipPaymentTitle;
 
   return (
     <div className="space-y-6">
       <SectionCard>
         <SectionHeader
-          title="Billing & Membership"
+          title={t.dashboard.billing.title}
           action={
             <div className="flex flex-wrap gap-3">
               <Link href="/membership" className={dashboardPrimaryButtonClassName}>
-                Renew
+                {t.dashboard.billing.renew}
               </Link>
 
               <button
@@ -70,7 +72,7 @@ export function DashboardBilling({
                 onClick={() => setActiveTab("support")}
                 className={dashboardSecondaryButtonClassName}
               >
-                Support
+                {t.dashboard.billing.support}
               </button>
             </div>
           }
@@ -80,21 +82,21 @@ export function DashboardBilling({
           <div className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-3">
               <article className={metricClassName}>
-                <p className={labelClassName}>Plan</p>
+                <p className={labelClassName}>{t.dashboard.billing.plan}</p>
                 <p className="mt-2 text-base font-semibold text-slate-950">
                   {membershipCategoryLabel}
                 </p>
               </article>
 
               <article className={metricClassName}>
-                <p className={labelClassName}>Expires</p>
+                <p className={labelClassName}>{t.dashboard.billing.expires}</p>
                 <p className="mt-2 text-base font-semibold text-slate-950">
                   {membershipExpiresDisplay}
                 </p>
               </article>
 
               <article className={metricClassName}>
-                <p className={labelClassName}>Status</p>
+                <p className={labelClassName}>{t.dashboard.billing.status}</p>
                 <p className="mt-2 text-base font-semibold text-slate-950">
                   {statusSummary.label}
                 </p>
@@ -103,7 +105,7 @@ export function DashboardBilling({
 
             <section className={`${dashboardSubtlePanelClassName} p-5`}>
               <h3 className="text-lg font-semibold tracking-tight text-slate-950">
-                Payment History
+                {t.dashboard.billing.paymentHistory}
               </h3>
 
               <div className="mt-4 space-y-3">
@@ -133,14 +135,18 @@ export function DashboardBilling({
                           {entry.amount}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          {formatStatusLabel(entry.status, "Pending")}
+                          {formatStatusLabel(
+                            entry.status,
+                            t.dashboard.statuses.pending,
+                            t.dashboard.statuses,
+                          )}
                         </p>
                       </div>
                     </article>
                   ))
                 ) : (
                   <div className="rounded-[22px] border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-500">
-                    No payments yet.
+                    {t.dashboard.billing.noPayments}
                   </div>
                 )}
               </div>
@@ -154,12 +160,12 @@ export function DashboardBilling({
               </div>
 
               <h3 className="text-base font-semibold text-slate-950">
-                Billing Support
+                {t.dashboard.billing.supportTitle}
               </h3>
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Need help with payment, renewal, or membership access?
+              {t.dashboard.billing.supportDescription}
             </p>
 
             <button
@@ -167,7 +173,7 @@ export function DashboardBilling({
               onClick={() => setActiveTab("support")}
               className={`mt-5 w-full ${dashboardPrimaryButtonClassName}`}
             >
-              Contact Support
+              {t.dashboard.billing.contactSupport}
             </button>
           </aside>
         </div>

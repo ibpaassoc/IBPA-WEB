@@ -11,6 +11,7 @@ import {
 
 import { SectionCard } from "@/shared/components/DashboardShared";
 import type { DashboardNotification } from "@/lib/notifications";
+import { getLocaleNumberFormat, useI18n } from "@/lib/i18n";
 
 type OverviewCard = {
   label: string;
@@ -106,6 +107,7 @@ export function DashboardOverview({
   memberIdDisplay,
   dashboardContactEmail,
   certificateStatusDisplay,
+  overviewCards,
   alertCards,
   getNotificationMeta,
   setActiveTab,
@@ -114,6 +116,9 @@ export function DashboardOverview({
   teamMembers = [],
   dashboardEvents = [],
 }: DashboardOverviewProps) {
+  const { locale, t } = useI18n();
+  const dashboard = t.dashboard;
+  const localeCode = getLocaleNumberFormat(locale);
   const visibleAlerts = alertCards.slice(0, 3);
   const visibleTeamMembers = teamMembers.slice(0, 4);
   const visibleEvents = dashboardEvents.slice(0, 2);
@@ -130,16 +135,19 @@ export function DashboardOverview({
         dashboardContactEmail={dashboardContactEmail}
         certificateStatusDisplay={certificateStatusDisplay}
         isMembershipActive={isMembershipActive}
+        dashboard={dashboard}
       />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         <main className="min-w-0 space-y-6">
-          <MembershipOverview />
+          <MembershipOverview overviewCards={overviewCards} />
 
           <EventsCard
             events={visibleEvents}
             total={dashboardEvents.length}
             onViewAll={() => setActiveTab("events")}
+            dashboard={dashboard}
+            localeCode={localeCode}
           />
 
           {isPartnerOwner ? (
@@ -147,12 +155,13 @@ export function DashboardOverview({
               members={visibleTeamMembers}
               total={teamMembers.length}
               onViewAll={() => setActiveTab("teamMembers")}
+              dashboard={dashboard}
             />
           ) : null}
         </main>
 
         <aside className="min-w-0 xl:sticky xl:top-6">
-          <QuickActionsSidebar actions={quickActions} />
+          <QuickActionsSidebar actions={quickActions} dashboard={dashboard} />
         </aside>
       </div>
     </div>
@@ -169,6 +178,7 @@ function SharedIdentityHero({
   dashboardContactEmail,
   certificateStatusDisplay,
   isMembershipActive,
+  dashboard,
 }: {
   fullName: string;
   username: string;
@@ -179,6 +189,7 @@ function SharedIdentityHero({
   dashboardContactEmail: string;
   certificateStatusDisplay: string;
   isMembershipActive: boolean;
+  dashboard: ReturnType<typeof useI18n>["t"]["dashboard"];
 }) {
   return (
     <SectionCard className="overflow-hidden bg-white p-0">
@@ -209,20 +220,20 @@ function SharedIdentityHero({
       </div>
 
       <div className="grid gap-3 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4 sm:px-7">
-        <InfoTile label="Profile" value={`@${username}`} />
+        <InfoTile label={dashboard.overview.profile} value={`@${username}`} />
         <InfoTile
           icon={<MapPin className="h-4 w-4" />}
-          label="Location"
+          label={dashboard.overview.location}
           value={locationDisplay}
         />
         <InfoTile
           icon={<Sparkles className="h-4 w-4" />}
-          label="Specialty"
+          label={dashboard.overview.specialty}
           value={specializationDisplay}
         />
         <InfoTile
           icon={<ShieldCheck className="h-4 w-4" />}
-          label="Certificate"
+          label={dashboard.overview.certificate}
           value={certificateStatusDisplay}
         />
       </div>
@@ -234,19 +245,28 @@ function EventsCard({
   events,
   total,
   onViewAll,
+  dashboard,
+  localeCode,
 }: {
   events: DashboardEventPreview[];
   total: number;
   onViewAll: () => void;
+  dashboard: ReturnType<typeof useI18n>["t"]["dashboard"];
+  localeCode: string;
 }) {
   return (
     <SectionCard className="h-full">
-      <CardHeader title="Events" actionLabel="View all" onAction={onViewAll} />
+      <CardHeader
+        title={dashboard.overview.events}
+        actionLabel={dashboard.overview.viewAll}
+        onAction={onViewAll}
+      />
 
       <div className="mt-5 space-y-3">
         {events.length > 0 ? (
           events.map((event, index) => {
-            const title = event.title || event.name || "Upcoming event";
+            const title =
+              event.title || event.name || dashboard.overview.upcomingEventFallback;
             const rawDate =
               event.dateDisplay ||
               event.date ||
@@ -255,12 +275,12 @@ function EventsCard({
               event.startDate;
 
             const date = rawDate
-              ? new Date(rawDate).toLocaleDateString("en-US", {
+              ? new Date(rawDate).toLocaleDateString(localeCode, {
                   month: "2-digit",
                   day: "2-digit",
                   year: "2-digit",
                 })
-              : "Date pending";
+              : dashboard.statuses.pending;
 
             return (
               <button
@@ -287,7 +307,7 @@ function EventsCard({
         ) : (
           <EmptyState
             icon={<CalendarDays className="h-5 w-5" />}
-            text="No scheduled events yet."
+            text={dashboard.overview.noScheduledEvents}
           />
         )}
       </div>
@@ -298,23 +318,24 @@ function EventsCard({
           onClick={onViewAll}
           className="mt-4 text-sm font-semibold text-[#4C7D9D]"
         >
-          +{total - events.length} more events
+          {dashboard.overview.moreEvents(total - events.length)}
         </button>
       ) : null}
     </SectionCard>
   );
 }
 
-function MembershipOverview() {
+function MembershipOverview({ overviewCards }: { overviewCards: OverviewCard[] }) {
+  const { t } = useI18n();
+
   return (
     <SectionCard>
-      <SectionTitle title="Membership Overview" />
+      <SectionTitle title={t.dashboard.overview.membershipOverview} />
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <InfoTile label="Status" value="Verified" />
-        <InfoTile label="Member Since" value="Apr 2026" />
-        <InfoTile label="Type" value="Partner" />
-        <InfoTile label="Expiry" value="Apr 2027" />
+        {overviewCards.map((item) => (
+          <InfoTile key={item.label} label={item.label} value={item.value} />
+        ))}
       </div>
     </SectionCard>
   );
@@ -324,28 +345,31 @@ function TeamMembersCard({
   members,
   total,
   onViewAll,
+  dashboard,
 }: {
   members: TeamMemberPreview[];
   total: number;
   onViewAll: () => void;
+  dashboard: ReturnType<typeof useI18n>["t"]["dashboard"];
 }) {
   return (
     <SectionCard className="h-full">
       <CardHeader
-        title="Team members"
-        actionLabel="View all"
+        title={dashboard.overview.teamMembers}
+        actionLabel={dashboard.overview.viewAll}
         onAction={onViewAll}
       />
 
       <div className="mt-5 space-y-3">
         {members.length > 0 ? (
           members.map((member, index) => {
-            const name = member.fullName || member.name || "Team member";
+            const name =
+              member.fullName || member.name || dashboard.teamMembers.teamMemberRoleFallback;
             const subtitle =
               member.role ||
               member.email ||
               member.registrationStatus ||
-              "Member";
+              dashboard.nav.currentMember;
 
             return (
               <button
@@ -372,7 +396,7 @@ function TeamMembersCard({
         ) : (
           <EmptyState
             icon={<Users className="h-5 w-5" />}
-            text="No team members added yet."
+            text={dashboard.overview.noTeamMembers}
           />
         )}
       </div>
@@ -383,17 +407,23 @@ function TeamMembersCard({
           onClick={onViewAll}
           className="mt-4 text-sm font-semibold text-[#4C7D9D]"
         >
-          +{total - members.length} more members
+          {dashboard.overview.moreMembers(total - members.length)}
         </button>
       ) : null}
     </SectionCard>
   );
 }
 
-function QuickActionsSidebar({ actions }: { actions: QuickAction[] }) {
+function QuickActionsSidebar({
+  actions,
+  dashboard,
+}: {
+  actions: QuickAction[];
+  dashboard: ReturnType<typeof useI18n>["t"]["dashboard"];
+}) {
   return (
     <SectionCard>
-      <SectionTitle title="Quick actions" />
+      <SectionTitle title={dashboard.overview.quickActions} />
 
       <div className="mt-5 space-y-3">
         {actions.map((item) => (

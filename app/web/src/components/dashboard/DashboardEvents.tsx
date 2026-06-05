@@ -2,6 +2,7 @@ import { ArrowUpRight, ExternalLink } from "lucide-react";
 
 import type { DashboardContentItem } from "@/components/dashboard/dashboard-types";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { useI18n } from "@/lib/i18n";
 
 type EventCard = DashboardContentItem & {
   audience: "members" | "open";
@@ -31,23 +32,24 @@ export function DashboardEvents({
   setEventAudienceFilter: (filter: "all" | "members" | "open") => void;
   filteredEventCards: EventCard[];
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-5">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#21466D]">
-          Events & Benefits
+          {t.dashboard.events.eyebrow}
         </p>
 
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#10203B]">
-          Member opportunities
+          {t.dashboard.events.title}
         </h1>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         {[
-          { key: "all" as const, label: "All events" },
-          { key: "members" as const, label: "Members only" },
-          { key: "open" as const, label: "Open to all" },
+          { key: "all" as const, label: t.dashboard.events.filters.all },
+          { key: "members" as const, label: t.dashboard.events.filters.members },
+          { key: "open" as const, label: t.dashboard.events.filters.open },
         ].map((filter) => (
           <button
             key={filter.key}
@@ -73,7 +75,7 @@ export function DashboardEvents({
               target={item.ctaUrl && isExternalUrl(item.ctaUrl) ? "_blank" : undefined}
               rel={item.ctaUrl && isExternalUrl(item.ctaUrl) ? "noreferrer" : undefined}
               className={`${eventCardClassName} group block focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#72A0C1]/20`}
-              aria-label={`${item.ctaLabel || "Open event"}: ${item.title}`}
+              aria-label={`${item.ctaLabel || t.dashboard.events.openEvent}: ${item.title}`}
             >
               {item.coverImage ? (
                 <div className="overflow-hidden border-b border-[#D4E0F0] bg-slate-100">
@@ -94,12 +96,14 @@ export function DashboardEvents({
                         : "bg-[#F4F4F5] text-slate-600"
                     }`}
                   >
-                    {item.audience === "members" ? "Members only" : "Open to all"}
+                    {item.audience === "members"
+                      ? t.dashboard.events.audienceMembers
+                      : t.dashboard.events.audienceOpen}
                   </span>
 
                   {item.isPinned ? (
                     <span className="rounded-full bg-[#FFF5D8] px-3 py-1 text-[11px] font-semibold text-amber-700">
-                      Highlighted
+                      {t.dashboard.events.highlighted}
                     </span>
                   ) : null}
                 </div>
@@ -116,7 +120,7 @@ export function DashboardEvents({
                   <div className="grid gap-2.5 sm:grid-cols-3">
                     <div className={infoBoxClassName}>
                       <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                        Date
+                        {t.dashboard.events.date}
                       </p>
                       <p className="mt-2 text-sm font-semibold text-[#10203B]">
                         {item.dateDisplay}
@@ -125,7 +129,7 @@ export function DashboardEvents({
 
                     <div className={infoBoxClassName}>
                       <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                        Price
+                        {t.dashboard.events.price}
                       </p>
                       <p className="mt-2 text-sm font-semibold text-[#10203B]">
                         {item.price}
@@ -134,16 +138,16 @@ export function DashboardEvents({
 
                     <div className={infoBoxClassName}>
                       <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                        Registration
+                        {t.dashboard.events.registration}
                       </p>
                       <p className="mt-2 line-clamp-1 text-sm font-semibold text-[#10203B]">
-                        {item.ctaLabel || "Register"}
+                        {item.ctaLabel || t.dashboard.events.register}
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#10203B]">
-                    {item.ctaLabel || "Register"}
+                    {item.ctaLabel || t.dashboard.events.register}
                     {item.ctaUrl && isExternalUrl(item.ctaUrl) ? (
                       <ExternalLink className="h-4 w-4 transition group-hover:translate-x-0.5" />
                     ) : (
@@ -156,7 +160,7 @@ export function DashboardEvents({
           ))
         ) : (
           <div className="rounded-[28px] border border-dashed border-[#D4E0F0] bg-white/90 p-8 text-center text-sm text-slate-500 shadow-[0_18px_45px_rgba(11,31,68,0.08)] xl:col-span-2">
-            No events match the current filter yet.
+            {t.dashboard.events.noMatches}
           </div>
         )}
       </div>

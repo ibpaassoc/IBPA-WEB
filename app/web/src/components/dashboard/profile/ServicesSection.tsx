@@ -5,6 +5,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import type { ProfileService } from "@/lib/application-profile";
+import { useI18n } from "@/lib/i18n";
 
 import { ServiceCard } from "./ServiceCard";
 import { ServiceEditor } from "./ServiceEditor";
@@ -37,7 +38,10 @@ function normalizeServices(services: ProfileService[] | null | undefined) {
     }));
 }
 
-async function saveServices(services: ProfileService[]) {
+async function saveServices(
+  services: ProfileService[],
+  fallbackMessage: string,
+) {
   const response = await fetch("/api/profile/services", {
     method: "PATCH",
     headers: {
@@ -52,7 +56,7 @@ async function saveServices(services: ProfileService[]) {
     throw new Error(
       typeof payload?.error === "string"
         ? payload.error
-        : "Unable to save services right now.",
+        : fallbackMessage,
     );
   }
 
@@ -64,6 +68,8 @@ export function ServicesSection({
 }: {
   initialServices?: ProfileService[] | null;
 }) {
+  const { t } = useI18n();
+  const dashboard = t.dashboard;
   const [services, setServices] = useState<ProfileService[]>(() =>
     normalizeServices(initialServices),
   );
@@ -91,13 +97,16 @@ export function ServicesSection({
     setErrorMessage(null);
 
     try {
-      const savedServices = await saveServices(nextServices);
+      const savedServices = await saveServices(
+        nextServices,
+        dashboard.services.saveErrorNow,
+      );
       setServices(savedServices);
       toast.success(successMessage);
     } catch (error) {
       setServices(previousServices);
       const message =
-        error instanceof Error ? error.message : "Unable to save services.";
+        error instanceof Error ? error.message : dashboard.services.saveError;
       setErrorMessage(message);
       toast.error(message);
     } finally {
@@ -110,16 +119,16 @@ export function ServicesSection({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#16386D]">
-            Common Services
+            {dashboard.services.title}
           </p>
 
           {services.length === 0 || isAdding ? (
             <p className="mt-2 max-w-[32ch] text-sm leading-6 text-slate-500">
-              Add the services you want to highlight on your profile.
+              {dashboard.services.description}
             </p>
           ) : (
             <div className="mt-2 inline-flex items-center rounded-full bg-[#EEF5FF] px-3 py-1 text-xs font-semibold text-[#31598A]">
-              {services.length} {services.length === 1 ? "service" : "services"}
+              {dashboard.services.count(services.length)}
             </div>
           )}
         </div>
@@ -151,14 +160,14 @@ export function ServicesSection({
               ];
 
               setIsAdding(false);
-              await persistServices(nextServices, "Service added.");
+              await persistServices(nextServices, dashboard.services.addSuccess);
             }}
           />
         ) : null}
 
         {services.length === 0 && !isAdding ? (
           <div className="rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#F8FBFF] px-5 py-6 text-sm leading-6 text-slate-500">
-            No services added yet.
+            {dashboard.services.empty}
           </div>
         ) : null}
 
@@ -197,7 +206,7 @@ export function ServicesSection({
                       );
 
                       setEditingId(null);
-                      await persistServices(nextServices, "Service updated.");
+                      await persistServices(nextServices, dashboard.services.updateSuccess);
                     }}
                   />
                 );
@@ -216,7 +225,7 @@ export function ServicesSection({
                   onDelete={async () => {
                     const nextServices = services.filter((item) => item.id !== service.id);
                     setEditingId(null);
-                    await persistServices(nextServices, "Service removed.");
+                    await persistServices(nextServices, dashboard.services.removeSuccess);
                   }}
                 />
               );
@@ -236,8 +245,8 @@ export function ServicesSection({
             setErrorMessage(null);
           }}
           className="absolute bottom-5 right-5 inline-flex size-12 items-center justify-center rounded-full bg-[#16386D] text-white shadow-[0_12px_24px_rgba(22,56,109,0.28)] transition hover:bg-[#102c59] hover:shadow-[0_16px_28px_rgba(22,56,109,0.34)] disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label={isSaving ? "Saving service changes" : "Add service"}
-          title="Add service"
+          aria-label={isSaving ? dashboard.services.savingChanges : dashboard.services.add}
+          title={dashboard.services.add}
         >
           {isSaving ? (
             <Loader2 className="h-5 w-5 animate-spin" />

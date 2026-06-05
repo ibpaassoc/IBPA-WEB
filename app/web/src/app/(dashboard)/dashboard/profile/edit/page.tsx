@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { buildEditablePayload, getApplicationPayload, getEditableFields, type CombinedProfileData } from "@/lib/application-profile";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import type { OurFileRouter } from "@/app/api/uploadthing/core";
+import { localizeEditableField } from "@/lib/dashboard-i18n";
+import { useI18n } from "@/lib/i18n";
 
 const { uploadFiles } = genUploader<OurFileRouter>({
   url: "/api/uploadthing",
@@ -17,6 +19,7 @@ const { uploadFiles } = genUploader<OurFileRouter>({
 
 export default function EditApplicationPage() {
   const router = useRouter();
+  const { locale, t } = useI18n();
   const [profile, setProfile] = useState<CombinedProfileData | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [accessBlocked, setAccessBlocked] = useState(false);
@@ -33,18 +36,18 @@ export default function EditApplicationPage() {
 
         if (res.status === 403) {
           setAccessBlocked(true);
-          setAccessBlockedMessage("Profile editing is not available for this account.");
+          setAccessBlockedMessage(t.dashboard.editProfile.profileBlocked);
           return;
         }
 
         if (!res.ok) {
-          throw new Error(data?.error || "Failed to load application data");
+          throw new Error(data?.error || t.dashboard.editProfile.loadError);
         }
 
         const nextProfile = (data.profile || {}) as CombinedProfileData & { dashboardAccessType?: string | null };
         if (nextProfile.dashboardAccessType === "partner_team_member") {
           setAccessBlocked(true);
-          setAccessBlockedMessage("Team member profiles are managed by the partner owner.");
+          setAccessBlockedMessage(t.dashboard.editProfile.teamMemberBlocked);
           return;
         }
         const payload = getApplicationPayload(nextProfile);
@@ -57,29 +60,32 @@ export default function EditApplicationPage() {
         setProfile(nextProfile);
         setForm(nextForm);
       } catch (error: any) {
-        toast.error(error?.message || "Failed to load profile");
+        toast.error(error?.message || t.dashboard.editProfile.loadError);
       } finally {
         setLoading(false);
       }
     };
 
     loadProfile();
-  }, []);
+  }, [t.dashboard.editProfile.loadError, t.dashboard.editProfile.profileBlocked, t.dashboard.editProfile.teamMemberBlocked]);
 
   const editableFields = useMemo(
-    () => getEditableFields(profile?.membershipCategory),
-    [profile?.membershipCategory],
+    () =>
+      getEditableFields(profile?.membershipCategory).map((field) =>
+        localizeEditableField(field, t.dashboard, locale),
+      ),
+    [locale, profile?.membershipCategory, t.dashboard],
   );
 
   const immutableInfo = useMemo(() => {
     const payload = getApplicationPayload(profile || {});
     return [
-      { label: "Full Name", value: [payload.firstName, payload.lastName].filter(Boolean).join(" ") || "Not provided" },
-      { label: "Email", value: typeof payload.email === "string" ? payload.email : "Not provided" },
-      { label: "Membership", value: profile?.membershipCategory || "Pending" },
-      { label: "Applicant Type", value: profile?.applicantType || "Pending" },
+      { label: t.dashboard.editProfile.lockedFields.fullName, value: [payload.firstName, payload.lastName].filter(Boolean).join(" ") || t.dashboard.profile.notAddedYet },
+      { label: t.dashboard.editProfile.lockedFields.email, value: typeof payload.email === "string" ? payload.email : t.dashboard.profile.notAddedYet },
+      { label: t.dashboard.editProfile.lockedFields.membership, value: profile?.membershipCategory || t.dashboard.statuses.pending },
+      { label: t.dashboard.editProfile.lockedFields.applicantType, value: profile?.applicantType || t.dashboard.statuses.pending },
     ];
-  }, [profile]);
+  }, [profile, t.dashboard]);
 
   const handleAvatarUpload = async (file?: File | null) => {
     if (!file) return;
@@ -93,13 +99,13 @@ export default function EditApplicationPage() {
       const imageUrl = uploaded?.serverData?.url || uploaded?.ufsUrl || uploaded?.url;
 
       if (!imageUrl) {
-        throw new Error("Upload completed, but no image URL was returned.");
+        throw new Error(t.dashboard.editProfile.photoUploadMissingUrl);
       }
 
       setProfile((prev) => (prev ? { ...prev, imageUrl } : prev));
-      toast.success("Profile photo updated");
+      toast.success(t.dashboard.editProfile.photoUpdated);
     } catch (error: any) {
-      toast.error(error?.message || "Failed to upload profile photo");
+      toast.error(error?.message || t.dashboard.editProfile.photoUploadError);
     } finally {
       setUploadingAvatar(false);
     }
@@ -129,14 +135,14 @@ export default function EditApplicationPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error || "Failed to save profile");
+        throw new Error(data?.error || t.dashboard.editProfile.saveError);
       }
 
-      toast.success("Application information updated");
+      toast.success(t.dashboard.editProfile.saveSuccess);
       router.push("/dashboard");
       router.refresh();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to save changes");
+      toast.error(error?.message || t.dashboard.editProfile.saveError);
     } finally {
       setSaving(false);
     }
@@ -155,13 +161,13 @@ export default function EditApplicationPage() {
       <main className="min-h-screen bg-[#F8FAFC] px-4 py-8 md:px-6 md:py-12">
         <div className="mx-auto max-w-4xl">
           <div className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
-            <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">Application Editor</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">{t.dashboard.editProfile.pageEyebrow}</p>
             <h1 className="mt-4 text-3xl font-black uppercase tracking-tight text-slate-900 md:text-5xl">
-              Membership Activation Required
+              {t.dashboard.editProfile.accessBlockedTitle}
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-500 md:text-base">
               {accessBlockedMessage ||
-                "Profile editing is available only for paid IBPA members. If your membership payment was completed, sign in with the same email used for your application and payment."}
+                t.dashboard.editProfile.accessBlockedDescription}
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -169,13 +175,13 @@ export default function EditApplicationPage() {
                 href="/dashboard"
                 className="inline-flex items-center justify-center rounded-[20px] bg-black px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1] hover:text-black"
               >
-                Back to Dashboard
+                {t.dashboard.editProfile.backToDashboard}
               </Link>
               <Link
                 href="https://ibpassociations.org/contact"
                 className="inline-flex items-center justify-center rounded-[20px] border border-slate-200 bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]"
               >
-                Contact Support
+                {t.dashboard.editProfile.contactSupport}
               </Link>
             </div>
           </div>
@@ -193,29 +199,28 @@ export default function EditApplicationPage() {
             className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 transition-colors hover:text-[#72A0C1]"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            {t.dashboard.editProfile.backToDashboard}
           </Link>
-          <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">Application Editor</p>
+          <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">{t.dashboard.editProfile.pageEyebrow}</p>
           <h1 className="mt-3 text-3xl font-black uppercase tracking-tight text-slate-900 md:text-5xl">
-            Update Your Submitted Information
+            {t.dashboard.editProfile.pageTitle}
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-500 md:text-base">
-            You can update contact details, professional information, and category-specific application fields. Your legal name,
-            email, membership type, and submitted identity data stay locked for review integrity.
+            {t.dashboard.editProfile.pageDescription}
           </p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm md:p-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-slate-400">Locked Information</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-slate-400">{t.dashboard.editProfile.lockedInformation}</p>
             <div className="mt-5 rounded-[24px] border border-slate-100 bg-[#F8FAFC] p-4">
-              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Profile Photo</p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">{t.dashboard.editProfile.profilePhoto}</p>
               <div className="mt-4 flex flex-col items-center gap-4 text-center">
                 <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-slate-200 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
                   {profile?.imageUrl ? (
                     <ImageWithFallback
                       src={profile.imageUrl}
-                      alt="Profile photo"
+                      alt={t.dashboard.editProfile.profilePhoto}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -239,7 +244,7 @@ export default function EditApplicationPage() {
                 <div className="flex w-full flex-col gap-3">
                   <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[20px] border border-slate-200 bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-700 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]">
                     <UploadCloud className="h-4 w-4" />
-                    {uploadingAvatar ? "Uploading..." : "Upload New Photo"}
+                    {uploadingAvatar ? t.dashboard.editProfile.uploading : t.dashboard.editProfile.uploadNewPhoto}
                     <input
                       type="file"
                       accept="image/*"
@@ -260,13 +265,13 @@ export default function EditApplicationPage() {
                       className="inline-flex items-center justify-center gap-2 rounded-[20px] border border-slate-200 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-red-200 hover:text-red-500"
                     >
                       <Trash2 className="h-4 w-4" />
-                      Remove Photo
+                      {t.dashboard.editProfile.removePhoto}
                     </button>
                   )}
                 </div>
 
                 <p className="text-xs leading-relaxed text-slate-400">
-                  This photo will be used in your dashboard profile and public member directory.
+                  {t.dashboard.editProfile.photoHelper}
                 </p>
               </div>
             </div>
@@ -300,7 +305,7 @@ export default function EditApplicationPage() {
                       onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                       className="mt-2 w-full rounded-[20px] border border-slate-200 bg-[#F8FAFC] px-4 py-3 text-sm text-slate-900 outline-none transition-colors focus:border-[#72A0C1]"
                     >
-                      <option value="">{field.placeholder || "Select an option"}</option>
+                      <option value="">{field.placeholder || t.dashboard.editProfile.selectPlaceholder}</option>
                       {field.options.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -325,7 +330,7 @@ export default function EditApplicationPage() {
                 href="/"
                 className="inline-flex items-center justify-center rounded-[20px] border border-slate-200 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]"
               >
-                Cancel
+                {t.dashboard.editProfile.cancel}
               </Link>
               <button
                 type="button"
@@ -334,7 +339,7 @@ export default function EditApplicationPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-[20px] bg-black px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1] hover:text-black disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save Changes
+                {t.dashboard.editProfile.saveChanges}
               </button>
             </div>
           </section>

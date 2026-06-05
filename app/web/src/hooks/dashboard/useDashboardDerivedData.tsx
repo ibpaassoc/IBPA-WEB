@@ -35,6 +35,7 @@ import {
   type CombinedProfileData,
 } from "@/lib/application-profile";
 import { formatMemberId, getPublicProfileHref } from "@/lib/member-identity";
+import { getLocaleNumberFormat, useI18n } from "@/lib/i18n";
 
 type EventAudienceFilter = "all" | "members" | "open";
 
@@ -93,6 +94,10 @@ export function useDashboardDerivedData({
   setActiveTab,
   setSupportMode,
 }: Params) {
+  const { locale, t } = useI18n();
+  const dashboard = t.dashboard;
+  const localeCode = getLocaleNumberFormat(locale);
+
   const hasApprovedCert = certificates.some(
     (item) => item.status === "approved" || item.status === "paid",
   );
@@ -184,31 +189,32 @@ export function useDashboardDerivedData({
       : null;
 
   const memberSinceDisplay = memberSinceDate
-    ? memberSinceDate.toLocaleDateString("en-US", {
+    ? memberSinceDate.toLocaleDateString(localeCode, {
         month: "short",
         year: "numeric",
       })
-    : "Pending";
+    : dashboard.statuses.pending;
 
   const membershipExpiresAt = primaryCertificate?.expiresAt
     ? new Date(primaryCertificate.expiresAt)
     : addOneYear(primaryCertificate?.createdAt);
 
   const membershipExpiresDisplay = membershipExpiresAt
-    ? membershipExpiresAt.toLocaleDateString("en-US", {
+    ? membershipExpiresAt.toLocaleDateString(localeCode, {
         month: "short",
         day: "numeric",
         year: "numeric",
       })
-    : "Pending";
+    : dashboard.statuses.pending;
 
   const membershipCategoryLabel = isTeamMemberDashboard
-    ? "Partner Team Access"
+    ? dashboard.membershipCategories.partnerTeamAccess
     : isPartnerOwner
-      ? "Partner Membership"
+      ? dashboard.membershipCategories.partner
       : formatMembershipCategory(
           primaryCertificate?.membershipCategory ||
             profileData.membershipCategory,
+          dashboard.membershipCategories,
         );
 
   const statusSummary = getDashboardStatus({
@@ -217,6 +223,9 @@ export function useDashboardDerivedData({
     isMembershipActive,
     normalizedCertificateStatus,
     normalizedMembershipStatus,
+  }, {
+    ...dashboard.statusDescriptions,
+    statuses: dashboard.statuses,
   });
 
   const activeApplicationPayload = useMemo<Record<string, unknown>>(() => {
@@ -295,7 +304,7 @@ export function useDashboardDerivedData({
     profile: mergedProfileData,
     hasPhoto: Boolean(profileHeroImage),
     certificatesCount: certificates.length,
-  });
+  }, dashboard.checklist);
 
   const memberIdDisplay = formatMemberId(
     profileData.orderId || primaryCertificate?.certNumber || user?.id,
@@ -325,21 +334,22 @@ export function useDashboardDerivedData({
 
   const certificateStatusDisplay = formatStatusLabel(
     normalizedCertificateStatus,
-    "Pending",
+    dashboard.statuses.pending,
+    dashboard.statuses,
   );
 
   const partnerSeatPrice = partnerTeamSummary?.additionalSeatPrice ?? 100;
 
   const billingEntries = billingHistory.map((entry) => ({
     id: entry.id,
-    date: new Date(entry.paidAt || entry.createdAt).toLocaleDateString("en-US", {
+    date: new Date(entry.paidAt || entry.createdAt).toLocaleDateString(localeCode, {
       month: "short",
       day: "numeric",
       year: "numeric",
     }),
     amount:
       entry.amount > 0
-        ? new Intl.NumberFormat("en-US", {
+        ? new Intl.NumberFormat(localeCode, {
             style: "currency",
             currency: "USD",
           }).format(entry.amount / 100)
@@ -355,19 +365,19 @@ export function useDashboardDerivedData({
       audience,
       dateDisplay: new Date(
         item.eventDate || item.createdAt,
-      ).toLocaleDateString("en-US", {
+      ).toLocaleDateString(localeCode, {
         month: "short",
         day: "numeric",
         year: "numeric",
       }),
       price:
         extractPriceFromText(item.body, item.ctaLabel) ||
-        (audience === "members" ? "Members rate" : "TBD"),
+        (audience === "members" ? dashboard.events.membersRate : "TBD"),
       discountLabel: buildEventDiscountLabel({
         isMembershipActive,
         audience,
         membershipLabel: membershipCategoryLabel,
-      }),
+      }, dashboard.events),
     };
   });
 
@@ -378,7 +388,7 @@ export function useDashboardDerivedData({
 
   const copyPublicLink = useCallback(() => {
     if (!publicProfileHref || typeof window === "undefined") {
-      toast.error("Public profile link is not available yet.");
+      toast.error(dashboard.profile.copyPublicProfileUnavailable);
       return;
     }
 
@@ -386,47 +396,52 @@ export function useDashboardDerivedData({
 
     navigator.clipboard
       .writeText(absoluteUrl)
-      .then(() => toast.success("Public profile link copied."))
-      .catch(() => toast.error("Could not copy the public profile link."));
-  }, [publicProfileHref]);
+      .then(() => toast.success(dashboard.profile.copyPublicProfileSuccess))
+      .catch(() => toast.error(dashboard.profile.copyPublicProfileError));
+  }, [
+    dashboard.profile.copyPublicProfileError,
+    dashboard.profile.copyPublicProfileSuccess,
+    dashboard.profile.copyPublicProfileUnavailable,
+    publicProfileHref,
+  ]);
 
   const quickActions = [
     {
-      label: "Edit Profile",
-      description: "Update photo, bio, and professional details.",
+      label: dashboard.quickActions.editProfile.label,
+      description: dashboard.quickActions.editProfile.description,
       icon: <User className="h-4 w-4" />,
       onClick: () => {
         window.location.href = "/dashboard/profile/edit";
       },
     },
     {
-      label: "Certificate Status",
-      description: "Track verification and downloads.",
+      label: dashboard.quickActions.certificateStatus.label,
+      description: dashboard.quickActions.certificateStatus.description,
       icon: <ShieldCheck className="h-4 w-4" />,
       onClick: () =>
         setActiveTab(showCertificatesTab ? "certificates" : "billing"),
-      },
+    },
     {
-      label: "View Membership",
-      description: "Review plan, expiry, and payment activity.",
+      label: dashboard.quickActions.viewMembership.label,
+      description: dashboard.quickActions.viewMembership.description,
       icon: <CreditCard className="h-4 w-4" />,
       onClick: () => setActiveTab("billing"),
     },
     {
-      label: "Member Directory",
-      description: "Discover peers for networking and collaboration.",
+      label: dashboard.quickActions.memberDirectory.label,
+      description: dashboard.quickActions.memberDirectory.description,
       icon: <Users className="h-4 w-4" />,
       onClick: () => setActiveTab("directory"),
     },
     {
-      label: "Events & Discounts",
-      description: "Browse member events and current benefits.",
+      label: dashboard.quickActions.eventsAndDiscounts.label,
+      description: dashboard.quickActions.eventsAndDiscounts.description,
       icon: <CalendarDays className="h-4 w-4" />,
       onClick: () => setActiveTab("events"),
     },
     {
-      label: "Support",
-      description: "Ask a question, share an idea, or report an issue.",
+      label: dashboard.quickActions.support.label,
+      description: dashboard.quickActions.support.description,
       icon: <LifeBuoy className="h-4 w-4" />,
       onClick: () => setActiveTab("support"),
     },
@@ -434,43 +449,43 @@ export function useDashboardDerivedData({
 
   const overviewCards = [
     {
-      label: "Member status",
+      label: dashboard.summaryCards.memberStatus,
       value: statusSummary.label,
       helper: statusSummary.description,
     },
     {
-      label: "Member since",
+      label: dashboard.summaryCards.memberSince,
       value: memberSinceDisplay,
-      helper: "First linked activation date",
+      helper: dashboard.summaryCards.activationDateHelper,
     },
     {
-      label: "Membership type",
+      label: dashboard.summaryCards.membershipType,
       value: membershipCategoryLabel,
-      helper: "Current linked membership record",
+      helper: dashboard.summaryCards.linkedMembershipHelper,
     },
     {
-      label: "Expiry date",
+      label: dashboard.summaryCards.expiryDate,
       value: membershipExpiresDisplay,
-      helper: "Latest certificate or renewal date",
+      helper: dashboard.summaryCards.latestCertificateHelper,
     },
   ];
 
   const navItems = [
     {
       key: "dashboard" as const,
-      label: "Dashboard",
+      label: dashboard.header.title,
       icon: <LayoutDashboard className="h-4 w-4" />,
     },
     {
       key: "profile" as const,
-      label: "Profile",
+      label: dashboard.overview.profile,
       icon: <User className="h-4 w-4" />,
     },
     ...(showCertificatesTab
       ? [
           {
             key: "certificates" as const,
-            label: "My Certificates",
+            label: dashboard.certificates.eyebrow,
             icon: <Award className="h-4 w-4" />,
           },
         ]
@@ -479,19 +494,19 @@ export function useDashboardDerivedData({
       ? [
           {
             key: "teamMembers" as const,
-            label: "Team Members",
+            label: dashboard.teamMembers.title,
             icon: <UserPlus className="h-4 w-4" />,
           },
         ]
       : []),
     {
       key: "billing" as const,
-      label: "Billing & Membership",
+      label: dashboard.billing.title,
       icon: <CreditCard className="h-4 w-4" />,
     },
     {
       key: "events" as const,
-      label: "Events & Benefits",
+      label: dashboard.events.eyebrow,
       icon: <CalendarDays className="h-4 w-4" />,
       accent: hasNewEvents ? (
         <span className="h-2.5 w-2.5 rounded-full bg-current" />
@@ -499,22 +514,22 @@ export function useDashboardDerivedData({
     },
     {
       key: "directory" as const,
-      label: "Member Directory",
+      label: dashboard.directory.title,
       icon: <Search className="h-4 w-4" />,
     },
     {
       key: "support" as const,
-      label: "Support",
+      label: dashboard.support.eyebrow,
       icon: <LifeBuoy className="h-4 w-4" />,
     },
     {
       key: "accountSettings" as const,
-      label: "Account Settings",
+      label: dashboard.account.title,
       icon: <Settings className="h-4 w-4" />,
     },
     {
       key: "notifications" as const,
-      label: "Notifications",
+      label: dashboard.notifications.navLabel,
       icon: <Bell className="h-4 w-4" />,
       accent:
         unreadNotificationsCount > 0 ? (

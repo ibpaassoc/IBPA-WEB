@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { SupportMode } from "@/components/dashboard/dashboard-types";
+import { useI18n } from "@/lib/i18n";
 
 type Params = {
   supportMode: SupportMode;
@@ -21,58 +22,31 @@ export function useDashboardSupport({
   memberIdDisplay,
   membershipCategoryLabel,
 }: Params) {
+  const { t } = useI18n();
+  const dashboard = t.dashboard;
   const [supportMessage, setSupportMessage] = useState("");
   const [supportPhone, setSupportPhone] = useState("");
   const [supportSubmitting, setSupportSubmitting] = useState(false);
 
   const supportTopicLabel = useMemo(() => {
-    if (supportMode === "idea") return "Suggest an idea";
-    if (supportMode === "problem") return "Report a problem";
-    return "Ask a question";
-  }, [supportMode]);
+    if (supportMode === "idea") return dashboard.support.idea;
+    if (supportMode === "problem") return dashboard.support.problem;
+    return dashboard.support.question;
+  }, [dashboard.support.idea, dashboard.support.problem, dashboard.support.question, supportMode]);
 
-  const quickAnswers = [
-    "Support replies arrive through the existing IBPA contact workflow.",
-    "Public profile sharing uses your live member page link.",
-    "Directory visibility depends on active paid membership.",
-  ];
-
-  const faqItems = [
-    {
-      question: "How do I update my public profile?",
-      answer:
-        "Open Edit Profile to refresh your photo, contact details, specialization, and biography.",
-    },
-    {
-      question: "Where do certificate files appear?",
-      answer:
-        "Issued certificate files appear in My Certificates after administrative review and upload.",
-    },
-    {
-      question: "How are reminders delivered?",
-      answer:
-        "IBPA can send reminders, updates, and invitations through the existing email workflow when those automations are enabled.",
-    },
-    {
-      question: "Can I change my membership plan online?",
-      answer:
-        "Plan change and renewal actions are surfaced here, while final payment flow still follows the existing membership process.",
-    },
-  ];
+  const faqItems = dashboard.support.faqItems;
 
   const handleSupportSubmit = useCallback(async () => {
     const memberName = fullName || fallbackFullName || "IBPA Member";
     const email = dashboardContactEmail;
 
     if (!email) {
-      toast.error("A signed-in email address is required to send support requests.");
+      toast.error(dashboard.support.emailRequired);
       return;
     }
 
     if (supportMessage.trim().length < 20) {
-      toast.error(
-        "Please provide at least 20 characters so the support team has enough context.",
-      );
+      toast.error(dashboard.support.messageTooShort);
       return;
     }
 
@@ -97,21 +71,25 @@ export function useDashboardSupport({
         throw new Error(
           typeof payload?.error === "string"
             ? payload.error
-            : "Failed to send support request.",
+            : dashboard.support.sendError,
         );
       }
 
-      toast.success("Your request was sent to IBPA support.");
+      toast.success(dashboard.support.sendSuccess);
       setSupportMessage("");
       setSupportPhone("");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to send support request.",
+        error instanceof Error ? error.message : dashboard.support.sendError,
       );
     } finally {
       setSupportSubmitting(false);
     }
   }, [
+    dashboard.support.emailRequired,
+    dashboard.support.messageTooShort,
+    dashboard.support.sendError,
+    dashboard.support.sendSuccess,
     dashboardContactEmail,
     fallbackFullName,
     fullName,
@@ -130,7 +108,6 @@ export function useDashboardSupport({
     supportSubmitting,
     supportTopicLabel,
     handleSupportSubmit,
-    quickAnswers,
     faqItems,
   };
 }

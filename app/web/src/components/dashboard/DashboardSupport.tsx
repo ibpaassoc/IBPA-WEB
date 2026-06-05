@@ -15,6 +15,7 @@ import {
   dashboardTextareaClassName,
 } from "@/shared/components/DashboardShared";
 import type { SupportMode } from "@/components/dashboard/dashboard-types";
+import { useI18n } from "@/lib/i18n";
 
 const SUPPORT_OPTIONS: Array<{
   key: SupportMode;
@@ -24,20 +25,20 @@ const SUPPORT_OPTIONS: Array<{
 }> = [
   {
     key: "question",
-    label: "Ask a question",
-    description: "Get help with membership, billing, or dashboard access.",
+    label: "",
+    description: "",
     icon: MessageSquareText,
   },
   {
     key: "idea",
-    label: "Suggest an idea",
-    description: "Share improvements that would make the member experience better.",
+    label: "",
+    description: "",
     icon: Lightbulb,
   },
   {
     key: "problem",
-    label: "Report a problem",
-    description: "Flag a bug, broken workflow, or account issue for review.",
+    label: "",
+    description: "",
     icon: TriangleAlert,
   },
 ];
@@ -84,16 +85,34 @@ export function DashboardSupport({
     answer: string;
   }[];
 }) {
+  const { t } = useI18n();
+  const supportOptions = [
+    {
+      ...SUPPORT_OPTIONS[0],
+      label: t.dashboard.support.question,
+      description: t.dashboard.support.questionDescription,
+    },
+    {
+      ...SUPPORT_OPTIONS[1],
+      label: t.dashboard.support.idea,
+      description: t.dashboard.support.ideaDescription,
+    },
+    {
+      ...SUPPORT_OPTIONS[2],
+      label: t.dashboard.support.problem,
+      description: t.dashboard.support.problemDescription,
+    },
+  ];
   const activeIndex = SUPPORT_MODE_INDEX[supportMode] ?? 0;
 
   return (
     <div className="space-y-6">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#21466D]">
-          Support
+          {t.dashboard.support.eyebrow}
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#10203B]">
-          Help and requests
+          {t.dashboard.support.title}
         </h1>
       </div>
 
@@ -123,7 +142,7 @@ export function DashboardSupport({
             }}
           />
 
-          {SUPPORT_OPTIONS.map((option) => {
+          {supportOptions.map((option) => {
             const Icon = option.icon;
             const isActive = supportMode === option.key;
 
@@ -184,21 +203,21 @@ export function DashboardSupport({
             </div>
 
             <h3 className="text-lg font-semibold tracking-tight text-[#10203B]">
-              {SUPPORT_OPTIONS.find((option) => option.key === supportMode)?.label ??
-                "Support Request"}
+              {supportOptions.find((option) => option.key === supportMode)?.label ??
+                t.dashboard.support.requestTitle}
             </h3>
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div className={innerPanelClassName}>
-              <p className="text-xs font-medium text-slate-500">Member email</p>
+              <p className="text-xs font-medium text-slate-500">{t.dashboard.support.memberEmail}</p>
               <p className="mt-2 truncate text-sm font-semibold text-[#10203B]">
-                {dashboardContactEmail || "Unavailable"}
+                {dashboardContactEmail || t.dashboard.profile.notAddedYet}
               </p>
             </div>
 
             <div className={innerPanelClassName}>
-              <p className="text-xs font-medium text-slate-500">Member ID</p>
+              <p className="text-xs font-medium text-slate-500">{t.dashboard.support.memberId}</p>
               <p className="mt-2 text-sm font-semibold text-[#10203B]">
                 {memberIdDisplay}
               </p>
@@ -208,12 +227,12 @@ export function DashboardSupport({
           <div className="mt-5 flex flex-col gap-4">
             <label className="flex flex-col gap-2">
               <span className="text-xs font-medium text-slate-600">
-                Phone (optional)
+                {t.dashboard.support.phoneOptional}
               </span>
               <input
                 value={supportPhone}
                 onChange={(event) => setSupportPhone(event.target.value)}
-                placeholder="Best number for follow-up"
+                placeholder={t.dashboard.support.phonePlaceholder}
                 className={dashboardInputClassName}
               />
             </label>
@@ -225,7 +244,7 @@ export function DashboardSupport({
               <textarea
                 value={supportMessage}
                 onChange={(event) => setSupportMessage(event.target.value)}
-                placeholder="Share enough detail so the team can help quickly."
+                placeholder={t.dashboard.support.messagePlaceholder}
                 className={dashboardTextareaClassName}
               />
             </label>
@@ -242,21 +261,21 @@ export function DashboardSupport({
               ) : (
                 <Mail className="h-4 w-4" />
               )}
-              Submit Request
+              {t.dashboard.support.submit}
             </button>
 
             <a
               href="mailto:support@ibpassociations.org"
               className={dashboardSecondaryButtonClassName}
             >
-              Email Support Directly
+              {t.dashboard.support.emailDirectly}
             </a>
           </div>
         </form>
 
         <section className={floatingCardClassName}>
           <h3 className="text-lg font-semibold tracking-tight text-[#10203B]">
-            FAQ
+            {t.dashboard.support.faq}
           </h3>
 
           <div className="mt-4 space-y-3">

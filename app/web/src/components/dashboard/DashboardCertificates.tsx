@@ -23,6 +23,7 @@ import type {
 import type { OurFileRouter } from "@/app/api/uploadthing/core";
 import { StatusPill } from "@/shared/components/DashboardShared";
 import { formatStatusLabel } from "@/lib/dashboard-cabinet";
+import { getLocaleNumberFormat, useI18n } from "@/lib/i18n";
 
 const { uploadFiles } = genUploader<OurFileRouter>({
   url: "/api/uploadthing",
@@ -32,13 +33,13 @@ const { uploadFiles } = genUploader<OurFileRouter>({
 const shellCardClassName =
   "rounded-[32px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_22px_60px_rgba(11,31,68,0.09)]";
 
-function formatDate(value?: string | null) {
+function formatDate(value: string | null | undefined, localeCode: string) {
   if (!value) return null;
 
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
 
-  return parsed.toLocaleDateString("en-US", {
+  return parsed.toLocaleDateString(localeCode, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -74,8 +75,12 @@ function CertificatePreview({
   fullName: string;
   membershipExpiresDisplay: string;
 }) {
-  const issuedDate = formatDate(cert.createdAt) || "Pending";
-  const validThrough = formatDate(cert.expiresAt) || membershipExpiresDisplay;
+  const { locale, t } = useI18n();
+  const localeCode = getLocaleNumberFormat(locale);
+  const issuedDate =
+    formatDate(cert.createdAt, localeCode) || t.dashboard.statuses.pending;
+  const validThrough =
+    formatDate(cert.expiresAt, localeCode) || membershipExpiresDisplay;
   const isVerified = cert.status === "paid";
 
   return (
@@ -89,10 +94,10 @@ function CertificatePreview({
 
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-white/65">
-                Official IBPA
+                {t.dashboard.certificates.officialIbpa}
               </p>
               <h2 className="mt-1 text-2xl font-semibold tracking-tight">
-                IBPA Certificate
+                {t.dashboard.certificates.officialCertificate}
               </h2>
               <p className="mt-1 text-sm text-white/70">
                 {cert.orderName || fullName}
@@ -102,7 +107,13 @@ function CertificatePreview({
 
           <StatusPill
             label={
-              isVerified ? "Verified" : formatStatusLabel(cert.status, "Pending")
+              isVerified
+                ? t.dashboard.statuses.verified
+                : formatStatusLabel(
+                    cert.status,
+                    t.dashboard.statuses.pending,
+                    t.dashboard.statuses,
+                  )
             }
             tone={
               isVerified
@@ -118,7 +129,7 @@ function CertificatePreview({
       <div className="p-5">
         <div className="rounded-[24px] border border-[#DCE7F4] bg-[#F8FBFF] p-4">
           <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
-            Certificate ID
+            {t.dashboard.certificates.certificateId}
           </p>
           <p className="mt-2 break-all font-mono text-xs font-semibold leading-5 text-[#10203B]">
             {cert.certNumber}
@@ -130,7 +141,7 @@ function CertificatePreview({
             <div className="flex items-center gap-2 text-slate-400">
               <CalendarDays className="h-3.5 w-3.5" />
               <p className="text-[9px] font-bold uppercase tracking-[0.18em]">
-                Issued
+                {t.dashboard.certificates.issued}
               </p>
             </div>
             <p className="mt-2 text-sm font-semibold text-[#10203B]">
@@ -142,7 +153,7 @@ function CertificatePreview({
             <div className="flex items-center gap-2 text-slate-400">
               <ShieldCheck className="h-3.5 w-3.5" />
               <p className="text-[9px] font-bold uppercase tracking-[0.18em]">
-                Valid through
+                {t.dashboard.certificates.validThrough}
               </p>
             </div>
             <p className="mt-2 text-sm font-semibold text-[#10203B]">
@@ -160,7 +171,7 @@ function CertificatePreview({
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#10203B] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1A3157]"
             >
               <Download className="h-4 w-4" />
-              Download certificate
+              {t.dashboard.certificates.downloadCertificate}
             </a>
           ) : (
             <button
@@ -169,7 +180,7 @@ function CertificatePreview({
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-400"
             >
               <Download className="h-4 w-4" />
-              File pending
+              {t.dashboard.certificates.filePending}
             </button>
           )}
         </div>
@@ -193,6 +204,7 @@ export function DashboardCertificates({
   membershipExpiresDisplay: string;
   refreshDashboardData: (params?: { silent?: boolean }) => Promise<void>;
 }) {
+  const { locale, t } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [title, setTitle] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -204,12 +216,12 @@ export function DashboardCertificates({
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle) {
-      setError("Add a certificate title before uploading.");
+      setError(t.dashboard.certificates.addTitleError);
       return;
     }
 
     if (!selectedFile) {
-      setError("Choose a document or image to upload.");
+      setError(t.dashboard.certificates.chooseFileError);
       return;
     }
 
@@ -224,7 +236,7 @@ export function DashboardCertificates({
         uploaded[0]?.serverData?.url || uploaded[0]?.ufsUrl || uploaded[0]?.url;
 
       if (!fileUrl) {
-        throw new Error("Upload completed without a file URL.");
+        throw new Error(t.dashboard.certificates.uploadMissingUrl);
       }
 
       const response = await fetch("/api/dashboard/certificates/external", {
@@ -238,20 +250,20 @@ export function DashboardCertificates({
         throw new Error(
           typeof data?.error === "string"
             ? data.error
-            : "Failed to save the uploaded certificate.",
+            : t.dashboard.certificates.saveUploadedError,
         );
       }
 
       setTitle("");
       setSelectedFile(null);
       await refreshDashboardData({ silent: true });
-      toast.success("Certificate uploaded.");
+      toast.success(t.dashboard.certificates.uploadSuccess);
     } catch (uploadError) {
       console.error("Failed to upload external certificate:", uploadError);
       const message =
         uploadError instanceof Error
           ? uploadError.message
-          : "Failed to upload certificate.";
+          : t.dashboard.certificates.uploadError;
       setError(message);
       toast.error(message);
     } finally {
@@ -273,18 +285,18 @@ export function DashboardCertificates({
         throw new Error(
           typeof data?.error === "string"
             ? data.error
-            : "Failed to remove certificate.",
+            : t.dashboard.certificates.removeError,
         );
       }
 
       await refreshDashboardData({ silent: true });
-      toast.success("Certificate removed.");
+      toast.success(t.dashboard.certificates.removeSuccess);
     } catch (deleteError) {
       console.error("Failed to delete external certificate:", deleteError);
       const message =
         deleteError instanceof Error
           ? deleteError.message
-          : "Failed to remove certificate.";
+          : t.dashboard.certificates.removeError;
       setError(message);
       toast.error(message);
     } finally {
@@ -298,10 +310,10 @@ export function DashboardCertificates({
     <div className="space-y-6">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#21466D]">
-          My Certificates
+          {t.dashboard.certificates.eyebrow}
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#10203B]">
-          Verification and uploads
+          {t.dashboard.certificates.title}
         </h1>
       </div>
 
@@ -317,10 +329,10 @@ export function DashboardCertificates({
             <div className="rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#FBFDFF] px-6 py-12 text-center">
               <Award className="mx-auto h-10 w-10 text-[#9EB7D2]" />
               <p className="mt-4 text-lg font-semibold text-[#10203B]">
-                No issued IBPA certificate yet
+                {t.dashboard.certificates.noIssuedTitle}
               </p>
               <p className="mt-2 text-sm text-slate-500">
-                Your official IBPA certificate will appear here once it has been issued.
+                {t.dashboard.certificates.noIssuedDescription}
               </p>
             </div>
           </section>
@@ -328,21 +340,21 @@ export function DashboardCertificates({
 
         <section className={`${shellCardClassName} h-fit p-4`}>
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/75">
-            Upload certificate
+            {t.dashboard.certificates.uploadEyebrow}
           </p>
           <h2 className="mt-2 text-lg font-semibold text-[#10203B]">
-            Add personal certificate
+            {t.dashboard.certificates.uploadTitle}
           </h2>
 
           <div className="mt-4 space-y-3">
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Certificate title
+                {t.dashboard.certificates.certificateTitle}
               </span>
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="Advanced Brow Masterclass"
+                placeholder={t.dashboard.certificates.certificateTitlePlaceholder}
                 className="mt-2 h-11 w-full rounded-2xl border border-[#D4E0F0] bg-[#F8FBFF] px-4 text-sm text-[#10203B] outline-none transition placeholder:text-slate-400 focus:border-[#72A0C1] focus:bg-white focus:ring-4 focus:ring-[#72A0C1]/10"
               />
             </label>
@@ -368,10 +380,10 @@ export function DashboardCertificates({
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-[#10203B]">
-                  {selectedFile ? selectedFile.name : "Choose document or image"}
+                  {selectedFile ? selectedFile.name : t.dashboard.certificates.chooseFile}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  PDF, DOC, DOCX, JPG, PNG or WEBP
+                  {t.dashboard.certificates.fileTypes}
                 </p>
               </div>
             </button>
@@ -389,7 +401,7 @@ export function DashboardCertificates({
               ) : (
                 <UploadCloud className="h-4 w-4" />
               )}
-              Upload certificate
+              {t.dashboard.certificates.uploadCertificate}
             </button>
           </div>
         </section>
@@ -399,15 +411,15 @@ export function DashboardCertificates({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/75">
-              Personal uploads
+              {t.dashboard.certificates.personalUploadsEyebrow}
             </p>
             <h2 className="mt-2 text-xl font-semibold text-[#10203B]">
-              External certificates
+              {t.dashboard.certificates.personalUploadsTitle}
             </h2>
           </div>
 
           <span className="rounded-full border border-[#D4E0F0] bg-[#F8FBFF] px-3 py-1 text-xs font-semibold text-[#21466D]">
-            {externalCertificates.length} uploaded
+            {t.dashboard.certificates.uploadedCount(externalCertificates.length)}
           </span>
         </div>
 
@@ -429,7 +441,10 @@ export function DashboardCertificates({
                         {item.title}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        Added {formatDate(item.createdAt) || "recently"}
+                        {t.dashboard.certificates.addedOn(
+                          formatDate(item.createdAt, getLocaleNumberFormat(locale)) ||
+                            t.dashboard.certificates.recently,
+                        )}
                       </p>
                     </div>
                   </div>
@@ -439,7 +454,7 @@ export function DashboardCertificates({
                     onClick={() => void handleDelete(item.id)}
                     disabled={deletingId === item.id}
                     className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#F0D7DB] bg-white text-rose-500 transition hover:border-rose-200 hover:bg-rose-50 disabled:opacity-60"
-                    aria-label={`Remove ${item.title}`}
+                    aria-label={t.dashboard.certificates.removeAria(item.title)}
                   >
                     {deletingId === item.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -457,7 +472,7 @@ export function DashboardCertificates({
                     className="inline-flex items-center gap-2 rounded-full border border-[#D4E0F0] bg-white px-3.5 py-2 text-xs font-semibold text-[#10203B] transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
                   >
                     <Download className="h-3.5 w-3.5" />
-                    Open file
+                    {t.dashboard.certificates.openFile}
                   </a>
                 </div>
               </article>
@@ -467,10 +482,10 @@ export function DashboardCertificates({
           <div className="mt-5 rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#FBFDFF] px-6 py-12 text-center">
             <FileBadge2 className="mx-auto h-10 w-10 text-[#9EB7D2]" />
             <p className="mt-4 text-lg font-semibold text-[#10203B]">
-              No personal certificates uploaded yet
+              {t.dashboard.certificates.noUploadsTitle}
             </p>
             <p className="mt-2 text-sm text-slate-500">
-              Upload external training and credential files to keep them alongside your official IBPA certificate.
+              {t.dashboard.certificates.noUploadsDescription}
             </p>
           </div>
         )}

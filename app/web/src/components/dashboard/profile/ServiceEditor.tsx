@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Save, X } from "lucide-react";
 
 import type { ProfileService } from "@/lib/application-profile";
+import { useI18n } from "@/lib/i18n";
 
 type ServiceDraft = {
   title: string;
@@ -24,24 +25,27 @@ function normalizeDraft(service?: ProfileService | null): ServiceDraft {
   };
 }
 
-function getValidationErrors(draft: ServiceDraft) {
+function getValidationErrors(
+  draft: ServiceDraft,
+  services: ReturnType<typeof useI18n>["t"]["dashboard"]["services"],
+) {
   const title = draft.title.trim();
   const price = draft.price.trim();
   const description = draft.description.trim();
 
   return {
     title: !title
-      ? "Service title is required."
+      ? services.titleRequired
       : title.length > TITLE_MAX
-        ? `Service title must be ${TITLE_MAX} characters or fewer.`
+        ? services.titleTooLong(TITLE_MAX)
         : "",
     price:
       price.length > PRICE_MAX
-        ? `Price must be ${PRICE_MAX} characters or fewer.`
+        ? services.priceTooLong(PRICE_MAX)
         : "",
     description:
       description.length > DESCRIPTION_MAX
-        ? `Service description must be ${DESCRIPTION_MAX} characters or fewer.`
+        ? services.descriptionTooLong(DESCRIPTION_MAX)
         : "",
   };
 }
@@ -57,8 +61,9 @@ export function ServiceEditor({
   onCancel: () => void;
   onSave: (value: ServiceDraft) => void;
 }) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<ServiceDraft>(() => normalizeDraft(service));
-  const errors = getValidationErrors(draft);
+  const errors = getValidationErrors(draft, t.dashboard.services);
   const hasErrors = Boolean(
     errors.title ||
       errors.price ||
@@ -73,7 +78,7 @@ export function ServiceEditor({
     <div className="rounded-[24px] border border-[#D6E2F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] p-4 shadow-[0_10px_24px_rgba(15,37,71,0.08)]">
       <div className="mb-4">
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#16386D]">
-          {service ? "Edit Service" : "New Service"}
+          {service ? t.dashboard.services.editTitle : t.dashboard.services.addTitle}
         </p>
       </div>
 
@@ -83,7 +88,7 @@ export function ServiceEditor({
             htmlFor="service-title"
             className="mb-2 block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500"
           >
-            Title
+            {t.dashboard.services.titleLabel}
           </label>
           <input
             id="service-title"
@@ -93,7 +98,7 @@ export function ServiceEditor({
             onChange={(event) =>
               setDraft((current) => ({ ...current, title: event.target.value }))
             }
-            placeholder="Hair Coloring"
+            placeholder={t.dashboard.services.titlePlaceholder}
             className="w-full rounded-[18px] border border-[#D8E4F3] bg-white px-4 py-3 text-sm text-[#10203B] outline-none transition focus:border-[#2B5C99]"
           />
           <div className="mt-2 flex items-center justify-between gap-3 text-xs">
@@ -107,7 +112,7 @@ export function ServiceEditor({
               htmlFor="service-price"
               className="mb-2 block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500"
             >
-              Price
+              {t.dashboard.services.priceLabel}
             </label>
             <input
               id="service-price"
@@ -120,7 +125,7 @@ export function ServiceEditor({
                   price: event.target.value,
                 }))
               }
-              placeholder="$120"
+              placeholder={t.dashboard.services.pricePlaceholder}
               className="w-full rounded-[18px] border border-[#D8E4F3] bg-white px-4 py-3 text-sm text-[#10203B] outline-none transition focus:border-[#2B5C99]"
             />
             <div className="mt-2 flex items-center justify-between gap-3 text-xs">
@@ -136,7 +141,7 @@ export function ServiceEditor({
             htmlFor="service-description"
             className="mb-2 block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500"
           >
-            Description
+            {t.dashboard.services.descriptionLabel}
           </label>
           <textarea
             id="service-description"
@@ -149,7 +154,7 @@ export function ServiceEditor({
               }))
             }
             rows={4}
-            placeholder="Balayage, highlights, color correction."
+            placeholder={t.dashboard.services.descriptionPlaceholder}
             className="w-full resize-none rounded-[18px] border border-[#D8E4F3] bg-white px-4 py-3 text-sm leading-6 text-[#10203B] outline-none transition focus:border-[#2B5C99]"
           />
           <div className="mt-2 flex items-center justify-between gap-3 text-xs">
@@ -175,7 +180,7 @@ export function ServiceEditor({
           className="inline-flex items-center gap-2 rounded-full bg-[#16386D] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#102c59] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save
+          {t.dashboard.services.save}
         </button>
 
         <button
@@ -185,7 +190,7 @@ export function ServiceEditor({
           className="inline-flex items-center gap-2 rounded-full border border-[#D4E0F0] bg-white px-4 py-2 text-sm font-semibold text-[#10203B] transition hover:bg-[#F5F9FF] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <X className="h-4 w-4" />
-          Cancel
+          {t.dashboard.services.cancel}
         </button>
       </div>
     </div>

@@ -2,8 +2,27 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  dashboardDictionaries,
+  type DashboardDictionary,
+} from "@/lib/dashboard-i18n";
 
 export type Locale = "en" | "ru" | "uk";
+export type SupportedLocale = "en" | "ru" | "ua";
+
+export function resolveLocale(value?: string | null): Locale {
+  if (value === "ru") return "ru";
+  if (value === "uk" || value === "ua") return "uk";
+  return "en";
+}
+
+export function getLocaleCookieValue(locale: Locale): SupportedLocale {
+  return locale === "uk" ? "ua" : locale;
+}
+
+export function getLocaleNumberFormat(locale: Locale) {
+  return locale === "uk" ? "uk-UA" : locale === "ru" ? "ru-RU" : "en-US";
+}
 
 type AudienceItem = {
   title: string;
@@ -128,9 +147,12 @@ type Dictionary = {
       secondaryCta: string;
     };
   };
+  dashboard: DashboardDictionary;
 };
 
-const dictionaries: Record<Locale, Dictionary> = {
+type PublicDictionary = Omit<Dictionary, "dashboard">;
+
+const dictionaries: Record<Locale, PublicDictionary> = {
   en: {
     nav: {
       about: "About",
@@ -786,8 +808,9 @@ export function I18nProvider({
       }
 
       setLocaleState(nextLocale);
-      window.localStorage.setItem("ibpa-locale", nextLocale);
-      document.cookie = `ibpa-locale=${nextLocale}; path=/; max-age=31536000; SameSite=Lax`;
+      const cookieValue = getLocaleCookieValue(nextLocale);
+      window.localStorage.setItem("ibpa-locale", cookieValue);
+      document.cookie = `ibpa-locale=${cookieValue}; path=/; max-age=31536000; SameSite=Lax`;
       document.documentElement.lang = nextLocale;
       router.refresh();
     },
@@ -798,7 +821,10 @@ export function I18nProvider({
     () => ({
       locale,
       setLocale,
-      t: dictionaries[locale],
+      t: {
+        ...dictionaries[locale],
+        dashboard: dashboardDictionaries[locale],
+      },
     }),
     [locale, setLocale],
   );

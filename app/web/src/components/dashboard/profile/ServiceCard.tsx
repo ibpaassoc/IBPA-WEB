@@ -3,6 +3,7 @@
 import { Pencil, Trash2, Wallet } from "lucide-react";
 
 import type { ProfileService } from "@/lib/application-profile";
+import { useI18n } from "@/lib/i18n";
 
 export function ServiceCard({
   service,
@@ -15,6 +16,8 @@ export function ServiceCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
+
   return (
     <article className="group flex min-h-[172px] flex-col rounded-[24px] border border-[#D8E4F3] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] p-4 shadow-[0_10px_24px_rgba(15,37,71,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(15,37,71,0.11)]">
       <div className="flex items-start justify-between gap-3">
@@ -46,7 +49,7 @@ export function ServiceCard({
         </p>
       ) : (
         <div className="mt-3 min-h-[40px] text-sm leading-5 text-slate-400">
-          Service details can be added if needed.
+          {t.dashboard.services.detailsPlaceholder}
         </div>
       )}
 
@@ -56,8 +59,8 @@ export function ServiceCard({
           disabled={disabled}
           onClick={onEdit}
           className="inline-flex size-9 items-center justify-center rounded-full border border-[#D7E3F2] bg-white text-[#173B70] transition hover:bg-[#F2F7FF] disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label={`Edit ${service.title}`}
-          title="Edit service"
+          aria-label={t.dashboard.services.editService(service.title)}
+          title={t.dashboard.services.editTitle}
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
@@ -67,8 +70,8 @@ export function ServiceCard({
           disabled={disabled}
           onClick={onDelete}
           className="inline-flex size-9 items-center justify-center rounded-full border border-[#F4D8DC] bg-[#FFF8F9] text-[#A23A4A] transition hover:bg-[#FDECEF] disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label={`Delete ${service.title}`}
-          title="Delete service"
+          aria-label={t.dashboard.services.deleteService(service.title)}
+          title={t.dashboard.services.deleteService(service.title)}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

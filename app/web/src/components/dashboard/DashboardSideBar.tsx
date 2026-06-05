@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
 import { SectionCard, NavButton } from "../../shared/components/DashboardShared";
 import type { TabType } from "./dashboard-types";
+import { useI18n } from "@/lib/i18n";
 
 type NavItem = {
   key: TabType;
@@ -31,6 +32,8 @@ export function DashboardSidebar({
   fullName,
   memberIdDisplay,
 }: Props) {
+  const { t } = useI18n();
+
   const navContent = (
     <nav className="space-y-2">
       {navItems.map((item) => (
@@ -75,7 +78,7 @@ export function DashboardSidebar({
                     IBPA
                   </p>
                   <p className="text-lg font-semibold tracking-tight text-[#10203B]">
-                    Navigation
+                    {t.dashboard.nav.mobileTitle}
                   </p>
                 </div>
 
@@ -99,7 +102,7 @@ export function DashboardSidebar({
           <SectionCard className="p-4">
             <div className="mb-4 rounded-[24px] bg-[linear-gradient(135deg,#10203B_0%,#284872_100%)] p-4 text-white">
               <p className="text-xs uppercase tracking-[0.2em] text-white/60">
-                Current member
+                {t.dashboard.nav.currentMember}
               </p>
               <p className="mt-2 text-lg font-semibold">{fullName}</p>
               <p className="mt-1 text-sm text-white/75">{memberIdDisplay}</p>

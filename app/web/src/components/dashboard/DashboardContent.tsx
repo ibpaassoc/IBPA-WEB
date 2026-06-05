@@ -21,6 +21,7 @@ import { DashboardEvents } from "./DashboardEvents";
 import { DashboardSupport } from "./DashboardSupport";
 import { DashboardAccountSettings } from "./DashboardAccountSettings";
 import { UnderDevelopmentPage } from "@/shared/components/UnderDevelopment";
+import { useI18n } from "@/lib/i18n";
 
 type EventAudienceFilter = "all" | "members" | "open";
 
@@ -100,6 +101,7 @@ type Props = {
 };
 
 export function DashboardContent(props: Props) {
+  const { t } = useI18n();
   const {
     activeTab,
     setActiveTab,
@@ -253,7 +255,14 @@ export function DashboardContent(props: Props) {
           notificationPreferences={notificationPreferences}
           togglePreference={togglePreference}
         /> */
-        <UnderDevelopmentPage title="Notifications is under development" />
+        <UnderDevelopmentPage
+          title={t.dashboard.notifications.title}
+          description={t.dashboard.notifications.description}
+          expectedLabel={t.dashboard.notifications.expectedLabel}
+          backLabel={t.dashboard.notifications.backLabel}
+          notifyLabel={t.dashboard.notifications.notifyLabel}
+          items={t.dashboard.notifications.items}
+        />
       );
 
     case "teamMembers":

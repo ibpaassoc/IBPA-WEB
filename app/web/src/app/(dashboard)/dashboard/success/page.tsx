@@ -6,14 +6,17 @@ import { motion } from "motion/react";
 import { ArrowRight, CheckCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { SignIn, SignUp, useUser } from "@clerk/nextjs";
+import { useI18n } from "@/lib/i18n";
 import { getBackendUrl, getLandingOrigin } from "@/lib/public-urls";
 
 function SuccessContent() {
   const { isLoaded, isSignedIn } = useUser();
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const successUrl = token ? `/success?token=${encodeURIComponent(token)}` : "/success";
   const landingUrl = getLandingOrigin();
+  const successCopy = t.dashboard.success;
   const [status, setStatus] = useState<"loading" | "paid" | "error">(token ? "loading" : "error");
   const [errorReason, setErrorReason] = useState<"missing_token" | "not_found" | "backend_unavailable" | "verify_failed" | null>(
     token ? null : "missing_token",
@@ -65,12 +68,12 @@ function SuccessContent() {
   if (status === "error") {
     const fallbackBody =
       errorReason === "missing_token"
-        ? "Your payment may already be completed. Please continue by signing in with the same email address you used for your application."
+        ? successCopy.errorBodies.missingToken
         : errorReason === "not_found"
-          ? "Your payment may already be completed. This link looks outdated or incomplete, so please continue by signing in to your dashboard."
+          ? successCopy.errorBodies.notFound
           : errorReason === "backend_unavailable"
-            ? "Your payment may already be completed. The verification service is temporarily unavailable, so you can continue by signing in directly."
-            : "Your payment may already be completed. Please sign in to your dashboard with the same email used for your application.";
+            ? successCopy.errorBodies.backendUnavailable
+            : successCopy.errorBodies.verifyFailed;
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F1F3F5] px-4">
@@ -79,10 +82,10 @@ function SuccessContent() {
             <CheckCircle size={44} />
           </div>
           <p className="mt-8 text-[10px] font-semibold uppercase tracking-[0.35em] text-[#708090]">
-            Dashboard access
+            {successCopy.accessEyebrow}
           </p>
           <h1 className="mt-4 text-4xl uppercase leading-none text-slate-900 md:text-6xl" style={{ fontFamily: "Anton SC, sans-serif" }}>
-            Payment received
+            {successCopy.paymentReceivedTitle}
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-500 md:text-lg">
             {fallbackBody}
@@ -91,18 +94,18 @@ function SuccessContent() {
           <div className="mt-10 grid gap-4 md:grid-cols-2">
             <div className="rounded-[28px] border border-slate-200 bg-[#F8FAFC] p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#708090]">
-                Next step
+                {successCopy.nextStepTitle}
               </p>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                Sign in with the same email address you used for your application and payment to continue into your dashboard.
+                {successCopy.nextStepDescription}
               </p>
             </div>
             <div className="rounded-[28px] border border-slate-200 bg-[#F8FAFC] p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#708090]">
-                Need help?
+                {successCopy.needHelpTitle}
               </p>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                If access still does not open after sign-in, contact IBPA support and we will verify your payment manually.
+                {successCopy.needHelpDescription}
               </p>
             </div>
           </div>
@@ -112,13 +115,13 @@ function SuccessContent() {
               href={landingUrl}
               className="inline-flex items-center justify-center rounded-full border border-slate-200 px-7 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700 transition-colors hover:border-slate-300 hover:text-black"
             >
-              Back to landing
+              {successCopy.backToLanding}
             </Link>
             <Link
               href="/sign-in"
               className="inline-flex items-center justify-center gap-2.5 rounded-full bg-black px-8 py-[0.92rem] text-[12px] font-semibold uppercase tracking-[0.08em] text-white transition-all shadow-xl hover:scale-[1.02]"
             >
-              Member Login <ArrowRight size={16} />
+              {successCopy.memberLogin} <ArrowRight size={16} />
             </Link>
           </div>
         </div>
@@ -138,30 +141,31 @@ function SuccessContent() {
             <CheckCircle size={56} />
           </div>
           <p className="mt-8 text-[10px] font-semibold uppercase tracking-[0.35em] text-[#708090]">
-            Membership Activation
+            {successCopy.activationEyebrow}
           </p>
           <h1 className="mt-4 text-5xl uppercase leading-none text-slate-900 md:text-7xl" style={{ fontFamily: "Anton SC, sans-serif" }}>
-            Payment <span className="text-[#B9D9EB]">Successful!</span>
+            {successCopy.paymentSuccessPrefix}{" "}
+            <span className="text-[#B9D9EB]">{successCopy.paymentSuccessHighlight}</span>
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
-            Thank you, {orderData?.name || "member"}. Your payment has been confirmed. Create your dashboard access now to open your membership area, certificates, notifications, and future updates.
+            {successCopy.thankYou(orderData?.name || successCopy.memberFallback)}
           </p>
 
           <div className="mt-10 grid gap-4 md:grid-cols-2">
             <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#708090]">
-                First-time access
+                {successCopy.firstTimeAccessTitle}
               </p>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                If this is your first visit after approval and payment, create your account with the same email used in the application.
+                {successCopy.firstTimeAccessDescription}
               </p>
             </div>
             <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#708090]">
-                Existing account
+                {successCopy.existingAccountTitle}
               </p>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                If you already created your account earlier, switch to sign in and continue directly to the dashboard.
+                {successCopy.existingAccountDescription}
               </p>
             </div>
           </div>
@@ -169,7 +173,7 @@ function SuccessContent() {
           {orderData?.email && (
             <div className="mt-8 rounded-[28px] border border-[#B9D9EB]/30 bg-white/85 p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#708090]">
-                Approved Email
+                {successCopy.approvedEmail}
               </p>
               <p className="mt-3 text-sm font-semibold text-slate-900">{orderData.email}</p>
             </div>
@@ -180,19 +184,19 @@ function SuccessContent() {
           {isSignedIn ? (
             <div className="p-8 text-center md:p-10">
               <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#708090]">
-                Account Ready
+                {successCopy.accountReadyEyebrow}
               </p>
               <h2 className="mt-4 text-3xl uppercase leading-none text-slate-900" style={{ fontFamily: "Anton SC, sans-serif" }}>
-                Dashboard Access Active
+                {successCopy.dashboardAccessActive}
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-slate-600">
-                Your account is already signed in. You can continue directly to your personal dashboard.
+                {successCopy.accountReadyDescription}
               </p>
               <Link
-                href="/"
+                href="/dashboard"
                 className="mt-8 inline-flex items-center justify-center rounded-full bg-black px-7 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-white transition-transform hover:scale-[1.02]"
               >
-                Open Dashboard
+                {successCopy.openDashboard}
               </Link>
             </div>
           ) : (
@@ -206,7 +210,7 @@ function SuccessContent() {
                     authMode === "sign-up" ? "bg-black text-white" : "text-slate-500"
                   }`}
                 >
-                  Create Account
+                  {successCopy.createAccount}
                 </button>
                 <button
                   type="button"
@@ -215,7 +219,7 @@ function SuccessContent() {
                     authMode === "sign-in" ? "bg-black text-white" : "text-slate-500"
                   }`}
                 >
-                  Sign In
+                  {successCopy.signIn}
                 </button>
               </div>
             </div>
@@ -224,15 +228,15 @@ function SuccessContent() {
               {authMode === "sign-up" ? (
                 <SignUp
                   routing="hash"
-                  forceRedirectUrl="/"
-                  fallbackRedirectUrl="/"
+                  forceRedirectUrl="/dashboard"
+                  fallbackRedirectUrl="/dashboard"
                   signInUrl={successUrl}
                 />
               ) : (
                 <SignIn
                   routing="hash"
-                  forceRedirectUrl="/"
-                  fallbackRedirectUrl="/"
+                  forceRedirectUrl="/dashboard"
+                  fallbackRedirectUrl="/dashboard"
                   signUpUrl={successUrl}
                 />
               )}

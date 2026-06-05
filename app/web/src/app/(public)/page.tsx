@@ -10,11 +10,12 @@ import { CommunitySection } from "@/components/landing/CommunitySection";
 import { GovernancePreviewSection } from "@/components/landing/GovernancePreviewSection";
 import { SponsorsSection } from "@/components/landing/SponsorsSection";
 import { CTASection } from "@/components/landing/CTASection";
+import { resolveLocale } from "@/lib/i18n";
 
 export default async function Home() {
   const cookieStore = await cookies();
   const localeCookie = cookieStore.get("ibpa-locale")?.value;
-  const locale = localeCookie === "ru" || localeCookie === "uk" ? localeCookie : "en";
+  const locale = resolveLocale(localeCookie);
 
   return (
     <div className="overflow-x-hidden bg-white selection:bg-[#72A0C1] selection:text-white">

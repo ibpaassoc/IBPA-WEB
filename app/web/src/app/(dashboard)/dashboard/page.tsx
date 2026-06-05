@@ -11,9 +11,11 @@ import { useDashboardNotifications } from "@/hooks/dashboard/useDashboardNotific
 import { useDashboardSeenActivity } from "@/hooks/dashboard/useDashboardSeenActivity";
 import { useDashboardSupport } from "@/hooks/dashboard/useDashboardSupport";
 import { useDashboardUiState } from "@/hooks/dashboard/useDashboardUiState";
+import { useI18n } from "@/lib/i18n";
 
 export default function DashboardPage() {
   const { user, isSignedIn, isLoaded: userLoaded } = useUser();
+  const { t } = useI18n();
 
   const {
     activeTab,
@@ -151,7 +153,9 @@ export default function DashboardPage() {
       fullName={finalDerived.fullName}
       memberIdDisplay={finalDerived.memberIdDisplay}
       statusLabel={
-        accessBlocked ? "Access blocked" : finalDerived.statusSummary.label
+        accessBlocked
+          ? t.dashboard.statusDescriptions.accessBlocked
+          : finalDerived.statusSummary.label
       }
       memberSinceDisplay={finalDerived.memberSinceDisplay}
       lastSyncedAt={lastSyncedAt}
@@ -186,10 +190,10 @@ export default function DashboardPage() {
         statusSummary: accessBlocked
           ? {
               ...finalDerived.statusSummary,
-              label: "Access blocked",
+              label: t.dashboard.statusDescriptions.accessBlocked,
               description:
                 accessErrorMessage ||
-                "This dashboard is available only after your IBPA membership payment has been completed and activated.",
+                t.dashboard.statusDescriptions.accessBlockedDescription,
             }
           : finalDerived.statusSummary,
         mergedProfileData: finalDerived.mergedProfileData,

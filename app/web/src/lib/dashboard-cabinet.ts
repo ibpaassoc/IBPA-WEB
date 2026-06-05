@@ -1,4 +1,5 @@
 import type { CombinedProfileData } from "@/lib/application-profile";
+import type { DashboardDictionary } from "@/lib/dashboard-i18n";
 
 export type DashboardStatusTone = "pending" | "active" | "verified";
 
@@ -31,26 +32,42 @@ export function addOneYear(dateString?: string | null) {
   return date;
 }
 
-export function formatMembershipCategory(category?: string | null) {
+export function formatMembershipCategory(
+  category?: string | null,
+  labels?: DashboardDictionary["membershipCategories"],
+) {
   const normalized = String(category || "").trim().toLowerCase();
+  const fallbackLabels =
+    labels ||
+    ({
+      student: "Student Membership",
+      specialist: "Specialist Membership",
+      professional: "Professional Membership",
+      trainer: "Master Membership",
+      business: "Business Membership",
+      brand: "Partner Membership",
+      partner: "Partner Membership",
+      review: "Membership Review",
+      partnerTeamAccess: "Partner Team Access",
+    } satisfies DashboardDictionary["membershipCategories"]);
 
   switch (normalized) {
     case "student":
-      return "Student Membership";
+      return fallbackLabels.student;
     case "specialist":
-      return "Specialist Membership";
+      return fallbackLabels.specialist;
     case "professional":
-      return "Professional Membership";
+      return fallbackLabels.professional;
     case "trainer":
-      return "Master Membership";
+      return fallbackLabels.trainer;
     case "business":
-      return "Business Membership";
+      return fallbackLabels.business;
     case "brand":
-      return "Partner Membership";
+      return fallbackLabels.brand;
     case "partner":
-      return "Partner Membership";
+      return fallbackLabels.partner;
     default:
-      return "Membership Review";
+      return fallbackLabels.review;
   }
 }
 
@@ -74,10 +91,18 @@ export function getMembershipAmount(category?: string | null) {
   }
 }
 
-export function formatStatusLabel(value: unknown, fallback: string) {
+export function formatStatusLabel(
+  value: unknown,
+  fallback: string,
+  labels?: DashboardDictionary["statuses"],
+) {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (!normalized) {
     return fallback;
+  }
+
+  if (labels?.[normalized]) {
+    return labels[normalized];
   }
 
   return normalized
@@ -93,6 +118,8 @@ export function getDashboardStatus(params: {
   isMembershipActive: boolean;
   normalizedCertificateStatus?: string;
   normalizedMembershipStatus?: string;
+}, copy?: DashboardDictionary["statusDescriptions"] & {
+  statuses: DashboardDictionary["statuses"];
 }) {
   const {
     isMembershipActive,
@@ -104,40 +131,43 @@ export function getDashboardStatus(params: {
 
   if (isTeamMemberDashboard) {
     return {
-      label: "Active",
+      label: copy?.statuses.active || "Active",
       tone: "active" as DashboardStatusTone,
-      description: "Partner team access is active.",
+      description: copy?.teamMemberActive || "Partner team access is active.",
     };
   }
 
   if (isPartnerOwner) {
     return {
-      label: "Verified",
+      label: copy?.statuses.verified || "Verified",
       tone: "verified" as DashboardStatusTone,
-      description: "Partner account is active and verified.",
+      description:
+        copy?.partnerVerified || "Partner account is active and verified.",
     };
   }
 
   if (normalizedCertificateStatus === "issued" || normalizedCertificateStatus === "approved") {
     return {
-      label: "Verified",
+      label: copy?.statuses.verified || "Verified",
       tone: "verified" as DashboardStatusTone,
-      description: "Membership and certificate are verified.",
+      description:
+        copy?.membershipVerified || "Membership and certificate are verified.",
     };
   }
 
   if (isMembershipActive) {
     return {
-      label: "Active",
+      label: copy?.statuses.active || "Active",
       tone: "active" as DashboardStatusTone,
-      description: "Membership is active.",
+      description: copy?.membershipActive || "Membership is active.",
     };
   }
 
   return {
-    label: normalizedMembershipStatus === "review" ? "Pending" : "Pending",
+    label: copy?.statuses.pending || "Pending",
     tone: "pending" as DashboardStatusTone,
-    description: "Profile is awaiting review or activation.",
+    description:
+      copy?.membershipPending || "Profile is awaiting review or activation.",
   };
 }
 
@@ -149,23 +179,30 @@ export function buildOnboardingChecklist(params: {
   profile: CombinedProfileData;
   hasPhoto: boolean;
   certificatesCount: number;
-}) {
+}, labels?: DashboardDictionary["checklist"]) {
   const { profile, hasPhoto, certificatesCount } = params;
+  const copy =
+    labels ||
+    ({
+      uploadPhoto: "Upload photo",
+      addCertificates: "Add certificates",
+      completeProfile: "Complete profile",
+    } satisfies DashboardDictionary["checklist"]);
 
   const items = [
     {
       key: "photo",
-      label: "Upload photo",
+      label: copy.uploadPhoto,
       done: hasPhoto,
     },
     {
       key: "certificates",
-      label: "Add certificates",
+      label: copy.addCertificates,
       done: certificatesCount > 0,
     },
     {
       key: "profile",
-      label: "Complete profile",
+      label: copy.completeProfile,
       done:
         isMeaningful(profile.bio) &&
         isMeaningful(profile.specialization) &&
@@ -202,7 +239,7 @@ export function buildEventDiscountLabel(params: {
   isMembershipActive: boolean;
   audience: EventAudience;
   membershipLabel: string;
-}) {
+}, labels?: Pick<DashboardDictionary["events"], "memberPromo" | "memberPerk">) {
   const { audience, isMembershipActive, membershipLabel } = params;
 
   if (!isMembershipActive) {
@@ -210,8 +247,9 @@ export function buildEventDiscountLabel(params: {
   }
 
   if (audience === "open") {
-    return "Member promo available";
+    return labels?.memberPromo || "Member promo available";
   }
 
-  return `${membershipLabel.replace(" Membership", "")} member perk`;
+  return labels?.memberPerk(membershipLabel) ||
+    `${membershipLabel.replace(" Membership", "")} member perk`;
 }
