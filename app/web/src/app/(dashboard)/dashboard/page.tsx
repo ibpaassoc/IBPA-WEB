@@ -9,6 +9,7 @@ import { useDashboardData } from "@/hooks/dashboard/useDashboardData";
 import { useDashboardDerivedData } from "@/hooks/dashboard/useDashboardDerivedData";
 import { useDashboardNotifications } from "@/hooks/dashboard/useDashboardNotifications";
 import { useDashboardSeenActivity } from "@/hooks/dashboard/useDashboardSeenActivity";
+import { useDashboardSupport } from "@/hooks/dashboard/useDashboardSupport";
 import { useDashboardUiState } from "@/hooks/dashboard/useDashboardUiState";
 
 export default function DashboardPage() {
@@ -97,6 +98,15 @@ export default function DashboardPage() {
     setSupportMode,
   });
 
+  const supportState = useDashboardSupport({
+    supportMode,
+    fullName: finalDerived.fullName,
+    fallbackFullName: user?.fullName,
+    dashboardContactEmail: finalDerived.dashboardContactEmail,
+    memberIdDisplay: finalDerived.memberIdDisplay,
+    membershipCategoryLabel: finalDerived.membershipCategoryLabel,
+  });
+
   useEffect(() => {
     if (
       finalDerived.isTeamMemberDashboard &&
@@ -160,6 +170,16 @@ export default function DashboardPage() {
         membershipExpiresDisplay: finalDerived.membershipExpiresDisplay,
         certificateStatusDisplay: finalDerived.certificateStatusDisplay,
         publicProfileHref: finalDerived.publicProfileHref,
+        supportMode,
+        setSupportMode,
+        supportPhone: supportState.supportPhone,
+        setSupportPhone: supportState.setSupportPhone,
+        supportTopicLabel: supportState.supportTopicLabel,
+        supportMessage: supportState.supportMessage,
+        setSupportMessage: supportState.setSupportMessage,
+        handleSupportSubmit: supportState.handleSupportSubmit,
+        supportSubmitting: supportState.supportSubmitting,
+        supportFaqItems: supportState.faqItems,
         statusSummary: accessBlocked
           ? {
               ...finalDerived.statusSummary,

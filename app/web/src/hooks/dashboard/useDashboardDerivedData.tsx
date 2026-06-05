@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Search,
+  Settings,
   ShieldCheck,
   User,
   UserPlus,
@@ -491,6 +492,11 @@ export function useDashboardDerivedData({
       key: "support" as const,
       label: "Support",
       icon: <LifeBuoy className="h-4 w-4" />,
+    },
+    {
+      key: "accountSettings" as const,
+      label: "Account Settings",
+      icon: <Settings className="h-4 w-4" />,
     },
     {
       key: "notifications" as const,

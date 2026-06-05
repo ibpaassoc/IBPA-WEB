@@ -6,6 +6,7 @@ import type { DashboardNotification } from "@/lib/notifications";
 import type {
   Certificate,
   ExternalCertificate,
+  SupportMode,
   TabType,
 } from "./dashboard-types";
 import type { NotificationPreferenceKey, NotificationPreferences, } from "@/lib/dashboard-cabinet";
@@ -18,6 +19,7 @@ import { DashboardProfile } from "./DashboardProfile";
 import { DashboardBilling } from "./DashboardBilling";
 import { DashboardEvents } from "./DashboardEvents";
 import { DashboardSupport } from "./DashboardSupport";
+import { DashboardAccountSettings } from "./DashboardAccountSettings";
 import { UnderDevelopmentPage } from "@/shared/components/UnderDevelopment";
 
 type EventAudienceFilter = "all" | "members" | "open";
@@ -47,6 +49,19 @@ type Props = {
   membershipExpiresDisplay: string;
   certificateStatusDisplay: string;
   publicProfileHref: string | null;
+  supportMode: SupportMode;
+  setSupportMode: (mode: SupportMode) => void;
+  supportPhone: string;
+  setSupportPhone: (value: string) => void;
+  supportTopicLabel: string;
+  supportMessage: string;
+  setSupportMessage: (value: string) => void;
+  handleSupportSubmit: () => Promise<void>;
+  supportSubmitting: boolean;
+  supportFaqItems: {
+    question: string;
+    answer: string;
+  }[];
 
   statusSummary: any;
   mergedProfileData: CombinedProfileData;
@@ -103,6 +118,16 @@ export function DashboardContent(props: Props) {
     membershipExpiresDisplay,
     certificateStatusDisplay,
     publicProfileHref,
+    supportMode,
+    setSupportMode,
+    supportPhone,
+    setSupportPhone,
+    supportTopicLabel,
+    supportMessage,
+    setSupportMessage,
+    handleSupportSubmit,
+    supportSubmitting,
+    supportFaqItems,
     statusSummary,
     mergedProfileData,
     profileHeroImage,
@@ -200,7 +225,25 @@ export function DashboardContent(props: Props) {
       return <DashboardDirectory directoryMembers={directoryMembers} />;
 
     case "support":
-      return <DashboardSupport />;
+      return (
+        <DashboardSupport
+          supportMode={supportMode}
+          setSupportMode={setSupportMode}
+          dashboardContactEmail={dashboardContactEmail}
+          memberIdDisplay={memberIdDisplay}
+          supportPhone={supportPhone}
+          setSupportPhone={setSupportPhone}
+          supportTopicLabel={supportTopicLabel}
+          supportMessage={supportMessage}
+          setSupportMessage={setSupportMessage}
+          handleSupportSubmit={handleSupportSubmit}
+          supportSubmitting={supportSubmitting}
+          faqItems={supportFaqItems}
+        />
+      );
+
+    case "accountSettings":
+      return <DashboardAccountSettings />;
 
     case "notifications":
       return (
