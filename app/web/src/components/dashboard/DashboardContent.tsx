@@ -55,7 +55,6 @@ type Props = {
   specializationDisplay: string;
   instagramUrl: string | null;
   websiteUrl: string | null;
-  certificateSummary: string;
   achievementsSummary: string;
   snapshotItems: any[];
 
@@ -111,7 +110,6 @@ export function DashboardContent(props: Props) {
     specializationDisplay,
     instagramUrl,
     websiteUrl,
-    certificateSummary,
     achievementsSummary,
     snapshotItems,
     certificates,
@@ -154,7 +152,6 @@ export function DashboardContent(props: Props) {
           mergedProfileData={mergedProfileData}
           primaryCertificate={primaryCertificate as Certificate | undefined}
           membershipExpiresDisplay={membershipExpiresDisplay}
-          certificateSummary={certificateSummary}
           achievementsSummary={achievementsSummary}
           memberIdDisplay={memberIdDisplay}
           membershipCategoryLabel={membershipCategoryLabel}

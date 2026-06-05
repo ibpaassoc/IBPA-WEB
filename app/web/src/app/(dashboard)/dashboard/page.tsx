@@ -175,7 +175,6 @@ export default function DashboardPage() {
         specializationDisplay: finalDerived.specializationDisplay,
         instagramUrl: finalDerived.instagramUrl,
         websiteUrl: finalDerived.websiteUrl,
-        certificateSummary: finalDerived.certificateSummary,
         achievementsSummary: finalDerived.achievementsSummary,
         snapshotItems: finalDerived.snapshotItems,
         certificates,
