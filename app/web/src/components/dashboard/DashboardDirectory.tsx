@@ -1,4 +1,3 @@
-import { SectionCard, SectionHeader } from "@/shared/components/DashboardShared";
 import { MembersDirectory } from "@/components/members/MembersDirectory";
 import type { PublicMember } from "@/lib/public-members";
 
@@ -9,19 +8,13 @@ export function DashboardDirectory({
 }) {
   return (
     <div className="space-y-6">
-      <SectionCard>
-        <SectionHeader title="Member Directory" />
-
-        <div className="mt-6">
-          <MembersDirectory
-            locale="en"
-            items={directoryMembers}
-            mode="full"
-            surface="dashboard"
-            showIntro={false}
-          />
-        </div>
-      </SectionCard>
+      <MembersDirectory
+        locale="en"
+        items={directoryMembers}
+        mode="full"
+        surface="dashboard"
+        showIntro={false}
+      />
     </div>
   );
 }

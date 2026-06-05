@@ -1,4 +1,3 @@
-import { SectionCard, SectionHeader } from "@/shared/components/DashboardShared";
 import { TeamMembersPanel } from "@/components/dashboard/TeamMembersPanel";
 
 export function DashboardTeamMembers({
@@ -8,15 +7,13 @@ export function DashboardTeamMembers({
 }) {
   return (
     <div className="space-y-6">
-      <SectionCard>
-        <SectionHeader
-          title="Team Members"
-        />
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight text-[#10203B]">
+          Team Members
+        </h1>
+      </div>
 
-        <div className="mt-6">
-          <TeamMembersPanel enabled={isPartnerOwner} />
-        </div>
-      </SectionCard>
+      <TeamMembersPanel enabled={isPartnerOwner} />
     </div>
   );
 }

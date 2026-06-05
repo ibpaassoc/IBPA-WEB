@@ -257,6 +257,7 @@ export function DashboardContent(props: Props) {
       return (
         <DashboardOverview
           statusSummary={statusSummary}
+          isPartnerOwner={isPartnerOwner}
           isTeamMemberDashboard={isTeamMemberDashboard}
           isMembershipActive={isMembershipActive}
           fullName={fullName}

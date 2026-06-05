@@ -4,7 +4,6 @@
 import {
   AlertCircle,
   CheckCircle2,
-  ExternalLink,
   Loader2,
   Plus,
   Trash2,
@@ -16,12 +15,9 @@ import { toast } from "sonner";
 
 import {
   dashboardInputClassName,
-  dashboardMetricCardClassName,
   dashboardPrimaryButtonClassName,
   dashboardSecondaryButtonClassName,
-  dashboardSubtlePanelClassName,
 } from "@/shared/components/DashboardShared";
-import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { sanitizeBackendErrorMessage } from "@/lib/safe-backend-error";
 
 type TeamMemberRecord = {
@@ -89,6 +85,15 @@ const INITIAL_FORM: FormState = {
 
 const FALLBACK_LICENSE_NUMBER = "Not provided";
 
+const floatingSectionClassName =
+  "rounded-[32px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_22px_60px_rgba(11,31,68,0.10)]";
+
+const floatingMemberCardClassName =
+  "rounded-[30px] border border-[#D4E0F0] bg-white p-5 shadow-[0_18px_45px_rgba(11,31,68,0.08)] transition hover:-translate-y-1 hover:shadow-[0_26px_65px_rgba(11,31,68,0.14)]";
+
+const metricCardClassName =
+  "rounded-[24px] border border-[#D4E0F0] bg-white/90 px-5 py-4 shadow-[0_18px_45px_rgba(11,31,68,0.07)]";
+
 function getStatusBadge(member: TeamMemberRecord) {
   if (member.status === "removed") {
     return {
@@ -120,12 +125,11 @@ function getInitials(name: string) {
     .map((part) => part.trim())
     .filter(Boolean);
 
-  if (parts.length === 0) {
-    return "TM";
-  }
+  if (parts.length === 0) return "TM";
 
   const first = parts[0]?.[0] || "";
   const second = parts.length > 1 ? parts[1]?.[0] || "" : "";
+
   return `${first}${second}`.toUpperCase();
 }
 
@@ -139,9 +143,11 @@ function SummaryMetric({
   helper?: string;
 }) {
   return (
-    <article className={dashboardMetricCardClassName}>
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+    <article className={metricCardClassName}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-[#10203B]">
         {value}
       </p>
       {helper ? <p className="mt-1 text-xs text-slate-400">{helper}</p> : null}
@@ -168,11 +174,15 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
     setServerError(null);
 
     try {
-      const res = await fetch("/api/dashboard/team-members", { cache: "no-store" });
+      const res = await fetch("/api/dashboard/team-members", {
+        cache: "no-store",
+      });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setServerError(getSafeTeamErrorMessage(data?.error, "Failed to load Team Members."));
+        setServerError(
+          getSafeTeamErrorMessage(data?.error, "Failed to load Team Members."),
+        );
         return;
       }
 
@@ -196,9 +206,8 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
   const onSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!enabled || !payload?.canInvite) {
-        return;
-      }
+
+      if (!enabled || !payload?.canInvite) return;
 
       if (!form.fullName.trim()) {
         toast.error("Full name is required.");
@@ -232,10 +241,14 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
             licenseNumber: FALLBACK_LICENSE_NUMBER,
           }),
         });
+
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          const errorText = getSafeTeamErrorMessage(data?.error, "Failed to invite team member.");
+          const errorText = getSafeTeamErrorMessage(
+            data?.error,
+            "Failed to invite team member.",
+          );
           setServerError(errorText);
           toast.error(errorText);
           return;
@@ -260,13 +273,20 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
       setServerError(null);
 
       try {
-        const res = await fetch(`/api/dashboard/team-members/${encodeURIComponent(id)}`, {
-          method: "DELETE",
-        });
+        const res = await fetch(
+          `/api/dashboard/team-members/${encodeURIComponent(id)}`,
+          {
+            method: "DELETE",
+          },
+        );
+
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          const errorText = getSafeTeamErrorMessage(data?.error, "Failed to remove team member.");
+          const errorText = getSafeTeamErrorMessage(
+            data?.error,
+            "Failed to remove team member.",
+          );
           setServerError(errorText);
           toast.error(errorText);
           return;
@@ -294,10 +314,14 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seatsRequested: 1 }),
       });
+
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const errorText = getSafeTeamErrorMessage(data?.error, "Failed to extend seat capacity.");
+        const errorText = getSafeTeamErrorMessage(
+          data?.error,
+          "Failed to extend seat capacity.",
+        );
         setServerError(errorText);
         toast.error(errorText);
         return;
@@ -315,7 +339,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
 
   if (!enabled) {
     return (
-      <div className={`${dashboardSubtlePanelClassName} p-6`}>
+      <div className={floatingSectionClassName}>
         <p className="text-sm font-medium text-slate-900">Partner account required</p>
         <p className="mt-2 text-sm text-slate-500">
           Team access is available only for partner memberships.
@@ -326,7 +350,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[220px] items-center justify-center rounded-[22px] border border-slate-200 bg-slate-50/70">
+      <div className="flex min-h-[220px] items-center justify-center rounded-[32px] border border-[#D4E0F0] bg-white/90 shadow-[0_22px_60px_rgba(11,31,68,0.10)]">
         <Loader2 className="h-8 w-8 animate-spin text-[#4C7D9D]" />
       </div>
     );
@@ -343,61 +367,38 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
         </div>
       ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryMetric label="Included seats" value={payload?.includedSeats || 5} />
-          <SummaryMetric label="Used seats" value={payload?.usedSeats || 0} />
-          <SummaryMetric label="Remaining seats" value={payload?.remainingSeats || 0} />
-          <SummaryMetric
-            label="Additional seats"
-            value={additionalSeats}
-            helper={
-              pendingSeatRequests > 0
-                ? `${pendingSeatRequests} pending request${pendingSeatRequests === 1 ? "" : "s"}`
-                : undefined
-            }
-          />
-        </div>
-
-        <button
-          type="button"
-          disabled={extending}
-          onClick={handleExtendSeats}
-          className={dashboardSecondaryButtonClassName}
-        >
-          {extending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          Extend Seats
-        </button>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryMetric label="Included seats" value={payload?.includedSeats || 5} />
+        <SummaryMetric label="Used seats" value={payload?.usedSeats || 0} />
+        <SummaryMetric label="Remaining seats" value={payload?.remainingSeats || 0} />
+        <SummaryMetric
+          label="Additional seats"
+          value={additionalSeats}
+          helper={
+            pendingSeatRequests > 0
+              ? `${pendingSeatRequests} pending request${
+                  pendingSeatRequests === 1 ? "" : "s"
+                }`
+              : undefined
+          }
+        />
       </section>
 
-      <section className={`${dashboardSubtlePanelClassName} p-5`}>
-        <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold tracking-tight text-slate-900">
-              Team Members
-            </h3>
-          </div>
-
-          <span className="inline-flex w-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-            {visibleMembers.length} member{visibleMembers.length === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        {visibleMembers.length === 0 ? (
-          <div className="mt-4 rounded-[20px] border border-dashed border-slate-200 bg-white px-6 py-10 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-slate-100 text-[#4C7D9D]">
+      {visibleMembers.length === 0 ? (
+        <div className={floatingSectionClassName}>
+          <div className="rounded-[24px] border border-dashed border-[#D4E0F0] bg-[#F5F9FF] px-6 py-10 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-white text-[#4C7D9D] shadow-sm">
               <Users className="h-5 w-5" />
             </div>
-            <p className="mt-4 text-base font-medium text-slate-900">
+
+            <p className="mt-4 text-base font-medium text-[#10203B]">
               No team members yet
             </p>
+
             <p className="mt-1 text-sm text-slate-500">
               Invite your first professional to activate a seat.
             </p>
+
             <button
               type="button"
               onClick={() => document.getElementById("team-member-full-name")?.focus()}
@@ -406,19 +407,39 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
               Invite Team Member
             </button>
           </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+        </div>
+      ) : (
+        <section>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-[#10203B]">
+              {visibleMembers.length} active member
+              {visibleMembers.length === 1 ? "" : "s"}
+            </p>
+
+            <button
+              type="button"
+              disabled={extending}
+              onClick={handleExtendSeats}
+              className={`${dashboardSecondaryButtonClassName} !px-4 !py-2 text-xs`}
+            >
+              {extending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Extend seats
+            </button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             {visibleMembers.map((member) => {
               const statusBadge = getStatusBadge(member);
 
               return (
-                <article
-                  key={member.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-sm font-bold text-[#21466D]">
+                <article key={member.id} className={floatingMemberCardClassName}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#D8E8FB] text-sm font-bold text-[#21466D]">
                         {getInitials(member.fullName)}
                       </div>
 
@@ -431,7 +452,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
                           {member.email}
                         </p>
 
-                        <p className="mt-3 line-clamp-1 text-xs font-bold uppercase tracking-[0.18em] text-[#21466D]">
+                        <p className="mt-3 line-clamp-1 text-xs font-bold uppercase tracking-[0.18em] text-[#16386D]">
                           {member.role || "Team member"}
                         </p>
                       </div>
@@ -444,14 +465,18 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
                     </span>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-end">
+                  <div className="mt-6 flex items-center justify-end">
                     <button
                       type="button"
                       onClick={() => handleRemoveMember(member.id)}
                       disabled={removingId === member.id}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-[#D4E0F0] bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      {removingId === member.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                       Remove
                     </button>
                   </div>
@@ -459,12 +484,12 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
               );
             })}
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
-      <section className={`${dashboardSubtlePanelClassName} p-5`}>
-        <div className="border-b border-slate-200 pb-4">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+      <section className={floatingSectionClassName}>
+        <div className="border-b border-[#D4E0F0] pb-4">
+          <h3 className="text-lg font-semibold tracking-tight text-[#10203B]">
             Invite Team Member
           </h3>
         </div>
@@ -534,7 +559,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
             />
           </label>
 
-          <label className="md:col-span-2 flex items-start gap-3 rounded-[20px] border border-slate-200 bg-white px-4 py-4">
+          <label className="flex items-start gap-3 rounded-[20px] border border-[#D4E0F0] bg-white px-4 py-4 md:col-span-2">
             <input
               type="checkbox"
               checked={form.affiliationConfirmed}
@@ -547,6 +572,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
               className="mt-1 h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
               required
             />
+
             <span className="text-sm text-slate-600">
               I confirm that this person is professionally affiliated with my business.
             </span>
@@ -569,11 +595,15 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
         </form>
       </section>
 
-      <section className={`${dashboardSubtlePanelClassName} p-5`}>
+      <section className={floatingSectionClassName}>
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#4C7D9D]" />
+
           <div>
-            <h4 className="text-sm font-semibold text-slate-900">Team Access Rules</h4>
+            <h4 className="text-sm font-semibold text-[#10203B]">
+              Team Access Rules
+            </h4>
+
             <ul className="mt-3 flex flex-col gap-2 text-sm text-slate-600">
               {[
                 "Individual email-based access",

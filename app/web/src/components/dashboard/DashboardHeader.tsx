@@ -54,7 +54,8 @@ export function DashboardHeader({
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+            {/*
+            <button
             type="button"
             onClick={() => setIsNotificationsOpen((prev) => !prev)}
             className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-[#4C7D9D]/40 hover:text-[#10203B]"
@@ -64,9 +65,8 @@ export function DashboardHeader({
             {unreadNotificationsCount > 0 ? (
               <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[#4C7D9D]" />
             ) : null}
-          </button>
-
-          <AnimatePresence>
+          </button> 
+            <AnimatePresence>
             {isNotificationsOpen ? (
               <>
                 <motion.button
@@ -101,7 +101,6 @@ export function DashboardHeader({
                       ) : null}
                     </div>
                   </div>
-
                   <div className="max-h-[360px] space-y-3 overflow-y-auto px-4 py-4">
                     {alertCards.length > 0 ? (
                       alertCards.map((item) => (
@@ -144,7 +143,8 @@ export function DashboardHeader({
                 </motion.div>
               </>
             ) : null}
-          </AnimatePresence>
+          </AnimatePresence> */}
+          
 
           {!userLoaded ? (
             <div className="h-11 w-11 animate-pulse rounded-full bg-slate-100" />

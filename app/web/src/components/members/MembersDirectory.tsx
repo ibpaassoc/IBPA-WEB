@@ -11,6 +11,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import {
   Dialog,
@@ -113,11 +114,15 @@ export function MembersDirectory({
   showIntro = true,
 }: MembersDirectoryProps) {
   const membershipLabels = getMembershipLabels(locale);
+
   const copy =
     locale === "ru"
       ? {
           eyebrow: "Члены ассоциации",
-          title: mode === "teaser" ? "Знакомьтесь с членами IBPA" : "Каталог членов IBPA",
+          title:
+            mode === "teaser"
+              ? "Знакомьтесь с членами IBPA"
+              : "Каталог членов IBPA",
           description:
             mode === "teaser"
               ? "Оплаченные участники с активным кабинетом появляются в публичном каталоге, чтобы клиенты, партнёры и коллеги могли найти подходящего специалиста."
@@ -148,7 +153,10 @@ export function MembersDirectory({
       : locale === "uk"
         ? {
             eyebrow: "Члени асоціації",
-            title: mode === "teaser" ? "Познайомтеся з членами IBPA" : "Каталог членів IBPA",
+            title:
+              mode === "teaser"
+                ? "Познайомтеся з членами IBPA"
+                : "Каталог членів IBPA",
             description:
               mode === "teaser"
                 ? "Оплачені учасники з активним кабінетом автоматично з’являються в каталозі, щоб клієнти, партнери та колеги могли знайти потрібного спеціаліста."
@@ -178,7 +186,12 @@ export function MembersDirectory({
           }
         : {
             eyebrow: "Member Directory",
-            title: mode === "teaser" ? "Meet IBPA Members" : surface === "dashboard" ? "Member Directory" : "IBPA Member Directory",
+            title:
+              mode === "teaser"
+                ? "Meet IBPA Members"
+                : surface === "dashboard"
+                  ? "Member Directory"
+                  : "IBPA Member Directory",
             description:
               mode === "teaser"
                 ? "Paid members with active accounts appear in the public directory so clients, partners, and peers can discover the right beauty professional."
@@ -216,27 +229,34 @@ export function MembersDirectory({
   const [specialization, setSpecialization] = useState("all");
 
   const categories = useMemo(
-    () => ["all", ...Array.from(new Set(items.map((item) => item.membershipCategory).filter(Boolean)))],
+    () => [
+      "all",
+      ...Array.from(
+        new Set(items.map((item) => item.membershipCategory).filter(Boolean)),
+      ),
+    ],
     [items],
   );
 
   const countries = useMemo(
-    () => ["all", ...Array.from(new Set(items.map((item) => item.country).filter(Boolean))).sort((a, b) => a.localeCompare(b))],
+    () => [
+      "all",
+      ...Array.from(new Set(items.map((item) => item.country).filter(Boolean))).sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    ],
     [items],
   );
 
   const specializations = useMemo(
-    () =>
-      [
-        "all",
-        ...Array.from(
-          new Set(
-            items
-              .flatMap((item) => item.specializations || [])
-              .filter(Boolean),
-          ),
-        ).sort((a, b) => a.localeCompare(b)),
-      ],
+    () => [
+      "all",
+      ...Array.from(
+        new Set(
+          items.flatMap((item) => item.specializations || []).filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    ],
     [items],
   );
 
@@ -244,12 +264,16 @@ export function MembersDirectory({
     const query = search.trim().toLowerCase();
 
     return items.filter((item) => {
-      const matchesCategory = category === "all" || item.membershipCategory === category;
+      const matchesCategory =
+        category === "all" || item.membershipCategory === category;
       const matchesCountry = country === "all" || item.country === country;
       const matchesSpecialization =
         specialization === "all" ||
-        (item.specializations || []).some((value) => value.toLowerCase() === specialization.toLowerCase()) ||
+        (item.specializations || []).some(
+          (value) => value.toLowerCase() === specialization.toLowerCase(),
+        ) ||
         item.title.toLowerCase().includes(specialization.toLowerCase());
+
       const haystack = [
         item.fullName,
         item.title,
@@ -260,8 +284,15 @@ export function MembersDirectory({
       ]
         .join(" ")
         .toLowerCase();
+
       const matchesQuery = !query || haystack.includes(query);
-      return matchesCategory && matchesCountry && matchesSpecialization && matchesQuery;
+
+      return (
+        matchesCategory &&
+        matchesCountry &&
+        matchesSpecialization &&
+        matchesQuery
+      );
     });
   }, [category, country, items, search, specialization]);
 
@@ -273,11 +304,15 @@ export function MembersDirectory({
       <section className="bg-white py-20 text-slate-950 md:py-28">
         <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)] lg:items-center">
           <div className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#5C91B7]">{copy.eyebrow}</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#5C91B7]">
+              {copy.eyebrow}
+            </p>
             <h2 className="mt-5 text-[2.6rem] font-semibold uppercase leading-[0.95] text-slate-950 md:text-[4rem]">
               {copy.title}
             </h2>
-            <p className="mt-5 text-base leading-relaxed text-slate-600 md:text-lg">{copy.description}</p>
+            <p className="mt-5 text-base leading-relaxed text-slate-600 md:text-lg">
+              {copy.description}
+            </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/dashboard/community"
@@ -312,7 +347,9 @@ export function MembersDirectory({
                     <div
                       key={member.id}
                       className="absolute left-1/2 top-1/2 origin-center animate-[spin_36s_linear_infinite]"
-                      style={{ transform: `translate(-50%, -50%) rotate(${angle}deg)` }}
+                      style={{
+                        transform: `translate(-50%, -50%) rotate(${angle}deg)`,
+                      }}
                     >
                       <div className="flex translate-y-[-12.5rem] translate-x-0 animate-[spin_36s_linear_infinite_reverse] items-center justify-center md:translate-y-[-15rem]">
                         <MemberAvatar member={member} className={sizeClass} />
@@ -322,9 +359,15 @@ export function MembersDirectory({
                 })}
 
                 <div className="relative z-10 max-w-[15rem] rounded-[1.5rem] border border-white bg-white/90 px-5 py-5 text-center shadow-xl shadow-slate-900/10 backdrop-blur">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#5C91B7]">{copy.eyebrow}</p>
-                  <p className="mt-3 text-3xl font-semibold text-slate-950">{formatCount(items.length, locale)}</p>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-500">{copy.allMembers}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#5C91B7]">
+                    {copy.eyebrow}
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-slate-950">
+                    {formatCount(items.length, locale)}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                    {copy.allMembers}
+                  </p>
                 </div>
               </>
             )}
@@ -351,45 +394,65 @@ export function MembersDirectory({
           >
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-3xl">
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#5C91B7]">{copy.eyebrow}</p>
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#5C91B7]">
+                  {copy.eyebrow}
+                </p>
                 <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-950 md:text-5xl">
                   {copy.title}
                 </h1>
                 {!isDashboardSurface ? (
-                  <p className="mt-4 text-base leading-relaxed text-slate-600 md:text-lg">{copy.description}</p>
+                  <p className="mt-4 text-base leading-relaxed text-slate-600 md:text-lg">
+                    {copy.description}
+                  </p>
                 ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">{formatCount(items.length, locale)}</p>
-                  <p className="mt-0.5 text-xs font-medium text-slate-500">{copy.profiles}</p>
+                  <p className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+                    {formatCount(items.length, locale)}
+                  </p>
+                  <p className="mt-0.5 text-xs font-medium text-slate-500">
+                    {copy.profiles}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">{formatCount(specializations.length - 1, locale)}</p>
-                  <p className="mt-0.5 text-xs font-medium text-slate-500">{copy.specialization}</p>
+                  <p className="text-2xl font-semibold tracking-[-0.03em] text-slate-950">
+                    {formatCount(specializations.length - 1, locale)}
+                  </p>
+                  <p className="mt-0.5 text-xs font-medium text-slate-500">
+                    {copy.specialization}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-[#10203B]">
+              {copy.title}
+            </h1>
+          </div>
+        )}
 
         <div
           className={cn(
-            "rounded-[2rem] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5",
-            showIntro ? "mt-5" : "",
+            "rounded-[32px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_22px_60px_rgba(11,31,68,0.09)]",
+            showIntro ? "mt-5" : "mt-5",
           )}
         >
           <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.35fr)_repeat(3,minmax(150px,1fr))] lg:items-end">
             <label className="grid gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">{copy.filtersTitle}</span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/70">
+                {copy.filtersTitle}
+              </span>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder={copy.searchPlaceholder}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#72A0C1] focus:bg-white focus:ring-4 focus:ring-[#72A0C1]/10"
+                  className="h-12 w-full rounded-2xl border border-[#D4E0F0] bg-[#F8FBFF] pl-10 pr-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#72A0C1] focus:bg-white focus:ring-4 focus:ring-[#72A0C1]/10"
                 />
               </div>
             </label>
@@ -399,8 +462,11 @@ export function MembersDirectory({
               value={category}
               onChange={setCategory}
               items={categories}
-              getLabel={(item) => (item === "all" ? copy.allCategories : membershipLabels[item] || item)}
+              getLabel={(item) =>
+                item === "all" ? copy.allCategories : membershipLabels[item] || item
+              }
             />
+
             <FilterSelect
               label={copy.country}
               value={country}
@@ -408,6 +474,7 @@ export function MembersDirectory({
               items={countries}
               getLabel={(item) => getSelectLabel(item, copy.allCountries)}
             />
+
             <FilterSelect
               label={copy.specialization}
               value={specialization}
@@ -419,13 +486,18 @@ export function MembersDirectory({
         </div>
 
         {list.length === 0 ? (
-          <div className="mt-5 rounded-[2rem] border border-dashed border-slate-300 bg-white px-6 py-16 text-center text-slate-500 shadow-sm">
+          <div className="mt-5 rounded-[32px] border border-dashed border-[#D4E0F0] bg-white/95 px-6 py-16 text-center text-slate-500 shadow-[0_22px_60px_rgba(11,31,68,0.08)]">
             {items.length === 0 ? copy.empty : copy.noResults}
           </div>
         ) : (
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
             {list.map((member) => (
-              <MemberCard key={member.id} member={member} copy={copy} membershipLabels={membershipLabels} />
+              <MemberCard
+                key={member.id}
+                member={member}
+                copy={copy}
+                membershipLabels={membershipLabels}
+              />
             ))}
           </div>
         )}
@@ -449,11 +521,13 @@ function FilterSelect({
 }) {
   return (
     <label className="grid gap-2">
-      <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">{label}</span>
+      <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/70">
+        {label}
+      </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-950 outline-none transition focus:border-[#72A0C1] focus:bg-white focus:ring-4 focus:ring-[#72A0C1]/10"
+        className="h-12 w-full min-w-0 rounded-2xl border border-[#D4E0F0] bg-[#F8FBFF] px-4 text-sm text-slate-950 outline-none transition focus:border-[#72A0C1] focus:bg-white focus:ring-4 focus:ring-[#72A0C1]/10"
       >
         {items.map((item) => (
           <option key={item} value={item}>
@@ -465,10 +539,25 @@ function FilterSelect({
   );
 }
 
-function MemberAvatar({ member, className }: { member: PublicMember; className?: string }) {
+function MemberAvatar({
+  member,
+  className,
+}: {
+  member: PublicMember;
+  className?: string;
+}) {
   return member.avatarUrl ? (
-    <div className={cn("overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-lg shadow-slate-900/12", className)}>
-      <ImageWithFallback src={member.avatarUrl} alt={member.fullName} className="h-full w-full object-cover" />
+    <div
+      className={cn(
+        "overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-lg shadow-slate-900/12",
+        className,
+      )}
+    >
+      <ImageWithFallback
+        src={member.avatarUrl}
+        alt={member.fullName}
+        className="h-full w-full object-cover"
+      />
     </div>
   ) : (
     <div
@@ -494,10 +583,12 @@ function MemberCard({
   const instagramUrl = normalizeUrl(member.instagramUrl);
   const websiteUrl = normalizeUrl(member.websiteUrl);
   const publicProfileHref = getPublicProfileHref(member.id);
+
   const memberSince = new Date(member.memberSince).toLocaleDateString("en-US", {
     month: "short",
     year: "numeric",
   });
+
   const specializations =
     member.specializations && member.specializations.length > 0
       ? member.specializations
@@ -507,14 +598,16 @@ function MemberCard({
             .map((item) => item.trim())
             .filter(Boolean)
         : [];
+
   const specializationText = specializations.join(", ") || member.title;
+
   const categoryLabel = member.membershipCategory
     ? membershipLabels[member.membershipCategory] || member.membershipCategory
     : null;
 
   return (
     <Dialog>
-      <div className="group flex min-h-[360px] flex-col overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#72A0C1]/40 hover:shadow-xl hover:shadow-slate-900/8">
+      <div className="group flex min-h-[340px] flex-col overflow-hidden rounded-[32px] border border-[#D4E0F0] bg-white shadow-[0_22px_60px_rgba(11,31,68,0.09)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(11,31,68,0.14)]">
         <div className="relative h-20 bg-[radial-gradient(circle_at_15%_15%,rgba(114,160,193,0.38),transparent_34%),linear-gradient(135deg,#F8FBFE,#EAF4FA)]">
           <div className="absolute inset-x-5 -bottom-9 flex items-end justify-between gap-3">
             <MemberAvatar member={member} className="h-[76px] w-[76px]" />
@@ -529,17 +622,18 @@ function MemberCard({
 
         <div className="flex flex-1 flex-col px-5 pb-5 pt-12">
           <div className="min-w-0">
-            <p className="line-clamp-2 text-lg font-semibold leading-tight tracking-[-0.02em] text-slate-950">
+            <p className="line-clamp-1 text-lg font-semibold leading-tight tracking-[-0.02em] text-[#10203B]">
               {member.fullName}
             </p>
-            <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-sm leading-5 text-slate-500">
+
+            <p className="mt-1 line-clamp-1 text-sm leading-5 text-slate-500">
               {specializationText}
             </p>
 
             {member.location ? (
-              <p className="mt-3 flex items-start gap-2 text-sm leading-5 text-slate-500">
+              <p className="mt-4 flex items-start gap-2 text-sm leading-5 text-slate-500">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#72A0C1]" />
-                <span className="line-clamp-2">{member.location}</span>
+                <span className="line-clamp-1">{member.location}</span>
               </p>
             ) : null}
           </div>
@@ -549,7 +643,7 @@ function MemberCard({
               {specializations.slice(0, 3).map((item) => (
                 <span
                   key={item}
-                  className="inline-flex max-w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600"
+                  className="inline-flex max-w-full rounded-full border border-[#D4E0F0] bg-[#F8FBFF] px-3 py-1 text-[11px] font-medium text-slate-600"
                 >
                   <span className="truncate">{item}</span>
                 </span>
@@ -565,18 +659,19 @@ function MemberCard({
                     href={instagramUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white transition hover:border-[#72A0C1]/50 hover:bg-[#F4FAFF] hover:text-[#4C7D9D]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white transition hover:border-[#72A0C1]/50 hover:bg-[#F4FAFF] hover:text-[#4C7D9D]"
                     aria-label={`${member.fullName} Instagram`}
                   >
                     <Instagram className="h-4 w-4" />
                   </a>
                 ) : null}
+
                 {websiteUrl ? (
                   <a
                     href={websiteUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white transition hover:border-[#72A0C1]/50 hover:bg-[#F4FAFF] hover:text-[#4C7D9D]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white transition hover:border-[#72A0C1]/50 hover:bg-[#F4FAFF] hover:text-[#4C7D9D]"
                     aria-label={`${member.fullName} website`}
                   >
                     <Globe className="h-4 w-4" />
@@ -585,7 +680,7 @@ function MemberCard({
               </div>
 
               {member.experience ? (
-                <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-500">
+                <span className="rounded-full bg-[#F8FBFF] px-3 py-1 text-xs font-semibold text-slate-500">
                   {member.experience}
                 </span>
               ) : null}
@@ -610,7 +705,10 @@ function MemberCard({
             <div className="relative z-10">
               <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
                 <div className="flex flex-col items-start gap-5 md:flex-row md:items-center">
-                  <MemberAvatar member={member} className="h-28 w-28 md:h-32 md:w-32" />
+                  <MemberAvatar
+                    member={member}
+                    className="h-28 w-28 md:h-32 md:w-32"
+                  />
 
                   <div className="min-w-0">
                     {categoryLabel ? (
@@ -618,12 +716,15 @@ function MemberCard({
                         {categoryLabel}
                       </p>
                     ) : null}
+
                     <DialogTitle className="text-3xl font-semibold leading-none tracking-[-0.04em] text-white md:text-5xl">
                       {member.fullName}
                     </DialogTitle>
+
                     <DialogDescription className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65 md:text-base">
                       {specializationText}
                     </DialogDescription>
+
                     {member.location ? (
                       <p className="mt-3 inline-flex items-center gap-2 text-sm text-white/65">
                         <MapPin className="h-4 w-4 text-[#72A0C1]" />
@@ -638,37 +739,61 @@ function MemberCard({
                 {member.experience ? (
                   <StatBlock value={member.experience} label={copy.experience} />
                 ) : null}
+
                 {member.location ? (
                   <StatBlock value={member.city || member.location} label={copy.location} />
                 ) : null}
+
                 <StatBlock value={memberSince} label={copy.since} />
+
                 {member.highlights[0] ? (
                   <StatBlock value={member.highlights[0]} label={copy.highlights} />
                 ) : null}
               </div>
 
-              {(member.description || instagramUrl || websiteUrl || member.highlights.length > 0) && (
+              {(member.description ||
+                instagramUrl ||
+                websiteUrl ||
+                member.highlights.length > 0) && (
                 <div className="mt-6 grid gap-6 border-t border-white/10 pt-6 md:grid-cols-[1.25fr_0.75fr]">
                   {member.description ? (
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">{copy.about}</p>
-                      <p className="mt-2 text-sm leading-relaxed text-white/80">{member.description}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                        {copy.about}
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-white/80">
+                        {member.description}
+                      </p>
                     </div>
                   ) : null}
 
                   <div>
                     {(instagramUrl || websiteUrl) && (
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">{copy.contact}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                          {copy.contact}
+                        </p>
+
                         <div className="mt-3 flex flex-col gap-2">
                           {instagramUrl ? (
-                            <a href={instagramUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-[#8DD4F7] hover:underline">
+                            <a
+                              href={instagramUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 text-sm text-[#8DD4F7] hover:underline"
+                            >
                               <Instagram className="h-4 w-4" />
                               Instagram
                             </a>
                           ) : null}
+
                           {websiteUrl ? (
-                            <a href={websiteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-[#8DD4F7] hover:underline">
+                            <a
+                              href={websiteUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 text-sm text-[#8DD4F7] hover:underline"
+                            >
                               <Globe className="h-4 w-4" />
                               Website
                             </a>
@@ -698,11 +823,21 @@ function MemberCard({
 
           {member.portfolioImages.length > 0 ? (
             <div className="border-t border-white/10 bg-slate-900/80 px-5 py-5 md:px-8 md:py-6">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">{copy.viewExamples}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                {copy.viewExamples}
+              </p>
+
               <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
                 {member.portfolioImages.slice(0, 6).map((image, index) => (
-                  <div key={`${member.id}-${index}`} className="overflow-hidden rounded-2xl bg-white/5">
-                    <ImageWithFallback src={image} alt={`${member.fullName} portfolio sample ${index + 1}`} className="aspect-square w-full object-cover" />
+                  <div
+                    key={`${member.id}-${index}`}
+                    className="overflow-hidden rounded-2xl bg-white/5"
+                  >
+                    <ImageWithFallback
+                      src={image}
+                      alt={`${member.fullName} portfolio sample ${index + 1}`}
+                      className="aspect-square w-full object-cover"
+                    />
                   </div>
                 ))}
               </div>
@@ -712,6 +847,7 @@ function MemberCard({
           <div className="border-t border-white/10 px-5 py-4 md:px-8">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <p className="text-xs text-white/35">{copy.closeHint}</p>
+
               {publicProfileHref ? (
                 <Link
                   href={publicProfileHref}
@@ -732,8 +868,12 @@ function MemberCard({
 function StatBlock({ value, label }: { value: string; label: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-      <p className="line-clamp-2 text-base font-semibold text-white md:text-xl">{value}</p>
-      <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">{label}</p>
+      <p className="line-clamp-2 text-base font-semibold text-white md:text-xl">
+        {value}
+      </p>
+      <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">
+        {label}
+      </p>
     </div>
   );
 }

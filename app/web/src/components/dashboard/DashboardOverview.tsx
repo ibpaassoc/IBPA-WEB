@@ -73,6 +73,7 @@ type DashboardOverviewProps = {
     description: string;
     tone: "pending" | "active" | "verified";
   };
+  isPartnerOwner: boolean;
   isTeamMemberDashboard: boolean;
   isMembershipActive: boolean;
   fullName: string;
@@ -109,6 +110,7 @@ export function DashboardOverview({
   getNotificationMeta,
   setActiveTab,
   quickActions,
+  isPartnerOwner,
   teamMembers = [],
   dashboardEvents = [],
 }: DashboardOverviewProps) {
@@ -140,11 +142,13 @@ export function DashboardOverview({
             onViewAll={() => setActiveTab("events")}
           />
 
-          <TeamMembersCard
-            members={visibleTeamMembers}
-            total={teamMembers.length}
-            onViewAll={() => setActiveTab("teamMembers")}
-          />
+          {isPartnerOwner ? (
+            <TeamMembersCard
+              members={visibleTeamMembers}
+              total={teamMembers.length}
+              onViewAll={() => setActiveTab("teamMembers")}
+            />
+          ) : null}
         </main>
 
         <aside className="min-w-0 xl:sticky xl:top-6">
