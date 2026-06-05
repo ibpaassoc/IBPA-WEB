@@ -155,6 +155,60 @@ function SummaryMetric({
   );
 }
 
+function TeamMembersPanelSkeleton() {
+  return (
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <article key={index} className={metricCardClassName}>
+            <div className="h-3 w-24 rounded-full bg-slate-200/80" />
+            <div className="mt-3 h-8 w-14 rounded-full bg-slate-200/80" />
+            <div className="mt-2 h-3 w-20 rounded-full bg-slate-100" />
+          </article>
+        ))}
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <article key={index} className={floatingMemberCardClassName}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-slate-200/80" />
+
+                <div className="min-w-0 space-y-3">
+                  <div className="h-4 w-32 rounded-full bg-slate-200/80" />
+                  <div className="h-3 w-40 rounded-full bg-slate-100" />
+                  <div className="h-3 w-24 rounded-full bg-slate-100" />
+                </div>
+              </div>
+
+              <div className="h-7 w-20 rounded-full bg-slate-100" />
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <div className="h-9 w-24 rounded-2xl bg-slate-100" />
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <section className={floatingSectionClassName}>
+        <div className="h-5 w-40 rounded-full bg-slate-200/80" />
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="space-y-2">
+              <div className="h-3 w-20 rounded-full bg-slate-100" />
+              <div className="h-11 rounded-2xl bg-slate-100" />
+            </div>
+          ))}
+          <div className="h-16 rounded-[20px] bg-slate-100 md:col-span-2" />
+          <div className="h-11 w-36 rounded-2xl bg-slate-200/80 md:col-span-2" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -349,11 +403,7 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-[220px] items-center justify-center rounded-[32px] border border-[#D4E0F0] bg-white/90 shadow-[0_22px_60px_rgba(11,31,68,0.10)]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#4C7D9D]" />
-      </div>
-    );
+    return <TeamMembersPanelSkeleton />;
   }
 
   const additionalSeats = Number(payload?.paidAdditionalSeats || 0);
