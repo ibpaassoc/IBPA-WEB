@@ -334,6 +334,17 @@ async function findLatestApplicationByUser(db: ReturnType<typeof requireDb>, use
   return byEmail[0] ?? null;
 }
 
+async function listPaymentsByUserId(
+  db: ReturnType<typeof requireDb>,
+  userId: string,
+) {
+  return db
+    .select()
+    .from(corePayments)
+    .where(eq(corePayments.userId, userId))
+    .orderBy(desc(corePayments.paidAt), desc(corePayments.createdAt));
+}
+
 async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unknown): Promise<DashboardAccessContext | null> {
   const session = await ensureSessionUser(clerkUserId, sessionClaims);
   const { db, canonicalUser, candidateEmails, primaryEmail, clerkUser } = session;
@@ -396,7 +407,7 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
     return null;
   }
 
-  const [ownerUser, membership, application, payment, certificate] = await Promise.all([
+  const [ownerUser, membership] = await Promise.all([
     db.select().from(coreUsers).where(eq(coreUsers.id, team.ownerUserId)).limit(1).then((rows: typeof coreUsers.$inferSelect[]) => rows[0] ?? null),
     db
       .select()
@@ -405,16 +416,17 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
       .orderBy(desc(coreMemberships.startedAt))
       .limit(1)
       .then((rows: typeof coreMemberships.$inferSelect[]) => rows[0] ?? null),
-    coreApplications
-      ? db.select().from(coreApplications).where(eq(coreApplications.id, team.id)).limit(1).then((rows: typeof coreApplications.$inferSelect[]) => rows[0] ?? null)
-      : Promise.resolve(null),
-    db.select().from(corePayments).where(eq(corePayments.id, team.id)).limit(1).then((rows: typeof corePayments.$inferSelect[]) => rows[0] ?? null),
-    db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, team.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
   ]);
 
   if (!ownerUser || !membership) {
     return null;
   }
+
+  const [application, payment, certificate] = await Promise.all([
+    findLatestApplicationByUser(db, ownerUser.id, ownerUser.email),
+    db.select().from(corePayments).where(eq(corePayments.id, membership.id)).limit(1).then((rows: typeof corePayments.$inferSelect[]) => rows[0] ?? null),
+    db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, membership.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
+  ]);
 
   return {
     db,
@@ -606,7 +618,16 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       firstText(access.profile?.firstName),
       firstText(access.profile?.lastName),
     ].filter(Boolean).join(" ") || firstText(application?.fullName) || canonicalUser?.email || "";
-    const externalCertificates = await listExternalCertificates({ clerkUserId });
+    let externalCertificates: Awaited<ReturnType<typeof listExternalCertificates>> = [];
+    try {
+      externalCertificates = await listExternalCertificates({ clerkUserId });
+    } catch (error) {
+      console.error("[Dashboard /me] Failed to load external certificates:", error);
+    }
+
+    const paymentHistory = canonicalUser
+      ? await listPaymentsByUserId(db, canonicalUser.id)
+      : [];
 
     const certificatePayload = certificate
       ? [{
@@ -628,6 +649,14 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
     return res.json({
       certificates: certificatePayload,
       externalCertificates,
+      paymentHistory: paymentHistory.map((entry) => ({
+        id: entry.id,
+        type: entry.type,
+        amount: entry.amount,
+        status: entry.status.toLowerCase(),
+        createdAt: entry.createdAt,
+        paidAt: entry.paidAt,
+      })),
       accountType: mapApplicationTypeToAccountType(application?.type),
       applicationType: application?.type || canonicalUser?.role || null,
       orderType: mapApplicationTypeToAccountType(application?.type),

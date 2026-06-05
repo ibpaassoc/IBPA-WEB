@@ -41,6 +41,14 @@ type EventAudienceFilter = "all" | "members" | "open";
 type Params = {
   user: any;
   certificates: any[];
+  billingHistory: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    status: string;
+    createdAt: string;
+    paidAt?: string | null;
+  }>;
   profileData: any;
   dashboardMeta: any;
   dashboardAccessType: string;
@@ -74,6 +82,7 @@ function normalizeExternalUrl(value?: string | null) {
 export function useDashboardDerivedData({
   user,
   certificates,
+  billingHistory,
   profileData,
   dashboardMeta,
   dashboardAccessType,
@@ -321,16 +330,21 @@ export function useDashboardDerivedData({
 
   const partnerSeatPrice = partnerTeamSummary?.additionalSeatPrice ?? 100;
 
-  const billingEntries = certificates.map((cert) => ({
-    id: cert.certNumber,
-    date: new Date(cert.createdAt).toLocaleDateString("en-US", {
+  const billingEntries = billingHistory.map((entry) => ({
+    id: entry.id,
+    date: new Date(entry.paidAt || entry.createdAt).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     }),
-    amount: getMembershipAmount(cert.membershipCategory),
-    status: cert.status,
-    certificateUrl: cert.certificateUrl,
+    amount:
+      entry.amount > 0
+        ? new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+          }).format(entry.amount / 100)
+        : getMembershipAmount(primaryCertificate?.membershipCategory),
+    status: entry.status,
   }));
 
   const eventCards = dashboardEvents.map((item) => {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import type {
+  BillingHistoryEntry,
   Certificate,
   DashboardAccessType,
   DashboardContentItem,
@@ -27,6 +28,7 @@ export function useDashboardData({
   const [externalCertificates, setExternalCertificates] = useState<
     ExternalCertificate[]
   >([]);
+  const [billingHistory, setBillingHistory] = useState<BillingHistoryEntry[]>([]);
   const [profileData, setProfileData] = useState<DashboardProfileData>({});
   const [dashboardMeta, setDashboardMeta] = useState<DashboardMeta>({});
   const [dashboardAccessType, setDashboardAccessType] =
@@ -77,6 +79,7 @@ export function useDashboardData({
         setCertificates([]);
         setProfileData({});
         setExternalCertificates([]);
+        setBillingHistory([]);
         setDirectoryMembers([]);
         setCustomNotifications([]);
         setDashboardNews([]);
@@ -115,6 +118,7 @@ export function useDashboardData({
           setCertificates([]);
           setProfileData({});
           setExternalCertificates([]);
+          setBillingHistory([]);
           setDirectoryMembers([]);
           setDashboardMeta({});
           setDashboardAccessType("member");
@@ -133,6 +137,7 @@ export function useDashboardData({
           setCertificates([]);
           setProfileData({});
           setExternalCertificates([]);
+          setBillingHistory([]);
           setDirectoryMembers([]);
           setDashboardMeta({});
           setDashboardAccessType("member");
@@ -168,6 +173,11 @@ export function useDashboardData({
           setExternalCertificates(
             Array.isArray(certData.externalCertificates)
               ? certData.externalCertificates
+              : [],
+          );
+          setBillingHistory(
+            Array.isArray(certData.paymentHistory)
+              ? certData.paymentHistory
               : [],
           );
 
@@ -357,6 +367,7 @@ export function useDashboardData({
   return {
     certificates,
     externalCertificates,
+    billingHistory,
     profileData,
     dashboardMeta,
     dashboardAccessType,

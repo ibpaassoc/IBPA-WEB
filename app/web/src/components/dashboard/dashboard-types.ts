@@ -22,6 +22,15 @@ export interface ExternalCertificate {
   createdAt: string;
 }
 
+export interface BillingHistoryEntry {
+  id: string;
+  type: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+  paidAt?: string | null;
+}
+
 export type DashboardAccessType =
   | "member"
   | "partner_owner"

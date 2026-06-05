@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const {
     certificates,
     externalCertificates,
+    billingHistory,
     profileData,
     dashboardMeta,
     dashboardAccessType,
@@ -58,6 +59,7 @@ export default function DashboardPage() {
   const derived = useDashboardDerivedData({
     user,
     certificates,
+    billingHistory,
     profileData,
     dashboardMeta,
     dashboardAccessType,
@@ -87,6 +89,7 @@ export default function DashboardPage() {
   const finalDerived = useDashboardDerivedData({
     user,
     certificates,
+    billingHistory,
     profileData,
     dashboardMeta,
     dashboardAccessType,
