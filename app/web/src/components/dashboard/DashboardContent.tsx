@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { CombinedProfileData } from "@/lib/application-profile";
 import type { DashboardNotification } from "@/lib/notifications";
-import type { SupportMode, TabType } from "./dashboard-types";
+import type { Certificate, SupportMode, TabType } from "./dashboard-types";
 import type { NotificationPreferenceKey, NotificationPreferences, } from "@/lib/dashboard-cabinet";
 
 import { DashboardOverview } from "./DashboardOverview";
@@ -171,6 +171,8 @@ export function DashboardContent(props: Props) {
           websiteUrl={websiteUrl}
           publicProfileHref={publicProfileHref}
           mergedProfileData={mergedProfileData}
+          primaryCertificate={primaryCertificate as Certificate | undefined}
+          membershipExpiresDisplay={membershipExpiresDisplay}
           certificateSummary={certificateSummary}
           achievementsSummary={achievementsSummary}
           memberIdDisplay={memberIdDisplay}

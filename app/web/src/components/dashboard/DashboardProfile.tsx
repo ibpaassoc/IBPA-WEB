@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -19,7 +20,10 @@ import {
 import { StatusPill } from "@/shared/components/DashboardShared";
 import { ServicesSection } from "@/components/dashboard/profile/ServicesSection";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
-import type { TeamMemberAccessInfo } from "@/components/dashboard/dashboard-types";
+import type {
+  Certificate,
+  TeamMemberAccessInfo,
+} from "@/components/dashboard/dashboard-types";
 import type { CombinedProfileData } from "@/lib/application-profile";
 
 function buildProfileUrl(href: string) {
@@ -95,6 +99,187 @@ function MetricCard({
   );
 }
 
+function textValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) =>
+        typeof item === "string" ? item.trim() : typeof item === "number" ? String(item) : "",
+      )
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return "";
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return null;
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function ExpandableTextCard({
+  label,
+  icon,
+  value,
+  emptyLabel,
+}: {
+  label: string;
+  icon: ReactNode;
+  value: string;
+  emptyLabel: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const normalizedValue = value.trim();
+  const displayValue = normalizedValue || emptyLabel;
+  const isExpandable = normalizedValue.length > 140;
+
+  return (
+    <motion.article
+      layout
+      className="rounded-[24px] border border-[#D4E0F0] bg-[#FBFDFF] p-4 shadow-[0_14px_35px_rgba(11,31,68,0.05)]"
+      transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-[#2B5C99]">{icon}</span>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+          {label}
+        </p>
+      </div>
+
+      <motion.div layout className="mt-3">
+        <p
+          className={`break-words text-sm leading-6 text-[#10203B] ${
+            !expanded && isExpandable ? "line-clamp-4" : ""
+          } ${normalizedValue ? "font-medium" : "text-slate-500"}`}
+        >
+          {displayValue}
+        </p>
+      </motion.div>
+
+      {isExpandable ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="mt-3 inline-flex items-center rounded-full border border-[#D4E0F0] bg-white px-3 py-1.5 text-xs font-semibold text-[#21466D] transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
+        >
+          {expanded ? "Show less" : "See all"}
+        </button>
+      ) : null}
+    </motion.article>
+  );
+}
+
+function CertificatePreviewCard({
+  certificate,
+  fullName,
+  membershipExpiresDisplay,
+}: {
+  certificate?: Certificate;
+  fullName: string;
+  membershipExpiresDisplay: string;
+}) {
+  const issuedAt = formatDate(certificate?.createdAt);
+  const expiresAt =
+    formatDate(certificate?.expiresAt) || membershipExpiresDisplay || "Pending";
+  const isIssued =
+    certificate?.status === "paid" || certificate?.status === "approved";
+
+  return (
+    <motion.article
+      layout
+      className="rounded-[24px] border border-[#D4E0F0] bg-[linear-gradient(180deg,#F7FBFF_0%,#FFFFFF_100%)] p-4 shadow-[0_16px_35px_rgba(11,31,68,0.06)]"
+      transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[#2B5C99]">
+              <Award className="h-4 w-4" />
+            </span>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+              Official certificate
+            </p>
+          </div>
+
+          <p className="mt-3 text-base font-semibold text-[#10203B]">
+            IBPA Certificate
+          </p>
+          <p className="mt-1 text-sm text-slate-500">{fullName}</p>
+        </div>
+
+        <StatusPill
+          label={isIssued ? "Verified" : "Pending"}
+          tone={isIssued ? "verified" : "pending"}
+        />
+      </div>
+
+      {certificate ? (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                Certificate ID
+              </p>
+              <p className="mt-2 text-sm font-semibold text-[#10203B]">
+                {certificate.certNumber}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                Valid through
+              </p>
+              <p className="mt-2 text-sm font-semibold text-[#10203B]">
+                {expiresAt}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              Issued {issuedAt || "Pending review"}
+            </p>
+
+            {certificate.certificateUrl ? (
+              <a
+                href={certificate.certificateUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-[#D4E0F0] bg-white px-3.5 py-2 text-xs font-semibold text-[#10203B] transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open file
+              </a>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <p className="mt-4 text-sm leading-6 text-slate-500">
+          No IBPA certificate has been issued to this account yet.
+        </p>
+      )}
+    </motion.article>
+  );
+}
+
 function GallerySlot({ label }: { label: string }) {
   return (
     <div className="min-w-0">
@@ -121,6 +306,8 @@ export function DashboardProfile({
   websiteUrl,
   publicProfileHref,
   mergedProfileData,
+  primaryCertificate,
+  membershipExpiresDisplay,
   certificateSummary,
   achievementsSummary,
   memberIdDisplay,
@@ -142,6 +329,8 @@ export function DashboardProfile({
   websiteUrl: string | null;
   publicProfileHref: string | null;
   mergedProfileData: CombinedProfileData;
+  primaryCertificate?: Certificate;
+  membershipExpiresDisplay: string;
   certificateSummary: string;
   achievementsSummary: string;
   memberIdDisplay: string;
@@ -179,6 +368,54 @@ export function DashboardProfile({
   const profileServices = useMemo(
     () => (Array.isArray(mergedProfileData.services) ? mergedProfileData.services : []),
     [mergedProfileData.services],
+  );
+
+  const applicationPayload =
+    mergedProfileData.applicationPayload &&
+    typeof mergedProfileData.applicationPayload === "object" &&
+    !Array.isArray(mergedProfileData.applicationPayload)
+      ? mergedProfileData.applicationPayload
+      : null;
+
+  const biographySections = useMemo(
+    () => [
+      {
+        key: "biography",
+        label: "Biography",
+        icon: <Sparkles className="h-4 w-4" />,
+        value:
+          mergedProfileData.bio || textValue(applicationPayload?.professionalDesc),
+        emptyLabel: "No biography added yet.",
+      },
+      {
+        key: "credentials",
+        label: "Credentials",
+        icon: <Award className="h-4 w-4" />,
+        value: certificateSummary,
+        emptyLabel: "No extra credential notes added yet.",
+      },
+      {
+        key: "achievements",
+        label: "Achievements",
+        icon: <Trophy className="h-4 w-4" />,
+        value: achievementsSummary,
+        emptyLabel: "No achievements added yet.",
+      },
+      {
+        key: "contribution",
+        label: "Industry contribution",
+        icon: <Globe className="h-4 w-4" />,
+        value: textValue(applicationPayload?.contributionDesc),
+        emptyLabel: "No contribution details added yet.",
+      },
+    ],
+    [
+      achievementsSummary,
+      applicationPayload,
+      certificateSummary,
+      mergedProfileData.bio,
+      mergedProfileData.education,
+    ],
   );
 
   if (isTeamMemberDashboard) {
@@ -308,35 +545,47 @@ export function DashboardProfile({
       </section>
 
       <Panel title="Professional biography">
-        <div className="grid gap-4 rounded-3xl border border-[#D4E0F0] bg-white p-4 md:grid-cols-4">
-          <MetricCard
-            icon={<Sparkles className="h-5 w-5" />}
-            label="Years of experience"
-            value={mergedProfileData.experienceYears || "Not added yet"}
-          />
+        <div className="grid gap-4 rounded-3xl border border-[#D4E0F0] bg-white p-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <MetricCard
+                icon={<Sparkles className="h-5 w-5" />}
+                label="Years of experience"
+                value={mergedProfileData.experienceYears || "Not added yet"}
+              />
 
-          <MetricCard
-            icon={<GraduationCap className="h-5 w-5" />}
-            label="Education"
-            value={mergedProfileData.education || "Not added yet"}
-          />
+              <CertificatePreviewCard
+                certificate={primaryCertificate}
+                fullName={fullName}
+                membershipExpiresDisplay={membershipExpiresDisplay}
+              />
+            </div>
 
-          <MetricCard
-            icon={<Award className="h-5 w-5" />}
-            label="Certificates"
-            value={
-              certificateSummary || "Certificate details appear here once added"
-            }
-          />
+            <ExpandableTextCard
+              label="Education"
+              icon={<GraduationCap className="h-4 w-4" />}
+              value={mergedProfileData.education || ""}
+              emptyLabel="No education details added yet."
+            />
+          </div>
 
-          <MetricCard
-            icon={<Trophy className="h-5 w-5" />}
-            label="Achievements"
-            value={
-              achievementsSummary ||
-              "Add awards, publications, or notable accomplishments"
-            }
-          />
+          <motion.div
+            layout
+            className="grid gap-4 md:grid-cols-2"
+            transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <AnimatePresence initial={false}>
+              {biographySections.map((item) => (
+                <ExpandableTextCard
+                  key={item.key}
+                  label={item.label}
+                  icon={item.icon}
+                  value={item.value}
+                  emptyLabel={item.emptyLabel}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
         </div>
       </Panel>
 
