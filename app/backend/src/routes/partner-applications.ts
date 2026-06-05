@@ -1,7 +1,8 @@
-import { Router } from "express";
-import { and, desc, eq, sql } from "drizzle-orm";
 import crypto from "crypto";
-import { requireDb, orders, partnerApplications } from "../lib/db";
+import { Router } from "express";
+import { desc, eq } from "drizzle-orm";
+import { requireDb } from "../lib/db";
+import { coreApplications, corePayments, coreTeams } from "../lib/schema";
 import {
   APPLICATIONS_REPLY_TO,
   APPLICATIONS_SENDER,
@@ -14,6 +15,9 @@ import {
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
 import { stripe } from "../services/stripe";
+import { ensureCanonicalUser } from "../features/users/server/user.service";
+import { upsertCanonicalApplication } from "../features/applications/server/application.repository";
+import { upsertCanonicalPayment } from "../features/payments/server/payment.repository";
 
 export const partnerApplicationsRouter = Router();
 
@@ -38,7 +42,6 @@ function normalizeHeaderValue(value: unknown, maxLength = 120) {
   if (typeof value !== "string") {
     return "unknown";
   }
-
   const trimmed = value.trim();
   return trimmed ? trimmed.slice(0, maxLength).toLowerCase() : "unknown";
 }
@@ -48,14 +51,8 @@ function countToNumber(value: unknown) {
 }
 
 function getSingleValue(value: unknown): string | null {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return typeof value[0] === "string" ? value[0] : null;
-  }
-
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : null;
   return null;
 }
 
@@ -66,7 +63,6 @@ function getPaginationParams(query: Record<string, unknown>, defaultLimit: numbe
     ? Math.min(Math.max(Math.trunc(rawLimit), 1), maxLimit)
     : defaultLimit;
   const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0;
-
   return { limit, offset };
 }
 
@@ -88,7 +84,6 @@ function getRequiredEnv(name: string) {
   if (!value) {
     throw new Error(`${name} is not configured`);
   }
-
   return value;
 }
 
@@ -96,7 +91,6 @@ function normalizePartnerTier(value: unknown): PartnerTier | null {
   if (typeof value !== "string") {
     return null;
   }
-
   const normalized = value.trim();
   return PARTNER_TIERS.has(normalized as PartnerTier) ? (normalized as PartnerTier) : null;
 }
@@ -106,290 +100,214 @@ function getPartnerPriceId(tier: PartnerTier) {
   return getRequiredEnv(key);
 }
 
-function getPartnerSearchCondition(q: unknown) {
-  if (typeof q !== "string" || !q.trim()) {
-    return undefined;
+function asRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
   }
-
-  const term = `%${q.trim()}%`;
-  return sql`(${partnerApplications.name} ilike ${term} or ${partnerApplications.email} ilike ${term} or ${partnerApplications.message} ilike ${term})`;
+  return value as Record<string, unknown>;
 }
 
-type SqlCondition = ReturnType<typeof sql>;
-
-function combineConditions(...conditions: Array<SqlCondition | undefined>) {
-  const active = conditions.filter((condition): condition is SqlCondition => Boolean(condition));
-  return active.length > 0 ? and(...active) : undefined;
+function mapApplicationStatus(application: typeof coreApplications.$inferSelect, payment: typeof corePayments.$inferSelect | null) {
+  if (payment?.status === "PAID") {
+    return "SUBMITTED";
+  }
+  switch (application.status) {
+    case "REJECTED":
+      return "REJECTED";
+    case "APPROVED":
+    case "PAYMENT_SENT":
+      return "APPROVED";
+    default:
+      return "PENDING";
+  }
 }
 
-async function ensurePartnerOrderForApproval(params: {
-  db: ReturnType<typeof requireDb>;
-  application: typeof partnerApplications.$inferSelect;
-  selectedTier: PartnerTier;
-}) {
-  const { db, application, selectedTier } = params;
-  const partnerPayload = {
-    type: "partner",
-    partnerApplicationId: application.id,
-    partnerTier: selectedTier,
-    partnerMessage: application.message,
-    partnerPhone: application.phone,
+function mapPaymentStatus(payment: typeof corePayments.$inferSelect | null) {
+  if (!payment) {
+    return "UNPAID";
+  }
+  switch (payment.status) {
+    case "PAID":
+      return "PAID";
+    case "FAILED":
+      return "FAILED";
+    default:
+      return "PENDING";
+  }
+}
+
+function toAdminShape(application: typeof coreApplications.$inferSelect, payment: typeof corePayments.$inferSelect | null, team: typeof coreTeams.$inferSelect | null) {
+  const payload = asRecord(application.applicationData);
+
+  return {
+    id: application.id,
+    name: application.fullName,
+    email: application.email,
+    phone: application.phone ?? null,
+    message: typeof payload.message === "string" ? payload.message : "",
+    requestedTier: application.packageName ?? null,
+    status: mapApplicationStatus(application, payment),
+    paymentStatus: mapPaymentStatus(payment),
+    stripeCheckoutSessionId: payment?.stripeSessionId ?? null,
+    stripePaymentIntentId: typeof payload.stripePaymentIntentId === "string" ? payload.stripePaymentIntentId : null,
+    stripeInvoiceId: typeof payload.stripeInvoiceId === "string" ? payload.stripeInvoiceId : null,
+    partnerOrderId: team?.id ?? null,
+    approvedAt: application.approvedAt,
+    paidAt: payment?.paidAt ?? null,
+    createdAt: application.createdAt,
+    updatedAt: application.approvedAt ?? application.createdAt,
   };
-
-  if (application.partnerOrderId) {
-    const [linkedOrder] = await db
-      .select({
-        id: orders.id,
-        secureToken: orders.secureToken,
-        status: orders.status,
-      })
-      .from(orders)
-      .where(and(eq(orders.id, application.partnerOrderId), sql`lower(${orders.accountType}) = 'partner'`))
-      .limit(1);
-
-    if (linkedOrder) {
-      if (linkedOrder.status !== "paid") {
-        await db
-          .update(orders)
-          .set({
-            email: application.email,
-            name: application.name,
-            phone: application.phone,
-            accountType: "partner",
-            membershipCategory: "partner",
-            applicantType: "Partner",
-            package: selectedTier,
-            applicationPayload: partnerPayload,
-            status: "approved",
-          })
-          .where(eq(orders.id, linkedOrder.id));
-      }
-
-      return linkedOrder;
-    }
-  }
-
-  const [existingOrder] = await db
-    .select({
-      id: orders.id,
-      secureToken: orders.secureToken,
-      status: orders.status,
-    })
-    .from(orders)
-    .where(
-      and(
-        sql`lower(${orders.accountType}) = 'partner'`,
-        sql`${orders.applicationPayload} ->> 'partnerApplicationId' = ${application.id}`,
-      ),
-    )
-    .limit(1);
-
-  if (existingOrder) {
-    if (existingOrder.status !== "paid") {
-      await db
-        .update(orders)
-        .set({
-          email: application.email,
-          name: application.name,
-          phone: application.phone,
-          accountType: "partner",
-          membershipCategory: "partner",
-          applicantType: "Partner",
-          package: selectedTier,
-          applicationPayload: partnerPayload,
-          status: "approved",
-        })
-        .where(eq(orders.id, existingOrder.id));
-    }
-
-    await db
-      .update(partnerApplications)
-      .set({
-        partnerOrderId: existingOrder.id,
-        updatedAt: new Date(),
-      })
-      .where(eq(partnerApplications.id, application.id));
-
-    return existingOrder;
-  }
-
-  const [createdOrder] = await db
-    .insert(orders)
-    .values({
-      email: application.email,
-      name: application.name,
-      phone: application.phone,
-      accountType: "partner",
-      membershipCategory: "partner",
-      applicantType: "Partner",
-      package: selectedTier,
-      applicationPayload: partnerPayload,
-      status: "approved",
-      secureToken: crypto.randomUUID(),
-    })
-    .returning({
-      id: orders.id,
-      secureToken: orders.secureToken,
-      status: orders.status,
-    });
-
-  await db
-    .update(partnerApplications)
-    .set({
-      partnerOrderId: createdOrder.id,
-      updatedAt: new Date(),
-    })
-    .where(eq(partnerApplications.id, application.id));
-
-  return createdOrder;
 }
 
-async function sendPartnerApplicationReceivedEmail(params: {
-  email: string;
-  name: string;
-  requestedTier?: string | null;
-}) {
-  const { email, name, requestedTier } = params;
-
+async function sendPartnerApplicationReceivedEmail(params: { email: string; name: string; requestedTier?: string | null; }) {
   return sendEmail({
     from: APPLICATIONS_SENDER,
-    to: email,
+    to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA partnership application has been received",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
-        <p style="margin: 0 0 12px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #64748b;">
-          International Beauty Professionals Association
-        </p>
-        <h1 style="margin: 0 0 20px; font-size: 28px; line-height: 1.1; text-transform: uppercase;">
-          Partnership application received
-        </h1>
-        <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
-          Hello ${escapeHtml(name || "there")},
-        </p>
-        <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
-          Thank you for your interest in partnering with IBPA. Our team has received your application${requestedTier ? ` for the <strong>${escapeHtml(requestedTier)}</strong> tier` : ""} and will review it shortly.
-        </p>
-        <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
-          If approved, we will send your payment link with next steps.
-        </p>
+        <h1 style="margin: 0 0 20px; font-size: 28px; line-height: 1.1; text-transform: uppercase;">Partnership application received</h1>
+        <p>Hello ${escapeHtml(params.name || "there")},</p>
+        <p>Thank you for your interest in partnering with IBPA. Our team has received your application${params.requestedTier ? ` for the <strong>${escapeHtml(params.requestedTier)}</strong> tier` : ""} and will review it shortly.</p>
       </div>
     `,
   });
 }
 
-async function sendAdminPartnerApplicationEmail(params: {
-  name: string;
-  email: string;
-  phone?: string | null;
-  message: string;
-  requestedTier?: string | null;
-}) {
-  const { name, email, phone, message, requestedTier } = params;
-
+async function sendAdminPartnerApplicationEmail(params: { name: string; email: string; phone?: string | null; message: string; requestedTier?: string | null; }) {
   return sendEmail({
     from: APPLICATIONS_SENDER,
     to: adminNotificationEmail,
     replyTo: APPLICATIONS_REPLY_TO,
-    subject: `New IBPA partner application: ${name || email}`,
+    subject: `New IBPA partner application: ${params.name || params.email}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
-        <p style="margin: 0 0 12px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #64748b;">
-          New partner application
-        </p>
-        <h1 style="margin: 0 0 20px; font-size: 28px; line-height: 1.1;">
-          ${escapeHtml(name || "New applicant")}
-        </h1>
-        <div style="margin: 24px 0; padding: 16px 18px; background: #f8fafc; border-radius: 18px;">
-          <p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Email:</strong> ${escapeHtml(email)}</p>
-          ${phone ? `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Phone:</strong> ${escapeHtml(phone)}</p>` : ""}
-          ${requestedTier ? `<p style="margin: 0 0 8px; font-size: 14px; line-height: 1.7;"><strong>Requested tier:</strong> ${escapeHtml(requestedTier)}</p>` : ""}
-          <p style="margin: 0; font-size: 14px; line-height: 1.7;"><strong>Message:</strong><br/>${escapeHtml(message).replace(/\n/g, "<br/>")}</p>
-        </div>
+        <h1 style="margin: 0 0 20px; font-size: 28px; line-height: 1.1;">${escapeHtml(params.name || "New applicant")}</h1>
+        <p><strong>Email:</strong> ${escapeHtml(params.email)}</p>
+        ${params.phone ? `<p><strong>Phone:</strong> ${escapeHtml(params.phone)}</p>` : ""}
+        ${params.requestedTier ? `<p><strong>Requested tier:</strong> ${escapeHtml(params.requestedTier)}</p>` : ""}
+        <p><strong>Message:</strong><br/>${escapeHtml(params.message).replace(/\n/g, "<br/>")}</p>
       </div>
     `,
   });
 }
 
-async function sendPartnerApprovalEmail(params: {
-  email: string;
-  name: string;
-  requestedTier: string;
-  checkoutUrl?: string | null;
-}) {
-  const { email, name, requestedTier, checkoutUrl } = params;
-
+async function sendPartnerApprovalEmail(params: { email: string; name: string; requestedTier: string; checkoutUrl?: string | null; }) {
   return sendEmail({
     from: APPLICATIONS_SENDER,
-    to: email,
+    to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA partner application has been approved",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 24px; color: #0f172a;">
-        <h1 style="margin: 0 0 18px; font-size: 30px; line-height: 1.1;">Congratulations, ${escapeHtml(name || "there")}!</h1>
-        <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
-          Your IBPA partner application has been approved for the <strong>${escapeHtml(requestedTier)}</strong> tier.
-        </p>
-        <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.7;">
-          To activate your partner account, complete payment with the link below:
-        </p>
-        <div style="margin: 28px 0;">
-          <a href="${checkoutUrl || "#"}" style="display: inline-block; background: #0f172a; color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-            Complete payment
-          </a>
-        </div>
-        <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #64748b;">
-          If the button does not work, copy this link:<br />${escapeHtml(checkoutUrl || "")}
-        </p>
+        <h1 style="margin: 0 0 18px; font-size: 30px; line-height: 1.1;">Congratulations, ${escapeHtml(params.name || "there")}!</h1>
+        <p>Your IBPA partner application has been approved for the <strong>${escapeHtml(params.requestedTier)}</strong> tier.</p>
+        <p>To activate your partner account, complete payment with the link below:</p>
+        <p><a href="${escapeHtml(params.checkoutUrl || "#")}">Complete payment</a></p>
       </div>
     `,
   });
 }
 
-async function sendAdminPartnerPaymentLinkSentEmail(params: {
-  applicationId: string;
-  name: string;
-  email: string;
-  requestedTier: string;
-  checkoutUrl?: string | null;
-}) {
-  const { applicationId, name, email, requestedTier, checkoutUrl } = params;
-
+async function sendAdminPartnerPaymentLinkSentEmail(params: { applicationId: string; name: string; email: string; requestedTier: string; checkoutUrl?: string | null; }) {
   return sendEmail({
     from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
     replyTo: PAYMENTS_REPLY_TO,
-    subject: `IBPA partner payment link sent: ${name || email}`,
+    subject: `IBPA partner payment link sent: ${params.name || params.email}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
-        <h1 style="margin: 0 0 16px; font-size: 24px;">Partner payment link sent</h1>
-        <p style="margin: 0 0 10px;"><strong>Applicant:</strong> ${escapeHtml(name || "Unknown")}</p>
-        <p style="margin: 0 0 10px;"><strong>Email:</strong> ${escapeHtml(email)}</p>
-        <p style="margin: 0 0 10px;"><strong>Tier:</strong> ${escapeHtml(requestedTier)}</p>
-        <p style="margin: 0 0 10px;"><strong>Partner application ID:</strong> ${escapeHtml(applicationId)}</p>
-        ${checkoutUrl ? `<p style="margin: 18px 0 0;"><a href="${escapeHtml(checkoutUrl)}">Stripe checkout link</a></p>` : ""}
+        <p><strong>Applicant:</strong> ${escapeHtml(params.name || "Unknown")}</p>
+        <p><strong>Email:</strong> ${escapeHtml(params.email)}</p>
+        <p><strong>Tier:</strong> ${escapeHtml(params.requestedTier)}</p>
+        <p><strong>Partner application ID:</strong> ${escapeHtml(params.applicationId)}</p>
+        ${params.checkoutUrl ? `<p><a href="${escapeHtml(params.checkoutUrl)}">Stripe checkout link</a></p>` : ""}
       </div>
     `,
   });
 }
 
-async function sendPartnerRejectedEmail(params: { email: string; name: string }) {
-  const { email, name } = params;
-
+async function sendPartnerRejectedEmail(params: { email: string; name: string; }) {
   return sendEmail({
     from: APPLICATIONS_SENDER,
-    to: email,
+    to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA partner application was not approved",
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 20px;">
-        <h2 style="color: #333; text-transform: uppercase;">Hello, ${escapeHtml(name || "there")}!</h2>
-        <p>Thank you for your interest in partnering with IBPA.</p>
-        <p>After review, we are unable to approve your partner application at this time.</p>
-        <p style="color: #666; font-size: 14px;">If you have questions, reply to this email or contact us at ${applicationsEmail}.</p>
-      </div>
-    `,
+    html: `<div style="font-family: Arial, sans-serif; padding: 20px;"><p>Hello ${escapeHtml(params.name || "there")}!</p><p>After review, we are unable to approve your partner application at this time.</p></div>`,
   });
+}
+
+async function loadPartnerApplicationRows(db: ReturnType<typeof requireDb>) {
+  const rows = await db
+    .select({
+      application: coreApplications,
+      payment: corePayments,
+      team: coreTeams,
+    })
+    .from(coreApplications)
+    .leftJoin(corePayments, eq(corePayments.id, coreApplications.id))
+    .leftJoin(coreTeams, eq(coreTeams.id, coreApplications.id))
+    .where(eq(coreApplications.type, "PARTNER"))
+    .orderBy(desc(coreApplications.createdAt));
+
+  return rows.map((row: any) => toAdminShape(row.application, row.payment, row.team));
+}
+
+async function createPartnerCheckoutSession(application: typeof coreApplications.$inferSelect) {
+  const selectedTier = normalizePartnerTier(application.packageName) || "Associate";
+  const priceId = getPartnerPriceId(selectedTier);
+  const price = await stripe.prices.retrieve(priceId);
+  const usesRecurringPrice = Boolean(price.recurring);
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    customer_email: application.email,
+    line_items: [{ price: priceId, quantity: 1 }],
+    mode: usesRecurringPrice ? "subscription" : "payment",
+    success_url: `${(process.env.FRONTEND_URL || "").replace(/\/$/, "")}/partnership?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${(process.env.FRONTEND_URL || "").replace(/\/$/, "")}/partnership?payment=cancelled`,
+    metadata: {
+      orderKind: "partner_application",
+      partnerApplicationId: application.id,
+      requestedTier: selectedTier,
+    },
+  });
+
+  const db = requireDb();
+  const nextPayload = {
+    ...asRecord(application.applicationData),
+    stripeCheckoutSessionId: session.id,
+  };
+  await upsertCanonicalApplication(db, {
+    id: application.id,
+    userId: application.userId ?? null,
+    type: "PARTNER",
+    packageName: selectedTier,
+    status: "APPROVED",
+    fullName: application.fullName,
+    email: application.email,
+    phone: application.phone ?? null,
+    paymentLink: application.paymentLink ?? null,
+    applicationData: nextPayload,
+    applicationFiles: application.applicationFiles,
+    approvedAt: new Date(),
+    createdAt: application.createdAt,
+  });
+  await upsertCanonicalPayment(db, {
+    id: application.id,
+    userId: application.userId ?? null,
+    type: "membership_partner",
+    stripeSessionId: session.id,
+    amount: typeof price.unit_amount === "number" ? price.unit_amount : 0,
+    status: "PENDING",
+    createdAt: application.createdAt,
+    paidAt: null,
+  });
+
+  return {
+    session,
+    selectedTier,
+  };
 }
 
 partnerApplicationsRouter.post("/", async (req, res) => {
@@ -415,7 +333,6 @@ partnerApplicationsRouter.post("/", async (req, res) => {
 
   const safePhone = typeof phone === "string" ? phone.trim().slice(0, 50) : null;
   const normalizedTier = normalizePartnerTier(requestedTier);
-
   const clientIp = getClientAddress(req);
   const safeEmail = String(email).trim().toLowerCase();
   const userAgent = normalizeHeaderValue(req.header("user-agent"));
@@ -428,87 +345,66 @@ partnerApplicationsRouter.post("/", async (req, res) => {
   }
 
   try {
-    console.log("[Partner Application] create:start", {
-      email: safeEmail,
-      requestedTier: normalizedTier,
-      clientIp,
-    });
-
     const db = requireDb();
-    const [recentDuplicate] = await db
-      .select({ id: partnerApplications.id, createdAt: partnerApplications.createdAt })
-      .from(partnerApplications)
-      .where(eq(partnerApplications.email, safeEmail))
-      .orderBy(desc(partnerApplications.createdAt))
+    const recentDuplicate = await db
+      .select({ id: coreApplications.id, createdAt: coreApplications.createdAt })
+      .from(coreApplications)
+      .where(eq(coreApplications.email, safeEmail))
+      .orderBy(desc(coreApplications.createdAt))
       .limit(1);
 
-    if (recentDuplicate && Date.now() - new Date(recentDuplicate.createdAt).getTime() < 5 * 60 * 1000) {
+    if (recentDuplicate[0] && Date.now() - new Date(recentDuplicate[0].createdAt).getTime() < 5 * 60 * 1000) {
       return res.status(409).json({ error: "A recent partner application already exists for this email. Please wait a few minutes before trying again." });
     }
 
-    const [created] = await db
-      .insert(partnerApplications)
-      .values({
-        name: safeName,
-        email: safeEmail,
-        phone: safePhone,
+    const userResult = await ensureCanonicalUser(db, {
+      email: safeEmail,
+      clerkId: null,
+      role: "PARTNER",
+      status: "ACTIVE",
+    });
+
+    const created = await upsertCanonicalApplication(db, {
+      id: crypto.randomUUID(),
+      userId: userResult.record.id,
+      type: "PARTNER",
+      packageName: normalizedTier ?? null,
+      status: "SUBMITTED",
+      fullName: safeName,
+      email: safeEmail,
+      phone: safePhone,
+      paymentLink: null,
+      applicationData: {
         message: safeMessage,
         requestedTier: normalizedTier,
-        status: "PENDING",
-        paymentStatus: "UNPAID",
-      })
-      .returning();
-
-    console.log("[Partner Application] db:saved", {
-      applicationId: created.id,
-      email: safeEmail,
-      requestedTier: normalizedTier,
+      },
+      applicationFiles: [],
+      approvedAt: null,
+      createdAt: new Date(),
     });
 
     try {
-      const emailResult = await sendPartnerApplicationReceivedEmail({
+      await sendPartnerApplicationReceivedEmail({
         email: safeEmail,
         name: safeName,
         requestedTier: normalizedTier,
       });
-      console.log("[Partner Application] Confirmation email sent", {
-        to: safeEmail,
-        id: emailResult.data?.id ?? null,
-        error: emailResult.error ?? null,
-      });
-    } catch (emailError) {
-      console.error("[Partner Application] Confirmation email failed", {
-        to: safeEmail,
-        error: emailError,
-      });
-    }
-
-    try {
-      const adminEmailResult = await sendAdminPartnerApplicationEmail({
+      await sendAdminPartnerApplicationEmail({
         name: safeName,
         email: safeEmail,
         phone: safePhone,
         message: safeMessage,
         requestedTier: normalizedTier,
       });
-      console.log("[Partner Application] Admin notification email sent", {
-        to: adminNotificationEmail,
-        id: adminEmailResult.data?.id ?? null,
-        error: adminEmailResult.error ?? null,
-      });
     } catch (emailError) {
-      console.error("[Partner Application] Admin notification email failed", {
-        to: adminNotificationEmail,
-        error: emailError,
-      });
+      console.error("[Partner Application] Email notifications failed", emailError);
     }
 
-    return res.status(201).json({ success: true, id: created.id });
+    return res.status(201).json({ success: true, id: created.record.id });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
     }
-
     console.error("[Partner Application] Failed to create partner application", error);
     return res.status(500).json({ error: "Failed to submit partner application." });
   }
@@ -518,229 +414,104 @@ partnerApplicationsRouter.get("/", adminClerkMiddleware, requireAdminAccess, asy
   try {
     const db = requireDb();
     const { limit, offset } = getPaginationParams(req.query, ADMIN_PARTNER_LIST_DEFAULT_LIMIT, ADMIN_PARTNER_LIST_MAX_LIMIT);
-
     const statusRaw = getSingleValue(req.query.status);
-    const statusFilter =
-      statusRaw && PARTNER_STATUSES.has(statusRaw.trim().toUpperCase())
-        ? statusRaw.trim().toUpperCase()
-        : null;
-
+    const statusFilter = statusRaw && PARTNER_STATUSES.has(statusRaw.trim().toUpperCase()) ? statusRaw.trim().toUpperCase() : null;
     const paymentRaw = getSingleValue(req.query.paymentStatus);
-    const paymentFilter =
-      paymentRaw && PARTNER_PAYMENT_STATUSES.has(paymentRaw.trim().toUpperCase())
-        ? paymentRaw.trim().toUpperCase()
-        : null;
+    const paymentFilter = paymentRaw && PARTNER_PAYMENT_STATUSES.has(paymentRaw.trim().toUpperCase()) ? paymentRaw.trim().toUpperCase() : null;
+    const query = (getSingleValue(req.query.q) || "").trim().toLowerCase();
 
-    const searchCondition = getPartnerSearchCondition(req.query.q);
-    const whereCondition = combineConditions(
-      searchCondition,
-      statusFilter ? eq(partnerApplications.status, statusFilter) : undefined,
-      paymentFilter ? eq(partnerApplications.paymentStatus, paymentFilter) : undefined,
-    );
-    const searchOnlyCondition = combineConditions(searchCondition);
+    const rows = await loadPartnerApplicationRows(db);
+    const filtered = rows.filter((item: any) => {
+      const matchesStatus = !statusFilter || item.status === statusFilter;
+      const matchesPayment = !paymentFilter || item.paymentStatus === paymentFilter;
+      const matchesQuery = !query || [item.name, item.email, item.message].some((value) => String(value || "").toLowerCase().includes(query));
+      return matchesStatus && matchesPayment && matchesQuery;
+    });
+    const items = filtered.slice(offset, offset + limit);
 
-    const itemsQuery = db
-      .select({
-        id: partnerApplications.id,
-        name: partnerApplications.name,
-        email: partnerApplications.email,
-        phone: partnerApplications.phone,
-        message: partnerApplications.message,
-        requestedTier: partnerApplications.requestedTier,
-        status: partnerApplications.status,
-        paymentStatus: partnerApplications.paymentStatus,
-        stripeCheckoutSessionId: partnerApplications.stripeCheckoutSessionId,
-        stripePaymentIntentId: partnerApplications.stripePaymentIntentId,
-        stripeInvoiceId: partnerApplications.stripeInvoiceId,
-        approvedAt: partnerApplications.approvedAt,
-        paidAt: partnerApplications.paidAt,
-        createdAt: partnerApplications.createdAt,
-        updatedAt: partnerApplications.updatedAt,
-      })
-      .from(partnerApplications)
-      .orderBy(desc(partnerApplications.createdAt))
-      .limit(limit)
-      .offset(offset);
-
-    const countQuery = db
-      .select({ count: sql<number>`count(*)` })
-      .from(partnerApplications);
-
-    if (whereCondition) {
-      itemsQuery.where(whereCondition);
-      countQuery.where(whereCondition);
-    }
-
-    const summaryBaseQuery = db
-      .select({
-        status: partnerApplications.status,
-        paymentStatus: partnerApplications.paymentStatus,
-        count: sql<number>`count(*)`,
-      })
-      .from(partnerApplications)
-      .groupBy(partnerApplications.status, partnerApplications.paymentStatus);
-
-    if (searchOnlyCondition) {
-      summaryBaseQuery.where(searchOnlyCondition);
-    }
-
-    const [items, countRows, summaryRows] = await Promise.all([
-      itemsQuery,
-      countQuery,
-      summaryBaseQuery,
-    ]);
-
-    const total = countToNumber(countRows[0]?.count);
     const summary = {
-      all: 0,
-      pending: 0,
-      approved: 0,
-      submitted: 0,
-      rejected: 0,
-      paid: 0,
+      all: filtered.length,
+      pending: filtered.filter((item: any) => item.status === "PENDING").length,
+      approved: filtered.filter((item: any) => item.status === "APPROVED").length,
+      submitted: filtered.filter((item: any) => item.status === "SUBMITTED").length,
+      rejected: filtered.filter((item: any) => item.status === "REJECTED").length,
+      paid: filtered.filter((item: any) => item.paymentStatus === "PAID").length,
     };
-
-    for (const row of summaryRows) {
-      const count = countToNumber(row.count);
-      summary.all += count;
-
-      const status = String(row.status || "").toUpperCase();
-      if (status === "PENDING") summary.pending += count;
-      if (status === "APPROVED") summary.approved += count;
-      if (status === "SUBMITTED") summary.submitted += count;
-      if (status === "REJECTED") summary.rejected += count;
-
-      const paymentStatus = String(row.paymentStatus || "").toUpperCase();
-      if (paymentStatus === "PAID") summary.paid += count;
-    }
 
     return res.json({
       items,
-      total,
+      total: filtered.length,
       summary,
       limit,
       offset,
-      hasMore: offset + items.length < total,
+      hasMore: offset + items.length < filtered.length,
     });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
-      return res.status(503).json({ error: error.message });
-    }
-
     console.error("[Partner Application] Failed to fetch partner applications", error);
     return res.status(500).json({ error: "Failed to fetch partner applications" });
   }
 });
 
 partnerApplicationsRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
-  const applicationId = getSingleValue(req.params.id);
-  if (!applicationId) {
-    return res.status(400).json({ error: "Invalid partner application id" });
-  }
-
   try {
-    const db = requireDb();
-    const [application] = await db
-      .select()
-      .from(partnerApplications)
-      .where(eq(partnerApplications.id, applicationId));
+    const id = getSingleValue(req.params.id);
+    if (!id) {
+      return res.status(400).json({ error: "Invalid partner application id" });
+    }
 
-    if (!application) {
+    const db = requireDb();
+    const rows = await loadPartnerApplicationRows(db);
+    const item = rows.find((row: any) => row.id === id);
+    if (!item) {
       return res.status(404).json({ error: "Partner application not found" });
     }
 
-    return res.json(application);
+    return res.json(item);
   } catch (error) {
-    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
-      return res.status(503).json({ error: error.message });
-    }
-
     console.error("[Partner Application] Failed to fetch partner application detail", error);
     return res.status(500).json({ error: "Failed to fetch partner application detail" });
   }
 });
 
-async function deletePartnerApplicationById(applicationId: string) {
-  const db = requireDb();
-  const [application] = await db
-    .select({
-      id: partnerApplications.id,
-      paymentStatus: partnerApplications.paymentStatus,
-      partnerOrderId: partnerApplications.partnerOrderId,
-    })
-    .from(partnerApplications)
-    .where(eq(partnerApplications.id, applicationId))
-    .limit(1);
-
-  if (!application) {
-    return { status: 404 as const, body: { error: "Partner application not found" } };
-  }
-
-  if (application.paymentStatus === "PAID") {
-    return { status: 409 as const, body: { error: "Paid partner applications cannot be deleted." } };
-  }
-
-  if (application.partnerOrderId) {
-    const [linkedOrder] = await db
-      .select({ id: orders.id, status: orders.status })
-      .from(orders)
-      .where(eq(orders.id, application.partnerOrderId))
-      .limit(1);
-
-    if (linkedOrder?.status === "paid") {
-      return { status: 409 as const, body: { error: "Paid partner applications cannot be deleted." } };
-    }
-
-    if (linkedOrder) {
-      await db.delete(orders).where(eq(orders.id, linkedOrder.id));
-    }
-  }
-
-  const [deletedApplication] = await db
-    .delete(partnerApplications)
-    .where(eq(partnerApplications.id, applicationId))
-    .returning({ id: partnerApplications.id });
-
-  if (!deletedApplication) {
-    return { status: 404 as const, body: { error: "Partner application not found" } };
-  }
-
-  return { status: 200 as const, body: { success: true, deletedApplication } };
-}
-
 partnerApplicationsRouter.delete("/:id", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
-  const applicationId = getSingleValue(req.params.id);
-  if (!applicationId) {
-    return res.status(400).json({ error: "Invalid partner application id" });
-  }
-
   try {
-    const result = await deletePartnerApplicationById(applicationId);
-    return res.status(result.status).json(result.body);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
-      return res.status(503).json({ error: error.message });
+    const id = getSingleValue(req.params.id);
+    if (!id) {
+      return res.status(400).json({ error: "Invalid partner application id" });
     }
 
+    const db = requireDb();
+    await db.delete(corePayments).where(eq(corePayments.id, id));
+    await db.delete(coreTeams).where(eq(coreTeams.id, id));
+    const deleted = await db.delete(coreApplications).where(eq(coreApplications.id, id)).returning();
+    if (!deleted[0]) {
+      return res.status(404).json({ error: "Partner application not found" });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
     console.error("[Partner Application] Failed to delete partner application", error);
     return res.status(500).json({ error: "Failed to delete partner application" });
   }
 });
 
 partnerApplicationsRouter.post("/admin/delete", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
-  const applicationId = getSingleValue(req.body?.applicationId);
-  if (!applicationId) {
+  const id = getSingleValue(req.body?.applicationId);
+  if (!id) {
     return res.status(400).json({ error: "Invalid partner application id" });
   }
 
   try {
-    const result = await deletePartnerApplicationById(applicationId);
-    return res.status(result.status).json(result.body);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
-      return res.status(503).json({ error: error.message });
+    const db = requireDb();
+    await db.delete(corePayments).where(eq(corePayments.id, id));
+    await db.delete(coreTeams).where(eq(coreTeams.id, id));
+    const deleted = await db.delete(coreApplications).where(eq(coreApplications.id, id)).returning();
+    if (!deleted[0]) {
+      return res.status(404).json({ error: "Partner application not found" });
     }
 
+    return res.json({ success: true });
+  } catch (error) {
     console.error("[Partner Application] Failed to delete partner application", error);
     return res.status(500).json({ error: "Failed to delete partner application" });
   }
@@ -748,141 +519,54 @@ partnerApplicationsRouter.post("/admin/delete", adminClerkMiddleware, requireAdm
 
 partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
   const applicationId = getSingleValue(req.body?.applicationId);
-  const requestedTier = normalizePartnerTier(req.body?.tier);
-
-  if (!applicationId) {
-    return res.status(400).json({ error: "Invalid partner application id" });
+  const selectedTier = normalizePartnerTier(req.body?.tier);
+  if (!applicationId || !selectedTier) {
+    return res.status(400).json({ error: "Invalid partner application id or tier" });
   }
 
   try {
     const db = requireDb();
-    const [application] = await db
-      .select()
-      .from(partnerApplications)
-      .where(eq(partnerApplications.id, applicationId));
-
-    if (!application) {
+    const [application] = await db.select().from(coreApplications).where(eq(coreApplications.id, applicationId)).limit(1);
+    if (!application || application.type !== "PARTNER") {
       return res.status(404).json({ error: "Partner application not found" });
     }
 
-    if (application.paymentStatus === "PAID") {
-      return res.status(409).json({ error: "This partner application is already paid." });
-    }
-
-    if (application.status === "SUBMITTED") {
-      return res.status(409).json({ error: "This partner application is already submitted." });
-    }
-
-    if (application.status === "REJECTED") {
-      return res.status(409).json({ error: "Rejected partner applications cannot be approved." });
-    }
-
-    const selectedTier = requestedTier || normalizePartnerTier(application.requestedTier) || "Associate";
-    const priceId = getPartnerPriceId(selectedTier);
-    const frontendUrl = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
-    if (!frontendUrl) {
-      throw new Error("FRONTEND_URL is not configured");
-    }
-
-    const partnerOrder = await ensurePartnerOrderForApproval({
-      db,
-      application,
-      selectedTier,
-    });
-
-    console.log("[Partner Application] checkout:create:start", {
-      applicationId: application.id,
-      partnerOrderId: partnerOrder.id,
-      requestedTier: selectedTier,
-    });
-
-    const metadata = {
-      type: "partner_application",
-      orderKind: "partner_application",
-      orderId: partnerOrder.id,
-      partnerApplicationId: application.id,
-      partnerTier: selectedTier,
-      applicationId: application.id,
-      applicantEmail: application.email,
-      applicationType: "partner_application",
-      environment: process.env.NODE_ENV || "development",
-    };
-    const price = await stripe.prices.retrieve(priceId);
-    const usesRecurringPrice = Boolean(price.recurring);
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      customer_email: application.email,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: usesRecurringPrice ? "subscription" : "payment",
-      success_url: `${frontendUrl}/success?token=${encodeURIComponent(partnerOrder.secureToken)}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/partnership?payment=cancelled&tier=${encodeURIComponent(selectedTier)}`,
-      ...(usesRecurringPrice ? { subscription_data: { metadata } } : {}),
-      metadata,
-    });
-
-    console.log("[Partner Application] checkout:created", {
-      applicationId: application.id,
-      partnerOrderId: partnerOrder.id,
-      sessionId: session.id,
-      mode: usesRecurringPrice ? "subscription" : "payment",
-    });
-
-    await db
-      .update(partnerApplications)
-      .set({
+    const updated = await upsertCanonicalApplication(db, {
+      id: application.id,
+      userId: application.userId ?? null,
+      type: "PARTNER",
+      packageName: selectedTier,
+      status: "APPROVED",
+      fullName: application.fullName,
+      email: application.email,
+      phone: application.phone ?? null,
+      paymentLink: application.paymentLink ?? null,
+      applicationData: {
+        ...asRecord(application.applicationData),
         requestedTier: selectedTier,
-        status: "APPROVED",
-        paymentStatus: "PENDING",
-        stripeCheckoutSessionId: session.id,
-        partnerOrderId: partnerOrder.id,
-        approvedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(partnerApplications.id, applicationId));
+      },
+      applicationFiles: application.applicationFiles,
+      approvedAt: new Date(),
+      createdAt: application.createdAt,
+    });
 
+    const { session } = await createPartnerCheckoutSession(updated.record);
     try {
-      const emailResult = await sendPartnerApprovalEmail({
-        email: application.email,
-        name: application.name,
+      await sendPartnerApprovalEmail({
+        email: updated.record.email,
+        name: updated.record.fullName,
         requestedTier: selectedTier,
         checkoutUrl: session.url,
       });
-      console.log("[Partner Application] Approval email sent", {
-        to: application.email,
-        id: emailResult.data?.id ?? null,
-        error: emailResult.error ?? null,
+      await sendAdminPartnerPaymentLinkSentEmail({
+        applicationId: updated.record.id,
+        name: updated.record.fullName,
+        email: updated.record.email,
+        requestedTier: selectedTier,
+        checkoutUrl: session.url,
       });
     } catch (emailError) {
-      console.error("[Partner Application] Approval email failed", {
-        to: application.email,
-        error: emailError,
-      });
-    }
-
-    try {
-      const adminEmailResult = await sendAdminPartnerPaymentLinkSentEmail({
-        applicationId: application.id,
-        name: application.name,
-        email: application.email,
-        requestedTier: selectedTier,
-        checkoutUrl: session.url,
-      });
-      console.log("[Partner Application] Admin payment link notification sent", {
-        to: adminNotificationEmail,
-        id: adminEmailResult.data?.id ?? null,
-        error: adminEmailResult.error ?? null,
-      });
-    } catch (adminEmailError) {
-      console.error("[Partner Application] Admin payment link notification failed", {
-        to: adminNotificationEmail,
-        error: adminEmailError,
-      });
+      console.error("[Partner Application] Approval emails failed", emailError);
     }
 
     return res.json({
@@ -894,78 +578,55 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
       stripeCheckoutSessionId: session.id,
     });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+    if (error instanceof Error && error.message.includes("not configured")) {
       return res.status(503).json({ error: error.message });
     }
-
     console.error("[Partner Application] Failed to approve partner application", error);
-    if (error instanceof Error) {
-      if (error.message.includes("not configured")) {
-        return res.status(503).json({ error: error.message });
-      }
-
-      if (error.message.toLowerCase().includes("invalid api key")) {
-        return res.status(503).json({ error: "STRIPE_SECRET_KEY is not configured correctly." });
-      }
-    }
-
     return res.status(500).json({ error: "Failed to approve partner application" });
   }
 });
 
 partnerApplicationsRouter.post("/admin/reject", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
   const applicationId = getSingleValue(req.body?.applicationId);
-
   if (!applicationId) {
     return res.status(400).json({ error: "Invalid partner application id" });
   }
 
   try {
     const db = requireDb();
-    const [application] = await db
-      .select()
-      .from(partnerApplications)
-      .where(eq(partnerApplications.id, applicationId));
-
-    if (!application) {
+    const [application] = await db.select().from(coreApplications).where(eq(coreApplications.id, applicationId)).limit(1);
+    if (!application || application.type !== "PARTNER") {
       return res.status(404).json({ error: "Partner application not found" });
     }
-
-    if (application.paymentStatus === "PAID") {
+    const [payment] = await db.select().from(corePayments).where(eq(corePayments.id, applicationId)).limit(1);
+    if (payment?.status === "PAID") {
       return res.status(409).json({ error: "Paid partner applications cannot be rejected." });
     }
 
-    await db
-      .update(partnerApplications)
-      .set({
-        status: "REJECTED",
-        updatedAt: new Date(),
-      })
-      .where(eq(partnerApplications.id, applicationId));
+    await upsertCanonicalApplication(db, {
+      id: application.id,
+      userId: application.userId ?? null,
+      type: "PARTNER",
+      packageName: application.packageName ?? null,
+      status: "REJECTED",
+      fullName: application.fullName,
+      email: application.email,
+      phone: application.phone ?? null,
+      paymentLink: application.paymentLink ?? null,
+      applicationData: application.applicationData as Record<string, unknown>,
+      applicationFiles: application.applicationFiles,
+      approvedAt: application.approvedAt ?? null,
+      createdAt: application.createdAt,
+    });
 
     try {
-      const emailResult = await sendPartnerRejectedEmail({
-        email: application.email,
-        name: application.name,
-      });
-      console.log("[Partner Application] Rejection email sent", {
-        to: application.email,
-        id: emailResult.data?.id ?? null,
-        error: emailResult.error ?? null,
-      });
+      await sendPartnerRejectedEmail({ email: application.email, name: application.fullName });
     } catch (emailError) {
-      console.error("[Partner Application] Rejection email failed", {
-        to: application.email,
-        error: emailError,
-      });
+      console.error("[Partner Application] Rejection email failed", emailError);
     }
 
     return res.json({ success: true, status: "REJECTED" });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
-      return res.status(503).json({ error: error.message });
-    }
-
     console.error("[Partner Application] Failed to reject partner application", error);
     return res.status(500).json({ error: "Failed to reject partner application" });
   }

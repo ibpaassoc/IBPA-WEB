@@ -297,13 +297,13 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const errorText = getSafeTeamErrorMessage(data?.error, "Failed to request additional seats.");
+        const errorText = getSafeTeamErrorMessage(data?.error, "Failed to extend seat capacity.");
         setServerError(errorText);
         toast.error(errorText);
         return;
       }
 
-      toast.warning("Seat extension request submitted. Payment is required before activation.");
+      toast.success("Seat capacity updated.");
       await loadTeamMembers();
     } catch {
       setServerError("Connection error while extending seats.");

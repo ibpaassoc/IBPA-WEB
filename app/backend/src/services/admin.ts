@@ -7,10 +7,10 @@ import {
   getEmailFromSessionClaims,
   getEmailCandidatesForUser,
 } from "./clerk";
-import { requireDb, users } from "../lib/db";
+import { requireDb } from "../lib/db";
+import { coreUsers } from "../lib/schema";
 
 const DEFAULT_ADMIN_EMAILS = [
-  "mokich45usa@gmail.com",
   "support@ibpassociations.org",
   "admin@ibpassociations.org",
 ];
@@ -71,9 +71,9 @@ export async function requireAdminAccess(req: Request, res: Response, next: Next
     try {
       const db = requireDb();
       const [storedUser] = await db
-        .select({ email: users.email })
-        .from(users)
-        .where(eq(users.clerkId, clerkUserId));
+        .select({ email: coreUsers.email })
+        .from(coreUsers)
+        .where(eq(coreUsers.clerkId, clerkUserId));
 
       const normalizedStored = normalizeEmail(storedUser?.email);
       if (normalizedStored) {
