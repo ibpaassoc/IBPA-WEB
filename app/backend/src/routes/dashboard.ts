@@ -649,7 +649,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
     return res.json({
       certificates: certificatePayload,
       externalCertificates,
-      paymentHistory: paymentHistory.map((entry) => ({
+      paymentHistory: paymentHistory.map((entry: typeof corePayments.$inferSelect) => ({
         id: entry.id,
         type: entry.type,
         amount: entry.amount,
