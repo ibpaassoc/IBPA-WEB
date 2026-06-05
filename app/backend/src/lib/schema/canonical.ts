@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgEnum, pgSchema, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import type { ProfileService } from "@/features/profiles/server/profile.types";
 
 const ibpa = pgSchema("ibpa");
 
@@ -39,7 +40,7 @@ export const coreProfiles = ibpa.table("profiles", {
   avatarUrl: text("avatar_url"),
   bio: text("bio"),
   credentials: text("credentials"),
-  services: text("services"),
+  services: jsonb("services").$type<ProfileService[]>().notNull().default(sql`'[]'::jsonb`),
   workGalleryPhotos: jsonb("work_gallery_photos").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   specializations: jsonb("specializations").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   city: varchar("city", { length: 120 }),

@@ -1,13 +1,28 @@
 import { requireDb } from "@/lib/db";
 import type { SourceUserRecord } from "@/features/shared/server/source-records";
 import { resolveUserRole, ensureCanonicalUser } from "@/features/users/server/user.service";
-import { listCanonicalPublicMemberRows, upsertCanonicalProfile } from "./profile.repository";
-import type { CanonicalPublicMemberRow, DashboardProfileSaveInput, PublicMemberDirectoryItem } from "./profile.types";
+import { findCanonicalUserByClerkId } from "@/features/users/server/user.repository";
+import {
+  findProfileByUserId,
+  listCanonicalPublicMemberRows,
+  updateProfileServicesByUserId,
+  upsertCanonicalProfile,
+} from "./profile.repository";
+import type {
+  CanonicalPublicMemberRow,
+  DashboardProfileSaveInput,
+  ProfileService,
+  PublicMemberDirectoryItem,
+} from "./profile.types";
 
 type DbClient = ReturnType<typeof requireDb>;
 
 function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function normalizeServiceText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function textValue(value: unknown): string {
@@ -63,6 +78,38 @@ function joinTruthy(values: unknown[], separator = " | ") {
 function parseYearsExperience(value: unknown) {
   const normalized = Number.parseInt(textValue(value), 10);
   return Number.isFinite(normalized) ? normalized : null;
+}
+
+function createServiceId() {
+  return `svc_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function normalizeProfileServices(input: unknown): ProfileService[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const title = normalizeServiceText(record.title);
+
+      if (!title) {
+        return null;
+      }
+
+      return {
+        id: normalizeServiceText(record.id) || createServiceId(),
+        title,
+        description: normalizeServiceText(record.description),
+        price: normalizeServiceText(record.price),
+      } satisfies ProfileService;
+    })
+    .filter((service): service is ProfileService => service !== null);
 }
 
 function mapCanonicalRow(record: CanonicalPublicMemberRow): PublicMemberDirectoryItem {
@@ -132,7 +179,6 @@ export async function saveDashboardProfile(db: DbClient, input: DashboardProfile
     avatarUrl: input.imageUrl ?? null,
     bio: input.bio ?? null,
     credentials: input.education ?? null,
-    services: textValue(payload.bizServices) || null,
     workGalleryPhotos: stringArray(payload.portfolioImages),
     specializations,
     city: input.city ?? null,
@@ -145,6 +191,33 @@ export async function saveDashboardProfile(db: DbClient, input: DashboardProfile
   return {
     nextApplicationPayload: payload,
   };
+}
+
+export async function saveProfileServices(input: {
+  clerkUserId: string;
+  services: ProfileService[];
+}) {
+  const db = requireDb();
+  const canonicalUser = await findCanonicalUserByClerkId(db, input.clerkUserId);
+
+  if (!canonicalUser) {
+    throw new Error("User not found for the authenticated Clerk account.");
+  }
+
+  const profile = await findProfileByUserId(db, canonicalUser.id);
+  if (!profile) {
+    throw new Error("Profile not found for the authenticated user.");
+  }
+
+  const services = normalizeProfileServices(input.services);
+
+  const updated = await updateProfileServicesByUserId(db, canonicalUser.id, services);
+
+  if (!updated) {
+    throw new Error("Unable to update profile services.");
+  }
+
+  return { services: updated.services ?? [] };
 }
 
 export async function importSourceUserProfile(db: DbClient, params: {
@@ -161,7 +234,6 @@ export async function importSourceUserProfile(db: DbClient, params: {
     avatarUrl: params.sourceUser.imageUrl ?? null,
     bio: params.sourceUser.bio ?? null,
     credentials: params.sourceUser.education ?? null,
-    services: textValue(payload.bizServices) || null,
     workGalleryPhotos: stringArray(payload.portfolioImages),
     specializations: uniqueStrings([
       textValue(params.sourceUser.specialization),

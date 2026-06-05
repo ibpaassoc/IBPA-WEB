@@ -5,7 +5,8 @@ export type ApplicationPayload = Record<string, unknown> | null | undefined;
 export type ProfileService = {
   id: string;
   title: string;
-  description?: string;
+  description: string;
+  price: string;
 };
 
 export type CombinedProfileData = {

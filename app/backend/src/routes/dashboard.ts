@@ -23,7 +23,7 @@ import {
   getPrimaryEmailFromClerkUser,
 } from "../services/clerk";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
-import { saveDashboardProfile } from "../features/profiles/server/profile.service";
+import { normalizeProfileServices, saveDashboardProfile, saveProfileServices } from "../features/profiles/server/profile.service";
 import { markNotificationsRead } from "../features/notifications/server/notification.service";
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
 import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
@@ -143,6 +143,17 @@ function stringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
+function commaSeparatedArray(value: unknown): string[] {
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function mapApplicationStatusToLegacy(status: string | null | undefined) {
   switch ((status || "").toUpperCase()) {
     case "UNDER_REVIEW":
@@ -206,9 +217,10 @@ function buildOwnerDashboardProfile(params: {
   ].filter(Boolean).join(" ") || firstText(application?.fullName) || user.email;
   const specializations = uniqueStrings([
     ...stringArray(payload.specialization),
-    firstText(profile?.specializations),
-    firstText(profile?.services),
+    ...stringArray(profile?.specializations),
+    ...commaSeparatedArray(payload.bizServices),
   ]).filter(Boolean);
+  const services = normalizeProfileServices(profile?.services);
 
   return {
     id: user.id,
@@ -228,6 +240,7 @@ function buildOwnerDashboardProfile(params: {
     state: firstText(profile?.state, payload.state) || null,
     achievements: firstText(payload.achievementsDesc, payload.contributionDesc) || null,
     certificatesSummary: firstText(payload.licenseNumber, payload.trainerCertificateFiles) || null,
+    services,
     applicationPayload: payload,
     type: mapApplicationTypeToAccountType(application?.type),
     accountType: mapApplicationTypeToAccountType(application?.type),
@@ -1107,6 +1120,42 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
   } catch (error) {
     console.error("[Dashboard /profile PATCH] Error:", error);
     return res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+dashboardRouter.patch("/profile/services", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    if (access.accessType === "partner_team_member") {
+      return res.status(403).json({
+        error: "Team member profiles are managed by the partner owner.",
+        code: "TEAM_MEMBER_EDIT_DISABLED",
+      });
+    }
+
+    const services = Array.isArray(req.body?.services) ? req.body.services : [];
+    const result = await saveProfileServices({
+      clerkUserId,
+      services,
+    });
+
+    return res.json({
+      success: true,
+      services: result.services,
+    });
+  } catch (error) {
+    console.error("[Dashboard /profile/services PATCH] Error:", error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to update services",
+    });
   }
 });
 

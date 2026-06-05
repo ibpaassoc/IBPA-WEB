@@ -1,5 +1,12 @@
 import type { UserRole } from "@/lib/permissions";
 
+export type ProfileService = {
+  id: string;
+  title: string;
+  description: string;
+  price: string;
+};
+
 export type DashboardProfileSaveInput = {
   clerkUserId: string;
   email: string;
@@ -28,7 +35,7 @@ export type CanonicalPublicMemberRow = {
   avatarUrl: string | null;
   bio: string | null;
   credentials: string | null;
-  services: string | null;
+  services: ProfileService[] | null;
   workGalleryPhotos: string[];
   specializations: string[];
   city: string | null;

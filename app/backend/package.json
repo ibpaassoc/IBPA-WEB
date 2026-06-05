@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@clerk/express": "^2.0.4",
+    "@clerk/nextjs": "^7.4.3",
     "@neondatabase/serverless": "^1.0.2",
     "@types/body-parser": "^1.19.6",
     "@types/cors": "^2.8.19",

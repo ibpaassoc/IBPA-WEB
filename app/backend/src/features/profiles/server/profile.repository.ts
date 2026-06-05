@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
 import { coreMemberships, coreProfiles, coreUsers } from "@/lib/schema";
-import type { CanonicalPublicMemberRow } from "./profile.types";
+import type { CanonicalPublicMemberRow, ProfileService } from "./profile.types";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -43,7 +43,7 @@ export async function upsertCanonicalProfile(db: DbClient, params: {
   avatarUrl?: string | null;
   bio?: string | null;
   credentials?: string | null;
-  services?: string | null;
+  services?: ProfileService[] | null;
   workGalleryPhotos?: string[];
   specializations?: string[];
   city?: string | null;
@@ -64,7 +64,7 @@ export async function upsertCanonicalProfile(db: DbClient, params: {
         avatarUrl: params.avatarUrl ?? existing.avatarUrl,
         bio: params.bio ?? existing.bio,
         credentials: params.credentials ?? existing.credentials,
-        services: params.services ?? existing.services,
+        services: params.services ?? existing.services ?? [],
         workGalleryPhotos: params.workGalleryPhotos ?? existing.workGalleryPhotos,
         specializations: params.specializations ?? existing.specializations,
         city: params.city ?? existing.city,
@@ -90,7 +90,7 @@ export async function upsertCanonicalProfile(db: DbClient, params: {
       avatarUrl: params.avatarUrl ?? null,
       bio: params.bio ?? null,
       credentials: params.credentials ?? null,
-      services: params.services ?? null,
+      services: params.services ?? [],
       workGalleryPhotos: params.workGalleryPhotos ?? [],
       specializations: params.specializations ?? [],
       city: params.city ?? null,
@@ -103,4 +103,31 @@ export async function upsertCanonicalProfile(db: DbClient, params: {
     .returning();
 
   return { record: created, created: true };
+}
+
+export async function findProfileByUserId(db: DbClient, userId: string) {
+  const [profile] = await db
+    .select()
+    .from(coreProfiles)
+    .where(eq(coreProfiles.userId, userId))
+    .limit(1);
+
+  return profile ?? null;
+}
+
+export async function updateProfileServicesByUserId(
+  db: DbClient,
+  userId: string,
+  services: ProfileService[],
+) {
+  const [profile] = await db
+    .update(coreProfiles)
+    .set({
+      services,
+      updatedAt: new Date(),
+    })
+    .where(eq(coreProfiles.userId, userId))
+    .returning();
+
+  return profile ?? null;
 }

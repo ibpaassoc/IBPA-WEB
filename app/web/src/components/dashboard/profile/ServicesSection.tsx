@@ -1,7 +1,7 @@
 "use client";
 
-import { startTransition, useEffect, useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { startTransition, useEffect, useState } from "react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import type { ProfileService } from "@/lib/application-profile";
@@ -32,14 +32,13 @@ function normalizeServices(services: ProfileService[] | null | undefined) {
     .map((service) => ({
       id: service.id,
       title: service.title.trim(),
-      ...(service.description?.trim()
-        ? { description: service.description.trim() }
-        : {}),
+      description: service.description?.trim() || "",
+      price: service.price?.trim() || "",
     }));
 }
 
 async function saveServices(services: ProfileService[]) {
-  const response = await fetch("/api/dashboard/profile", {
+  const response = await fetch("/api/profile/services", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -56,6 +55,8 @@ async function saveServices(services: ProfileService[]) {
         : "Unable to save services right now.",
     );
   }
+
+  return normalizeServices(payload?.services);
 }
 
 export function ServicesSection({
@@ -68,76 +69,89 @@ export function ServicesSection({
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [isPending, startSavingTransition] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     startTransition(() => {
       setServices(normalizeServices(initialServices));
       setEditingId(null);
       setIsAdding(false);
+      setErrorMessage(null);
     });
   }, [initialServices]);
 
-  const persistServices = (nextServices: ProfileService[], successMessage: string) => {
+  const persistServices = async (
+    nextServices: ProfileService[],
+    successMessage: string,
+  ) => {
     const previousServices = services;
     setServices(nextServices);
+    setIsSaving(true);
+    setErrorMessage(null);
 
-    startSavingTransition(async () => {
-      try {
-        await saveServices(nextServices);
-        toast.success(successMessage);
-      } catch (error) {
-        setServices(previousServices);
-        toast.error(error instanceof Error ? error.message : "Unable to save services.");
-      }
-    });
+    try {
+      const savedServices = await saveServices(nextServices);
+      setServices(savedServices);
+      toast.success(successMessage);
+    } catch (error) {
+      setServices(previousServices);
+      const message =
+        error instanceof Error ? error.message : "Unable to save services.";
+      setErrorMessage(message);
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <section className="rounded-[28px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_18px_45px_rgba(11,31,68,0.08)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="relative rounded-[28px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_18px_45px_rgba(11,31,68,0.08)]">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#16386D]">
             Common Services
           </p>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            Showcase the services members can book, request, or inquire about.
-          </p>
-        </div>
 
-        {!isAdding ? (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => {
-              setIsAdding(true);
-              setEditingId(null);
-            }}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#16386D] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#102c59] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Plus className="h-4 w-4" />
-            Add Service
-          </button>
-        ) : null}
+          {services.length === 0 || isAdding ? (
+            <p className="mt-2 max-w-[32ch] text-sm leading-6 text-slate-500">
+              Add the services you want to highlight on your profile.
+            </p>
+          ) : (
+            <div className="mt-2 inline-flex items-center rounded-full bg-[#EEF5FF] px-3 py-1 text-xs font-semibold text-[#31598A]">
+              {services.length} {services.length === 1 ? "service" : "services"}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="mt-4 space-y-4">
+      {errorMessage ? (
+        <div className="mt-4 rounded-2xl border border-[#F1CFD4] bg-[#FFF7F8] px-4 py-3 text-sm text-[#A23A4A]">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      <div className="mt-4 pr-1">
         {isAdding ? (
           <ServiceEditor
-            saving={isPending}
-            onCancel={() => setIsAdding(false)}
-            onSave={(draft) => {
+            saving={isSaving}
+            onCancel={() => {
+              setIsAdding(false);
+              setErrorMessage(null);
+            }}
+            onSave={async (draft) => {
               const nextServices = [
                 ...services,
                 {
                   id: createServiceId(),
                   title: draft.title,
-                  ...(draft.description ? { description: draft.description } : {}),
+                  description: draft.description,
+                  price: draft.price,
                 },
               ];
 
               setIsAdding(false);
-              persistServices(nextServices, "Service added.");
+              await persistServices(nextServices, "Service added.");
             }}
           />
         ) : null}
@@ -145,14 +159,19 @@ export function ServicesSection({
         {services.length === 0 && !isAdding ? (
           <div className="rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#F8FBFF] px-5 py-6 text-sm leading-6 text-slate-500">
             No services added yet.
-            <br />
-            Click &quot;Add Service&quot; to showcase your professional offerings.
           </div>
         ) : null}
 
         {services.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {services.map((service, index) => {
+          <div className="relative">
+            <div
+              className="service-scroll grid max-h-[372px] overflow-x-hidden overflow-y-auto gap-3 sm:grid-cols-2"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+            {services.map((service) => {
               const isEditing = editingId === service.id;
 
               if (isEditing) {
@@ -160,23 +179,25 @@ export function ServicesSection({
                   <ServiceEditor
                     key={service.id}
                     service={service}
-                    saving={isPending}
-                    onCancel={() => setEditingId(null)}
-                    onSave={(draft) => {
+                    saving={isSaving}
+                    onCancel={() => {
+                      setEditingId(null);
+                      setErrorMessage(null);
+                    }}
+                    onSave={async (draft) => {
                       const nextServices = services.map((item) =>
                         item.id === service.id
                           ? {
                               ...item,
                               title: draft.title,
-                              ...(draft.description
-                                ? { description: draft.description }
-                                : { description: undefined }),
+                              description: draft.description,
+                              price: draft.price,
                             }
                           : item,
                       );
 
                       setEditingId(null);
-                      persistServices(nextServices, "Service updated.");
+                      await persistServices(nextServices, "Service updated.");
                     }}
                   />
                 );
@@ -186,42 +207,51 @@ export function ServicesSection({
                 <ServiceCard
                   key={service.id}
                   service={service}
-                  canMoveUp={index > 0}
-                  canMoveDown={index < services.length - 1}
-                  disabled={isPending}
+                  disabled={isSaving}
                   onEdit={() => {
                     setEditingId(service.id);
                     setIsAdding(false);
+                    setErrorMessage(null);
                   }}
-                  onDelete={() => {
+                  onDelete={async () => {
                     const nextServices = services.filter((item) => item.id !== service.id);
                     setEditingId(null);
-                    persistServices(nextServices, "Service removed.");
-                  }}
-                  onMoveUp={() => {
-                    if (index === 0) return;
-                    const nextServices = [...services];
-                    [nextServices[index - 1], nextServices[index]] = [
-                      nextServices[index],
-                      nextServices[index - 1],
-                    ];
-                    persistServices(nextServices, "Services reordered.");
-                  }}
-                  onMoveDown={() => {
-                    if (index >= services.length - 1) return;
-                    const nextServices = [...services];
-                    [nextServices[index], nextServices[index + 1]] = [
-                      nextServices[index + 1],
-                      nextServices[index],
-                    ];
-                    persistServices(nextServices, "Services reordered.");
+                    await persistServices(nextServices, "Service removed.");
                   }}
                 />
               );
             })}
+            </div>
           </div>
         ) : null}
       </div>
+
+      {!isAdding ? (
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => {
+            setIsAdding(true);
+            setEditingId(null);
+            setErrorMessage(null);
+          }}
+          className="absolute bottom-5 right-5 inline-flex size-12 items-center justify-center rounded-full bg-[#16386D] text-white shadow-[0_12px_24px_rgba(22,56,109,0.28)] transition hover:bg-[#102c59] hover:shadow-[0_16px_28px_rgba(22,56,109,0.34)] disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label={isSaving ? "Saving service changes" : "Add service"}
+          title="Add service"
+        >
+          {isSaving ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <Plus className="h-5 w-5" />
+          )}
+        </button>
+      ) : null}
+
+      <style jsx>{`
+        .service-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </section>
   );
 }

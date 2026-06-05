@@ -176,6 +176,11 @@ export function DashboardProfile({
     return raw.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 6);
   }, [mergedProfileData.applicationPayload]);
 
+  const profileServices = useMemo(
+    () => (Array.isArray(mergedProfileData.services) ? mergedProfileData.services : []),
+    [mergedProfileData.services],
+  );
+
   if (isTeamMemberDashboard) {
     return (
       <div className="grid gap-4 md:grid-cols-3">
@@ -297,7 +302,7 @@ export function DashboardProfile({
                 />
               </div>
             </Panel>
-            <ServicesSection initialServices={mergedProfileData.services} />
+            <ServicesSection initialServices={profileServices} />
           </div>
         </div>
       </section>
