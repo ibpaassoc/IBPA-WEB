@@ -34,7 +34,7 @@ export function DashboardHeader({
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(true)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 md:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 lg:hidden"
           >
             <Menu className="h-5 w-5" />
           </button>

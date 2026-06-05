@@ -59,7 +59,7 @@ export function DashboardSidebar({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 z-40 bg-slate-950/25 backdrop-blur-sm md:hidden"
+              className="fixed inset-0 z-40 bg-slate-950/25 backdrop-blur-sm lg:hidden"
             />
 
             <motion.aside
@@ -67,7 +67,7 @@ export function DashboardSidebar({
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 26, stiffness: 220 }}
-              className="fixed inset-y-0 left-0 z-50 flex w-[300px] flex-col bg-white px-5 py-5 shadow-2xl md:hidden"
+              className="fixed inset-y-0 left-0 z-50 flex w-[300px] flex-col bg-white px-5 py-5 shadow-2xl lg:hidden"
             >
               <div className="mb-6 flex items-center justify-between">
                 <div>
