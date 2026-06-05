@@ -600,6 +600,7 @@ function MemberCard({
         : [];
 
   const specializationText = specializations.join(", ") || member.title;
+  const highlightChips = member.highlights.filter(Boolean).slice(0, 3);
 
   const categoryLabel = member.membershipCategory
     ? membershipLabels[member.membershipCategory] || member.membershipCategory
@@ -607,40 +608,45 @@ function MemberCard({
 
   return (
     <Dialog>
-      <div className="group flex min-h-[340px] flex-col overflow-hidden rounded-[32px] border border-[#D4E0F0] bg-white shadow-[0_22px_60px_rgba(11,31,68,0.09)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(11,31,68,0.14)]">
-        <div className="relative h-20 bg-[radial-gradient(circle_at_15%_15%,rgba(114,160,193,0.38),transparent_34%),linear-gradient(135deg,#F8FBFE,#EAF4FA)]">
-          <div className="absolute inset-x-5 -bottom-9 flex items-end justify-between gap-3">
-            <MemberAvatar member={member} className="h-[76px] w-[76px]" />
+      <div className="group flex min-h-[320px] flex-col overflow-hidden rounded-[32px] border border-[#D4E0F0] bg-white shadow-[0_22px_60px_rgba(11,31,68,0.09)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(11,31,68,0.14)]">
+        <div className="h-20 bg-[radial-gradient(circle_at_18%_18%,rgba(114,160,193,0.34),transparent_32%),linear-gradient(135deg,#F6FAFF,#EAF3FD)]" />
 
-            {categoryLabel ? (
-              <span className="mb-2 inline-flex max-w-[9rem] items-center rounded-full border border-[#72A0C1]/25 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#477998] shadow-sm">
-                {categoryLabel}
+        <div className="flex flex-1 flex-col px-5 pb-5 pt-0">
+          <div className="-mt-10 flex items-start justify-between gap-3">
+            <MemberAvatar member={member} className="h-[78px] w-[78px]" />
+
+            <div className="flex flex-wrap justify-end gap-2 pt-3">
+              {categoryLabel ? (
+                <span className="inline-flex items-center rounded-full border border-[#72A0C1]/20 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#477998] shadow-sm">
+                  {categoryLabel}
+                </span>
+              ) : null}
+              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">
+                Active Member
               </span>
-            ) : null}
+            </div>
           </div>
-        </div>
 
-        <div className="flex flex-1 flex-col px-5 pb-5 pt-12">
-          <div className="min-w-0">
+          <div className="mt-4 min-w-0">
             <p className="line-clamp-1 text-lg font-semibold leading-tight tracking-[-0.02em] text-[#10203B]">
               {member.fullName}
             </p>
 
-            <p className="mt-1 line-clamp-1 text-sm leading-5 text-slate-500">
-              {specializationText}
-            </p>
-
             {member.location ? (
-              <p className="mt-4 flex items-start gap-2 text-sm leading-5 text-slate-500">
+              <p className="mt-3 flex items-start gap-2 text-sm leading-5 text-slate-500">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#72A0C1]" />
                 <span className="line-clamp-1">{member.location}</span>
               </p>
             ) : null}
+
+            <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-600">
+              {specializationText || "IBPA Member"}
+            </p>
           </div>
 
-          {specializations.length > 0 ? (
+          {highlightChips.length > 0 ? (
             <div className="mt-4 flex min-h-[2rem] flex-wrap gap-2">
-              {specializations.slice(0, 3).map((item) => (
+              {highlightChips.map((item) => (
                 <span
                   key={item}
                   className="inline-flex max-w-full rounded-full border border-[#D4E0F0] bg-[#F8FBFF] px-3 py-1 text-[11px] font-medium text-slate-600"
@@ -652,14 +658,22 @@ function MemberCard({
           ) : null}
 
           <div className="mt-auto pt-5">
-            <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="mb-3 flex items-center justify-between gap-3 text-xs text-slate-500">
+              {member.experience ? (
+                <span className="rounded-full bg-[#F8FBFF] px-3 py-1 font-semibold text-slate-600">
+                  {member.experience}
+                </span>
+              ) : (
+                <span />
+              )}
+
               <div className="flex items-center gap-2 text-slate-500">
                 {instagramUrl ? (
                   <a
                     href={instagramUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white transition hover:border-[#72A0C1]/50 hover:bg-[#F4FAFF] hover:text-[#4C7D9D]"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D4E0F0] bg-white transition hover:border-[#72A0C1]/50 hover:bg-[#F4FAFF] hover:text-[#4C7D9D]"
                     aria-label={`${member.fullName} Instagram`}
                   >
                     <Instagram className="h-4 w-4" />
@@ -671,19 +685,13 @@ function MemberCard({
                     href={websiteUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D4E0F0] bg-white transition hover:border-[#72A0C1]/50 hover:bg-[#F4FAFF] hover:text-[#4C7D9D]"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D4E0F0] bg-white transition hover:border-[#72A0C1]/50 hover:bg-[#F4FAFF] hover:text-[#4C7D9D]"
                     aria-label={`${member.fullName} website`}
                   >
                     <Globe className="h-4 w-4" />
                   </a>
                 ) : null}
               </div>
-
-              {member.experience ? (
-                <span className="rounded-full bg-[#F8FBFF] px-3 py-1 text-xs font-semibold text-slate-500">
-                  {member.experience}
-                </span>
-              ) : null}
             </div>
 
             <DialogTrigger asChild>
