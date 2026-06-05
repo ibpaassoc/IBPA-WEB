@@ -190,7 +190,7 @@ export function DashboardCertificates({
         </h1>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.16fr)_320px]">
         <section className={shellCardClassName}>
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -310,18 +310,15 @@ export function DashboardCertificates({
           </div>
         </section>
 
-        <section className={`${shellCardClassName} h-fit`}>
+        <section className={`${shellCardClassName} h-fit p-4`}>
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/75">
-            Add Certificate
+            Upload certificate
           </p>
-          <h2 className="mt-2 text-xl font-semibold text-[#10203B]">
-            Upload a personal certificate
+          <h2 className="mt-2 text-lg font-semibold text-[#10203B]">
+            Add personal certificate
           </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            Add training, workshop, or external credentials as supporting documents on your member dashboard.
-          </p>
 
-          <div className="mt-5 space-y-4">
+          <div className="mt-4 space-y-3">
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                 Certificate title
@@ -330,7 +327,7 @@ export function DashboardCertificates({
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Advanced Brow Masterclass"
-                className="mt-2 h-12 w-full rounded-2xl border border-[#D4E0F0] bg-[#F8FBFF] px-4 text-sm text-[#10203B] outline-none transition placeholder:text-slate-400 focus:border-[#72A0C1] focus:bg-white focus:ring-4 focus:ring-[#72A0C1]/10"
+                className="mt-2 h-11 w-full rounded-2xl border border-[#D4E0F0] bg-[#F8FBFF] px-4 text-sm text-[#10203B] outline-none transition placeholder:text-slate-400 focus:border-[#72A0C1] focus:bg-white focus:ring-4 focus:ring-[#72A0C1]/10"
               />
             </label>
 
@@ -348,10 +345,10 @@ export function DashboardCertificates({
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex w-full items-center justify-between rounded-[24px] border border-dashed border-[#C8D8EA] bg-[#F8FBFF] px-4 py-4 text-left transition hover:border-[#72A0C1]/45 hover:bg-white"
+              className="flex w-full items-center justify-between rounded-[24px] border border-dashed border-[#C8D8EA] bg-[#F8FBFF] px-4 py-3 text-left transition hover:border-[#72A0C1]/45 hover:bg-white"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#2B5C99] shadow-sm">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#2B5C99] shadow-sm">
                   <UploadCloud className="h-5 w-5" />
                 </div>
                 <div>
@@ -373,7 +370,7 @@ export function DashboardCertificates({
               type="button"
               onClick={() => void handleUpload()}
               disabled={isSaving}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#10203B] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1a3157] disabled:cursor-not-allowed disabled:opacity-65"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#10203B] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a3157] disabled:cursor-not-allowed disabled:opacity-65"
             >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
