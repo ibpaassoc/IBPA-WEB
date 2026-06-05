@@ -9,7 +9,7 @@ export function DashboardAccountSettings() {
   const { isSignedIn } = useUser();
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#21466D]">
           Account
@@ -21,16 +21,23 @@ export function DashboardAccountSettings() {
 
       <section className={shellCardClassName}>
         {isSignedIn ? (
-          <div className="overflow-hidden rounded-[28px] border border-[#D4E0F0] bg-[#F8FBFF] p-3">
-            <UserProfile
-              routing="hash"
-              appearance={{
-                elements: {
-                  rootBox: "w-full",
-                  card: "w-full max-w-none border-0 bg-transparent shadow-none",
-                },
-              }}
-            />
+          <div className="mx-auto max-w-[1120px] rounded-[28px] border border-[#D4E0F0] bg-[radial-gradient(circle_at_top,rgba(111,162,212,0.12),transparent_28%),linear-gradient(180deg,#F8FBFF_0%,#FDFEFF_100%)] p-2 sm:p-3 lg:p-4">
+            <div className="overflow-x-auto rounded-[24px] border border-white/80 bg-white/85 shadow-[0_16px_40px_rgba(11,31,68,0.06)]">
+              <div className="min-w-0">
+                <UserProfile
+                  routing="hash"
+                  appearance={{
+                    elements: {
+                      rootBox: "w-full min-w-0",
+                      cardBox: "w-full",
+                      card: "w-full max-w-none border-0 bg-transparent shadow-none",
+                      navbar: "shrink-0",
+                      pageScrollBox: "w-full",
+                    },
+                  }}
+                />
+              </div>
+            </div>
           </div>
         ) : (
           <div className="rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#F8FBFF] px-6 py-10 text-center">
