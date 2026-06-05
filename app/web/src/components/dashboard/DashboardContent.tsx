@@ -196,7 +196,6 @@ export function DashboardContent(props: Props) {
       return (
         <DashboardBilling
           isPartnerOwner={isPartnerOwner}
-          partnerTeamSummary={partnerTeamSummary}
           membershipCategoryLabel={membershipCategoryLabel}
           primaryCertificate={primaryCertificate}
           membershipExpiresDisplay={membershipExpiresDisplay}

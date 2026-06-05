@@ -385,26 +385,17 @@ export function useDashboardDerivedData({
       },
     },
     {
-      label: "Upload Certificates",
-      description: "Use support to send updated training proof.",
-      icon: <Award className="h-4 w-4" />,
-      onClick: () => {
-        setActiveTab("support");
-        setSupportMode("question");
-      },
-    },
-    {
-      label: "View Membership",
-      description: "Review plan, expiry, and payment activity.",
-      icon: <CreditCard className="h-4 w-4" />,
-      onClick: () => setActiveTab("billing"),
-    },
-    {
       label: "Certificate Status",
       description: "Track verification and downloads.",
       icon: <ShieldCheck className="h-4 w-4" />,
       onClick: () =>
         setActiveTab(showCertificatesTab ? "certificates" : "billing"),
+      },
+    {
+      label: "View Membership",
+      description: "Review plan, expiry, and payment activity.",
+      icon: <CreditCard className="h-4 w-4" />,
+      onClick: () => setActiveTab("billing"),
     },
     {
       label: "Member Directory",
