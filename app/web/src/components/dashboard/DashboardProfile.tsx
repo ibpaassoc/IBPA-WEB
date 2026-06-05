@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -87,7 +87,7 @@ function MetricCard({
   value: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[#D4E0F0] bg-[#FBFDFF] p-4 shadow-[0_14px_35px_rgba(11,31,68,0.05)]">
+    <div className="flex h-full flex-col justify-between rounded-[24px] border border-[#D4E0F0] bg-[#FBFDFF] p-4 shadow-[0_14px_35px_rgba(11,31,68,0.05)]">
       <div className="mb-3 text-[#2B5C99]">{icon}</div>
       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {label}
@@ -154,7 +154,7 @@ function ExpandableTextCard({
   return (
     <motion.article
       layout
-      className="rounded-[24px] border border-[#D4E0F0] bg-[#FBFDFF] p-4 shadow-[0_14px_35px_rgba(11,31,68,0.05)]"
+      className="flex h-full flex-col rounded-[24px] border border-[#D4E0F0] bg-[#FBFDFF] p-4 shadow-[0_14px_35px_rgba(11,31,68,0.05)]"
       transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
     >
       <div className="flex items-center gap-2">
@@ -164,7 +164,7 @@ function ExpandableTextCard({
         </p>
       </div>
 
-      <motion.div layout className="mt-3">
+      <motion.div layout className="mt-3 flex-1">
         <p
           className={`break-words text-sm leading-6 text-[#10203B] ${
             !expanded && isExpandable ? "line-clamp-4" : ""
@@ -205,7 +205,7 @@ function CertificatePreviewCard({
   return (
     <motion.article
       layout
-      className="rounded-[28px] border border-[#D4E0F0] bg-[radial-gradient(circle_at_top_left,rgba(111,162,212,0.18),transparent_28%),linear-gradient(180deg,#F7FBFF_0%,#FFFFFF_100%)] p-5 shadow-[0_18px_40px_rgba(11,31,68,0.07)]"
+      className="flex h-full flex-col rounded-[28px] border border-[#D4E0F0] bg-[radial-gradient(circle_at_top_left,rgba(111,162,212,0.18),transparent_28%),linear-gradient(180deg,#F7FBFF_0%,#FFFFFF_100%)] p-5 shadow-[0_18px_40px_rgba(11,31,68,0.07)]"
       transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -420,6 +420,7 @@ export function DashboardProfile({
       mergedProfileData.bio,
     ],
   );
+  const [biographyCard, achievementsCard, contributionCard] = biographySections;
 
   if (isTeamMemberDashboard) {
     return (
@@ -548,20 +549,51 @@ export function DashboardProfile({
       </section>
 
       <Panel title="Professional biography">
-        <div className="grid gap-4 rounded-3xl border border-[#D4E0F0] bg-white p-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-          <div className="space-y-4">
+        <div className="grid gap-4 rounded-3xl border border-[#D4E0F0] bg-white p-4 xl:grid-cols-3 xl:auto-rows-fr">
+          <div className="h-full">
             <MetricCard
               icon={<Sparkles className="h-5 w-5" />}
               label="Years of experience"
               value={mergedProfileData.experienceYears || "Not added yet"}
             />
+          </div>
 
+          <div className="h-full">
+            <ExpandableTextCard
+              label={biographyCard.label}
+              icon={biographyCard.icon}
+              value={biographyCard.value}
+              emptyLabel={biographyCard.emptyLabel}
+            />
+          </div>
+
+          <div className="h-full">
+            <ExpandableTextCard
+              label={achievementsCard.label}
+              icon={achievementsCard.icon}
+              value={achievementsCard.value}
+              emptyLabel={achievementsCard.emptyLabel}
+            />
+          </div>
+
+          <div className="h-full">
             <CertificatePreviewCard
               certificate={primaryCertificate}
               fullName={fullName}
               membershipExpiresDisplay={membershipExpiresDisplay}
             />
+          </div>
 
+          <div className="h-full">
+            <ExpandableTextCard
+              label={contributionCard.label}
+              icon={contributionCard.icon}
+              value={contributionCard.value}
+              emptyLabel={contributionCard.emptyLabel}
+            />
+          </div>
+
+          <div className="h-full">
             <ExpandableTextCard
               label="Education"
               icon={<GraduationCap className="h-4 w-4" />}
@@ -569,24 +601,6 @@ export function DashboardProfile({
               emptyLabel="No education details added yet."
             />
           </div>
-
-          <motion.div
-            layout
-            className="grid gap-4 md:grid-cols-2"
-            transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <AnimatePresence initial={false}>
-              {biographySections.map((item) => (
-                <ExpandableTextCard
-                  key={item.key}
-                  label={item.label}
-                  icon={item.icon}
-                  value={item.value}
-                  emptyLabel={item.emptyLabel}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
         </div>
       </Panel>
 
