@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ArrowUpRight, ExternalLink } from "lucide-react";
 
 import type { DashboardContentItem } from "@/components/dashboard/dashboard-types";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
@@ -17,6 +17,10 @@ const eventCardClassName =
   "overflow-hidden rounded-[28px] border border-[#D4E0F0] bg-white shadow-[0_18px_45px_rgba(11,31,68,0.08)] transition hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(11,31,68,0.13)]";
 
 const infoBoxClassName = "rounded-2xl bg-[#F8FBFF] px-3.5 py-3";
+
+function isExternalUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
 
 export function DashboardEvents({
   eventAudienceFilter,
@@ -63,13 +67,20 @@ export function DashboardEvents({
       <div className="grid gap-5 xl:grid-cols-2">
         {filteredEventCards.length > 0 ? (
           filteredEventCards.map((item) => (
-            <article key={item.id} className={eventCardClassName}>
+            <a
+              key={item.id}
+              href={item.ctaUrl || "/contact"}
+              target={item.ctaUrl && isExternalUrl(item.ctaUrl) ? "_blank" : undefined}
+              rel={item.ctaUrl && isExternalUrl(item.ctaUrl) ? "noreferrer" : undefined}
+              className={`${eventCardClassName} group block focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#72A0C1]/20`}
+              aria-label={`${item.ctaLabel || "Open event"}: ${item.title}`}
+            >
               {item.coverImage ? (
                 <div className="overflow-hidden border-b border-[#D4E0F0] bg-slate-100">
                   <ImageWithFallback
                     src={item.coverImage}
                     alt={item.title}
-                    className="aspect-[16/7] w-full object-cover"
+                    className="aspect-[16/7] w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                   />
                 </div>
               ) : null}
@@ -131,20 +142,17 @@ export function DashboardEvents({
                     </div>
                   </div>
 
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                    <a
-                      href={item.ctaUrl || "/contact"}
-                      target={item.ctaUrl ? "_blank" : undefined}
-                      rel={item.ctaUrl ? "noreferrer" : undefined}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#10203B] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a3157]"
-                    >
-                      Register
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
+                  <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#10203B]">
+                    {item.ctaLabel || "Register"}
+                    {item.ctaUrl && isExternalUrl(item.ctaUrl) ? (
+                      <ExternalLink className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                    ) : (
+                      <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    )}
                   </div>
                 </div>
               </div>
-            </article>
+            </a>
           ))
         ) : (
           <div className="rounded-[28px] border border-dashed border-[#D4E0F0] bg-white/90 p-8 text-center text-sm text-slate-500 shadow-[0_18px_45px_rgba(11,31,68,0.08)] xl:col-span-2">
