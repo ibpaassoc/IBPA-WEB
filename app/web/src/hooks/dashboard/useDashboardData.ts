@@ -7,6 +7,7 @@ import type {
   Certificate,
   DashboardAccessType,
   DashboardContentItem,
+  ExternalCertificate,
   DashboardMeta,
   DashboardProfileData,
   PartnerTeamSummary,
@@ -23,6 +24,9 @@ export function useDashboardData({
   userLoaded: boolean;
 }) {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [externalCertificates, setExternalCertificates] = useState<
+    ExternalCertificate[]
+  >([]);
   const [profileData, setProfileData] = useState<DashboardProfileData>({});
   const [dashboardMeta, setDashboardMeta] = useState<DashboardMeta>({});
   const [dashboardAccessType, setDashboardAccessType] =
@@ -72,6 +76,7 @@ export function useDashboardData({
       if (!isSignedIn) {
         setCertificates([]);
         setProfileData({});
+        setExternalCertificates([]);
         setDirectoryMembers([]);
         setCustomNotifications([]);
         setDashboardNews([]);
@@ -109,6 +114,7 @@ export function useDashboardData({
         if (certRes.status === 401 || profRes.status === 401) {
           setCertificates([]);
           setProfileData({});
+          setExternalCertificates([]);
           setDirectoryMembers([]);
           setDashboardMeta({});
           setDashboardAccessType("member");
@@ -126,6 +132,7 @@ export function useDashboardData({
           );
           setCertificates([]);
           setProfileData({});
+          setExternalCertificates([]);
           setDirectoryMembers([]);
           setDashboardMeta({});
           setDashboardAccessType("member");
@@ -157,6 +164,11 @@ export function useDashboardData({
           setAccessErrorMessage(null);
           setCertificates(
             Array.isArray(certData.certificates) ? certData.certificates : [],
+          );
+          setExternalCertificates(
+            Array.isArray(certData.externalCertificates)
+              ? certData.externalCertificates
+              : [],
           );
 
           setDashboardMeta({
@@ -344,6 +356,7 @@ export function useDashboardData({
 
   return {
     certificates,
+    externalCertificates,
     profileData,
     dashboardMeta,
     dashboardAccessType,

@@ -30,6 +30,7 @@ export default function DashboardPage() {
 
   const {
     certificates,
+    externalCertificates,
     profileData,
     dashboardMeta,
     dashboardAccessType,
@@ -42,6 +43,7 @@ export default function DashboardPage() {
     dashboardNews,
     dashboardEvents,
     lastSyncedAt,
+    refreshDashboardData,
   } = useDashboardData({
     isSignedIn: Boolean(isSignedIn),
     userLoaded,
@@ -197,6 +199,7 @@ export default function DashboardPage() {
         achievementsSummary: finalDerived.achievementsSummary,
         snapshotItems: finalDerived.snapshotItems,
         certificates,
+        externalCertificates,
         billingEntries: finalDerived.billingEntries,
         overviewCards: finalDerived.overviewCards,
         profileChecklist: finalDerived.profileChecklist,
@@ -225,6 +228,7 @@ export default function DashboardPage() {
         copyPublicLink: finalDerived.copyPublicLink,
         lastSyncedAt,
         partnerSeatPrice: finalDerived.partnerSeatPrice,
+        refreshDashboardData,
       }}
     />
   );

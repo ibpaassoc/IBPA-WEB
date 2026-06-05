@@ -3,7 +3,12 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { CombinedProfileData } from "@/lib/application-profile";
 import type { DashboardNotification } from "@/lib/notifications";
-import type { Certificate, SupportMode, TabType } from "./dashboard-types";
+import type {
+  Certificate,
+  ExternalCertificate,
+  SupportMode,
+  TabType,
+} from "./dashboard-types";
 import type { NotificationPreferenceKey, NotificationPreferences, } from "@/lib/dashboard-cabinet";
 
 import { DashboardOverview } from "./DashboardOverview";
@@ -57,6 +62,7 @@ type Props = {
   snapshotItems: any[];
 
   certificates: any[];
+  externalCertificates: ExternalCertificate[];
   billingEntries: any[];
   overviewCards: any[];
   profileChecklist: ProfileChecklist;
@@ -93,6 +99,7 @@ type Props = {
   copyPublicLink: () => void;
   lastSyncedAt: string | null;
   partnerSeatPrice: number;
+  refreshDashboardData: (params?: { silent?: boolean }) => Promise<void>;
 };
 
 export function DashboardContent(props: Props) {
@@ -125,6 +132,7 @@ export function DashboardContent(props: Props) {
     achievementsSummary,
     snapshotItems,
     certificates,
+    externalCertificates,
     billingEntries,
     overviewCards,
     profileChecklist,
@@ -153,6 +161,7 @@ export function DashboardContent(props: Props) {
     copyPublicLink,
     lastSyncedAt,
     partnerSeatPrice,
+    refreshDashboardData,
   } = props;
 
   switch (activeTab) {
@@ -185,11 +194,11 @@ export function DashboardContent(props: Props) {
       return (
         <DashboardCertificates
           certificates={certificates}
+          externalCertificates={externalCertificates}
           showCertificatesTab={showCertificatesTab}
           fullName={fullName}
           membershipExpiresDisplay={membershipExpiresDisplay}
-          publicProfileHref={publicProfileHref}
-          setActiveTab={setActiveTab}
+          refreshDashboardData={refreshDashboardData}
         />
         
       );

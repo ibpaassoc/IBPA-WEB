@@ -64,6 +64,13 @@
       "when": 1780890000000,
       "tag": "0008_cutover_add_partners_and_drop_legacy",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781100000000,
+      "tag": "0009_add_external_certificate_file_type",
+      "breakpoints": true
     }
   ]
 }

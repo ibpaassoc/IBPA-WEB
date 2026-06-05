@@ -23,6 +23,11 @@ import {
   getPrimaryEmailFromClerkUser,
 } from "../services/clerk";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
+import {
+  createExternalCertificate,
+  deleteExternalCertificate,
+  listExternalCertificates,
+} from "../features/files/server/file.service";
 import { normalizeProfileServices, saveDashboardProfile, saveProfileServices } from "../features/profiles/server/profile.service";
 import { markNotificationsRead } from "../features/notifications/server/notification.service";
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
@@ -557,6 +562,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
       return res.json({
         certificates: [],
+        externalCertificates: [],
         accountType: "partner",
         applicationType: "TEAM_MEMBER",
         orderType: "partner",
@@ -600,6 +606,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       firstText(access.profile?.firstName),
       firstText(access.profile?.lastName),
     ].filter(Boolean).join(" ") || firstText(application?.fullName) || canonicalUser?.email || "";
+    const externalCertificates = await listExternalCertificates({ clerkUserId });
 
     const certificatePayload = certificate
       ? [{
@@ -620,6 +627,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
 
     return res.json({
       certificates: certificatePayload,
+      externalCertificates,
       accountType: mapApplicationTypeToAccountType(application?.type),
       applicationType: application?.type || canonicalUser?.role || null,
       orderType: mapApplicationTypeToAccountType(application?.type),
@@ -1155,6 +1163,82 @@ dashboardRouter.patch("/profile/services", clerkMiddleware(clerkOptions), async 
     console.error("[Dashboard /profile/services PATCH] Error:", error);
     return res.status(500).json({
       error: error instanceof Error ? error.message : "Failed to update services",
+    });
+  }
+});
+
+dashboardRouter.get("/certificates/external", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access || access.accessType === "partner_team_member") {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const items = await listExternalCertificates({ clerkUserId });
+    return res.json({ items });
+  } catch (error) {
+    console.error("[Dashboard /certificates/external GET] Error:", error);
+    return res.status(500).json({ error: "Failed to fetch uploaded certificates" });
+  }
+});
+
+dashboardRouter.post("/certificates/external", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access || access.accessType === "partner_team_member") {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const created = await createExternalCertificate({
+      clerkUserId,
+      title: req.body?.title,
+      fileUrl: req.body?.fileUrl,
+    });
+
+    return res.status(201).json({ success: true, item: created });
+  } catch (error) {
+    console.error("[Dashboard /certificates/external POST] Error:", error);
+    return res.status(500).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to save uploaded certificate",
+    });
+  }
+});
+
+dashboardRouter.delete("/certificates/external/:id", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access || access.accessType === "partner_team_member") {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const deleted = await deleteExternalCertificate({
+      clerkUserId,
+      fileId: typeof req.params.id === "string" ? req.params.id : "",
+    });
+
+    return res.json({ success: true, id: deleted.id });
+  } catch (error) {
+    console.error("[Dashboard /certificates/external DELETE] Error:", error);
+    return res.status(500).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to remove uploaded certificate",
     });
   }
 });

@@ -15,6 +15,13 @@ export interface Certificate {
   createdAt: string;
 }
 
+export interface ExternalCertificate {
+  id: string;
+  title: string;
+  fileUrl: string;
+  createdAt: string;
+}
+
 export type DashboardAccessType =
   | "member"
   | "partner_owner"
