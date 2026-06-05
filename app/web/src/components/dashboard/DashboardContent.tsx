@@ -6,7 +6,6 @@ import type { DashboardNotification } from "@/lib/notifications";
 import type {
   Certificate,
   ExternalCertificate,
-  SupportMode,
   TabType,
 } from "./dashboard-types";
 import type { NotificationPreferenceKey, NotificationPreferences, } from "@/lib/dashboard-cabinet";
@@ -19,7 +18,6 @@ import { DashboardProfile } from "./DashboardProfile";
 import { DashboardBilling } from "./DashboardBilling";
 import { DashboardEvents } from "./DashboardEvents";
 import { DashboardSupport } from "./DashboardSupport";
-import { DashboardNotifications } from "./DashboardNotifications";
 import { UnderDevelopmentPage } from "@/shared/components/UnderDevelopment";
 
 type EventAudienceFilter = "all" | "members" | "open";
@@ -75,21 +73,6 @@ type Props = {
 
   directoryMembers: any[];
 
-  supportMode: SupportMode;
-  setSupportMode: (mode: SupportMode) => void;
-  supportPhone: string;
-  setSupportPhone: (value: string) => void;
-  supportTopicLabel: string;
-  supportMessage: string;
-  setSupportMessage: (value: string) => void;
-  handleSupportSubmit: () => Promise<void>;
-  supportSubmitting: boolean;
-  quickAnswers: string[];
-  faqItems: {
-    question: string;
-    answer: string;
-  }[];
-
   allNotifications: DashboardNotification[];
   alertCards: DashboardNotification[];
   getNotificationMeta: (notification: DashboardNotification) => any;
@@ -142,17 +125,6 @@ export function DashboardContent(props: Props) {
     filteredEventCards,
     dashboardEvents,
     directoryMembers,
-    supportMode,
-    setSupportMode,
-    supportPhone,
-    setSupportPhone,
-    supportTopicLabel,
-    supportMessage,
-    setSupportMessage,
-    handleSupportSubmit,
-    supportSubmitting,
-    quickAnswers,
-    faqItems,
     allNotifications,
     alertCards,
     getNotificationMeta,
@@ -231,23 +203,7 @@ export function DashboardContent(props: Props) {
       return <DashboardDirectory directoryMembers={directoryMembers} />;
 
     case "support":
-      return (
-        <DashboardSupport
-          supportMode={supportMode}
-          setSupportMode={setSupportMode}
-          dashboardContactEmail={dashboardContactEmail}
-          memberIdDisplay={memberIdDisplay}
-          supportPhone={supportPhone}
-          setSupportPhone={setSupportPhone}
-          supportTopicLabel={supportTopicLabel}
-          supportMessage={supportMessage}
-          setSupportMessage={setSupportMessage}
-          handleSupportSubmit={handleSupportSubmit}
-          supportSubmitting={supportSubmitting}
-          quickAnswers={quickAnswers}
-          faqItems={faqItems}
-        />
-      );
+      return <DashboardSupport />;
 
     case "notifications":
       return (

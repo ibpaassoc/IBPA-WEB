@@ -9,7 +9,6 @@ import { useDashboardData } from "@/hooks/dashboard/useDashboardData";
 import { useDashboardDerivedData } from "@/hooks/dashboard/useDashboardDerivedData";
 import { useDashboardNotifications } from "@/hooks/dashboard/useDashboardNotifications";
 import { useDashboardSeenActivity } from "@/hooks/dashboard/useDashboardSeenActivity";
-import { useDashboardSupport } from "@/hooks/dashboard/useDashboardSupport";
 import { useDashboardUiState } from "@/hooks/dashboard/useDashboardUiState";
 
 export default function DashboardPage() {
@@ -67,25 +66,6 @@ export default function DashboardPage() {
     unreadNotificationsCount: 0,
     setActiveTab,
     setSupportMode,
-  });
-
-  const {
-    supportMessage,
-    setSupportMessage,
-    supportPhone,
-    setSupportPhone,
-    supportSubmitting,
-    supportTopicLabel,
-    handleSupportSubmit,
-    quickAnswers,
-    faqItems,
-  } = useDashboardSupport({
-    supportMode,
-    fullName: derived.fullName,
-    fallbackFullName: user?.fullName,
-    dashboardContactEmail: derived.dashboardContactEmail,
-    memberIdDisplay: derived.memberIdDisplay,
-    membershipCategoryLabel: derived.membershipCategoryLabel,
   });
 
   const {
@@ -209,17 +189,6 @@ export default function DashboardPage() {
         filteredEventCards: finalDerived.filteredEventCards,
         dashboardEvents,
         directoryMembers,
-        supportMode,
-        setSupportMode,
-        supportPhone,
-        setSupportPhone,
-        supportTopicLabel,
-        supportMessage,
-        setSupportMessage,
-        handleSupportSubmit,
-        supportSubmitting,
-        quickAnswers,
-        faqItems,
         allNotifications,
         alertCards,
         getNotificationMeta,
