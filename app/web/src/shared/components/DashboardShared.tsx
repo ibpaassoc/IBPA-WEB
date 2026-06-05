@@ -135,6 +135,9 @@ export const dashboardSecondaryButtonClassName =
 export const dashboardShellContainerClassName =
   "mx-auto w-full max-w-7xl px-4 md:px-6";
 
+export const dashboardShellFrameClassName =
+  `${dashboardShellContainerClassName} grid w-full items-start gap-6 py-6 md:py-8 lg:grid-cols-[280px_minmax(0,1fr)]`;
+
 export const dashboardStandalonePageContainerClassName =
   `${dashboardShellContainerClassName} py-6 md:py-8`;
 

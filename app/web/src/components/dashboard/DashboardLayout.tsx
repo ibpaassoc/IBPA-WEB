@@ -6,7 +6,7 @@ import { DashboardSidebar } from "./DashboardSideBar";
 import { DashboardContent } from "./DashboardContent";
 import type { TabType } from "./dashboard-types";
 import type { DashboardNotification } from "@/lib/notifications";
-import { dashboardShellContainerClassName } from "@/shared/components/DashboardShared";
+import { dashboardShellFrameClassName } from "@/shared/components/DashboardShared";
 
 type Props = {
   userLoaded: boolean;
@@ -51,7 +51,10 @@ export function DashboardLayout({
   contentProps,
 }: Props) {
   return (
-    <div className="min-h-screen bg-[#F4F7FB] text-slate-900">
+    <div
+      className="min-h-screen bg-[#F4F7FB] text-slate-900"
+      style={{ scrollbarGutter: "stable both-edges" }}
+    >
       <DashboardHeader
         userLoaded={userLoaded}
         isSignedIn={isSignedIn}
@@ -62,9 +65,7 @@ export function DashboardLayout({
         alertCards={alertCards}
       />
 
-      <main
-        className={`${dashboardShellContainerClassName} grid gap-6 py-6 md:py-8 lg:grid-cols-[280px_minmax(0,1fr)]`}
-      >
+      <main className={dashboardShellFrameClassName}>
         <DashboardSidebar
           navItems={navItems}
           activeTab={activeTab}
@@ -75,7 +76,7 @@ export function DashboardLayout({
           memberIdDisplay={memberIdDisplay}
         />
 
-        <section className="min-w-0 space-y-6">
+        <section className="min-w-0 w-full space-y-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}

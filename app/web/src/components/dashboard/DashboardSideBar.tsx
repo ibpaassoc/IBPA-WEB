@@ -94,7 +94,7 @@ export function DashboardSidebar({
         ) : null}
       </AnimatePresence>
 
-      <aside className="hidden lg:block">
+      <aside className="hidden lg:block lg:w-[280px]">
         <div className="sticky top-[104px] space-y-4">
           <SectionCard className="p-4">
             <div className="mb-4 rounded-[24px] bg-[linear-gradient(135deg,#10203B_0%,#284872_100%)] p-4 text-white">
