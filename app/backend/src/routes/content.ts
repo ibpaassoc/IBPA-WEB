@@ -1,10 +1,11 @@
 import { Router } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { requireDb } from "../lib/db";
-import { contentItems } from "../lib/schema";
+import { coreArticles, coreEvents, corePartners } from "../lib/schema";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createOrUpdateEvent, listAdminEvents, listPublicEvents, removeEvent } from "../features/events/server/event.service";
 import { createOrUpdateArticle, listAdminArticles, listPublicArticles, removeArticle } from "../features/news/server/article.service";
+import { createOrUpdatePartner, listAdminPartners, listPublicPartners, removePartner } from "../features/partners/server/partner.service";
 
 export const contentRouter = Router();
 
@@ -18,33 +19,6 @@ function getSingleValue(value: unknown): string | null {
   }
 
   return null;
-}
-
-function normalizeCoverAspect(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  const coverAspect = Number(value);
-  return Number.isFinite(coverAspect) && coverAspect > 0 ? coverAspect : null;
-}
-
-function serializeLegacyContentItem(item: typeof contentItems.$inferSelect) {
-  const coverAspect = normalizeCoverAspect(item.coverAspect);
-  return {
-    ...item,
-    coverAspect,
-    cover_aspect: coverAspect,
-  };
-}
-
-async function clearPinnedLegacyPartners(db: ReturnType<typeof requireDb>, excludeId?: string) {
-  const existing = await db.select().from(contentItems).where(eq(contentItems.type, "partners"));
-  const pinnedIds = existing.filter((item: typeof contentItems.$inferSelect) => item.isPinned && item.id !== excludeId).map((item: typeof contentItems.$inferSelect) => item.id);
-
-  for (const id of pinnedIds) {
-    await db.update(contentItems).set({ isPinned: false, updatedAt: new Date() }).where(eq(contentItems.id, id));
-  }
 }
 
 contentRouter.get("/public", async (req, res) => {
@@ -71,13 +45,8 @@ contentRouter.get("/public", async (req, res) => {
       return res.json({ items: [] });
     }
 
-    const items = await db
-      .select()
-      .from(contentItems)
-      .where(and(eq(contentItems.type, "partners"), eq(contentItems.publishToSite, true)))
-      .orderBy(desc(contentItems.isPinned), desc(contentItems.createdAt));
-
-    return res.json({ items: items.map(serializeLegacyContentItem) });
+    const items = await listPublicPartners(db);
+    return res.json({ items });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
@@ -94,10 +63,10 @@ contentRouter.get("/admin", adminClerkMiddleware, requireAdminAccess, async (_re
     const [events, articles, partners] = await Promise.all([
       listAdminEvents(db),
       listAdminArticles(db),
-      db.select().from(contentItems).where(eq(contentItems.type, "partners")).orderBy(desc(contentItems.isPinned), desc(contentItems.createdAt)),
+      listAdminPartners(db),
     ]);
 
-    const items = [...events, ...articles, ...partners.map(serializeLegacyContentItem)]
+    const items = [...events, ...articles, ...partners]
       .sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     res.json({ items });
@@ -131,27 +100,8 @@ contentRouter.post("/admin", adminClerkMiddleware, requireAdminAccess, async (re
       return res.json({ item });
     }
 
-    if (Boolean(bodyPayload.isPinned)) {
-      await clearPinnedLegacyPartners(db);
-    }
-
-    const [item] = await db
-      .insert(contentItems)
-      .values({
-        type: "partners",
-        title,
-        body,
-        coverImage: bodyPayload.coverImage || null,
-        coverAspect: normalizeCoverAspect(bodyPayload.coverAspect ?? bodyPayload.cover_aspect),
-        ctaUrl: bodyPayload.ctaUrl || null,
-        ctaLabel: bodyPayload.ctaLabel || "Open Link",
-        isPinned: Boolean(bodyPayload.isPinned),
-        publishToSite: Boolean(bodyPayload.publishToSite),
-        publishToDashboard: Boolean(bodyPayload.publishToDashboard),
-      })
-      .returning();
-
-    return res.json({ item: serializeLegacyContentItem(item) });
+    const item = await createOrUpdatePartner(db, bodyPayload as any);
+    return res.json({ item });
   } catch (error) {
     if (error instanceof Error && error.message === "Event end date must be after the start date.") {
       return res.status(400).json({ error: error.message });
@@ -191,33 +141,8 @@ contentRouter.patch("/admin/:id", adminClerkMiddleware, requireAdminAccess, asyn
       return res.status(400).json({ error: "Invalid content item type" });
     }
 
-    if (Boolean(bodyPayload.isPinned)) {
-      await clearPinnedLegacyPartners(db, id);
-    }
-
-    const [item] = await db
-      .update(contentItems)
-      .set({
-        type: "partners",
-        title: bodyPayload.title,
-        body: bodyPayload.body,
-        coverImage: bodyPayload.coverImage || null,
-        coverAspect: normalizeCoverAspect(bodyPayload.coverAspect ?? bodyPayload.cover_aspect),
-        ctaUrl: bodyPayload.ctaUrl || null,
-        ctaLabel: bodyPayload.ctaLabel || "Open Link",
-        isPinned: Boolean(bodyPayload.isPinned),
-        publishToSite: Boolean(bodyPayload.publishToSite),
-        publishToDashboard: Boolean(bodyPayload.publishToDashboard),
-        updatedAt: new Date(),
-      })
-      .where(eq(contentItems.id, id))
-      .returning();
-
-    if (!item) {
-      return res.status(404).json({ error: "Content item not found" });
-    }
-
-    return res.json({ item: serializeLegacyContentItem(item) });
+    const item = await createOrUpdatePartner(db, { ...(bodyPayload as any), id });
+    return res.json({ item });
   } catch (error) {
     if (error instanceof Error && error.message === "Event end date must be after the start date.") {
       return res.status(400).json({ error: error.message });
@@ -243,8 +168,19 @@ contentRouter.delete("/admin/:id", adminClerkMiddleware, requireAdminAccess, asy
     }
 
     if (!type) {
-      const [legacyItem] = await db.select({ type: contentItems.type }).from(contentItems).where(eq(contentItems.id, id)).limit(1);
-      type = legacyItem?.type ?? null;
+      const [eventRecord, articleRecord, partnerRecord] = await Promise.all([
+        db.select({ id: coreEvents.id }).from(coreEvents).where(eq(coreEvents.id, id)).limit(1),
+        db.select({ id: coreArticles.id }).from(coreArticles).where(eq(coreArticles.id, id)).limit(1),
+        db.select({ id: corePartners.id }).from(corePartners).where(eq(corePartners.id, id)).limit(1),
+      ]);
+
+      if (eventRecord[0]) {
+        type = "events";
+      } else if (articleRecord[0]) {
+        type = "news";
+      } else if (partnerRecord[0]) {
+        type = "partners";
+      }
     }
 
     if (type === "news") {
@@ -263,7 +199,7 @@ contentRouter.delete("/admin/:id", adminClerkMiddleware, requireAdminAccess, asy
       return res.json({ success: true });
     }
 
-    const [item] = await db.delete(contentItems).where(eq(contentItems.id, id)).returning();
+    const item = await removePartner(db, id);
     if (!item) {
       return res.status(404).json({ error: "Content item not found" });
     }

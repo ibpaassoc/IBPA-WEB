@@ -1,10 +1,10 @@
-import type { Certificate, Order } from "@/lib/schema";
+import type { SourceCertificateRecord, SourceOrderRecord } from "@/features/shared/server/source-records";
 import { upsertCanonicalMembership } from "./membership.repository";
 
-export async function syncLegacyOrderMembership(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
-  order: Order;
+export async function importSourceOrderMembership(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
+  order: SourceOrderRecord;
   userId: string;
-  certificate?: Certificate | null;
+  certificate?: SourceCertificateRecord | null;
 }) {
   if (params.order.status !== "paid") {
     return null;

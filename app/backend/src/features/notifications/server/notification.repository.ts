@@ -1,21 +1,8 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
-import { coreNotifications, dashboardNotifications, emailLogs } from "@/lib/schema";
+import { coreNotifications } from "@/lib/schema";
 
 type DbClient = ReturnType<typeof requireDb>;
-
-export async function ensureLegacyEmailLogsTable(db: DbClient) {
-  await db.execute(sql`
-    create table if not exists "email_logs" (
-      "id" uuid primary key default gen_random_uuid() not null,
-      "to" text not null,
-      "subject" text not null,
-      "body" text not null,
-      "status" text not null,
-      "created_at" timestamp default now() not null
-    )
-  `);
-}
 
 export async function insertCanonicalNotification(db: DbClient, input: {
   id: string;
@@ -61,51 +48,58 @@ export async function insertCanonicalNotification(db: DbClient, input: {
   return { record: created, created: true };
 }
 
-export async function createLegacyDashboardNotifications(db: DbClient, input: {
-  title: string;
-  description: string;
-  emails: string[];
-  ctaLabel?: string | null;
-  ctaUrl?: string | null;
+export async function listCanonicalNotifications(db: DbClient, params?: {
+  type?: string;
+  limit?: number;
 }) {
-  return db.insert(dashboardNotifications).values(
-    input.emails.map((email) => ({
-      email,
-      title: input.title,
-      description: input.description,
-      ctaLabel: input.ctaLabel ?? null,
-      ctaUrl: input.ctaUrl ?? null,
-    })),
-  );
-}
+  let query = db
+    .select()
+    .from(coreNotifications)
+    .orderBy(desc(coreNotifications.createdAt))
+    .$dynamic();
 
-export async function logEmails(db: DbClient, input: {
-  emails: string[];
-  subject: string;
-  body: string;
-  status: string;
-}) {
-  if (input.emails.length === 0) {
-    return;
+  if (params?.type) {
+    query = query.where(eq(coreNotifications.type, params.type));
   }
 
-  await ensureLegacyEmailLogsTable(db);
-  await db.insert(emailLogs).values(
-    input.emails.map((email) => ({
-      to: email,
-      subject: input.subject,
-      body: input.body,
-      status: input.status,
-    })),
-  );
+  return query.limit(params?.limit ?? 50);
 }
 
-export async function listLegacyEmailLogs(db: DbClient) {
-  await ensureLegacyEmailLogsTable(db);
-  return db.select().from(emailLogs).orderBy(desc(emailLogs.createdAt)).limit(50);
+export async function deleteCanonicalNotification(db: DbClient, id: string) {
+  await db.delete(coreNotifications).where(eq(coreNotifications.id, id));
 }
 
-export async function deleteLegacyEmailLog(db: DbClient, id: string) {
-  await ensureLegacyEmailLogsTable(db);
-  await db.delete(emailLogs).where(eq(emailLogs.id, id));
+export async function appendNotificationReadBy(db: DbClient, params: {
+  id: string;
+  email: string;
+}) {
+  const [existing] = await db.select().from(coreNotifications).where(eq(coreNotifications.id, params.id)).limit(1);
+  if (!existing) {
+    return null;
+  }
+
+  const metadata = existing.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)
+    ? existing.metadata
+    : {};
+  const readBy = Array.isArray((metadata as Record<string, unknown>).readBy)
+    ? ((metadata as Record<string, unknown>).readBy as unknown[]).filter((item): item is string => typeof item === "string")
+    : [];
+  const normalizedEmail = params.email.trim().toLowerCase();
+
+  if (!readBy.includes(normalizedEmail)) {
+    readBy.push(normalizedEmail);
+  }
+
+  const [updated] = await db
+    .update(coreNotifications)
+    .set({
+      metadata: {
+        ...metadata,
+        readBy,
+      },
+    })
+    .where(eq(coreNotifications.id, params.id))
+    .returning();
+
+  return updated ?? existing;
 }

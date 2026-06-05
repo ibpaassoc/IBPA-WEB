@@ -169,6 +169,22 @@ export const coreArticles = ibpa.table("articles", {
   index("ibpa_articles_created_at_idx").on(table.createdAt),
 ]);
 
+export const corePartners = ibpa.table("partners", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  coverImage: text("cover_image"),
+  ctaUrl: text("cta_url"),
+  ctaLabel: varchar("cta_label", { length: 120 }),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  publishToSite: boolean("publish_to_site").notNull().default(true),
+  publishToDashboard: boolean("publish_to_dashboard").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("ibpa_partners_created_at_idx").on(table.createdAt),
+]);
+
 export const coreNotifications = ibpa.table("notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title", { length: 255 }).notNull(),
@@ -240,6 +256,7 @@ export type CoreCertificate = typeof coreCertificates.$inferSelect;
 export type CoreEvent = typeof coreEvents.$inferSelect;
 export type CoreEventRegistration = typeof coreEventRegistrations.$inferSelect;
 export type CoreArticle = typeof coreArticles.$inferSelect;
+export type CorePartner = typeof corePartners.$inferSelect;
 export type CoreNotification = typeof coreNotifications.$inferSelect;
 export type CoreTeam = typeof coreTeams.$inferSelect;
 export type CoreTeamMember = typeof coreTeamMembers.$inferSelect;

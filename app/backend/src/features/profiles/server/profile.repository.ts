@@ -1,8 +1,7 @@
-import { and, desc, eq, sql } from "drizzle-orm";
-import { clerkClient } from "@/services/clerk";
+import { desc, eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
-import { coreMemberships, coreProfiles, coreUsers, orders, users } from "@/lib/schema";
-import type { CanonicalPublicMemberRow, DashboardProfileSaveInput, LegacyPublicMemberRow } from "./profile.types";
+import { coreMemberships, coreProfiles, coreUsers } from "@/lib/schema";
+import type { CanonicalPublicMemberRow } from "./profile.types";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -35,120 +34,6 @@ export async function listCanonicalPublicMemberRows(db: DbClient): Promise<Canon
     .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
     .where(eq(coreMemberships.status, "ACTIVE"))
     .orderBy(desc(coreMemberships.startedAt), desc(coreProfiles.createdAt));
-}
-
-export async function listLegacyPublicMemberRows(db: DbClient): Promise<LegacyPublicMemberRow[]> {
-  return db
-    .select({
-      orderId: orders.id,
-      fullName: orders.name,
-      email: orders.email,
-      clerkId: users.clerkId,
-      membershipCategory: orders.membershipCategory,
-      applicantType: orders.applicantType,
-      createdAt: orders.createdAt,
-      bio: users.bio,
-      specialization: users.specialization,
-      experienceYears: users.experienceYears,
-      education: users.education,
-      instagramUrl: users.instagramUrl,
-      country: users.country,
-      city: users.city,
-      imageUrl: users.imageUrl,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      applicationPayload: orders.applicationPayload,
-    })
-    .from(orders)
-    .leftJoin(users, sql`lower(${orders.email}) = lower(${users.email})`)
-    .where(eq(orders.status, "paid"))
-    .orderBy(desc(orders.createdAt));
-}
-
-export async function hydrateLegacyMemberImage(db: DbClient, record: LegacyPublicMemberRow) {
-  if (record.imageUrl || !record.clerkId) {
-    return record;
-  }
-
-  try {
-    const clerkUser = await clerkClient.users.getUser(record.clerkId);
-    const imageUrl = clerkUser.imageUrl || null;
-
-    if (!imageUrl) {
-      return record;
-    }
-
-    await db
-      .update(users)
-      .set({
-        imageUrl,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.clerkId, record.clerkId));
-
-    return {
-      ...record,
-      imageUrl,
-    };
-  } catch {
-    return record;
-  }
-}
-
-export async function saveLegacyDashboardProfile(db: DbClient, params: DashboardProfileSaveInput) {
-  const [existingUser] = await db.select().from(users).where(eq(users.clerkId, params.clerkUserId));
-
-  const nextApplicationPayload =
-    params.applicationPayload && typeof params.applicationPayload === "object"
-      ? params.applicationPayload
-      : {};
-
-  if (params.legacyOrder) {
-    await db
-      .update(orders)
-      .set({
-        phone: typeof nextApplicationPayload.phone === "string" ? nextApplicationPayload.phone : params.legacyOrder.phone ?? null,
-        applicationPayload: nextApplicationPayload,
-      })
-      .where(eq(orders.id, params.legacyOrder.id));
-  }
-
-  if (existingUser) {
-    await db
-      .update(users)
-      .set({
-        imageUrl: params.imageUrl ?? existingUser.imageUrl,
-        bio: params.bio ?? existingUser.bio,
-        specialization: params.specialization ?? existingUser.specialization,
-        experienceYears: params.experienceYears ?? existingUser.experienceYears,
-        education: params.education ?? existingUser.education,
-        instagramUrl: params.instagramUrl ?? existingUser.instagramUrl,
-        country: params.country ?? existingUser.country,
-        city: params.city ?? existingUser.city,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.clerkId, params.clerkUserId));
-  } else {
-    await db.insert(users).values({
-      clerkId: params.clerkUserId,
-      email: params.email,
-      firstName: params.firstName ?? "",
-      lastName: params.lastName ?? "",
-      imageUrl: params.imageUrl ?? null,
-      bio: params.bio ?? null,
-      specialization: params.specialization ?? null,
-      experienceYears: params.experienceYears ?? null,
-      education: params.education ?? null,
-      instagramUrl: params.instagramUrl ?? null,
-      country: params.country ?? null,
-      city: params.city ?? null,
-    });
-  }
-
-  return {
-    existingUser: existingUser ?? null,
-    nextApplicationPayload,
-  };
 }
 
 export async function upsertCanonicalProfile(db: DbClient, params: {

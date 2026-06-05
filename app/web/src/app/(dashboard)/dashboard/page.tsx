@@ -1415,40 +1415,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="mt-6 overflow-hidden rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:mt-8 md:rounded-[32px] md:p-5"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 md:text-[10px] md:tracking-[0.3em]">
-                Professional Info
-              </p>
-              <Award className="h-4 w-4 text-[#72A0C1]" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {snapshotItems.map((item) => (
-                <div key={item.label} className="rounded-[20px] border border-slate-100 bg-[#F8FAFC] p-3.5 md:rounded-[22px] md:p-4">
-                  <p className="text-sm font-bold leading-tight text-slate-900 md:text-base">{item.value}</p>
-                  <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.12em] text-slate-400 md:text-[9px] md:tracking-[0.22em]">
-                    {item.label}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 rounded-[20px] border border-slate-100 bg-[#F8FAFC] p-4 md:rounded-[24px]">
-              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 md:text-[10px] md:tracking-[0.25em]">
-                Primary Contact
-              </p>
-              <p className="mt-2 truncate text-xs font-medium text-slate-700 md:mt-3 md:text-sm">
-                {dashboardContactEmail || "Email not available"}
-              </p>
-            </div>
-          </motion.div>
         </motion.div>
       );
     }

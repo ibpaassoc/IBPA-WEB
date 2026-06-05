@@ -2,19 +2,8 @@ import "../src/load-env";
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import {
-  applicationAdditionalFiles,
-  certificates,
-  contentItems,
   coreFiles,
-  dashboardNotifications,
-  emailLogs,
-  orders,
-  partnerApplications,
   requireDb,
-  stripeWebhookEvents,
-  teamMembers,
-  teamSeatExtensions,
-  users,
 } from "../src/lib/db";
 import type {
   ApplicationAdditionalFile,
@@ -26,19 +15,31 @@ import type {
   PartnerApplication,
   StripeWebhookEvent,
   TeamMember,
-  TeamSeatExtension,
   User,
-} from "../src/lib/db";
-import { syncCanonicalUserFromLegacyOrder, syncCanonicalUserFromLegacyUser } from "../src/features/users/server/user.service";
-import { syncLegacyUserProfile } from "../src/features/profiles/server/profile.service";
-import { syncLegacyOrderApplication, syncLegacyPartnerApplication } from "../src/features/applications/server/application.service";
-import { syncLegacyOrderMembership } from "../src/features/memberships/server/membership.service";
-import { syncLegacyOrderPayment, syncLegacyPartnerApplicationPayment, syncLegacyStripeWebhookEvent } from "../src/features/payments/server/payment.service";
-import { syncLegacyCertificate } from "../src/features/certificates/server/certificate.service";
-import { syncLegacyTeam, syncLegacyTeamMember } from "../src/features/teams/server/team.service";
+} from "./support/public-schema";
+import {
+  applicationAdditionalFiles,
+  certificates,
+  contentItems,
+  dashboardNotifications,
+  emailLogs,
+  orders,
+  partnerApplications,
+  stripeWebhookEvents,
+  teamMembers,
+  users,
+} from "./support/public-schema";
+import { syncCanonicalUserFromSourceOrder, syncCanonicalUserFromSourceUser } from "../src/features/users/server/user.service";
+import { importSourceUserProfile } from "../src/features/profiles/server/profile.service";
+import { importSourceOrderApplication, importSourcePartnerApplication } from "../src/features/applications/server/application.service";
+import { importSourceOrderMembership } from "../src/features/memberships/server/membership.service";
+import { importSourceOrderPayment, importSourcePartnerApplicationPayment, importSourceStripeWebhookEvent } from "../src/features/payments/server/payment.service";
+import { importSourceCertificate } from "../src/features/certificates/server/certificate.service";
+import { importSourceTeam, importSourceTeamMember } from "../src/features/teams/server/team.service";
 import { upsertCanonicalEvent } from "../src/features/events/server/event.repository";
 import { upsertCanonicalArticle } from "../src/features/news/server/article.repository";
 import { insertCanonicalNotification } from "../src/features/notifications/server/notification.repository";
+import { upsertCanonicalPartner } from "../src/features/partners/server/partner.repository";
 
 type Counter = {
   processed: number;
@@ -59,6 +60,7 @@ const report: Report = {
   certificates: { processed: 0, created: 0, skipped: 0, duplicated: 0, failed: 0 },
   events: { processed: 0, created: 0, skipped: 0, duplicated: 0, failed: 0 },
   news: { processed: 0, created: 0, skipped: 0, duplicated: 0, failed: 0 },
+  partners: { processed: 0, created: 0, skipped: 0, duplicated: 0, failed: 0 },
   notifications: { processed: 0, created: 0, skipped: 0, duplicated: 0, failed: 0 },
   teams: { processed: 0, created: 0, skipped: 0, duplicated: 0, failed: 0 },
   team_members: { processed: 0, created: 0, skipped: 0, duplicated: 0, failed: 0 },
@@ -106,7 +108,17 @@ function slugify(value: string) {
 }
 
 function isMissingRelationError(error: unknown) {
-  return error instanceof Error && error.message.toLowerCase().includes("relation");
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  const cause = "cause" in error && error.cause instanceof Error ? error.cause.message.toLowerCase() : "";
+  const code = "cause" in error && error.cause && typeof error.cause === "object" && "code" in error.cause
+    ? String((error.cause as { code?: unknown }).code)
+    : "";
+
+  return message.includes("relation") || cause.includes("relation") || code === "42P01";
 }
 
 function deterministicUuid(seed: string) {
@@ -183,7 +195,6 @@ async function main() {
     legacyDashboardNotifications,
     legacyEmailLogs,
     legacyTeamMembers,
-    legacySeatExtensions,
     legacyStripeWebhookEvents,
   ] = await Promise.all([
     safeLoad<User>("users", () => db.select().from(users)),
@@ -195,15 +206,29 @@ async function main() {
     safeLoad<DashboardNotificationRecord>("dashboard_notifications", () => db.select().from(dashboardNotifications)),
     safeLoad<EmailLog>("email_logs", () => db.select().from(emailLogs)),
     safeLoad<TeamMember>("team_members", () => db.select().from(teamMembers)),
-    safeLoad<TeamSeatExtension>("team_seat_extensions", () => db.select().from(teamSeatExtensions)),
     safeLoad<StripeWebhookEvent>("stripe_webhook_events", () => db.select().from(stripeWebhookEvents)),
   ]);
+
+  if (
+    legacyUsers.length === 0 &&
+    legacyOrders.length === 0 &&
+    legacyCertificates.length === 0 &&
+    legacyApplicationFiles.length === 0 &&
+    legacyPartnerApplications.length === 0 &&
+    legacyContentItems.length === 0 &&
+    legacyDashboardNotifications.length === 0 &&
+    legacyEmailLogs.length === 0 &&
+    legacyTeamMembers.length === 0 &&
+    legacyStripeWebhookEvents.length === 0
+  ) {
+    console.log("[Migration] No public source tables were found. Nothing to import.");
+    return;
+  }
 
   const latestOrderByEmail = new Map<string, typeof legacyOrders[number]>();
   const orderById = new Map<string, typeof legacyOrders[number]>();
   const certificateByOrderId = new Map<string, typeof legacyCertificates[number]>();
   const applicationFilesByOrderId = new Map<string, typeof legacyApplicationFiles>();
-  const seatExtensionsByOrderId = new Map<string, typeof legacySeatExtensions>();
   const teamMembersByOrderId = new Map<string, typeof legacyTeamMembers>();
 
   for (const order of legacyOrders) {
@@ -226,12 +251,6 @@ async function main() {
     applicationFilesByOrderId.set(file.applicationId, existing);
   }
 
-  for (const extension of legacySeatExtensions) {
-    const existing = seatExtensionsByOrderId.get(extension.partnerOrderId) ?? [];
-    existing.push(extension);
-    seatExtensionsByOrderId.set(extension.partnerOrderId, existing);
-  }
-
   for (const member of legacyTeamMembers) {
     const existing = teamMembersByOrderId.get(member.ownerOrderId) ?? [];
     existing.push(member);
@@ -250,7 +269,7 @@ async function main() {
 
   for (const legacyUser of legacyUsers) {
     try {
-      const userResult = await syncCanonicalUserFromLegacyUser(db, legacyUser);
+      const userResult = await syncCanonicalUserFromSourceUser(db, legacyUser);
       trackResult("users", userResult);
       rememberUser(userResult.record);
     } catch (error) {
@@ -266,9 +285,9 @@ async function main() {
       }
 
       const latestOrder = latestOrderByEmail.get(normalizeEmail(legacyUser.email));
-      const profileResult = await syncLegacyUserProfile(db, {
+      const profileResult = await importSourceUserProfile(db, {
         canonicalUserId,
-        legacyUser,
+        sourceUser: legacyUser,
         applicationPayload: latestOrder?.applicationPayload,
       });
       trackResult("profiles", profileResult);
@@ -283,7 +302,7 @@ async function main() {
 
     if (!canonicalUserId) {
       try {
-        const userResult = await syncCanonicalUserFromLegacyOrder(db, order);
+        const userResult = await syncCanonicalUserFromSourceOrder(db, order);
         trackResult("users", userResult);
         rememberUser(userResult.record);
         canonicalUserId = userResult.record.id;
@@ -300,7 +319,7 @@ async function main() {
         fileType: file.fileType,
       }));
 
-      const applicationResult = await syncLegacyOrderApplication(db, {
+      const applicationResult = await importSourceOrderApplication(db, {
         order,
         userId: canonicalUserId ?? null,
         applicationFiles,
@@ -314,7 +333,7 @@ async function main() {
       let membershipCreated = false;
 
       try {
-        const membershipResult = await syncLegacyOrderMembership(db, {
+        const membershipResult = await importSourceOrderMembership(db, {
           order,
           userId: canonicalUserId,
           certificate: certificateByOrderId.get(order.id) ?? null,
@@ -328,7 +347,7 @@ async function main() {
       const certificate = certificateByOrderId.get(order.id);
       if (certificate && membershipCreated) {
         try {
-          const certificateResult = await syncLegacyCertificate(db, {
+          const certificateResult = await importSourceCertificate(db, {
             certificate,
             membershipId: order.id,
           });
@@ -343,7 +362,7 @@ async function main() {
 
     if (order.stripeSessionId || order.status === "paid") {
       try {
-        const paymentResult = await syncLegacyOrderPayment(db, {
+        const paymentResult = await importSourceOrderPayment(db, {
           order,
           userId: canonicalUserId ?? null,
         });
@@ -355,10 +374,9 @@ async function main() {
 
     if (order.accountType?.toLowerCase() === "partner" && order.status === "paid" && canonicalUserId) {
       try {
-        const teamResult = await syncLegacyTeam(db, {
+        const teamResult = await importSourceTeam(db, {
           order,
           ownerUserId: canonicalUserId,
-          seatExtensions: seatExtensionsByOrderId.get(order.id) ?? [],
         });
         trackResult("teams", teamResult);
       } catch (error) {
@@ -389,7 +407,7 @@ async function main() {
 
     if (!canonicalUserId) {
       try {
-        const userResult = await syncCanonicalUserFromLegacyOrder(db, {
+        const userResult = await syncCanonicalUserFromSourceOrder(db, {
           id: application.id,
           email: application.email,
           name: application.name,
@@ -416,7 +434,7 @@ async function main() {
     }
 
     try {
-      const applicationResult = await syncLegacyPartnerApplication(db, {
+      const applicationResult = await importSourcePartnerApplication(db, {
         application,
         userId: canonicalUserId ?? null,
       });
@@ -427,7 +445,7 @@ async function main() {
 
     if (!application.partnerOrderId && (application.stripeCheckoutSessionId || application.paymentStatus === "PAID")) {
       try {
-        const paymentResult = await syncLegacyPartnerApplicationPayment(db, {
+        const paymentResult = await importSourcePartnerApplicationPayment(db, {
           application,
           userId: canonicalUserId ?? null,
         });
@@ -504,7 +522,28 @@ async function main() {
       continue;
     }
 
-    trackSkipped("news");
+    if (item.type === "partners") {
+      try {
+        const partnerResult = await upsertCanonicalPartner(db, {
+          id: item.id,
+          title: item.title,
+          body: item.body,
+          coverImage: item.coverImage ?? null,
+          ctaUrl: item.ctaUrl ?? null,
+          ctaLabel: item.ctaLabel ?? null,
+          isPinned: item.isPinned,
+          publishToSite: item.publishToSite,
+          publishToDashboard: item.publishToDashboard,
+        });
+        trackResult("partners", partnerResult);
+      } catch (error) {
+        trackFailure("partners", error, `legacy partner ${item.id}`);
+      }
+
+      continue;
+    }
+
+    trackSkipped("partners");
   }
 
   for (const notification of legacyDashboardNotifications) {
@@ -556,10 +595,9 @@ async function main() {
     }
 
     try {
-      const teamResult = await syncLegacyTeam(db, {
+      const teamResult = await importSourceTeam(db, {
         order,
         ownerUserId,
-        seatExtensions: seatExtensionsByOrderId.get(order.id) ?? [],
       });
       trackResult("teams", teamResult);
     } catch (error) {
@@ -581,19 +619,17 @@ async function main() {
       continue;
     }
 
-    const seatExtensions = seatExtensionsByOrderId.get(parentOrder.id) ?? [];
     try {
-      await syncLegacyTeam(db, {
+      await importSourceTeam(db, {
         order: parentOrder,
         ownerUserId,
-        seatExtensions,
       });
     } catch {
       // Team creation is counted elsewhere; ignore here and let member sync fail naturally if needed.
     }
 
     try {
-      const teamMemberResult = await syncLegacyTeamMember(db, {
+      const teamMemberResult = await importSourceTeamMember(db, {
         member,
         teamId: parentOrder.id,
       });
@@ -605,7 +641,7 @@ async function main() {
 
   for (const event of legacyStripeWebhookEvents) {
     try {
-      const webhookResult = await syncLegacyStripeWebhookEvent(db, {
+      const webhookResult = await importSourceStripeWebhookEvent(db, {
         id: event.id,
         stripeEventId: event.eventId,
         eventType: event.eventType,

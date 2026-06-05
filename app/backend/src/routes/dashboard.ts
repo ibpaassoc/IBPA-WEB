@@ -1,6 +1,18 @@
+import crypto from "crypto";
 import { Router } from "express";
-import { requireDb, orders, certificates, users, dashboardNotifications, teamMembers, teamSeatExtensions } from "../lib/db";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { requireDb } from "../lib/db";
+import {
+  coreApplications,
+  coreCertificates,
+  coreMemberships,
+  coreNotifications,
+  corePayments,
+  coreProfiles,
+  coreTeamMembers,
+  coreTeams,
+  coreUsers,
+} from "../lib/schema";
 import {
   clerkMiddleware,
   getAuth,
@@ -12,6 +24,10 @@ import {
 } from "../services/clerk";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { saveDashboardProfile } from "../features/profiles/server/profile.service";
+import { markNotificationsRead } from "../features/notifications/server/notification.service";
+import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
+import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
+import { findCanonicalTeam, upsertCanonicalTeam, upsertCanonicalTeamMember } from "../features/teams/server/team.repository";
 
 export const dashboardRouter = Router();
 export const cardsRouter = Router();
@@ -23,6 +39,34 @@ const ADMIN_CARD_MAILING_MAX_LIMIT = 200;
 const PARTNER_INCLUDED_TEAM_SEATS = 5;
 const ADDITIONAL_TEAM_SEAT_PRICE = 100;
 const MAX_TEAM_SEATS = 60;
+
+const DASHBOARD_ACCESS_ERROR = {
+  error: "Dashboard access is available only for members with a completed payment.",
+  code: "ACCESS_NOT_ACTIVATED",
+};
+
+const PARTNER_OWNER_ONLY_ERROR = {
+  error: "Team Members are available only for partner accounts.",
+  code: "PARTNER_OWNER_ONLY",
+};
+
+type DashboardAccessType = "member" | "partner_owner" | "partner_team_member";
+
+type DashboardAccessContext = {
+  db: ReturnType<typeof requireDb>;
+  clerkUser: any;
+  primaryEmail: string | null;
+  accessType: DashboardAccessType;
+  canonicalUser: typeof coreUsers.$inferSelect | null;
+  membership: typeof coreMemberships.$inferSelect | null;
+  application: typeof coreApplications.$inferSelect | null;
+  payment: typeof corePayments.$inferSelect | null;
+  certificate: typeof coreCertificates.$inferSelect | null;
+  profile: typeof coreProfiles.$inferSelect | null;
+  team: typeof coreTeams.$inferSelect | null;
+  teamMember: typeof coreTeamMembers.$inferSelect | null;
+  ownerUser: typeof coreUsers.$inferSelect | null;
+};
 
 function getPaginationParams(query: Record<string, unknown>, defaultLimit: number, maxLimit: number) {
   const rawLimit = Number(query.limit);
@@ -39,80 +83,17 @@ function countToNumber(value: unknown) {
   return typeof value === "number" ? value : Number(value || 0);
 }
 
-function getCardSearchCondition(q: unknown) {
-  if (typeof q !== "string" || !q.trim()) {
-    return undefined;
-  }
-
-  const term = `%${q.trim()}%`;
-  return sql`(${orders.name} ilike ${term} or ${orders.email} ilike ${term} or ${certificates.certNumber} ilike ${term} or ${orders.membershipCategory} ilike ${term})`;
+function normalizeEmail(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-function combineConditions(...conditions: any[]) {
-  const active = conditions.filter(Boolean);
-  return active.length > 0 ? and(...active) : undefined;
+function trimValue(value: unknown, max = 255) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-const EDITABLE_APPLICATION_FIELDS = [
-  "phone",
-  "dateOfBirth",
-  "country",
-  "city",
-  "citizenship",
-  "yearsExperience",
-  "educationDesc",
-  "professionalDesc",
-  "specialization",
-  "workingJurisdictions",
-  "instagramLink",
-  "portfolioLink",
-  "websiteLink",
-  "whyJoin",
-  "contributionDesc",
-  "studentSchool",
-  "studentProgName",
-  "studentEndDate",
-  "studentMotivation",
-  "educatorRole",
-  "educatorSubjects",
-  "educatorYears",
-  "educatorFormat",
-  "studentCount",
-  "bizName",
-  "bizType",
-  "bizYear",
-  "bizTeamSize",
-  "bizServices",
-  "achievementsYesNo",
-  "achievementsDesc",
-  "competitionsYesNo",
-  "competitionName",
-  "competitionYear",
-  "competitionResult",
-  "speakerEducatorJudge",
-  "publicationsYesNo",
-  "publicationsLinks",
-  "professionalCommunityYesNo",
-  "otherOrganizationsYesNo",
-  "otherOrganizationName",
-  "otherOrganizationStatus",
-  "otherOrganizationYears",
-  "brandName",
-  "brandYear",
-  "brandMarket",
-  "brandType",
-];
-
-function pickEditableApplicationFields(source: Record<string, unknown>) {
-  const next: Record<string, unknown> = {};
-
-  for (const key of EDITABLE_APPLICATION_FIELDS) {
-    if (key in source) {
-      next[key] = source[key];
-    }
-  }
-
-  return next;
+function optionalTrimmedValue(value: unknown, max = 500) {
+  const next = trimValue(value, max);
+  return next.length > 0 ? next : null;
 }
 
 function textValue(value: unknown) {
@@ -134,24 +115,6 @@ function textValue(value: unknown) {
   return "";
 }
 
-const isDevEnvironment = process.env.NODE_ENV !== "production";
-
-function dashboardDebugLog(label: string, data: Record<string, unknown>) {
-  if (!isDevEnvironment) {
-    return;
-  }
-
-  console.debug(`[Dashboard Debug] ${label}`, data);
-}
-
-function asRecord(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-
-  return value as Record<string, unknown>;
-}
-
 function firstText(...values: unknown[]) {
   for (const value of values) {
     const normalized = textValue(value);
@@ -163,392 +126,352 @@ function firstText(...values: unknown[]) {
   return "";
 }
 
-function getApplicationDataSources(order: typeof orders.$inferSelect | null | undefined) {
-  const payload = getOrderPayloadRecord(order) || {};
-  const nested = [
-    asRecord(payload.form_data),
-    asRecord(payload.formData),
-    asRecord(payload.details),
-    asRecord(payload.profile),
-    asRecord(payload.application),
-    asRecord(payload.data),
-  ].filter((item): item is Record<string, unknown> => Boolean(item));
-
-  return [payload, ...nested];
-}
-
-function getApplicationField(
-  order: typeof orders.$inferSelect | null | undefined,
-  ...keys: string[]
-) {
-  const sources = getApplicationDataSources(order);
-
-  for (const source of sources) {
-    for (const key of keys) {
-      if (!(key in source)) {
-        continue;
-      }
-
-      const value = source[key];
-      const normalized = textValue(value);
-      if (normalized) {
-        return normalized;
-      }
-    }
-  }
-
-  return "";
-}
-
-function splitFullName(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return { firstName: "", lastName: "" };
-  }
-
-  const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: "" };
-  }
-
-  return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(" "),
-  };
-}
-
-async function ensureUserRecord(
-  clerkUserId: string,
-  primaryEmail: string | null | undefined,
-  clerkUser: any,
-) {
-  if (!primaryEmail) {
-    return;
-  }
-
-  const db = requireDb();
-  const [existing] = await db.select().from(users).where(eq(users.clerkId, clerkUserId));
-
-  if (existing) {
-    await db
-      .update(users)
-      .set({
-        // Preserve historical email linkage when available for legacy dashboard matching.
-        email: existing.email || primaryEmail,
-        firstName: clerkUser.firstName || existing.firstName || "",
-        lastName: clerkUser.lastName || existing.lastName || "",
-        imageUrl: clerkUser.imageUrl || existing.imageUrl || null,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.clerkId, clerkUserId));
-    return;
-  }
-
-  await db.insert(users).values({
-    clerkId: clerkUserId,
-    email: primaryEmail,
-    firstName: clerkUser.firstName || "",
-    lastName: clerkUser.lastName || "",
-    imageUrl: clerkUser.imageUrl || null,
-  });
-}
-
-const DASHBOARD_ACCESS_ERROR = {
-  error: "Dashboard access is available only for members with a completed payment.",
-  code: "ACCESS_NOT_ACTIVATED",
-};
-
-const PARTNER_OWNER_ONLY_ERROR = {
-  error: "Team Members are available only for partner accounts.",
-  code: "PARTNER_OWNER_ONLY",
-};
-
-type DashboardAccessType = "member" | "partner_owner" | "partner_team_member";
-
-type DashboardAccessContext = {
-  db: ReturnType<typeof requireDb>;
-  clerkUser: any;
-  primaryEmail: string | null;
-  accessType: DashboardAccessType;
-  paidOrders: typeof orders.$inferSelect[];
-  latestPaidOrder: typeof orders.$inferSelect | null;
-  teamMember: typeof teamMembers.$inferSelect | null;
-};
-
-function normalizeEmail(value: unknown) {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
-
-function normalizeAccountTypeValue(value: unknown) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim().toLowerCase();
-}
-
-function isPartnerLikeValue(value: unknown) {
-  const normalized = normalizeAccountTypeValue(value);
-  return normalized === "partner" || normalized.includes("partner");
-}
-
-function getOrderPayloadRecord(order: typeof orders.$inferSelect | null | undefined) {
-  if (!order?.applicationPayload || typeof order.applicationPayload !== "object" || Array.isArray(order.applicationPayload)) {
+function asRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
 
-  return order.applicationPayload as Record<string, unknown>;
+  return value as Record<string, unknown>;
 }
 
-function resolveOrderAccountType(order: typeof orders.$inferSelect | null | undefined): "partner" | "member" {
-  if (!order) {
-    return "member";
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function mapApplicationStatusToLegacy(status: string | null | undefined) {
+  switch ((status || "").toUpperCase()) {
+    case "UNDER_REVIEW":
+      return "review";
+    case "REJECTED":
+      return "rejected";
+    case "APPROVED":
+    case "PAYMENT_SENT":
+      return "approved";
+    case "PAID":
+      return "paid";
+    default:
+      return "pending";
   }
+}
 
-  const payload = getOrderPayloadRecord(order);
-  const candidates = [
-    order.accountType,
-    payload?.accountType,
-    payload?.applicationType,
-    payload?.type,
-    order.applicantType,
-    order.membershipCategory,
-  ];
+function mapPaymentStatusToLegacy(status: string | null | undefined) {
+  switch ((status || "").toUpperCase()) {
+    case "PAID":
+      return "paid";
+    case "FAILED":
+      return "failed";
+    case "REFUNDED":
+      return "refunded";
+    default:
+      return "pending";
+  }
+}
 
-  if (candidates.some((value) => isPartnerLikeValue(value))) {
-    return "partner";
+function mapApplicationTypeToAccountType(type: string | null | undefined) {
+  return (type || "").toUpperCase() === "PARTNER" ? "partner" : "member";
+}
+
+function mapRoleToDashboardAccess(role: string | null | undefined, hasTeam: boolean): DashboardAccessType {
+  if ((role || "").toUpperCase() === "PARTNER" || hasTeam) {
+    return "partner_owner";
   }
 
   return "member";
 }
 
-function trimValue(value: unknown, max = 255) {
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
+function getApplicationData(application: typeof coreApplications.$inferSelect | null | undefined) {
+  return asRecord(application?.applicationData) || {};
 }
 
-function optionalTrimmedValue(value: unknown, max = 500) {
-  const next = trimValue(value, max);
-  return next.length > 0 ? next : null;
+function buildOwnerDashboardProfile(params: {
+  user: typeof coreUsers.$inferSelect;
+  profile: typeof coreProfiles.$inferSelect | null;
+  application: typeof coreApplications.$inferSelect | null;
+  membership: typeof coreMemberships.$inferSelect | null;
+  payment: typeof corePayments.$inferSelect | null;
+  certificate: typeof coreCertificates.$inferSelect | null;
+  accessType: DashboardAccessType;
+  partnerTeamSummary?: Record<string, unknown> | null;
+}) {
+  const { user, profile, application, membership, payment, certificate, accessType, partnerTeamSummary } = params;
+  const payload = getApplicationData(application);
+  const fullName = [
+    firstText(profile?.firstName),
+    firstText(profile?.lastName),
+  ].filter(Boolean).join(" ") || firstText(application?.fullName) || user.email;
+  const specializations = uniqueStrings([
+    ...stringArray(payload.specialization),
+    firstText(profile?.specializations),
+    firstText(profile?.services),
+  ]).filter(Boolean);
+
+  return {
+    id: user.id,
+    firstName: firstText(profile?.firstName, payload.firstName, fullName.split(" ")[0]),
+    lastName: firstText(profile?.lastName, payload.lastName),
+    fullName,
+    email: user.email,
+    phone: firstText(application?.phone, payload.phone),
+    imageUrl: profile?.avatarUrl ?? null,
+    bio: profile?.bio ?? null,
+    specialization: specializations.join(", ") || null,
+    experienceYears: profile?.yearsExperience != null ? String(profile.yearsExperience) : firstText(payload.yearsExperience),
+    education: firstText(profile?.credentials, payload.educationDesc, payload.studentSchool),
+    instagramUrl: firstText(profile?.instagram, payload.instagramLink) || null,
+    country: firstText(profile?.country, payload.country) || null,
+    city: firstText(profile?.city, payload.city) || null,
+    state: firstText(profile?.state, payload.state) || null,
+    achievements: firstText(payload.achievementsDesc, payload.contributionDesc) || null,
+    certificatesSummary: firstText(payload.licenseNumber, payload.trainerCertificateFiles) || null,
+    applicationPayload: payload,
+    type: mapApplicationTypeToAccountType(application?.type),
+    accountType: mapApplicationTypeToAccountType(application?.type),
+    applicationType: application?.type || null,
+    orderType: mapApplicationTypeToAccountType(application?.type),
+    membershipStatus: membership?.status?.toLowerCase() || "pending",
+    paymentStatus: mapPaymentStatusToLegacy(payment?.status),
+    certificateStatus: certificate?.certificateNumber ? "issued" : "pending",
+    membershipCategory: membership?.type || application?.packageName || null,
+    applicantType: application?.type || null,
+    orderId: application?.id || membership?.id || null,
+    dashboardAccessType: accessType,
+    partnerTeamSummary: partnerTeamSummary ?? null,
+  };
 }
 
-async function getPartnerOwnerMemberId(db: ReturnType<typeof requireDb>, ownerOrderId: string) {
-  const partnerOrders = await db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(and(eq(orders.status, "paid"), sql`lower(${orders.accountType}) = 'partner'`))
-    .orderBy(asc(orders.createdAt), asc(orders.id));
-
-  const ownerIndex = partnerOrders.findIndex((record: { id: string }) => record.id === ownerOrderId);
-  const normalizedIndex = ownerIndex >= 0 ? ownerIndex + 1 : partnerOrders.length + 1;
-  return `IBPA-BO-${String(normalizedIndex).padStart(3, "0")}`;
-}
-
-async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unknown): Promise<DashboardAccessContext | null> {
+async function ensureSessionUser(clerkUserId: string, sessionClaims?: unknown) {
   const db = requireDb();
-  const [storedUser] = await db.select().from(users).where(eq(users.clerkId, clerkUserId));
-  const clerkEmailFromClaims = getEmailFromSessionClaims(sessionClaims);
+  const claimsEmail = normalizeEmail(getEmailFromSessionClaims(sessionClaims));
   let clerkUser: any = null;
-  let primaryEmail = clerkEmailFromClaims || normalizeEmail(storedUser?.email) || null;
+  let primaryEmail = claimsEmail || null;
   let clerkKnownEmails: string[] = [];
 
   try {
     clerkUser = await getClerkUserWithRetry(clerkUserId);
-    primaryEmail = getPrimaryEmailFromClerkUser(clerkUser) || primaryEmail;
+    primaryEmail = normalizeEmail(getPrimaryEmailFromClerkUser(clerkUser)) || primaryEmail;
     clerkKnownEmails = getAllEmailsFromClerkUser(clerkUser).map((email) => normalizeEmail(email)).filter(Boolean);
-  } catch (error) {
-    dashboardDebugLog("clerk_user_lookup_failed", {
-      clerkUserId,
-      hasClaimsEmail: Boolean(clerkEmailFromClaims),
-      hasStoredEmail: Boolean(storedUser?.email),
-      error: error instanceof Error ? error.message : "unknown",
-    });
+  } catch {
+    // Fall back to claims-only auth context when Clerk lookup fails.
   }
 
-  const storedApplicationEmail = normalizeEmail(storedUser?.email);
-  const primaryEmailNormalized = normalizeEmail(primaryEmail);
-  const candidateEmails = Array.from(
-    new Set([primaryEmailNormalized, storedApplicationEmail, ...clerkKnownEmails].filter((value) => value.length > 0)),
-  );
+  const candidateEmails = Array.from(new Set([primaryEmail, ...clerkKnownEmails].filter(Boolean))) as string[];
+  const normalizedCandidateEmails = candidateEmails.filter((value): value is string => typeof value === "string" && value.length > 0);
+  const existingUser =
+    (await db.select().from(coreUsers).where(eq(coreUsers.clerkId, clerkUserId)).limit(1))[0]
+    ?? (normalizedCandidateEmails.length > 0
+      ? (await db.select().from(coreUsers).where(inArray(coreUsers.email, normalizedCandidateEmails)).limit(1))[0]
+      : null)
+    ?? null;
 
-  const paidByLinkedCertificate = await db
-    .select({ order: orders })
-    .from(certificates)
-    .innerJoin(orders, eq(certificates.orderId, orders.id))
-    .where(and(eq(certificates.clerkUserId, clerkUserId), eq(orders.status, "paid")))
-    .orderBy(desc(orders.createdAt));
-
-  const paidByEmailBatches =
-    candidateEmails.length > 0
-      ? await Promise.all(
-          candidateEmails.map((email) =>
-            db
-              .select()
-              .from(orders)
-              .where(and(sql`lower(${orders.email}) = lower(${email})`, eq(orders.status, "paid")))
-              .orderBy(desc(orders.createdAt)),
-          ),
-        )
-      : [];
-  const paidByEmail = paidByEmailBatches.flat();
-
-  const paidOrdersMap = new Map<string, typeof orders.$inferSelect>();
-
-  for (const row of paidByLinkedCertificate) {
-    paidOrdersMap.set(row.order.id, row.order);
-  }
-
-  for (const order of paidByEmail) {
-    paidOrdersMap.set(order.id, order);
-  }
-
-  const paidOrders = Array.from(paidOrdersMap.values()).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
-
-  if (paidOrders.length > 0) {
-    const paidOrderIds = paidOrders.map((order) => order.id);
-    const paidCertificates = await db
-      .select({
-        id: certificates.id,
-        existingClerkUserId: certificates.clerkUserId,
-      })
-      .from(certificates)
-      .where(inArray(certificates.orderId, paidOrderIds));
-
-    const needsLinking = paidCertificates.filter(
-      (certificate: { id: string; existingClerkUserId: string | null }) =>
-        !certificate.existingClerkUserId || certificate.existingClerkUserId !== clerkUserId,
-    );
-
-    if (needsLinking.length > 0) {
-      for (const certificate of needsLinking) {
-        await db
-          .update(certificates)
-          .set({ clerkUserId })
-          .where(eq(certificates.id, certificate.id));
-      }
-    }
-  }
-
-  if (clerkUser) {
-    await ensureUserRecord(clerkUserId, primaryEmail, clerkUser);
-  }
-
-  if (paidOrders.length > 0) {
-    const latestPaidOrder = paidOrders[0] || null;
-    const accessType: DashboardAccessType = resolveOrderAccountType(latestPaidOrder) === "partner" ? "partner_owner" : "member";
-    const mappedOrderEmail = normalizeEmail(latestPaidOrder?.email);
-
-    dashboardDebugLog("access_match_owner", {
-      clerkUserId,
-      primaryEmail: primaryEmailNormalized || null,
-      storedApplicationEmail: storedApplicationEmail || null,
-      matchedOrderId: latestPaidOrder?.id || null,
-      matchedOrderEmail: mappedOrderEmail || null,
-      matchedAccountType: latestPaidOrder?.accountType || null,
-      accessType,
-      matchCandidates: candidateEmails,
-      paidOrderCount: paidOrders.length,
+  if (primaryEmail) {
+    const ensured = await ensureCanonicalUser(db, {
+      clerkId: clerkUserId,
+      email: primaryEmail,
+      role: existingUser?.role ?? "MEMBER",
+      status: existingUser?.status ?? "ACTIVE",
     });
 
     return {
       db,
       clerkUser,
       primaryEmail,
-      accessType,
-      paidOrders,
-      latestPaidOrder,
-      teamMember: null,
+      candidateEmails: Array.from(new Set([primaryEmail, ensured.record.email, ...normalizedCandidateEmails].filter(Boolean))) as string[],
+      canonicalUser: ensured.record,
     };
   }
 
-  const teamLookupEmail = primaryEmailNormalized || storedApplicationEmail;
-  if (!teamLookupEmail) {
-    dashboardDebugLog("access_denied_no_primary_email", {
-      clerkUserId,
-      storedApplicationEmail: storedApplicationEmail || null,
-      matchCandidates: candidateEmails,
-    });
-    return null;
-  }
+  return {
+    db,
+    clerkUser,
+    primaryEmail,
+    candidateEmails: normalizedCandidateEmails,
+    canonicalUser: existingUser,
+  };
+}
 
-  const [teamMemberRecord] = await db
+async function findLatestApplicationByUser(db: ReturnType<typeof requireDb>, userId: string, email: string) {
+  const byUserId = await db
     .select()
-    .from(teamMembers)
-    .innerJoin(orders, eq(teamMembers.ownerOrderId, orders.id))
-    .where(
-      and(
-        sql`lower(${teamMembers.emailNormalized}) = lower(${teamLookupEmail})`,
-        inArray(teamMembers.status, ["invited", "active"]),
-        eq(orders.status, "paid"),
-        sql`lower(${orders.accountType}) = 'partner'`,
-      ),
-    )
-    .orderBy(desc(teamMembers.createdAt));
+    .from(coreApplications)
+    .where(eq(coreApplications.userId, userId))
+    .orderBy(desc(coreApplications.createdAt))
+    .limit(1);
 
-  if (!teamMemberRecord) {
-    dashboardDebugLog("access_denied_no_match", {
-      clerkUserId,
-      primaryEmail: primaryEmailNormalized || null,
-      storedApplicationEmail: storedApplicationEmail || null,
-      matchCandidates: candidateEmails,
-      paidOrderCount: paidOrders.length,
-    });
+  if (byUserId[0]) {
+    return byUserId[0];
+  }
+
+  const byEmail = await db
+    .select()
+    .from(coreApplications)
+    .where(eq(coreApplications.email, email))
+    .orderBy(desc(coreApplications.createdAt))
+    .limit(1);
+
+  return byEmail[0] ?? null;
+}
+
+async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unknown): Promise<DashboardAccessContext | null> {
+  const session = await ensureSessionUser(clerkUserId, sessionClaims);
+  const { db, canonicalUser, candidateEmails, primaryEmail, clerkUser } = session;
+
+  if (canonicalUser) {
+    const [membership, team, profile] = await Promise.all([
+      db
+        .select()
+        .from(coreMemberships)
+        .where(and(eq(coreMemberships.userId, canonicalUser.id), eq(coreMemberships.status, "ACTIVE")))
+        .orderBy(desc(coreMemberships.startedAt))
+        .limit(1)
+        .then((rows: typeof coreMemberships.$inferSelect[]) => rows[0] ?? null),
+      db.select().from(coreTeams).where(eq(coreTeams.ownerUserId, canonicalUser.id)).limit(1).then((rows: typeof coreTeams.$inferSelect[]) => rows[0] ?? null),
+      db.select().from(coreProfiles).where(eq(coreProfiles.userId, canonicalUser.id)).limit(1).then((rows: typeof coreProfiles.$inferSelect[]) => rows[0] ?? null),
+    ]);
+
+    if (membership) {
+      const [application, payment, certificate] = await Promise.all([
+        findLatestApplicationByUser(db, canonicalUser.id, canonicalUser.email),
+        db.select().from(corePayments).where(eq(corePayments.id, membership.id)).limit(1).then((rows: typeof corePayments.$inferSelect[]) => rows[0] ?? null),
+        db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, membership.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
+      ]);
+
+      return {
+        db,
+        clerkUser,
+        primaryEmail,
+        accessType: mapRoleToDashboardAccess(canonicalUser.role, Boolean(team)),
+        canonicalUser,
+        membership,
+        application,
+        payment,
+        certificate,
+        profile,
+        team,
+        teamMember: null,
+        ownerUser: null,
+      };
+    }
+  }
+
+  if (candidateEmails.length === 0) {
     return null;
   }
 
-  dashboardDebugLog("access_match_team_member", {
-    clerkUserId,
-    primaryEmail: primaryEmailNormalized || null,
-    storedApplicationEmail: storedApplicationEmail || null,
-    matchedOrderId: teamMemberRecord.orders?.id || null,
-    matchedAccountType: teamMemberRecord.orders?.accountType || null,
-    teamMemberId: teamMemberRecord.team_members?.teamMemberId || null,
-    matchCandidates: candidateEmails,
-  });
+  const [teamMember] = await db
+    .select()
+    .from(coreTeamMembers)
+    .where(inArray(coreTeamMembers.email, candidateEmails.filter((value): value is string => typeof value === "string" && value.length > 0)))
+    .orderBy(desc(coreTeamMembers.joinedAt))
+    .limit(1);
+
+  if (!teamMember || teamMember.status.toUpperCase() === "REMOVED") {
+    return null;
+  }
+
+  const [team] = await db.select().from(coreTeams).where(eq(coreTeams.id, teamMember.teamId)).limit(1);
+  if (!team) {
+    return null;
+  }
+
+  const [ownerUser, membership, application, payment, certificate] = await Promise.all([
+    db.select().from(coreUsers).where(eq(coreUsers.id, team.ownerUserId)).limit(1).then((rows: typeof coreUsers.$inferSelect[]) => rows[0] ?? null),
+    db
+      .select()
+      .from(coreMemberships)
+      .where(and(eq(coreMemberships.userId, team.ownerUserId), eq(coreMemberships.status, "ACTIVE")))
+      .orderBy(desc(coreMemberships.startedAt))
+      .limit(1)
+      .then((rows: typeof coreMemberships.$inferSelect[]) => rows[0] ?? null),
+    coreApplications
+      ? db.select().from(coreApplications).where(eq(coreApplications.id, team.id)).limit(1).then((rows: typeof coreApplications.$inferSelect[]) => rows[0] ?? null)
+      : Promise.resolve(null),
+    db.select().from(corePayments).where(eq(corePayments.id, team.id)).limit(1).then((rows: typeof corePayments.$inferSelect[]) => rows[0] ?? null),
+    db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, team.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
+  ]);
+
+  if (!ownerUser || !membership) {
+    return null;
+  }
 
   return {
     db,
     clerkUser,
     primaryEmail,
     accessType: "partner_team_member",
-    paidOrders: [],
-    latestPaidOrder: teamMemberRecord.orders,
-    teamMember: teamMemberRecord.team_members,
+    canonicalUser,
+    membership,
+    application,
+    payment,
+    certificate,
+    profile: null,
+    team,
+    teamMember,
+    ownerUser,
   };
 }
 
-async function getPartnerTeamSnapshot(db: ReturnType<typeof requireDb>, partnerOrderId: string) {
-  const [records, seatExtensions] = await Promise.all([
-    db
-      .select()
-      .from(teamMembers)
-      .where(eq(teamMembers.ownerOrderId, partnerOrderId))
-      .orderBy(asc(teamMembers.seatNumber), asc(teamMembers.createdAt)),
-    db
-      .select()
-      .from(teamSeatExtensions)
-      .where(eq(teamSeatExtensions.partnerOrderId, partnerOrderId))
-      .orderBy(desc(teamSeatExtensions.createdAt)),
-  ]);
+async function getPartnerOwnerMemberId(db: ReturnType<typeof requireDb>, teamId: string) {
+  const teams = await db
+    .select({ id: coreTeams.id })
+    .from(coreTeams)
+    .orderBy(asc(coreTeams.createdAt), asc(coreTeams.id));
 
-  const activeMembers = records.filter((member: any) => member.status !== "removed");
-  const includedUsed = activeMembers.filter((member: any) => member.seatKind === "included").length;
-  const additionalUsed = activeMembers.filter((member: any) => member.seatKind === "additional").length;
-  const paidAdditionalSeats = seatExtensions
-    .filter((item: any) => item.status === "active")
-    .reduce((sum: number, item: any) => sum + Number(item.seatsRequested || 0), 0);
-  const pendingSeatExtensionSeats = seatExtensions
-    .filter((item: any) => item.status === "payment_required")
-    .reduce((sum: number, item: any) => sum + Number(item.seatsRequested || 0), 0);
+  const ownerIndex = teams.findIndex((record: { id: string }) => record.id === teamId);
+  const normalizedIndex = ownerIndex >= 0 ? ownerIndex + 1 : teams.length + 1;
+  return `IBPA-BO-${String(normalizedIndex).padStart(3, "0")}`;
+}
+
+async function getPartnerTeamSnapshot(db: ReturnType<typeof requireDb>, team: typeof coreTeams.$inferSelect) {
+  const members = await db
+    .select()
+    .from(coreTeamMembers)
+    .where(eq(coreTeamMembers.teamId, team.id))
+    .orderBy(asc(coreTeamMembers.joinedAt), asc(coreTeamMembers.id));
+
+  const activeMembers = members.filter((member: typeof coreTeamMembers.$inferSelect) => member.status.toUpperCase() !== "REMOVED");
+  const includedUsed = Math.min(activeMembers.length, PARTNER_INCLUDED_TEAM_SEATS);
+  const totalAllowedSeats = Math.max(team.seatCount, PARTNER_INCLUDED_TEAM_SEATS);
+  const paidAdditionalSeats = Math.max(totalAllowedSeats - PARTNER_INCLUDED_TEAM_SEATS, 0);
+  const additionalUsed = Math.max(activeMembers.length - includedUsed, 0);
   const includedRemaining = Math.max(PARTNER_INCLUDED_TEAM_SEATS - includedUsed, 0);
-  const totalAllowedSeats = PARTNER_INCLUDED_TEAM_SEATS + paidAdditionalSeats;
   const usedSeats = activeMembers.length;
   const remainingSeats = Math.max(totalAllowedSeats - usedSeats, 0);
   const canInvite = usedSeats < totalAllowedSeats;
+  const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
 
   return {
-    records,
+    ownerMemberId,
+    records: members.map((member: typeof coreTeamMembers.$inferSelect, index: number) => {
+      const isRemoved = member.status.toUpperCase() === "REMOVED";
+      const activeIndex = activeMembers.findIndex((active: typeof coreTeamMembers.$inferSelect) => active.id === member.id);
+      const seatNumber = activeIndex >= 0 ? activeIndex + 1 : index + 1;
+      const seatKind = seatNumber <= PARTNER_INCLUDED_TEAM_SEATS ? "included" : "additional";
+
+      return {
+        id: member.id,
+        teamMemberId: `${ownerMemberId}-T${String(seatNumber).padStart(2, "0")}`,
+        fullName: member.fullName,
+        email: member.email,
+        emailNormalized: normalizeEmail(member.email),
+        role: member.role || "",
+        portfolioLink: null,
+        license: "Not provided",
+        status: isRemoved ? "removed" : member.status.toLowerCase() === "active" ? "active" : "invited",
+        seatNumber,
+        seatKind,
+        billingStatus: seatKind === "included" ? "included" : "paid",
+        accessStatus: isRemoved ? "removed" : member.status.toLowerCase(),
+        registrationStatus: member.status.toLowerCase() === "active" ? "registered" : "not_registered",
+        ticketCode: null,
+        attendanceStatus: "not_marked",
+        createdAt: member.joinedAt ?? new Date(),
+      };
+    }),
     summary: {
       includedSeats: PARTNER_INCLUDED_TEAM_SEATS,
       includedUsed,
@@ -558,8 +481,8 @@ async function getPartnerTeamSnapshot(db: ReturnType<typeof requireDb>, partnerO
       totalAllowedSeats,
       additionalUsed,
       paidAdditionalSeats,
-      pendingSeatExtensionSeats,
-      pendingSeatExtensionRequests: seatExtensions.filter((item: any) => item.status === "payment_required").length,
+      pendingSeatExtensionSeats: 0,
+      pendingSeatExtensionRequests: 0,
       additionalSeatPrice: ADDITIONAL_TEAM_SEAT_PRICE,
       canInvite,
       inviteDisabledReason: canInvite
@@ -569,101 +492,41 @@ async function getPartnerTeamSnapshot(db: ReturnType<typeof requireDb>, partnerO
   };
 }
 
-function buildNormalizedApplicationPayload(order: typeof orders.$inferSelect | null | undefined) {
-  const raw = getOrderPayloadRecord(order) || {};
-  const normalized: Record<string, unknown> = { ...raw };
+function filterNotificationsForEmail(notifications: Array<typeof coreNotifications.$inferSelect>, email: string, role: string | null | undefined, userId: string | null) {
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedRole = (role || "").toUpperCase();
 
-  const fieldMap: Record<string, string[]> = {
-    firstName: ["firstName", "first_name", "givenName", "given_name"],
-    lastName: ["lastName", "last_name", "familyName", "family_name"],
-    fullName: ["fullName", "full_name", "name"],
-    email: ["email"],
-    phone: ["phone", "phoneNumber", "phone_number"],
-    specialization: ["specialization", "specializationOther", "professionalDesc", "bizType", "brandType"],
-    city: ["city"],
-    state: ["state", "region", "province"],
-    country: ["country"],
-    yearsExperience: ["yearsExperience", "experience", "educatorYears"],
-    educationDesc: ["educationDesc", "education", "studentSchool", "studentProgName"],
-    achievementsDesc: ["achievementsDesc", "competitionResult", "publicationsLinks", "contributionDesc"],
-    certificates: ["trainerCertificateFiles", "certificates", "licenseNumber"],
-    licenseNumber: ["licenseNumber", "license", "workingJurisdictions"],
-  };
+  return notifications.filter((notification) => {
+    const recipients = asRecord(notification.recipients) || {};
+    const emails = stringArray(recipients.emails);
+    const roles = stringArray(recipients.roles).map((item) => item.toUpperCase());
+    const userIds = stringArray(recipients.userIds);
 
-  for (const [targetField, sourceKeys] of Object.entries(fieldMap)) {
-    const existing = textValue(normalized[targetField]);
-    if (existing) {
-      continue;
+    if (notification.visibility === "PUBLIC" || notification.visibility === "ALL") {
+      return true;
     }
 
-    const next = getApplicationField(order, ...sourceKeys);
-    if (next) {
-      normalized[targetField] = next;
+    if (userId && userIds.includes(userId)) {
+      return true;
     }
-  }
 
-  return normalized;
+    if (emails.map((item) => normalizeEmail(item)).includes(normalizedEmail)) {
+      return true;
+    }
+
+    if (normalizedRole && roles.includes(normalizedRole)) {
+      return true;
+    }
+
+    return false;
+  });
 }
 
-function buildOwnerDashboardProfile(
-  order: typeof orders.$inferSelect | null | undefined,
-  userProfile: typeof users.$inferSelect | null | undefined,
-) {
-  const fallbackName = firstText(order?.name, getApplicationField(order, "fullName", "full_name", "name"));
-  const splitName = splitFullName(fallbackName);
-
-  const mapped = {
-    firstName: firstText(
-      getApplicationField(order, "firstName", "first_name", "givenName", "given_name"),
-      userProfile?.firstName,
-      splitName.firstName,
-    ),
-    lastName: firstText(
-      getApplicationField(order, "lastName", "last_name", "familyName", "family_name"),
-      userProfile?.lastName,
-      splitName.lastName,
-    ),
-    fullName: fallbackName,
-    email: firstText(order?.email, getApplicationField(order, "email"), userProfile?.email),
-    phone: firstText(order?.phone, getApplicationField(order, "phone", "phoneNumber", "phone_number")),
-    specialization: firstText(
-      getApplicationField(order, "specialization", "specializationOther", "professionalDesc", "bizType", "brandType"),
-      userProfile?.specialization,
-    ),
-    city: firstText(getApplicationField(order, "city"), userProfile?.city),
-    state: firstText(getApplicationField(order, "state", "region", "province")),
-    country: firstText(getApplicationField(order, "country"), userProfile?.country),
-    experienceYears: firstText(
-      getApplicationField(order, "yearsExperience", "experience", "educatorYears"),
-      userProfile?.experienceYears,
-    ),
-    education: firstText(
-      getApplicationField(order, "educationDesc", "education", "studentSchool", "studentProgName"),
-      userProfile?.education,
-    ),
-    certificatesSummary: firstText(getApplicationField(order, "trainerCertificateFiles", "certificates", "licenseNumber")),
-    achievements: firstText(
-      getApplicationField(order, "achievementsDesc", "competitionResult", "publicationsLinks", "contributionDesc"),
-    ),
-  };
-
-  const mappedFields = Object.entries(mapped)
-    .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
-    .map(([field]) => field);
-
-  return { mapped, mappedFields };
-}
-
-// 1. Dashboard User Fetching (Protected)
 dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
   const auth = getAuth(req);
   const clerkUserId = auth.userId;
-
-  console.log(`[Dashboard /me] Request received. clerkUserId: ${clerkUserId || "NONE"}`);
-
   if (!clerkUserId) {
-    console.warn(`[Dashboard /me] No clerkUserId found. Auth state:`, JSON.stringify(auth));
-    return res.status(401).json({ error: "Unauthorized: Clerk user ID not found in token" });
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {
@@ -672,146 +535,100 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, primaryEmail, accessType, teamMember, latestPaidOrder } = access;
-    const resolvedAccountType = resolveOrderAccountType(latestPaidOrder);
-    const membershipStatus = latestPaidOrder?.status || "pending";
-    const paymentStatus = latestPaidOrder?.status === "paid" ? "paid" : "pending";
-    console.log(`[Dashboard /me] Dashboard access granted. email: ${primaryEmail} type: ${accessType}`);
+    const { db, accessType, canonicalUser, membership, application, payment, certificate, team, teamMember, ownerUser } = access;
+    if (!membership) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
 
-    if (accessType === "partner_team_member" && teamMember && latestPaidOrder) {
-      dashboardDebugLog("me_map_team_member", {
-        clerkUserId,
-        clerkPrimaryEmail: normalizeEmail(primaryEmail),
-        matchedOrderId: latestPaidOrder.id,
-        matchedAccountType: latestPaidOrder.accountType || null,
-        mappedFields: ["teamMember", "membershipStatus", "paymentStatus"],
-      });
-
+    if (accessType === "partner_team_member" && teamMember && team && ownerUser) {
+      const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
       return res.json({
         certificates: [],
         accountType: "partner",
-        applicationType: latestPaidOrder.applicantType || "Partner Team Member",
-        orderType: latestPaidOrder.accountType || "partner",
-        membershipStatus,
-        paymentStatus,
+        applicationType: "TEAM_MEMBER",
+        orderType: "partner",
+        membershipStatus: membership.status.toLowerCase(),
+        paymentStatus: mapPaymentStatusToLegacy(payment?.status),
         certificateStatus: "not_available_for_team_member",
         dashboardAccess: {
           type: accessType,
           accountType: "partner",
-          partnerOrderId: latestPaidOrder.id,
-          partnerName: latestPaidOrder.name,
-          partnerEmail: latestPaidOrder.email,
-          ownerMemberId: teamMember.ownerMemberId,
-          teamMemberId: teamMember.teamMemberId,
+          partnerOrderId: team.id,
+          partnerName: ownerUser.email,
+          partnerEmail: ownerUser.email,
+          ownerMemberId,
+          teamMemberId: teamMember.id,
           teamMemberStatus: teamMember.status,
           role: teamMember.role,
-          licenseNumber: teamMember.license,
+          licenseNumber: "Not provided",
         },
       });
     }
 
-    // 4. Now fetch all linked paid certificates
-    const userCertificates = await db.select({
-      certNumber: certificates.certNumber,
-      orderEmail: orders.email,
-      orderName: orders.name,
-      accountType: orders.accountType,
-      phone: orders.phone,
-      membershipCategory: orders.membershipCategory,
-      applicantType: orders.applicantType,
-      status: orders.status,
-      certificateUrl: certificates.certificateUrl,
-      expiresAt: certificates.expiresAt,
-      applicationPayload: orders.applicationPayload,
-      createdAt: orders.createdAt,
-    })
-    .from(certificates)
-    .innerJoin(orders, eq(certificates.orderId, orders.id))
-    .where(and(eq(certificates.clerkUserId, clerkUserId), eq(orders.status, "paid")));
-
-    let partnerTeam: null | {
-      includedSeats: number;
-      includedUsed: number;
-      includedRemaining: number;
-      usedSeats: number;
-      remainingSeats: number;
-      totalAllowedSeats: number;
-      additionalUsed: number;
-      paidAdditionalSeats: number;
-      pendingSeatExtensionSeats: number;
-      pendingSeatExtensionRequests: number;
-      additionalSeatPrice: number;
-      canInvite: boolean;
-      inviteDisabledReason: string | null;
-      invitedMembers: Array<{
-        id: string;
-        teamMemberId: string;
-        fullName: string;
-        email: string;
-        role: string;
-        status: string;
-      }>;
-    } = null;
-
-    if (accessType === "partner_owner" && latestPaidOrder) {
-      const snapshot = await getPartnerTeamSnapshot(db, latestPaidOrder.id);
-      const invitedMembers = snapshot.records
-        .filter((item: any) => item.status !== "removed")
-        .map((item: any) => ({
-          id: item.id,
-          teamMemberId: item.teamMemberId,
-          fullName: item.fullName,
-          email: item.email,
-          role: item.role,
-          status: item.status,
-        }));
-
+    let partnerTeam = null;
+    if (accessType === "partner_owner" && team) {
+      const snapshot = await getPartnerTeamSnapshot(db, team);
       partnerTeam = {
         ...snapshot.summary,
-        invitedMembers,
+        invitedMembers: snapshot.records
+          .filter((item: any) => item.status !== "removed")
+          .map((item: any) => ({
+            id: item.id,
+            teamMemberId: item.teamMemberId,
+            fullName: item.fullName,
+            email: item.email,
+            role: item.role,
+            status: item.status,
+          })),
       };
     }
 
-    console.log(`[Dashboard /me] Returning ${userCertificates.length} certificates for ${clerkUserId}`);
-    dashboardDebugLog("me_map_owner", {
-      clerkUserId,
-      clerkPrimaryEmail: normalizeEmail(primaryEmail),
-      matchedOrderId: latestPaidOrder?.id || null,
-      matchedAccountType: latestPaidOrder?.accountType || null,
-      certificateCount: userCertificates.length,
-      mappedFields: [
-        "accountType",
-        "applicationType",
-        "orderType",
-        "membershipStatus",
-        "paymentStatus",
-        "certificateStatus",
-      ],
-    });
-    res.json({
-      certificates: userCertificates,
-      accountType: resolvedAccountType,
-      applicationType: latestPaidOrder?.applicantType || null,
-      orderType: latestPaidOrder?.accountType || null,
-      membershipStatus,
-      paymentStatus,
-      certificateStatus: userCertificates.length > 0 ? "issued" : "pending",
+    const ownerFullName = [
+      firstText(access.profile?.firstName),
+      firstText(access.profile?.lastName),
+    ].filter(Boolean).join(" ") || firstText(application?.fullName) || canonicalUser?.email || "";
+
+    const certificatePayload = certificate
+      ? [{
+          certNumber: certificate.certificateNumber,
+          orderEmail: canonicalUser?.email || "",
+          orderName: ownerFullName,
+          accountType: mapApplicationTypeToAccountType(application?.type),
+          phone: firstText(application?.phone, getApplicationData(application).phone) || null,
+          membershipCategory: membership.type,
+          applicantType: application?.type || canonicalUser?.role || null,
+          status: "paid",
+          certificateUrl: certificate.certificateUrl,
+          expiresAt: certificate.expiresAt,
+          applicationPayload: application?.applicationData ?? {},
+          createdAt: membership.startedAt ?? application?.createdAt ?? membership.id,
+        }]
+      : [];
+
+    return res.json({
+      certificates: certificatePayload,
+      accountType: mapApplicationTypeToAccountType(application?.type),
+      applicationType: application?.type || canonicalUser?.role || null,
+      orderType: mapApplicationTypeToAccountType(application?.type),
+      membershipStatus: membership.status.toLowerCase(),
+      paymentStatus: mapPaymentStatusToLegacy(payment?.status),
+      certificateStatus: certificate ? "issued" : "pending",
       partnerTeam,
       dashboardAccess: {
         type: accessType,
-        accountType: resolvedAccountType,
+        accountType: mapApplicationTypeToAccountType(application?.type),
       },
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
     }
-    console.error("[Dashboard /me] CRITICAL ERROR:", error);
-    res.status(500).json({ error: "Failed to fetch dashboard data" });
+
+    console.error("[Dashboard /me] Error:", error);
+    return res.status(500).json({ error: "Failed to fetch dashboard data" });
   }
 });
 
-// 2. Dashboard Extended Profile Fetching
 dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) => {
   const auth = getAuth(req);
   const clerkUserId = auth.userId;
@@ -823,132 +640,80 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, latestPaidOrder, accessType, teamMember, primaryEmail } = access;
-    const resolvedAccountType = resolveOrderAccountType(latestPaidOrder);
-    const membershipStatus = latestPaidOrder?.status || "pending";
-    const paymentStatus = latestPaidOrder?.status === "paid" ? "paid" : "pending";
-    const [userProfile] = await db.select().from(users).where(eq(users.clerkId, clerkUserId));
-    const [latestCertificate] =
-      latestPaidOrder
-        ? await db
-            .select({
-              id: certificates.id,
-              certNumber: certificates.certNumber,
-              expiresAt: certificates.expiresAt,
-              createdAt: certificates.createdAt,
-            })
-            .from(certificates)
-            .where(eq(certificates.orderId, latestPaidOrder.id))
-            .orderBy(desc(certificates.createdAt))
-            .limit(1)
-        : [null];
+    const { db, accessType, canonicalUser, membership, application, payment, certificate, profile, team, teamMember, ownerUser } = access;
+    if (!membership) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
 
-    const ownerApplicationPayload = buildNormalizedApplicationPayload(latestPaidOrder);
-    const ownerProfileMapping = buildOwnerDashboardProfile(latestPaidOrder, userProfile || null);
-
-    const partnerTeamSnapshot =
-      accessType === "partner_owner" && latestPaidOrder
-        ? await getPartnerTeamSnapshot(db, latestPaidOrder.id)
-        : null;
-
-    if (accessType === "partner_team_member" && teamMember && latestPaidOrder) {
-      dashboardDebugLog("profile_map_team_member", {
-        clerkUserId,
-        clerkPrimaryEmail: normalizeEmail(primaryEmail),
-        matchedOrderId: latestPaidOrder.id,
-        matchedAccountType: latestPaidOrder.accountType || null,
-        mappedFields: ["teamMember", "membershipStatus", "paymentStatus"],
-      });
-
+    if (accessType === "partner_team_member" && teamMember && team && ownerUser) {
+      const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
       return res.json({
         profile: {
-          ...(userProfile || {}),
           applicationPayload: {},
           type: "partner",
           accountType: "partner",
-          applicationType: latestPaidOrder.applicantType || "Partner Team Member",
-          orderType: latestPaidOrder.accountType || "partner",
-          membershipStatus,
-          paymentStatus,
+          applicationType: "TEAM_MEMBER",
+          orderType: "partner",
+          membershipStatus: membership.status.toLowerCase(),
+          paymentStatus: mapPaymentStatusToLegacy(payment?.status),
           certificateStatus: "not_available_for_team_member",
-          membershipCategory: latestPaidOrder.membershipCategory || null,
-          applicantType: "Partner Team Member",
-          orderId: latestPaidOrder.id,
+          membershipCategory: membership.type,
+          applicantType: "TEAM_MEMBER",
+          orderId: team.id,
           dashboardAccessType: accessType,
           teamMember: {
             id: teamMember.id,
-            teamMemberId: teamMember.teamMemberId,
+            teamMemberId: teamMember.id,
             fullName: teamMember.fullName,
             email: teamMember.email,
             role: teamMember.role,
-            licenseNumber: teamMember.license,
+            licenseNumber: "Not provided",
             status: teamMember.status,
-            portfolioLink: teamMember.portfolioLink,
-            ownerMemberId: teamMember.ownerMemberId,
-            partnerBusinessName: latestPaidOrder.name,
-            partnerBusinessEmail: latestPaidOrder.email,
+            ownerMemberId,
+            partnerBusinessName: ownerUser.email,
+            partnerBusinessEmail: ownerUser.email,
           },
         },
       });
     }
 
-    res.json({
-      profile: {
-        ...(userProfile || {}),
-        applicationPayload: ownerApplicationPayload,
-        firstName: ownerProfileMapping.mapped.firstName || userProfile?.firstName || null,
-        lastName: ownerProfileMapping.mapped.lastName || userProfile?.lastName || null,
-        fullName: ownerProfileMapping.mapped.fullName || latestPaidOrder?.name || null,
-        email: ownerProfileMapping.mapped.email || latestPaidOrder?.email || userProfile?.email || null,
-        phone: ownerProfileMapping.mapped.phone || latestPaidOrder?.phone || null,
-        specialization: ownerProfileMapping.mapped.specialization || userProfile?.specialization || null,
-        city: ownerProfileMapping.mapped.city || userProfile?.city || null,
-        state: ownerProfileMapping.mapped.state || null,
-        country: ownerProfileMapping.mapped.country || userProfile?.country || null,
-        experienceYears: ownerProfileMapping.mapped.experienceYears || userProfile?.experienceYears || null,
-        education: ownerProfileMapping.mapped.education || userProfile?.education || null,
-        certificatesSummary: ownerProfileMapping.mapped.certificatesSummary || null,
-        achievements: ownerProfileMapping.mapped.achievements || null,
-        type: resolvedAccountType,
-        accountType: resolvedAccountType,
-        applicationType: latestPaidOrder?.applicantType || null,
-        orderType: latestPaidOrder?.accountType || null,
-        membershipStatus,
-        paymentStatus,
-        certificateStatus: latestCertificate?.certNumber ? "issued" : "pending",
-        membershipCategory: latestPaidOrder?.membershipCategory || null,
-        applicantType: latestPaidOrder?.applicantType || null,
-        orderId: latestPaidOrder?.id || null,
-        dashboardAccessType: accessType,
-        partnerTeamSummary:
-          partnerTeamSnapshot
-            ? {
-                ...partnerTeamSnapshot.summary,
-                invitedMembers: partnerTeamSnapshot.records
-                  .filter((item: any) => item.status !== "removed")
-                  .map((item: any) => ({
-                    id: item.id,
-                    teamMemberId: item.teamMemberId,
-                    fullName: item.fullName,
-                    email: item.email,
-                    role: item.role,
-                    status: item.status,
-                  })),
-              }
-            : null,
-      },
+    if (!canonicalUser) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const partnerTeamSnapshot = accessType === "partner_owner" && team
+      ? await getPartnerTeamSnapshot(db, team)
+      : null;
+
+    const mappedProfile = buildOwnerDashboardProfile({
+      user: canonicalUser,
+      profile,
+      application,
+      membership,
+      payment,
+      certificate,
+      accessType,
+      partnerTeamSummary: partnerTeamSnapshot
+        ? {
+            ...partnerTeamSnapshot.summary,
+            invitedMembers: partnerTeamSnapshot.records
+              .filter((item: any) => item.status !== "removed")
+              .map((item: any) => ({
+                id: item.id,
+                teamMemberId: item.teamMemberId,
+                fullName: item.fullName,
+                email: item.email,
+                role: item.role,
+                status: item.status,
+              })),
+          }
+        : null,
     });
 
-    dashboardDebugLog("profile_map_owner", {
-      clerkUserId,
-      clerkPrimaryEmail: normalizeEmail(primaryEmail),
-      matchedOrderId: latestPaidOrder?.id || null,
-      matchedAccountType: latestPaidOrder?.accountType || null,
-      mappedFields: ownerProfileMapping.mappedFields,
-    });
+    return res.json({ profile: mappedProfile });
   } catch (error) {
     console.error("[Dashboard /profile GET] Error:", error);
-    res.status(500).json({ error: "Failed to fetch profile" });
+    return res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
 
@@ -963,27 +728,35 @@ dashboardRouter.get("/notifications", clerkMiddleware(clerkOptions), async (req,
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, primaryEmail } = access;
-    const records = await db
+    const notifications = await access.db
       .select()
-      .from(dashboardNotifications)
-      .where(sql`lower(${dashboardNotifications.email}) = lower(${primaryEmail})`)
-      .orderBy(desc(dashboardNotifications.createdAt));
+      .from(coreNotifications)
+      .orderBy(desc(coreNotifications.createdAt));
+    const role = access.accessType === "partner_team_member"
+      ? "TEAM_MEMBER"
+      : access.canonicalUser?.role ?? "MEMBER";
+    const email = access.primaryEmail || access.canonicalUser?.email || access.teamMember?.email || "";
+    const visible = filterNotificationsForEmail(notifications, email, role, access.canonicalUser?.id ?? null);
 
-    res.json({
-      notifications: records.map((item: any) => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        timestamp: item.createdAt,
-        unread: !item.readAt,
-        ctaLabel: item.ctaLabel,
-        ctaUrl: item.ctaUrl,
-      })),
+    return res.json({
+      notifications: visible.map((item) => {
+        const metadata = asRecord(item.metadata) || {};
+        const readBy = stringArray(metadata.readBy).map((entry) => normalizeEmail(entry));
+
+        return {
+          id: item.id,
+          title: item.title,
+          description: item.message,
+          timestamp: item.createdAt,
+          unread: !readBy.includes(normalizeEmail(email)),
+          ctaLabel: firstText(metadata.ctaLabel) || null,
+          ctaUrl: firstText(metadata.ctaUrl) || null,
+        };
+      }),
     });
   } catch (error) {
     console.error("[Dashboard /notifications GET] Error:", error);
-    res.status(500).json({ error: "Failed to fetch notifications" });
+    return res.status(500).json({ error: "Failed to fetch notifications" });
   }
 });
 
@@ -998,32 +771,25 @@ dashboardRouter.patch("/notifications", clerkMiddleware(clerkOptions), async (re
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, primaryEmail } = access;
     const ids = Array.isArray(req.body?.ids)
       ? req.body.ids.filter((item: unknown): item is string => typeof item === "string" && item.length > 0)
       : [];
 
-    const whereClause = ids.length > 0
-      ? and(
-          sql`lower(${dashboardNotifications.email}) = lower(${primaryEmail})`,
-          inArray(dashboardNotifications.id, ids),
-          isNull(dashboardNotifications.readAt),
-        )
-      : and(
-          sql`lower(${dashboardNotifications.email}) = lower(${primaryEmail})`,
-          isNull(dashboardNotifications.readAt),
-        );
+    const email = access.primaryEmail || access.canonicalUser?.email || access.teamMember?.email || "";
+    const notifications = await access.db
+      .select({ id: coreNotifications.id })
+      .from(coreNotifications)
+      .orderBy(desc(coreNotifications.createdAt));
+    const targetIds = ids.length > 0 ? ids : notifications.map((item: { id: string }) => item.id);
+    const updatedIds = await markNotificationsRead(access.db, {
+      notificationIds: targetIds,
+      email,
+    });
 
-    const updated = await db
-      .update(dashboardNotifications)
-      .set({ readAt: new Date() })
-      .where(whereClause)
-      .returning({ id: dashboardNotifications.id });
-
-    res.json({ success: true, updatedIds: updated.map((item: { id: string }) => item.id) });
+    return res.json({ success: true, updatedIds });
   } catch (error) {
     console.error("[Dashboard /notifications PATCH] Error:", error);
-    res.status(500).json({ error: "Failed to update notifications" });
+    return res.status(500).json({ error: "Failed to update notifications" });
   }
 });
 
@@ -1038,20 +804,19 @@ dashboardRouter.get("/team-members", clerkMiddleware(clerkOptions), async (req, 
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, latestPaidOrder, accessType } = access;
-    if (!latestPaidOrder || accessType !== "partner_owner") {
+    const { db, accessType, team, canonicalUser } = access;
+    if (!team || !canonicalUser || accessType !== "partner_owner") {
       return res.status(403).json(PARTNER_OWNER_ONLY_ERROR);
     }
 
-    const ownerMemberId = await getPartnerOwnerMemberId(db, latestPaidOrder.id);
-    const { records, summary } = await getPartnerTeamSnapshot(db, latestPaidOrder.id);
+    const snapshot = await getPartnerTeamSnapshot(db, team);
 
-    res.json({
-      ownerMemberId,
-      ...summary,
-      partnerBusinessName: latestPaidOrder.name,
-      partnerBusinessEmail: latestPaidOrder.email,
-      members: records.map((item: any) => ({
+    return res.json({
+      ownerMemberId: snapshot.ownerMemberId,
+      ...snapshot.summary,
+      partnerBusinessName: canonicalUser.email,
+      partnerBusinessEmail: canonicalUser.email,
+      members: snapshot.records.map((item: any) => ({
         id: item.id,
         teamMemberId: item.teamMemberId,
         fullName: item.fullName,
@@ -1072,7 +837,7 @@ dashboardRouter.get("/team-members", clerkMiddleware(clerkOptions), async (req, 
     });
   } catch (error) {
     console.error("[Dashboard /team-members GET] Error:", error);
-    res.status(500).json({ error: "Failed to fetch team members" });
+    return res.status(500).json({ error: "Failed to fetch team members" });
   }
 });
 
@@ -1087,8 +852,8 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, latestPaidOrder, accessType } = access;
-    if (!latestPaidOrder || accessType !== "partner_owner") {
+    const { db, accessType, team, canonicalUser } = access;
+    if (!team || !canonicalUser || accessType !== "partner_owner") {
       return res.status(403).json(PARTNER_OWNER_ONLY_ERROR);
     }
 
@@ -1096,117 +861,74 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
     const email = trimValue(req.body?.email);
     const emailNormalized = normalizeEmail(req.body?.email);
     const role = trimValue(req.body?.role, 120);
-    const portfolioLink = optionalTrimmedValue(req.body?.portfolioLink, 500);
-    const licenseNumber = trimValue(req.body?.licenseNumber ?? req.body?.license, 120);
     const affiliationConfirmed = req.body?.affiliationConfirmed === true;
 
     if (!fullName) {
       return res.status(400).json({ error: "Full name is required." });
     }
-
-    if (!email || !emailNormalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalized)) {
+    if (!emailNormalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalized)) {
       return res.status(400).json({ error: "A valid email is required." });
     }
-
     if (!role) {
       return res.status(400).json({ error: "Position / role is required." });
     }
-
-    if (!licenseNumber) {
-      return res.status(400).json({ error: "License number is required." });
-    }
-
     if (!affiliationConfirmed) {
-      return res.status(400).json({
-        error: "Affiliation confirmation is required before adding a team member.",
-      });
+      return res.status(400).json({ error: "Affiliation confirmation is required before adding a team member." });
     }
 
-    const { records: existingMembers, summary } = await getPartnerTeamSnapshot(db, latestPaidOrder.id);
-    const nonRemovedMembers = existingMembers.filter((member: any) => member.status !== "removed");
-
-    if (nonRemovedMembers.length >= MAX_TEAM_SEATS) {
-      return res.status(400).json({
-        error: `Maximum team size is ${MAX_TEAM_SEATS} seats for this release.`,
-      });
+    const snapshot = await getPartnerTeamSnapshot(db, team);
+    const activeMembers = snapshot.records.filter((member: any) => member.status !== "removed");
+    if (activeMembers.length >= MAX_TEAM_SEATS) {
+      return res.status(400).json({ error: `Maximum team size is ${MAX_TEAM_SEATS} seats for this release.` });
     }
-
-    if (nonRemovedMembers.some((member: { emailNormalized: string }) => member.emailNormalized === emailNormalized)) {
-      return res.status(400).json({
-        error: "This email is already assigned to an active team seat in your partner account.",
-      });
+    if (activeMembers.some((member: any) => member.emailNormalized === emailNormalized)) {
+      return res.status(400).json({ error: "This email is already assigned to an active team seat in your partner account." });
     }
-
-    if (!summary.canInvite) {
+    if (!snapshot.summary.canInvite) {
       return res.status(400).json({
         error: "You have used all included team seats. Add more seats to invite additional members.",
         code: "SEAT_LIMIT_REACHED",
       });
     }
 
-    const seatNumber =
-      existingMembers.reduce((max: number, item: any) => Math.max(max, Number(item.seatNumber || 0)), 0) + 1;
-    const seatKind = summary.includedUsed < PARTNER_INCLUDED_TEAM_SEATS ? "included" : "additional";
-    const billingStatus = seatKind === "included" ? "included" : "paid";
-    const accessStatus = "active";
-    const ownerMemberId = await getPartnerOwnerMemberId(db, latestPaidOrder.id);
-    const teamMemberId = `${ownerMemberId}-T${seatNumber}`;
-
-    const [created] = await db
-      .insert(teamMembers)
-      .values({
-        ownerOrderId: latestPaidOrder.id,
-        ownerClerkUserId: clerkUserId,
-        ownerMemberId,
-        teamMemberId,
-        fullName,
-        email,
-        emailNormalized,
-        role,
-        portfolioLink,
-        license: licenseNumber,
-        affiliationConfirmed,
-        status: "invited",
-        seatNumber,
-        seatKind,
-        billingStatus,
-        accessStatus,
-        registrationStatus: "not_registered",
-        ticketCode: null,
-        attendanceStatus: "not_marked",
-      })
-      .returning();
+    const created = await upsertCanonicalTeamMember(db, {
+      id: crypto.randomUUID(),
+      teamId: team.id,
+      email,
+      fullName,
+      role,
+      status: "INVITED",
+      joinedAt: new Date(),
+    });
+    const refreshed = await getPartnerTeamSnapshot(db, team);
+    const createdRecord = refreshed.records.find((item: any) => item.id === created.record.id);
 
     return res.status(201).json({
-      ownerMemberId,
+      ownerMemberId: refreshed.ownerMemberId,
       additionalSeatPrice: ADDITIONAL_TEAM_SEAT_PRICE,
       member: {
-        id: created.id,
-        teamMemberId: created.teamMemberId,
-        fullName: created.fullName,
-        email: created.email,
-        role: created.role,
-        portfolioLink: created.portfolioLink,
-        licenseNumber: created.license,
-        status: created.status,
-        seatNumber: created.seatNumber,
-        seatKind: created.seatKind,
-        billingStatus: created.billingStatus,
-        accessStatus: created.accessStatus,
-        registrationStatus: created.registrationStatus,
-        ticketCode: created.ticketCode,
-        attendanceStatus: created.attendanceStatus,
-        createdAt: created.createdAt,
+        id: created.record.id,
+        teamMemberId: createdRecord?.teamMemberId ?? created.record.id,
+        fullName: created.record.fullName,
+        email: created.record.email,
+        role: created.record.role || "",
+        portfolioLink: null,
+        licenseNumber: "Not provided",
+        status: createdRecord?.status ?? "invited",
+        seatNumber: createdRecord?.seatNumber ?? activeMembers.length + 1,
+        seatKind: createdRecord?.seatKind ?? (activeMembers.length + 1 <= PARTNER_INCLUDED_TEAM_SEATS ? "included" : "additional"),
+        billingStatus: createdRecord?.billingStatus ?? "included",
+        accessStatus: createdRecord?.accessStatus ?? "invited",
+        registrationStatus: createdRecord?.registrationStatus ?? "not_registered",
+        ticketCode: null,
+        attendanceStatus: "not_marked",
+        createdAt: created.record.joinedAt ?? new Date(),
       },
-      note: seatKind === "additional" ? "Additional team seat is active." : "Team educational seat is active.",
+      note: "Team educational seat is active.",
     });
-  } catch (error: any) {
-    const message = String(error?.message || "");
-    if (message.includes("team_members_team_member_id_uidx")) {
-      return res.status(400).json({ error: "Team member ID conflict. Please retry." });
-    }
+  } catch (error) {
     console.error("[Dashboard /team-members POST] Error:", error);
-    res.status(500).json({ error: "Failed to add team member" });
+    return res.status(500).json({ error: "Failed to add team member" });
   }
 });
 
@@ -1221,31 +943,26 @@ dashboardRouter.post("/team-members/extend-seats", clerkMiddleware(clerkOptions)
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, latestPaidOrder, accessType } = access;
-    if (!latestPaidOrder || accessType !== "partner_owner") {
+    const { db, accessType, team } = access;
+    if (!team || accessType !== "partner_owner") {
       return res.status(403).json(PARTNER_OWNER_ONLY_ERROR);
     }
 
     const seatsRequested = Math.max(1, Math.min(Number(req.body?.seatsRequested) || 1, 20));
-    const [request] = await db
-      .insert(teamSeatExtensions)
-      .values({
-        partnerOrderId: latestPaidOrder.id,
-        ownerClerkUserId: clerkUserId,
-        seatsRequested,
-        status: "payment_required",
-      })
-      .returning();
+    const updatedTeam = await extendCanonicalTeamSeats(db, {
+      teamId: team.id,
+      seatsRequested,
+    });
 
-    res.status(201).json({
-      requestId: request.id,
-      seatsRequested: request.seatsRequested,
-      status: request.status,
-      note: "Seat extension request created. Payment integration is pending.",
+    return res.status(201).json({
+      seatsRequested,
+      seatCount: updatedTeam?.seatCount ?? team.seatCount + seatsRequested,
+      status: "active",
+      note: "Team seat capacity updated.",
     });
   } catch (error) {
     console.error("[Dashboard /team-members/extend-seats POST] Error:", error);
-    res.status(500).json({ error: "Failed to request seat extension" });
+    return res.status(500).json({ error: "Failed to request seat extension" });
   }
 });
 
@@ -1265,37 +982,37 @@ dashboardRouter.delete("/team-members/:id", clerkMiddleware(clerkOptions), async
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, latestPaidOrder, accessType } = access;
-    if (!latestPaidOrder || accessType !== "partner_owner") {
+    const { db, accessType, team } = access;
+    if (!team || accessType !== "partner_owner") {
       return res.status(403).json(PARTNER_OWNER_ONLY_ERROR);
     }
 
     const [member] = await db
       .select()
-      .from(teamMembers)
-      .where(and(eq(teamMembers.id, memberId), eq(teamMembers.ownerOrderId, latestPaidOrder.id)));
+      .from(coreTeamMembers)
+      .where(and(eq(coreTeamMembers.id, memberId), eq(coreTeamMembers.teamId, team.id)));
 
-    if (!member || member.status === "removed") {
+    if (!member || member.status.toUpperCase() === "REMOVED") {
       return res.status(404).json({ error: "Team member not found." });
     }
 
-    await db
-      .update(teamMembers)
-      .set({
-        status: "removed",
-        accessStatus: "removed",
-        updatedAt: new Date(),
-      })
-      .where(eq(teamMembers.id, memberId));
+    await upsertCanonicalTeamMember(db, {
+      id: member.id,
+      teamId: member.teamId,
+      email: member.email,
+      fullName: member.fullName,
+      role: member.role,
+      status: "REMOVED",
+      joinedAt: member.joinedAt,
+    });
 
-    res.json({ success: true, id: memberId });
+    return res.json({ success: true, id: memberId });
   } catch (error) {
     console.error("[Dashboard /team-members DELETE] Error:", error);
-    res.status(500).json({ error: "Failed to remove team member" });
+    return res.status(500).json({ error: "Failed to remove team member" });
   }
 });
 
-// 3. Dashboard Extended Profile Updating
 dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res) => {
   const auth = getAuth(req);
   const clerkUserId = auth.userId;
@@ -1307,14 +1024,18 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, clerkUser, primaryEmail, latestPaidOrder, accessType } = access;
+    const { db, clerkUser, primaryEmail, accessType, application, canonicalUser, membership, team } = access;
     if (accessType === "partner_team_member") {
       return res.status(403).json({
         error: "Team member profiles are managed by the partner owner.",
         code: "TEAM_MEMBER_EDIT_DISABLED",
       });
     }
-    const email = primaryEmail || latestPaidOrder?.email || "";
+
+    if (!canonicalUser) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
     const {
       imageUrl,
       bio,
@@ -1326,41 +1047,112 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
       city,
       applicationPayload,
     } = req.body;
-    
-    const existingPayload =
-      latestPaidOrder?.applicationPayload && typeof latestPaidOrder.applicationPayload === "object"
-        ? (latestPaidOrder.applicationPayload as Record<string, unknown>)
-        : {};
 
+    const existingPayload = getApplicationData(application);
     const nextApplicationPayload = {
       ...existingPayload,
-      ...pickEditableApplicationFields(
-        applicationPayload && typeof applicationPayload === "object" ? applicationPayload as Record<string, unknown> : {},
-      ),
+      ...(applicationPayload && typeof applicationPayload === "object" ? applicationPayload as Record<string, unknown> : {}),
     };
-    const saved = await saveDashboardProfile(db, {
+
+    await saveDashboardProfile(db, {
       clerkUserId,
-      email,
-      firstName: clerkUser?.firstName || "",
-      lastName: clerkUser?.lastName || "",
+      email: primaryEmail || canonicalUser.email,
+      currentRole: canonicalUser.role,
+      firstName: clerkUser?.firstName || access.profile?.firstName || "",
+      lastName: clerkUser?.lastName || access.profile?.lastName || "",
       imageUrl,
       bio,
-      specialization: specialization || textValue(nextApplicationPayload.specialization) || null,
-      experienceYears: experienceYears || (nextApplicationPayload.yearsExperience as string) || null,
-      education: education || (nextApplicationPayload.educationDesc as string) || null,
-      instagramUrl: instagramUrl || (nextApplicationPayload.instagramLink as string) || null,
-      country: country || (nextApplicationPayload.country as string) || null,
-      city: city || (nextApplicationPayload.city as string) || null,
+      specialization,
+      experienceYears,
+      education,
+      instagramUrl,
+      country,
+      city,
       applicationPayload: nextApplicationPayload,
-      legacyOrder: latestPaidOrder,
     });
 
-    res.json({ success: true, applicationPayload: saved.nextApplicationPayload });
+    if (application) {
+      await db
+        .update(coreApplications)
+        .set({
+          phone: typeof nextApplicationPayload.phone === "string" ? nextApplicationPayload.phone : application.phone,
+          applicationData: nextApplicationPayload,
+        })
+        .where(eq(coreApplications.id, application.id));
+    } else if (membership) {
+      const fullName = [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ").trim() || canonicalUser.email;
+      await db.insert(coreApplications).values({
+        id: membership.id,
+        userId: canonicalUser.id,
+        type: team ? "PARTNER" : "MEMBER",
+        packageName: membership.type,
+        status: "PAID",
+        fullName,
+        email: canonicalUser.email,
+        phone: typeof nextApplicationPayload.phone === "string" ? nextApplicationPayload.phone : null,
+        paymentLink: null,
+        applicationData: nextApplicationPayload,
+        applicationFiles: [],
+        approvedAt: membership.startedAt ?? new Date(),
+        createdAt: membership.startedAt ?? new Date(),
+      }).onConflictDoNothing();
+    }
+
+    return res.json({ success: true, applicationPayload: nextApplicationPayload });
   } catch (error) {
     console.error("[Dashboard /profile PATCH] Error:", error);
-    res.status(500).json({ error: "Failed to update profile" });
+    return res.status(500).json({ error: "Failed to update profile" });
   }
 });
+
+async function buildAdminClientRows(db: ReturnType<typeof requireDb>) {
+  const rows = await db
+    .select({
+      membership: coreMemberships,
+      user: coreUsers,
+      profile: coreProfiles,
+      certificate: coreCertificates,
+      application: coreApplications,
+    })
+    .from(coreMemberships)
+    .innerJoin(coreUsers, eq(coreMemberships.userId, coreUsers.id))
+    .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
+    .leftJoin(coreCertificates, eq(coreCertificates.membershipId, coreMemberships.id))
+    .leftJoin(coreApplications, eq(coreApplications.id, coreMemberships.id))
+    .where(eq(coreMemberships.status, "ACTIVE"))
+    .orderBy(desc(coreMemberships.startedAt));
+
+  return rows.map((row: any) => {
+    const payload = getApplicationData(row.application);
+    const userName = [
+      firstText(row.profile?.firstName),
+      firstText(row.profile?.lastName),
+    ].filter(Boolean).join(" ") || firstText(row.application?.fullName) || row.user.email;
+
+    return {
+      id: row.membership.id,
+      userName,
+      email: row.user.email,
+      phone: firstText(row.application?.phone, payload.phone) || null,
+      membershipCategory: row.membership.type,
+      status: row.membership.status.toLowerCase(),
+      certificateNumber: row.certificate?.certificateNumber ?? null,
+      certificateUrl: row.certificate?.certificateUrl ?? null,
+      expiresAt: row.certificate?.expiresAt ?? null,
+      applicationPayload: row.application?.applicationData ?? {},
+      createdAt: row.membership.startedAt ?? row.membership.id,
+      bio: row.profile?.bio ?? null,
+      specialization: (row.profile?.specializations ?? []).join(", ") || null,
+      experienceYears: row.profile?.yearsExperience != null ? String(row.profile.yearsExperience) : null,
+      education: row.profile?.credentials ?? null,
+      instagramUrl: row.profile?.instagram ?? null,
+      country: row.profile?.country ?? null,
+      city: row.profile?.city ?? null,
+      hasDashboardAccess: Boolean(row.user.clerkId),
+      cardName: row.membership.type || "Professional Membership",
+    };
+  });
+}
 
 async function listCards(req: any, res: any) {
   try {
@@ -1371,88 +1163,29 @@ async function listCards(req: any, res: any) {
       isMailingPurpose ? ADMIN_CARD_MAILING_DEFAULT_LIMIT : ADMIN_CARD_LIST_DEFAULT_LIMIT,
       isMailingPurpose ? ADMIN_CARD_MAILING_MAX_LIMIT : ADMIN_CARD_LIST_MAX_LIMIT,
     );
-    const searchCondition = getCardSearchCondition(req.query?.q);
-    const baseCondition = combineConditions(eq(orders.status, "paid"), searchCondition);
+    const queryText = trimValue(req.query?.q).toLowerCase();
+    const rows = await buildAdminClientRows(db);
+    const filtered = queryText
+      ? rows.filter((row: any) =>
+          [row.userName, row.email, row.membershipCategory, row.certificateNumber]
+            .some((value) => String(value || "").toLowerCase().includes(queryText)))
+      : rows;
+    const paged = filtered.slice(offset, offset + limit);
 
-    const listSelection = isMailingPurpose
-      ? {
-          id: orders.id,
-          userName: orders.name,
-          email: orders.email,
-          membershipCategory: orders.membershipCategory,
-          status: orders.status,
-          createdAt: orders.createdAt,
-        }
-      : {
-          id: orders.id,
-          userName: orders.name,
-          email: orders.email,
-          phone: orders.phone,
-          membershipCategory: orders.membershipCategory,
-          status: orders.status,
-          certificateNumber: certificates.certNumber,
-          certificateUrl: certificates.certificateUrl,
-          expiresAt: certificates.expiresAt,
-          createdAt: orders.createdAt,
-          bio: users.bio,
-          specialization: users.specialization,
-          experienceYears: users.experienceYears,
-          education: users.education,
-          instagramUrl: users.instagramUrl,
-          country: users.country,
-          city: users.city,
-          hasDashboardAccess: sql<boolean>`${certificates.clerkUserId} is not null`,
-        };
-
-    const itemsQuery = db.select(listSelection)
-      .from(orders)
-      .leftJoin(certificates, eq(orders.id, certificates.orderId))
-      .leftJoin(users, eq(certificates.clerkUserId, users.clerkId))
-      .where(baseCondition)
-      .orderBy(desc(orders.createdAt))
-      .limit(limit)
-      .offset(offset);
-
-    const countQuery = db
-      .select({ count: sql<number>`count(*)` })
-      .from(orders)
-      .leftJoin(certificates, eq(orders.id, certificates.orderId))
-      .where(baseCondition);
-
-    const categoryRowsQuery = db
-      .select({ membershipCategory: orders.membershipCategory })
-      .from(orders)
-      .where(eq(orders.status, "paid"))
-      .groupBy(orders.membershipCategory);
-
-    const [items, countRows, categoryRows] = await Promise.all([
-      itemsQuery,
-      countQuery,
-      categoryRowsQuery,
-    ]);
-
-    const mapped = items.map((c: any) => ({
-      ...c,
-      cardName: c.membershipCategory || "Professional Membership"
-    }));
-
-    const total = countToNumber(countRows[0]?.count);
-    res.json({
-      items: mapped,
-      total,
+    return res.json({
+      items: paged,
+      total: filtered.length,
       limit,
       offset,
-      hasMore: offset + mapped.length < total,
-      categories: categoryRows
-        .map((row: any) => row.membershipCategory)
-        .filter((value: unknown): value is string => typeof value === "string" && value.length > 0),
+      hasMore: offset + paged.length < filtered.length,
+      categories: uniqueStrings(filtered.map((row: any) => row.membershipCategory || "").filter(Boolean)),
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
     }
     console.error("Failed to fetch cards:", error);
-    res.status(500).json({ error: "Failed to fetch cards" });
+    return res.status(500).json({ error: "Failed to fetch cards" });
   }
 }
 
@@ -1464,46 +1197,20 @@ cardsRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, re
     }
 
     const db = requireDb();
-    const [client] = await db.select({
-      id: orders.id,
-      userName: orders.name,
-      email: orders.email,
-      phone: orders.phone,
-      membershipCategory: orders.membershipCategory,
-      status: orders.status,
-      certificateNumber: certificates.certNumber,
-      certificateUrl: certificates.certificateUrl,
-      expiresAt: certificates.expiresAt,
-      applicationPayload: orders.applicationPayload,
-      createdAt: orders.createdAt,
-      bio: users.bio,
-      specialization: users.specialization,
-      experienceYears: users.experienceYears,
-      education: users.education,
-      instagramUrl: users.instagramUrl,
-      country: users.country,
-      city: users.city,
-      hasDashboardAccess: sql<boolean>`${certificates.clerkUserId} is not null`,
-    })
-    .from(orders)
-    .leftJoin(certificates, eq(orders.id, certificates.orderId))
-    .leftJoin(users, eq(certificates.clerkUserId, users.clerkId))
-    .where(and(eq(orders.status, "paid"), eq(orders.id, id)));
+    const rows = await buildAdminClientRows(db);
+    const client = rows.find((row: any) => row.id === id);
 
     if (!client) {
       return res.status(404).json({ error: "Client not found" });
     }
 
-    res.json({
-      ...client,
-      cardName: client.membershipCategory || "Professional Membership"
-    });
+    return res.json(client);
   } catch (error) {
     if (error instanceof Error && error.message.includes("DATABASE_URL")) {
       return res.status(503).json({ error: error.message });
     }
     console.error("Failed to fetch card detail:", error);
-    res.status(500).json({ error: "Failed to fetch card detail" });
+    return res.status(500).json({ error: "Failed to fetch card detail" });
   }
 });
 

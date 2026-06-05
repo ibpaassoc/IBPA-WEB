@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { requireDb } from "@/lib/db";
-import { clearCanonicalPinnedEvents, clearLegacyPinnedEvents, deleteCanonicalEvent, deleteLegacyEvent, listCanonicalEvents, listLegacyEvents, upsertCanonicalEvent, upsertLegacyEvent, type EventPersistenceInput } from "./event.repository";
+import { clearCanonicalPinnedEvents, deleteCanonicalEvent, listCanonicalEvents, upsertCanonicalEvent, type EventPersistenceInput } from "./event.repository";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -39,10 +39,6 @@ function resolveVisibility(publishToSite?: boolean, publishToDashboard?: boolean
 
 function resolveStatus(publishToSite?: boolean, publishToDashboard?: boolean) {
   return publishToSite || publishToDashboard ? "PUBLISHED" : "DRAFT";
-}
-
-function isMissingCanonicalTableError(error: unknown) {
-  return error instanceof Error && error.message.includes('relation "ibpa.');
 }
 
 function toCompatibilityShape(item: {
@@ -108,39 +104,6 @@ function mapCanonicalEvent(item: Awaited<ReturnType<typeof listCanonicalEvents>>
   });
 }
 
-function mapLegacyEvent(item: Awaited<ReturnType<typeof listLegacyEvents>>[number]) {
-  return toCompatibilityShape({
-    id: item.id,
-    title: item.title,
-    description: item.body,
-    coverImageUrl: item.coverImage,
-    coverAspect: item.coverAspect ?? null,
-    location: item.eventAddress,
-    eventAllDay: item.eventAllDay,
-    startDate: item.eventDate,
-    endDate: item.eventEndDate,
-    eventLink: item.ctaUrl,
-    ctaLabel: item.ctaLabel,
-    isPinned: item.isPinned,
-    publishToSite: item.publishToSite,
-    publishToDashboard: item.publishToDashboard,
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
-  });
-}
-
-function mergeById(items: Array<ReturnType<typeof toCompatibilityShape>>) {
-  const records = new Map<string, ReturnType<typeof toCompatibilityShape>>();
-
-  for (const item of items) {
-    if (!records.has(item.id)) {
-      records.set(item.id, item);
-    }
-  }
-
-  return Array.from(records.values());
-}
-
 function normalizeEventPayload(payload: EventPayload): EventPersistenceInput {
   const id = payload.id || crypto.randomUUID();
   return {
@@ -166,25 +129,14 @@ function normalizeEventPayload(payload: EventPayload): EventPersistenceInput {
 export async function listPublicEvents(db: DbClient, target: "site" | "dashboard") {
   const canonicalItems = await listAdminEvents(db);
 
-  return canonicalItems.filter((item) => (target === "dashboard" ? item.publishToDashboard : item.publishToSite));
+  return canonicalItems.filter((item: any) => (target === "dashboard" ? item.publishToDashboard : item.publishToSite));
 }
 
 export async function listAdminEvents(db: DbClient) {
-  const merged: Array<ReturnType<typeof toCompatibilityShape>> = [];
-
-  try {
-    const canonical = await listCanonicalEvents(db);
-    merged.push(...canonical.map(mapCanonicalEvent));
-  } catch (error) {
-    if (!isMissingCanonicalTableError(error)) {
-      throw error;
-    }
-  }
-
-  const legacy = await listLegacyEvents(db);
-  merged.push(...legacy.map(mapLegacyEvent));
-
-  return mergeById(merged).sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const canonical = await listCanonicalEvents(db);
+  return canonical
+    .map(mapCanonicalEvent)
+    .sort((a: any, b: any) => Number(b.isPinned) - Number(a.isPinned) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function createOrUpdateEvent(db: DbClient, payload: EventPayload) {
@@ -197,39 +149,13 @@ export async function createOrUpdateEvent(db: DbClient, payload: EventPayload) {
   }
 
   if (normalized.isPinned) {
-    await clearLegacyPinnedEvents(db, normalized.id);
-    try {
-      await clearCanonicalPinnedEvents(db, normalized.id);
-    } catch (error) {
-      if (!isMissingCanonicalTableError(error)) {
-        throw error;
-      }
-    }
+    await clearCanonicalPinnedEvents(db, normalized.id);
   }
 
-  const legacy = await upsertLegacyEvent(db, normalized);
-
-  try {
-    await upsertCanonicalEvent(db, normalized);
-  } catch (error) {
-    if (!isMissingCanonicalTableError(error)) {
-      throw error;
-    }
-  }
-
-  return mapLegacyEvent(legacy);
+  const result = await upsertCanonicalEvent(db, normalized);
+  return mapCanonicalEvent(result.record);
 }
 
 export async function removeEvent(db: DbClient, id: string) {
-  const deletedLegacy = await deleteLegacyEvent(db, id);
-
-  try {
-    await deleteCanonicalEvent(db, id);
-  } catch (error) {
-    if (!isMissingCanonicalTableError(error)) {
-      throw error;
-    }
-  }
-
-  return deletedLegacy;
+  return deleteCanonicalEvent(db, id);
 }

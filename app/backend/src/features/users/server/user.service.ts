@@ -1,4 +1,4 @@
-import type { Order, User as LegacyUser } from "@/lib/schema";
+import type { SourceOrderRecord, SourceUserRecord } from "@/features/shared/server/source-records";
 import type { UserRole } from "@/lib/permissions";
 import { requireDb } from "@/lib/db";
 import { upsertCanonicalUser } from "./user.repository";
@@ -40,22 +40,22 @@ export async function ensureCanonicalUser(db: DbClient, input: EnsureCanonicalUs
   });
 }
 
-export async function syncCanonicalUserFromLegacyUser(db: DbClient, legacyUser: LegacyUser) {
+export async function syncCanonicalUserFromSourceUser(db: DbClient, sourceUser: SourceUserRecord) {
   return ensureCanonicalUser(db, {
-    clerkId: legacyUser.clerkId,
-    email: legacyUser.email,
+    clerkId: sourceUser.clerkId,
+    email: sourceUser.email,
     role: "MEMBER",
     status: "ACTIVE",
   });
 }
 
-export async function syncCanonicalUserFromLegacyOrder(db: DbClient, legacyOrder: Order) {
+export async function syncCanonicalUserFromSourceOrder(db: DbClient, sourceOrder: SourceOrderRecord) {
   return ensureCanonicalUser(db, {
-    email: legacyOrder.email,
+    email: sourceOrder.email,
     role: resolveUserRole({
-      accountType: legacyOrder.accountType,
-      applicantType: legacyOrder.applicantType,
+      accountType: sourceOrder.accountType,
+      applicantType: sourceOrder.applicantType,
     }),
-    status: legacyOrder.status === "rejected" ? "INACTIVE" : "ACTIVE",
+    status: sourceOrder.status === "rejected" ? "INACTIVE" : "ACTIVE",
   });
 }

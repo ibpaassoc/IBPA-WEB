@@ -1,4 +1,4 @@
-import type { Order, PartnerApplication } from "@/lib/schema";
+import type { SourceOrderRecord, SourcePartnerApplicationRecord } from "@/features/shared/server/source-records";
 import { upsertCanonicalPayment, upsertCanonicalStripeWebhookEvent } from "./payment.repository";
 
 const LEGACY_MEMBERSHIP_AMOUNTS: Record<string, number> = {
@@ -17,8 +17,8 @@ function resolveLegacyAmount(category: string | null | undefined) {
   return LEGACY_MEMBERSHIP_AMOUNTS[category || ""] ?? 0;
 }
 
-export async function syncLegacyOrderPayment(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
-  order: Order;
+export async function importSourceOrderPayment(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
+  order: SourceOrderRecord;
   userId?: string | null;
 }) {
   return upsertCanonicalPayment(db, {
@@ -33,8 +33,8 @@ export async function syncLegacyOrderPayment(db: ReturnType<typeof import("@/lib
   });
 }
 
-export async function syncLegacyPartnerApplicationPayment(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
-  application: PartnerApplication;
+export async function importSourcePartnerApplicationPayment(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
+  application: SourcePartnerApplicationRecord;
   userId?: string | null;
 }) {
   return upsertCanonicalPayment(db, {
@@ -54,7 +54,7 @@ export async function syncLegacyPartnerApplicationPayment(db: ReturnType<typeof 
   });
 }
 
-export async function syncLegacyStripeWebhookEvent(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
+export async function importSourceStripeWebhookEvent(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
   id: string;
   stripeEventId: string;
   eventType: string;

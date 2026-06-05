@@ -1,8 +1,9 @@
-import type { Order, User as LegacyUser } from "@/lib/schema";
+import type { UserRole } from "@/lib/permissions";
 
 export type DashboardProfileSaveInput = {
   clerkUserId: string;
   email: string;
+  currentRole?: UserRole | null;
   firstName?: string | null;
   lastName?: string | null;
   imageUrl?: string | null;
@@ -14,28 +15,6 @@ export type DashboardProfileSaveInput = {
   country?: string | null;
   city?: string | null;
   applicationPayload?: Record<string, unknown>;
-  legacyOrder?: Order | null;
-};
-
-export type LegacyPublicMemberRow = {
-  orderId: string;
-  fullName: string;
-  email: string;
-  clerkId: string | null;
-  membershipCategory: string | null;
-  applicantType: string | null;
-  createdAt: Date;
-  bio: string | null;
-  specialization: string | null;
-  experienceYears: string | null;
-  education: string | null;
-  instagramUrl: string | null;
-  country: string | null;
-  city: string | null;
-  imageUrl: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  applicationPayload: unknown;
 };
 
 export type CanonicalPublicMemberRow = {
@@ -81,9 +60,4 @@ export type PublicMemberDirectoryItem = {
   portfolioImages: string[];
   highlights: string[];
   memberSince: string;
-};
-
-export type LegacyDashboardProfileRecord = {
-  existingUser: LegacyUser | null;
-  nextApplicationPayload: Record<string, unknown>;
 };

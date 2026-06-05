@@ -42,6 +42,26 @@ export async function upsertCanonicalTeam(db: DbClient, input: {
   return { record: created, created: true };
 }
 
+export async function findCanonicalTeam(db: DbClient, id: string) {
+  const [record] = await db.select().from(coreTeams).where(eq(coreTeams.id, id)).limit(1);
+  return record ?? null;
+}
+
+export async function updateCanonicalTeamSeatCount(db: DbClient, params: {
+  id: string;
+  seatCount: number;
+}) {
+  const [updated] = await db
+    .update(coreTeams)
+    .set({
+      seatCount: params.seatCount,
+    })
+    .where(eq(coreTeams.id, params.id))
+    .returning();
+
+  return updated ?? null;
+}
+
 export async function upsertCanonicalTeamMember(db: DbClient, input: {
   id: string;
   teamId: string;

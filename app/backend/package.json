@@ -9,9 +9,12 @@
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:foundation": "tsx scripts/run-sql-migration.ts 0007_domain_refactor_foundation",
+    "db:migrate:drop-public": "tsx scripts/run-sql-migration.ts 0008_cutover_add_partners_and_drop_legacy",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "migrate:legacy": "tsx scripts/migrate-old-db-to-new-structure.ts",
+    "migrate:public-data": "tsx scripts/import-public-data-to-ibpa.ts",
+    "db:verify:cutover": "tsx scripts/verify-cutover.ts",
     "repair:payments": "tsx scripts/repair-application-payment-state.ts"
   },
   "dependencies": {

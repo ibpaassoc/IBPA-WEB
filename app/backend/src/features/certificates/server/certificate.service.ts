@@ -1,8 +1,8 @@
-import type { Certificate } from "@/lib/schema";
+import type { SourceCertificateRecord } from "@/features/shared/server/source-records";
 import { upsertCanonicalCertificate } from "./certificate.repository";
 
-export async function syncLegacyCertificate(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
-  certificate: Certificate;
+export async function importSourceCertificate(db: ReturnType<typeof import("@/lib/db").requireDb>, params: {
+  certificate: SourceCertificateRecord;
   membershipId: string;
 }) {
   return upsertCanonicalCertificate(db, {
