@@ -181,7 +181,6 @@ export function DashboardContent(props: Props) {
 
     case "certificates":
       return (
-        /*
         <DashboardCertificates
           certificates={certificates}
           showCertificatesTab={showCertificatesTab}
@@ -190,8 +189,7 @@ export function DashboardContent(props: Props) {
           publicProfileHref={publicProfileHref}
           setActiveTab={setActiveTab}
         />
-        */
-        <UnderDevelopmentPage title="Certificates is under development" />
+        
       );
 
     case "billing":

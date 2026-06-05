@@ -125,10 +125,6 @@ export default function DashboardPage() {
       setActiveTab("dashboard");
       return;
     }
-
-    if (finalDerived.isPartnerOwner && activeTab === "certificates") {
-      setActiveTab("billing");
-    }
   }, [
     activeTab,
     finalDerived.isPartnerOwner,

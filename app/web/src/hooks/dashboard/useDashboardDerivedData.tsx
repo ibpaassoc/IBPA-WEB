@@ -114,7 +114,7 @@ export function useDashboardDerivedData({
     dashboardAccessType === "partner_owner" ||
     (isPartnerAccount && dashboardAccessType !== "partner_team_member");
 
-  const showCertificatesTab = !isTeamMemberDashboard && !isPartnerOwner;
+  const showCertificatesTab = !isTeamMemberDashboard;
 
   const partnerTeamSummary =
     profileData.partnerTeamSummary || dashboardMeta.partnerTeam || null;
