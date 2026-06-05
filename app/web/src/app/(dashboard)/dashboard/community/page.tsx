@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
+  dashboardStandalonePageContainerClassName,
   dashboardPrimaryButtonClassName,
   dashboardSecondaryButtonClassName,
   SectionCard,
@@ -119,8 +120,8 @@ export default function DashboardCommunityPage() {
 
   if (accessError) {
     return (
-      <main className="min-h-screen bg-[#F4F7FB] px-4 py-6 md:px-6 md:py-8">
-        <div className="mx-auto max-w-4xl">
+      <main className="min-h-screen bg-[#F4F7FB]">
+        <div className={dashboardStandalonePageContainerClassName}>
           <SectionCard>
             <SectionHeader title="Member Directory" />
             <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
@@ -146,8 +147,8 @@ export default function DashboardCommunityPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F4F7FB] px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <main className="min-h-screen bg-[#F4F7FB]">
+      <div className={`${dashboardStandalonePageContainerClassName} space-y-6`}>
         <div className="flex items-center justify-between gap-4">
           <Link href="/dashboard" className={dashboardSecondaryButtonClassName}>
             <ArrowLeft className="h-4 w-4" />

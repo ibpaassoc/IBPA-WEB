@@ -132,6 +132,12 @@ export const dashboardPrimaryButtonClassName =
 export const dashboardSecondaryButtonClassName =
   "inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-[#4C7D9D]/40 hover:text-[#10203B] disabled:cursor-not-allowed disabled:opacity-60";
 
+export const dashboardShellContainerClassName =
+  "mx-auto w-full max-w-7xl px-4 md:px-6";
+
+export const dashboardStandalonePageContainerClassName =
+  `${dashboardShellContainerClassName} py-6 md:py-8`;
+
 export function getDashboardFilterButtonClassName(active: boolean) {
   return cn(
     "inline-flex items-center justify-center rounded-2xl border px-4 py-2.5 text-sm font-medium transition",

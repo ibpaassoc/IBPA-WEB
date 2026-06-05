@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bell, Loader2 } from "lucide-react";
 
 import {
+  dashboardStandalonePageContainerClassName,
   dashboardPrimaryButtonClassName,
   dashboardSecondaryButtonClassName,
   SectionCard,
@@ -318,8 +319,8 @@ export default function NotificationsPage() {
 
   if (isSignedIn && accessBlocked) {
     return (
-      <main className="min-h-screen bg-[#F4F7FB] px-4 py-6 md:px-6 md:py-8">
-        <div className="mx-auto max-w-5xl">
+      <main className="min-h-screen bg-[#F4F7FB]">
+        <div className={dashboardStandalonePageContainerClassName}>
           <SectionCard>
             <SectionHeader title="Notifications" />
             <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
@@ -345,8 +346,8 @@ export default function NotificationsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F4F7FB] px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto max-w-5xl space-y-6">
+    <main className="min-h-screen bg-[#F4F7FB]">
+      <div className={`${dashboardStandalonePageContainerClassName} space-y-6`}>
         <div className="flex items-center justify-between gap-4">
           <Link href="/dashboard" className={dashboardSecondaryButtonClassName}>
             <ArrowLeft className="h-4 w-4" />

@@ -6,6 +6,7 @@ import { DashboardSidebar } from "./DashboardSideBar";
 import { DashboardContent } from "./DashboardContent";
 import type { TabType } from "./dashboard-types";
 import type { DashboardNotification } from "@/lib/notifications";
+import { dashboardShellContainerClassName } from "@/shared/components/DashboardShared";
 
 type Props = {
   userLoaded: boolean;
@@ -61,7 +62,9 @@ export function DashboardLayout({
         alertCards={alertCards}
       />
 
-      <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-6 md:py-8 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <main
+        className={`${dashboardShellContainerClassName} grid gap-6 py-6 md:py-8 lg:grid-cols-[280px_minmax(0,1fr)]`}
+      >
         <DashboardSidebar
           navItems={navItems}
           activeTab={activeTab}
@@ -72,7 +75,7 @@ export function DashboardLayout({
           memberIdDisplay={memberIdDisplay}
         />
 
-        <section className="space-y-6">
+        <section className="min-w-0 space-y-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
