@@ -1,8 +1,10 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
 import { coreFiles } from "@/lib/schema";
 
 type DbClient = ReturnType<typeof requireDb>;
+
+const externalCertificateTypeCondition = sql`(${coreFiles.type})::text in ('certificate', 'external_certificate')`;
 
 export async function listExternalCertificateFilesByUserId(
   db: DbClient,
@@ -14,7 +16,7 @@ export async function listExternalCertificateFilesByUserId(
     .where(
       and(
         eq(coreFiles.ownerUserId, userId),
-        inArray(coreFiles.type, ["certificate", "external_certificate"]),
+        externalCertificateTypeCondition,
       ),
     )
     .orderBy(desc(coreFiles.createdAt));
@@ -57,7 +59,7 @@ export async function deleteExternalCertificateFileById(
       and(
         eq(coreFiles.id, input.fileId),
         eq(coreFiles.ownerUserId, input.ownerUserId),
-        inArray(coreFiles.type, ["certificate", "external_certificate"]),
+        externalCertificateTypeCondition,
       ),
     )
     .returning();

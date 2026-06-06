@@ -3,14 +3,16 @@ import "../src/load-env";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import {
+  requireDb,
+} from "../src/lib/db";
+import {
   certificates,
   contentItems,
   orders,
-  requireDb,
   teamMembers,
   teamSeatExtensions,
   users,
-} from "../src/lib/db";
+} from "./support/public-schema";
 
 const TARGET_EMAIL = "info@ibpassociations.org";
 const EVENT_CTA_PREFIX = "https://dev-seed.ibpa.local/dashboard/";
