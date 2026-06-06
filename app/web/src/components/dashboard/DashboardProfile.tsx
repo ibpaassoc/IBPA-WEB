@@ -79,26 +79,6 @@ function ExperienceText({ value }: { value: string }) {
   );
 }
 
-function textValue(value: unknown) {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) =>
-        typeof item === "string"
-          ? item.trim()
-          : typeof item === "number"
-            ? String(item)
-            : "",
-      )
-      .filter(Boolean)
-      .join(", ");
-  }
-
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number") return String(value);
-
-  return "";
-}
-
 function formatDate(value: string | null | undefined, localeCode: string) {
   if (!value) return null;
 
@@ -127,7 +107,7 @@ function ExpandableTextCard({
   const [expanded, setExpanded] = useState(false);
   const normalizedValue = value.trim();
   const displayValue = normalizedValue || emptyLabel;
-  const isExpandable = normalizedValue.length > 140;
+  const isExpandable = normalizedValue.length > 160;
 
   return (
     <motion.article
