@@ -21,6 +21,11 @@ function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
+function optionalText(value: unknown) {
+  const normalized = textValue(value);
+  return normalized || null;
+}
+
 function normalizeServiceText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -47,6 +52,17 @@ function textValue(value: unknown): string {
 function stringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function commaSeparatedArray(value: unknown) {
+  if (typeof value !== "string") {
+    return [] as string[];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function asPayload(value: unknown): Record<string, unknown> {
@@ -167,29 +183,57 @@ export async function saveDashboardProfile(db: DbClient, input: DashboardProfile
       ? input.applicationPayload
       : {};
   const specializations = uniqueStrings([
+    ...(Array.isArray(input.specializations) ? input.specializations : []),
     textValue(input.specialization),
     ...stringArray(payload.specialization),
+    ...commaSeparatedArray(input.specialization),
     textValue(payload.specializationOther),
   ]);
+  const websiteUrl = optionalText(input.websiteUrl ?? payload.websiteLink);
+  const instagramUrl = optionalText(input.instagramUrl ?? payload.instagramLink);
+  const country = optionalText(input.country ?? payload.country);
+  const state = optionalText(input.state ?? payload.state);
+  const city = optionalText(input.city ?? payload.city);
+  const yearsExperience = textValue(input.experienceYears ?? payload.yearsExperience);
+  const education = optionalText(input.education ?? payload.educationDesc ?? payload.studentSchool);
+  const portfolioImages = Array.isArray(input.portfolioImages)
+    ? uniqueStrings(input.portfolioImages)
+    : stringArray(payload.portfolioImages);
+
+  const nextApplicationPayload = {
+    ...payload,
+    phone: textValue(payload.phone),
+    websiteLink: websiteUrl ?? "",
+    instagramLink: instagramUrl ?? "",
+    country: country ?? "",
+    state: state ?? "",
+    city: city ?? "",
+    yearsExperience,
+    educationDesc: education ?? "",
+    professionalDesc: optionalText(input.bio) ?? textValue(payload.professionalDesc),
+    specialization: specializations,
+    portfolioImages,
+  };
 
   await upsertCanonicalProfile(db, {
     userId: canonicalUser.id,
-    firstName: input.firstName ?? null,
-    lastName: input.lastName ?? null,
-    avatarUrl: input.imageUrl ?? null,
-    bio: input.bio ?? null,
-    credentials: input.education ?? null,
-    workGalleryPhotos: stringArray(payload.portfolioImages),
+    firstName: optionalText(input.firstName),
+    lastName: optionalText(input.lastName),
+    avatarUrl: optionalText(input.imageUrl),
+    bio: optionalText(input.bio),
+    credentials: education,
+    workGalleryPhotos: portfolioImages,
     specializations,
-    city: input.city ?? null,
-    country: input.country ?? null,
-    website: textValue(payload.websiteLink) || null,
-    instagram: input.instagramUrl ?? null,
-    yearsExperience: parseYearsExperience(input.experienceYears ?? payload.yearsExperience),
+    city,
+    state,
+    country,
+    website: websiteUrl,
+    instagram: instagramUrl,
+    yearsExperience: parseYearsExperience(yearsExperience),
   });
 
   return {
-    nextApplicationPayload: payload,
+    nextApplicationPayload,
   };
 }
 

@@ -10,18 +10,28 @@ export type ProfileService = {
 };
 
 export type CombinedProfileData = {
+  id?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+  email?: string | null;
+  phone?: string | null;
   imageUrl?: string | null;
   bio?: string | null;
   specialization?: string | null;
+  specializations?: string[] | null;
   experienceYears?: string | null;
   education?: string | null;
   instagramUrl?: string | null;
+  websiteUrl?: string | null;
   country?: string | null;
+  state?: string | null;
   city?: string | null;
   membershipCategory?: MembershipCategory;
   applicantType?: string | null;
   orderId?: string | null;
   services?: ProfileService[] | null;
+  portfolioImages?: string[] | null;
   applicationPayload?: ApplicationPayload;
 };
 
@@ -62,8 +72,12 @@ export function getApplicationPayload(profile: CombinedProfileData) {
 
 export function getSpecializationDisplay(profile: CombinedProfileData) {
   const payload = getApplicationPayload(profile);
+  const canonicalSpecializations = Array.isArray(profile.specializations)
+    ? profile.specializations.filter(Boolean).join(", ")
+    : "";
 
   return (
+    canonicalSpecializations ||
     textValue(payload.specialization) ||
     textValue(profile.specialization) ||
     textValue(payload.bizType) ||
@@ -74,8 +88,8 @@ export function getSpecializationDisplay(profile: CombinedProfileData) {
 
 export function getLocation(profile: CombinedProfileData) {
   const payload = getApplicationPayload(profile);
-  const city = textValue(payload.city) || textValue(profile.city);
-  const country = textValue(payload.country) || textValue(profile.country);
+  const city = textValue(profile.city) || textValue(payload.city);
+  const country = textValue(profile.country) || textValue(payload.country);
 
   if (city && country) return `${city}, ${country}`;
   return city || country || "Location pending";
@@ -97,8 +111,8 @@ export function getSnapshotItems(profile: CombinedProfileData): SnapshotItem[] {
   const payload = getApplicationPayload(profile);
   const membership = profile.membershipCategory;
 
-  const sharedExperience = textValue(payload.yearsExperience) || textValue(profile.experienceYears) || "Not provided";
-  const sharedEducation = textValue(payload.educationDesc) || textValue(profile.education) || "Not provided";
+  const sharedExperience = textValue(profile.experienceYears) || textValue(payload.yearsExperience) || "Not provided";
+  const sharedEducation = textValue(profile.education) || textValue(payload.educationDesc) || "Not provided";
 
   switch (membership) {
     case "Specialist":

@@ -1,118 +1,289 @@
 "use client";
 
 import Link from "next/link";
-import { genUploader } from "uploadthing/client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Save, Trash2, UploadCloud } from "lucide-react";
+import { genUploader } from "uploadthing/client";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Loader2,
+  Save,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
 import { toast } from "sonner";
-import { buildEditablePayload, getApplicationPayload, getEditableFields, type CombinedProfileData } from "@/lib/application-profile";
-import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+
 import type { OurFileRouter } from "@/app/api/uploadthing/core";
+import type { DashboardProfileData } from "@/components/dashboard/dashboard-types";
+import { ServicesSection } from "@/components/dashboard/profile/ServicesSection";
+import { PortfolioUploadField } from "@/components/forms/PortfolioUploadField";
+import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { countryOptions } from "@/constants/countries";
+import {
+  buildEditablePayload,
+  getApplicationPayload,
+  getEditableFields,
+} from "@/lib/application-profile";
 import { localizeEditableField } from "@/lib/dashboard-i18n";
 import { useI18n } from "@/lib/i18n";
+import { getPublicProfileHref } from "@/lib/member-identity";
+import {
+  SectionCard,
+  SectionHeader,
+  dashboardInputClassName,
+  dashboardPrimaryButtonClassName,
+  dashboardSecondaryButtonClassName,
+  dashboardStandalonePageContainerClassName,
+  dashboardTextareaClassName,
+} from "@/shared/components/DashboardShared";
 
 const { uploadFiles } = genUploader<OurFileRouter>({
   url: "/api/uploadthing",
   package: "@uploadthing/react",
 });
 
+type ProfileFormState = {
+  firstName: string;
+  lastName: string;
+  imageUrl: string | null;
+  bio: string;
+  education: string;
+  instagramUrl: string;
+  websiteUrl: string;
+  country: string;
+  state: string;
+  city: string;
+  yearsExperience: string;
+  specializationInput: string;
+  portfolioImages: string[];
+  applicationFields: Record<string, string>;
+};
+
+const CANONICAL_EDITABLE_KEYS = new Set([
+  "phone",
+  "country",
+  "city",
+  "yearsExperience",
+  "instagramLink",
+  "websiteLink",
+  "specialization",
+  "professionalDesc",
+]);
+
+function normalizeString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeFieldValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      .join(", ");
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return "";
+}
+
+function splitCommaValues(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function buildProfileForm(profile: DashboardProfileData): ProfileFormState {
+  const payload = getApplicationPayload(profile);
+  const applicationFields: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    applicationFields[key] = normalizeFieldValue(value);
+  }
+
+  const portfolioImages =
+    Array.isArray(profile.portfolioImages) && profile.portfolioImages.length > 0
+      ? profile.portfolioImages.filter(
+          (item): item is string => typeof item === "string" && item.trim().length > 0,
+        )
+      : Array.isArray(payload.portfolioImages)
+        ? payload.portfolioImages.filter(
+            (item): item is string => typeof item === "string" && item.trim().length > 0,
+          )
+        : [];
+
+  const specializationInput =
+    Array.isArray(profile.specializations) && profile.specializations.length > 0
+      ? profile.specializations.join(", ")
+      : normalizeFieldValue(payload.specialization) || normalizeString(profile.specialization);
+
+  return {
+    firstName: normalizeString(profile.firstName),
+    lastName: normalizeString(profile.lastName),
+    imageUrl: typeof profile.imageUrl === "string" ? profile.imageUrl : null,
+    bio: normalizeString(profile.bio) || normalizeFieldValue(payload.professionalDesc),
+    education:
+      normalizeString(profile.education) ||
+      normalizeFieldValue(payload.educationDesc) ||
+      normalizeFieldValue(payload.studentSchool),
+    instagramUrl:
+      normalizeString(profile.instagramUrl) || normalizeFieldValue(payload.instagramLink),
+    websiteUrl:
+      normalizeString(profile.websiteUrl) || normalizeFieldValue(payload.websiteLink),
+    country: normalizeString(profile.country) || normalizeFieldValue(payload.country),
+    state: normalizeString(profile.state) || normalizeFieldValue(payload.state),
+    city: normalizeString(profile.city) || normalizeFieldValue(payload.city),
+    yearsExperience:
+      normalizeString(profile.experienceYears) ||
+      normalizeFieldValue(payload.yearsExperience),
+    specializationInput,
+    portfolioImages,
+    applicationFields,
+  };
+}
+
 export default function EditApplicationPage() {
   const router = useRouter();
   const { locale, t } = useI18n();
-  const [profile, setProfile] = useState<CombinedProfileData | null>(null);
-  const [form, setForm] = useState<Record<string, string>>({});
+  const isRu = locale === "ru";
+  const isUk = locale === "uk";
+
+  const [profile, setProfile] = useState<DashboardProfileData | null>(null);
+  const [form, setForm] = useState<ProfileFormState | null>(null);
   const [accessBlocked, setAccessBlocked] = useState(false);
   const [accessBlockedMessage, setAccessBlockedMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const res = await fetch("/api/dashboard/profile", { cache: "no-store" });
-        const data = await res.json();
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
 
-        if (res.status === 403) {
-          setAccessBlocked(true);
-          setAccessBlockedMessage(t.dashboard.editProfile.profileBlocked);
-          return;
-        }
+    try {
+      const res = await fetch("/api/dashboard/profile", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
 
-        if (!res.ok) {
-          throw new Error(data?.error || t.dashboard.editProfile.loadError);
-        }
-
-        const nextProfile = (data.profile || {}) as CombinedProfileData & { dashboardAccessType?: string | null };
-        if (nextProfile.dashboardAccessType === "partner_team_member") {
-          setAccessBlocked(true);
-          setAccessBlockedMessage(t.dashboard.editProfile.teamMemberBlocked);
-          return;
-        }
-        const payload = getApplicationPayload(nextProfile);
-        const nextForm: Record<string, string> = {};
-
-        for (const [key, value] of Object.entries(payload)) {
-          nextForm[key] = Array.isArray(value) ? value.join(", ") : typeof value === "string" ? value : value == null ? "" : String(value);
-        }
-
-        setProfile(nextProfile);
-        setForm(nextForm);
-      } catch (error: any) {
-        toast.error(error?.message || t.dashboard.editProfile.loadError);
-      } finally {
-        setLoading(false);
+      if (res.status === 403) {
+        setAccessBlocked(true);
+        setAccessBlockedMessage(t.dashboard.editProfile.profileBlocked);
+        return;
       }
-    };
 
-    loadProfile();
-  }, [t.dashboard.editProfile.loadError, t.dashboard.editProfile.profileBlocked, t.dashboard.editProfile.teamMemberBlocked]);
+      if (!res.ok) {
+        throw new Error(
+          typeof data?.error === "string"
+            ? data.error
+            : t.dashboard.editProfile.loadError,
+        );
+      }
+
+      const nextProfile = (data.profile || {}) as DashboardProfileData;
+      if (nextProfile.dashboardAccessType === "partner_team_member") {
+        setAccessBlocked(true);
+        setAccessBlockedMessage(t.dashboard.editProfile.teamMemberBlocked);
+        return;
+      }
+
+      setAccessBlocked(false);
+      setAccessBlockedMessage(null);
+      setProfile(nextProfile);
+      setForm(buildProfileForm(nextProfile));
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t.dashboard.editProfile.loadError,
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    t.dashboard.editProfile.loadError,
+    t.dashboard.editProfile.profileBlocked,
+    t.dashboard.editProfile.teamMemberBlocked,
+  ]);
+
+  useEffect(() => {
+    // Loading the existing profile is the external synchronization this page needs on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadProfile();
+  }, [loadProfile]);
 
   const editableFields = useMemo(
     () =>
-      getEditableFields(profile?.membershipCategory).map((field) =>
-        localizeEditableField(field, t.dashboard, locale),
-      ),
+      getEditableFields(profile?.membershipCategory)
+        .filter((field) => !CANONICAL_EDITABLE_KEYS.has(field.key))
+        .map((field) => localizeEditableField(field, t.dashboard, locale)),
     [locale, profile?.membershipCategory, t.dashboard],
   );
 
   const immutableInfo = useMemo(() => {
-    const payload = getApplicationPayload(profile || {});
+    const payload = profile ? getApplicationPayload(profile) : {};
     return [
-      { label: t.dashboard.editProfile.lockedFields.fullName, value: [payload.firstName, payload.lastName].filter(Boolean).join(" ") || t.dashboard.profile.notAddedYet },
-      { label: t.dashboard.editProfile.lockedFields.email, value: typeof payload.email === "string" ? payload.email : t.dashboard.profile.notAddedYet },
-      { label: t.dashboard.editProfile.lockedFields.membership, value: profile?.membershipCategory || t.dashboard.statuses.pending },
-      { label: t.dashboard.editProfile.lockedFields.applicantType, value: profile?.applicantType || t.dashboard.statuses.pending },
+      {
+        label: t.dashboard.editProfile.lockedFields.email,
+        value:
+          normalizeString(profile?.email) ||
+          normalizeFieldValue(payload.email) ||
+          t.dashboard.profile.notAddedYet,
+      },
+      {
+        label: t.dashboard.editProfile.lockedFields.membership,
+        value: profile?.membershipCategory || t.dashboard.statuses.pending,
+      },
+      {
+        label: t.dashboard.editProfile.lockedFields.applicantType,
+        value: profile?.applicantType || t.dashboard.statuses.pending,
+      },
     ];
   }, [profile, t.dashboard]);
 
+  const publicPreviewHref = profile?.id ? getPublicProfileHref(profile.id) : null;
+
   const handleAvatarUpload = async (file?: File | null) => {
-    if (!file) return;
+    if (!file || !form) return;
 
     setUploadingAvatar(true);
     try {
       const result = await uploadFiles("avatarUploader", { files: [file] });
-      const uploaded = result?.[0] as
-        | { ufsUrl?: string; url?: string; serverData?: { url?: string } }
-        | undefined;
-      const imageUrl = uploaded?.serverData?.url || uploaded?.ufsUrl || uploaded?.url;
+      const uploaded = result?.[0];
+      const imageUrl =
+        uploaded?.serverData?.url || uploaded?.ufsUrl || uploaded?.url;
 
       if (!imageUrl) {
         throw new Error(t.dashboard.editProfile.photoUploadMissingUrl);
       }
 
-      setProfile((prev) => (prev ? { ...prev, imageUrl } : prev));
+      setForm((prev) => (prev ? { ...prev, imageUrl } : prev));
       toast.success(t.dashboard.editProfile.photoUpdated);
-    } catch (error: any) {
-      toast.error(error?.message || t.dashboard.editProfile.photoUploadError);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t.dashboard.editProfile.photoUploadError,
+      );
     } finally {
       setUploadingAvatar(false);
     }
   };
 
   const handleSave = async () => {
-    if (!profile) return;
+    if (!profile || !form) return;
+
+    const specializations = splitCommaValues(form.specializationInput);
+    const applicationPayload = buildEditablePayload(
+      form.applicationFields,
+      profile.membershipCategory,
+    );
 
     setSaving(true);
     try {
@@ -121,228 +292,551 @@ export default function EditApplicationPage() {
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageUrl: profile.imageUrl || null,
-          bio: profile.bio || null,
-          specialization: form.specialization || profile.specialization || null,
-          experienceYears: form.yearsExperience || profile.experienceYears || null,
-          education: form.educationDesc || profile.education || null,
-          instagramUrl: form.instagramLink || profile.instagramUrl || null,
-          country: form.country || profile.country || null,
-          city: form.city || profile.city || null,
-          applicationPayload: buildEditablePayload(form, profile.membershipCategory),
+          firstName: form.firstName || null,
+          lastName: form.lastName || null,
+          imageUrl: form.imageUrl,
+          bio: form.bio || null,
+          education: form.education || null,
+          instagramUrl: form.instagramUrl || null,
+          websiteUrl: form.websiteUrl || null,
+          country: form.country || null,
+          state: form.state || null,
+          city: form.city || null,
+          experienceYears: form.yearsExperience || null,
+          specialization: form.specializationInput || null,
+          specializations,
+          portfolioImages: form.portfolioImages,
+          applicationPayload,
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || t.dashboard.editProfile.saveError);
+        throw new Error(
+          typeof data?.error === "string"
+            ? data.error
+            : t.dashboard.editProfile.saveError,
+        );
       }
 
       toast.success(t.dashboard.editProfile.saveSuccess);
-      router.push("/dashboard");
+      await loadProfile();
       router.refresh();
-    } catch (error: any) {
-      toast.error(error?.message || t.dashboard.editProfile.saveError);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t.dashboard.editProfile.saveError,
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#72A0C1]" />
-      </div>
-    );
-  }
-
   if (accessBlocked) {
     return (
-      <main className="min-h-screen bg-[#F8FAFC] px-4 py-8 md:px-6 md:py-12">
-        <div className="mx-auto max-w-4xl">
-          <div className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
-            <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">{t.dashboard.editProfile.pageEyebrow}</p>
-            <h1 className="mt-4 text-3xl font-black uppercase tracking-tight text-slate-900 md:text-5xl">
-              {t.dashboard.editProfile.accessBlockedTitle}
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-500 md:text-base">
-              {accessBlockedMessage ||
-                t.dashboard.editProfile.accessBlockedDescription}
-            </p>
+      <main className={dashboardStandalonePageContainerClassName}>
+        <SectionCard className="max-w-4xl">
+          <SectionHeader
+            eyebrow={t.dashboard.editProfile.pageEyebrow}
+            title={t.dashboard.editProfile.accessBlockedTitle}
+            description={
+              accessBlockedMessage ||
+              t.dashboard.editProfile.accessBlockedDescription
+            }
+          />
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-[20px] bg-black px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1] hover:text-black"
-              >
-                {t.dashboard.editProfile.backToDashboard}
-              </Link>
-              <Link
-                href="https://ibpassociations.org/contact"
-                className="inline-flex items-center justify-center rounded-[20px] border border-slate-200 bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]"
-              >
-                {t.dashboard.editProfile.contactSupport}
-              </Link>
-            </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/dashboard" className={dashboardPrimaryButtonClassName}>
+              {t.dashboard.editProfile.backToDashboard}
+            </Link>
+            <Link
+              href="https://ibpassociations.org/contact"
+              className={dashboardSecondaryButtonClassName}
+            >
+              {t.dashboard.editProfile.contactSupport}
+            </Link>
           </div>
-        </div>
+        </SectionCard>
       </main>
     );
   }
 
+  if (loading || !form) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F4F7FB]">
+        <Loader2 className="h-10 w-10 animate-spin text-[#4C7D9D]" />
+      </div>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-8 md:px-6 md:py-12">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
+    <main className={dashboardStandalonePageContainerClassName}>
+      <div className="space-y-6">
+        <SectionCard>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 transition-colors hover:text-[#72A0C1]"
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-[#10203B]"
           >
             <ArrowLeft className="h-4 w-4" />
             {t.dashboard.editProfile.backToDashboard}
           </Link>
-          <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">{t.dashboard.editProfile.pageEyebrow}</p>
-          <h1 className="mt-3 text-3xl font-black uppercase tracking-tight text-slate-900 md:text-5xl">
-            {t.dashboard.editProfile.pageTitle}
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-500 md:text-base">
-            {t.dashboard.editProfile.pageDescription}
-          </p>
-        </div>
 
-        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm md:p-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-slate-400">{t.dashboard.editProfile.lockedInformation}</p>
-            <div className="mt-5 rounded-[24px] border border-slate-100 bg-[#F8FAFC] p-4">
-              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">{t.dashboard.editProfile.profilePhoto}</p>
-              <div className="mt-4 flex flex-col items-center gap-4 text-center">
-                <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-slate-200 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
-                  {profile?.imageUrl ? (
+          <div className="mt-5">
+            <SectionHeader
+              eyebrow={t.dashboard.editProfile.pageEyebrow}
+              title={t.dashboard.editProfile.pageTitle}
+              description={t.dashboard.editProfile.pageDescription}
+              action={
+                publicPreviewHref ? (
+                  <Link
+                    href={publicPreviewHref}
+                    className={dashboardSecondaryButtonClassName}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Preview Public Profile
+                  </Link>
+                ) : null
+              }
+            />
+          </div>
+        </SectionCard>
+
+        <div className="grid items-start gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="space-y-6">
+            <SectionCard>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#4C7D9D]">
+                {t.dashboard.editProfile.profilePhoto}
+              </p>
+
+              <div className="mt-5 flex flex-col items-center gap-4 text-center">
+                <div className="relative flex size-32 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#D8E8FB] text-3xl font-semibold text-[#10203B] shadow-[0_18px_35px_rgba(11,31,68,0.18)]">
+                  {form.imageUrl ? (
                     <ImageWithFallback
-                      src={profile.imageUrl}
+                      src={form.imageUrl}
                       alt={t.dashboard.editProfile.profilePhoto}
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[#72A0C1]/20 text-2xl font-black text-slate-700">
-                      {(immutableInfo[0]?.value || "IBPA")
-                        .split(" ")
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .map((part) => part[0])
-                        .join("")
-                        .toUpperCase()}
-                    </div>
+                    `${(form.firstName[0] || "").toUpperCase()}${(form.lastName[0] || "").toUpperCase()}` ||
+                    "IB"
                   )}
-                  {uploadingAvatar && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/35">
-                      <Loader2 className="h-8 w-8 animate-spin text-white" />
+
+                  {uploadingAvatar ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-950/30">
+                      <Loader2 className="h-7 w-7 animate-spin text-white" />
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="flex w-full flex-col gap-3">
-                  <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[20px] border border-slate-200 bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-700 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]">
+                  <label
+                    className={`${dashboardSecondaryButtonClassName} cursor-pointer`}
+                  >
                     <UploadCloud className="h-4 w-4" />
-                    {uploadingAvatar ? t.dashboard.editProfile.uploading : t.dashboard.editProfile.uploadNewPhoto}
+                    {uploadingAvatar
+                      ? t.dashboard.editProfile.uploading
+                      : t.dashboard.editProfile.uploadNewPhoto}
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
                       disabled={uploadingAvatar}
                       onChange={async (event) => {
-                        const file = event.target.files?.[0];
-                        await handleAvatarUpload(file);
+                        await handleAvatarUpload(event.target.files?.[0] ?? null);
                         event.target.value = "";
                       }}
                     />
                   </label>
 
-                  {profile?.imageUrl && (
+                  {form.imageUrl ? (
                     <button
                       type="button"
-                      onClick={() => setProfile((prev) => (prev ? { ...prev, imageUrl: null } : prev))}
-                      className="inline-flex items-center justify-center gap-2 rounded-[20px] border border-slate-200 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-red-200 hover:text-red-500"
+                      onClick={() =>
+                        setForm((prev) => (prev ? { ...prev, imageUrl: null } : prev))
+                      }
+                      className={dashboardSecondaryButtonClassName}
                     >
                       <Trash2 className="h-4 w-4" />
                       {t.dashboard.editProfile.removePhoto}
                     </button>
-                  )}
+                  ) : null}
                 </div>
 
-                <p className="text-xs leading-relaxed text-slate-400">
+                <p className="text-sm leading-6 text-slate-500">
                   {t.dashboard.editProfile.photoHelper}
                 </p>
               </div>
-            </div>
-            <div className="mt-5 space-y-4">
-              {immutableInfo.map((item) => (
-                <div key={item.label} className="rounded-[20px] border border-slate-100 bg-[#F8FAFC] p-4">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-900">{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </aside>
+            </SectionCard>
 
-          <section className="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm md:p-6">
-            <div className="grid gap-5 md:grid-cols-2">
-              {editableFields.map((field) => (
-                <div key={field.key} className={field.type === "textarea" ? "md:col-span-2" : ""}>
-                  <label className="block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                    {field.label}
-                  </label>
-                  {field.type === "textarea" ? (
-                    <textarea
-                      value={form[field.key] || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="mt-2 min-h-[120px] w-full rounded-[20px] border border-slate-200 bg-[#F8FAFC] px-4 py-3 text-sm text-slate-900 outline-none transition-colors focus:border-[#72A0C1]"
-                      placeholder={field.placeholder}
-                    />
-                  ) : field.type === "select" && field.options ? (
-                    <select
-                      value={form[field.key] || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="mt-2 w-full rounded-[20px] border border-slate-200 bg-[#F8FAFC] px-4 py-3 text-sm text-slate-900 outline-none transition-colors focus:border-[#72A0C1]"
+            <SectionCard>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#4C7D9D]">
+                {t.dashboard.editProfile.lockedInformation}
+              </p>
+              <div className="mt-4 space-y-3">
+                {immutableInfo.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-3"
+                  >
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-[#10203B]">
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className="space-y-6">
+            <SectionCard>
+              <SectionHeader
+                eyebrow="Canonical profile"
+                title="Public profile essentials"
+                description="These values come from the canonical profile record and drive your dashboard profile, public preview, and directory listing."
+              />
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    First name
+                  </span>
+                  <input
+                    value={form.firstName}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, firstName: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                    placeholder="First name"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Last name
+                  </span>
+                  <input
+                    value={form.lastName}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, lastName: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                    placeholder="Last name"
+                  />
+                </label>
+
+                <label className="grid gap-2 md:col-span-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Professional bio
+                  </span>
+                  <textarea
+                    value={form.bio}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, bio: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardTextareaClassName}
+                    placeholder="Introduce your work, experience, and professional focus."
+                  />
+                </label>
+
+                <label className="grid gap-2 md:col-span-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Credentials / education
+                  </span>
+                  <textarea
+                    value={form.education}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, education: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardTextareaClassName}
+                    placeholder="List your education, certifications, and credentials."
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Years of experience
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="80"
+                    value={form.yearsExperience}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev
+                          ? { ...prev, yearsExperience: event.target.value }
+                          : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                    placeholder="e.g. 11"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Specializations
+                  </span>
+                  <input
+                    value={form.specializationInput}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev
+                          ? { ...prev, specializationInput: event.target.value }
+                          : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                    placeholder="Brows, lashes, esthetics, salon leadership"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Instagram
+                  </span>
+                  <input
+                    value={form.instagramUrl}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev
+                          ? { ...prev, instagramUrl: event.target.value }
+                          : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                    placeholder="https://instagram.com/..."
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Website
+                  </span>
+                  <input
+                    value={form.websiteUrl}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, websiteUrl: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                    placeholder="https://..."
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Country
+                  </span>
+                  <select
+                    value={form.country}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, country: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                  >
+                    <option value="">Select a country</option>
+                    {countryOptions.map((country) => (
+                      <option key={country} value={country}>
+                        {country}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    State / region
+                  </span>
+                  <input
+                    value={form.state}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, state: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                    placeholder="State, region, or province"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    City
+                  </span>
+                  <input
+                    value={form.city}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, city: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                    placeholder="City"
+                  />
+                </label>
+              </div>
+            </SectionCard>
+
+            {editableFields.length > 0 ? (
+              <SectionCard>
+                <SectionHeader
+                  eyebrow="Application details"
+                  title="Category-specific fields"
+                  description="These fields stay aligned with your original membership or partner application and continue to support internal review flows."
+                />
+
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  {editableFields.map((field) => (
+                    <label
+                      key={field.key}
+                      className={`grid gap-2 ${
+                        field.type === "textarea" ? "md:col-span-2" : ""
+                      }`}
                     >
-                      <option value="">{field.placeholder || t.dashboard.editProfile.selectPlaceholder}</option>
-                      {field.options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={field.type || "text"}
-                      value={form[field.key] || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="mt-2 w-full rounded-[20px] border border-slate-200 bg-[#F8FAFC] px-4 py-3 text-sm text-slate-900 outline-none transition-colors focus:border-[#72A0C1]"
-                      placeholder={field.placeholder}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        {field.label}
+                      </span>
 
-            <div className="mt-8 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center rounded-[20px] border border-slate-200 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]"
-              >
-                {t.dashboard.editProfile.cancel}
+                      {field.type === "textarea" ? (
+                        <textarea
+                          value={form.applicationFields[field.key] || ""}
+                          onChange={(event) =>
+                            setForm((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    applicationFields: {
+                                      ...prev.applicationFields,
+                                      [field.key]: event.target.value,
+                                    },
+                                  }
+                                : prev,
+                            )
+                          }
+                          className={dashboardTextareaClassName}
+                          placeholder={field.placeholder}
+                        />
+                      ) : field.type === "select" && field.options ? (
+                        <select
+                          value={form.applicationFields[field.key] || ""}
+                          onChange={(event) =>
+                            setForm((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    applicationFields: {
+                                      ...prev.applicationFields,
+                                      [field.key]: event.target.value,
+                                    },
+                                  }
+                                : prev,
+                            )
+                          }
+                          className={dashboardInputClassName}
+                        >
+                          <option value="">
+                            {field.placeholder ||
+                              t.dashboard.editProfile.selectPlaceholder}
+                          </option>
+                          {field.options.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type || "text"}
+                          value={form.applicationFields[field.key] || ""}
+                          onChange={(event) =>
+                            setForm((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    applicationFields: {
+                                      ...prev.applicationFields,
+                                      [field.key]: event.target.value,
+                                    },
+                                  }
+                                : prev,
+                            )
+                          }
+                          className={dashboardInputClassName}
+                          placeholder={field.placeholder}
+                        />
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </SectionCard>
+            ) : null}
+
+            <SectionCard>
+              <SectionHeader
+                eyebrow="Portfolio media"
+                title="Public work gallery"
+                description="Upload the portfolio images that should appear on your dashboard profile and public member preview."
+              />
+
+              <div className="mt-6">
+                <PortfolioUploadField
+                  isRu={isRu}
+                  isUk={isUk}
+                  value={form.portfolioImages}
+                  onChange={(urls) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, portfolioImages: urls } : prev,
+                    )
+                  }
+                />
+              </div>
+            </SectionCard>
+
+            <SectionCard>
+              <SectionHeader
+                eyebrow="Services"
+                title="Profile services"
+                description="Service cards save through the existing profile services flow and appear on your dashboard profile."
+              />
+
+              <div className="mt-6">
+                <ServicesSection initialServices={profile?.services} />
+              </div>
+            </SectionCard>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Link href="/dashboard" className={dashboardSecondaryButtonClassName}>
+                Cancel
               </Link>
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center justify-center gap-2 rounded-[20px] bg-black px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1] hover:text-black disabled:opacity-60"
+                className={dashboardPrimaryButtonClassName}
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
                 {t.dashboard.editProfile.saveChanges}
               </button>
             </div>
-          </section>
+          </div>
         </div>
       </div>
     </main>

@@ -76,12 +76,6 @@ export type PartnerTeamSummary = {
 };
 
 export type DashboardProfileData = CombinedProfileData & {
-  firstName?: string | null;
-  lastName?: string | null;
-  fullName?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  state?: string | null;
   achievements?: string | null;
   certificatesSummary?: string | null;
   type?: string | null;

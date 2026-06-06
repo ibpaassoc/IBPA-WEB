@@ -226,6 +226,28 @@ function buildOwnerDashboardProfile(params: {
     ...commaSeparatedArray(payload.bizServices),
   ]).filter(Boolean);
   const services = normalizeProfileServices(profile?.services);
+  const mergedApplicationPayload = {
+    ...payload,
+    websiteLink: firstText(profile?.website, payload.websiteLink),
+    instagramLink: firstText(profile?.instagram, payload.instagramLink),
+    country: firstText(profile?.country, payload.country),
+    state: firstText(profile?.state, payload.state),
+    city: firstText(profile?.city, payload.city),
+    yearsExperience:
+      profile?.yearsExperience != null
+        ? String(profile.yearsExperience)
+        : firstText(payload.yearsExperience),
+    educationDesc: firstText(profile?.credentials, payload.educationDesc, payload.studentSchool),
+    professionalDesc: firstText(profile?.bio, payload.professionalDesc),
+    specialization:
+      (profile?.specializations?.length ?? 0) > 0
+        ? profile?.specializations
+        : payload.specialization,
+    portfolioImages:
+      (profile?.workGalleryPhotos?.length ?? 0) > 0
+        ? profile?.workGalleryPhotos
+        : payload.portfolioImages,
+  };
 
   return {
     id: user.id,
@@ -236,17 +258,20 @@ function buildOwnerDashboardProfile(params: {
     phone: firstText(application?.phone, payload.phone),
     imageUrl: profile?.avatarUrl ?? null,
     bio: profile?.bio ?? null,
+    websiteUrl: firstText(profile?.website, payload.websiteLink) || null,
     specialization: specializations.join(", ") || null,
+    specializations,
     experienceYears: profile?.yearsExperience != null ? String(profile.yearsExperience) : firstText(payload.yearsExperience),
     education: firstText(profile?.credentials, payload.educationDesc, payload.studentSchool),
     instagramUrl: firstText(profile?.instagram, payload.instagramLink) || null,
     country: firstText(profile?.country, payload.country) || null,
     city: firstText(profile?.city, payload.city) || null,
     state: firstText(profile?.state, payload.state) || null,
+    portfolioImages: profile?.workGalleryPhotos ?? [],
     achievements: firstText(payload.achievementsDesc, payload.contributionDesc) || null,
     certificatesSummary: firstText(payload.licenseNumber, payload.trainerCertificateFiles) || null,
     services,
-    applicationPayload: payload,
+    applicationPayload: mergedApplicationPayload,
     type: mapApplicationTypeToAccountType(application?.type),
     accountType: mapApplicationTypeToAccountType(application?.type),
     applicationType: application?.type || null,
@@ -1091,39 +1116,58 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
     }
 
     const {
+      firstName,
+      lastName,
       imageUrl,
       bio,
       specialization,
+      specializations,
       experienceYears,
       education,
       instagramUrl,
+      websiteUrl,
       country,
+      state,
       city,
-      services,
+      portfolioImages,
       applicationPayload,
     } = req.body;
 
     const existingPayload = getApplicationData(application);
-    const nextApplicationPayload = {
+    const incomingApplicationPayload = {
       ...existingPayload,
       ...(applicationPayload && typeof applicationPayload === "object" ? applicationPayload as Record<string, unknown> : {}),
     };
 
-    await saveDashboardProfile(db, {
+    const { nextApplicationPayload } = await saveDashboardProfile(db, {
       clerkUserId,
       email: primaryEmail || canonicalUser.email,
       currentRole: canonicalUser.role,
-      firstName: clerkUser?.firstName || access.profile?.firstName || "",
-      lastName: clerkUser?.lastName || access.profile?.lastName || "",
+      firstName:
+        typeof firstName === "string"
+          ? firstName
+          : clerkUser?.firstName || access.profile?.firstName || "",
+      lastName:
+        typeof lastName === "string"
+          ? lastName
+          : clerkUser?.lastName || access.profile?.lastName || "",
       imageUrl,
       bio,
       specialization,
+      specializations: Array.isArray(specializations)
+        ? specializations.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
+        : undefined,
       experienceYears,
       education,
       instagramUrl,
+      websiteUrl,
       country,
+      state,
       city,
-      applicationPayload: nextApplicationPayload,
+      portfolioImages: Array.isArray(portfolioImages)
+        ? portfolioImages.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
+        : undefined,
+      applicationPayload: incomingApplicationPayload,
     });
 
     if (application) {

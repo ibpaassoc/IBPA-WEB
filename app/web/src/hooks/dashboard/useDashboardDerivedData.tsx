@@ -264,32 +264,60 @@ export function useDashboardDerivedData({
         profileData.specialization ||
         null,
       experienceYears:
+        profileData.experienceYears ||
         (typeof activeApplicationPayload.yearsExperience === "string" &&
           activeApplicationPayload.yearsExperience) ||
-        profileData.experienceYears ||
         null,
       education:
+        profileData.education ||
         (typeof activeApplicationPayload.educationDesc === "string" &&
           activeApplicationPayload.educationDesc) ||
         (typeof activeApplicationPayload.studentSchool === "string" &&
           activeApplicationPayload.studentSchool) ||
-        profileData.education ||
         null,
       instagramUrl:
+        profileData.instagramUrl ||
         (typeof activeApplicationPayload.instagramLink === "string" &&
           activeApplicationPayload.instagramLink) ||
-        profileData.instagramUrl ||
+        null,
+      websiteUrl:
+        profileData.websiteUrl ||
+        (typeof activeApplicationPayload.websiteLink === "string" &&
+          activeApplicationPayload.websiteLink) ||
         null,
       country:
+        profileData.country ||
         (typeof activeApplicationPayload.country === "string" &&
           activeApplicationPayload.country) ||
-        profileData.country ||
+        null,
+      state:
+        profileData.state ||
+        (typeof activeApplicationPayload.state === "string" &&
+          activeApplicationPayload.state) ||
         null,
       city:
+        profileData.city ||
         (typeof activeApplicationPayload.city === "string" &&
           activeApplicationPayload.city) ||
-        profileData.city ||
         null,
+      specializations:
+        Array.isArray(profileData.specializations) && profileData.specializations.length > 0
+          ? profileData.specializations
+          : Array.isArray(activeApplicationPayload.specialization)
+            ? activeApplicationPayload.specialization.filter(
+                (item): item is string =>
+                  typeof item === "string" && item.trim().length > 0,
+              )
+            : null,
+      portfolioImages:
+        Array.isArray(profileData.portfolioImages) && profileData.portfolioImages.length > 0
+          ? profileData.portfolioImages
+          : Array.isArray(activeApplicationPayload.portfolioImages)
+            ? activeApplicationPayload.portfolioImages.filter(
+                (item): item is string =>
+                  typeof item === "string" && item.trim().length > 0,
+              )
+            : null,
       applicationPayload: activeApplicationPayload,
     }),
     [activeApplicationPayload, primaryCertificate, profileData],
@@ -310,14 +338,15 @@ export function useDashboardDerivedData({
     profileData.orderId || primaryCertificate?.certNumber || user?.id,
   );
 
-  const publicProfileHref = getPublicProfileHref(profileData.orderId);
+  const publicProfileHref = getPublicProfileHref(profileData.id);
 
   const instagramUrl = normalizeExternalUrl(mergedProfileData.instagramUrl);
 
   const websiteUrl = normalizeExternalUrl(
-    typeof activeApplicationPayload.websiteLink === "string"
-      ? activeApplicationPayload.websiteLink
-      : null,
+    mergedProfileData.websiteUrl ||
+      (typeof activeApplicationPayload.websiteLink === "string"
+        ? activeApplicationPayload.websiteLink
+        : null),
   );
 
   const achievementsSummary = String(

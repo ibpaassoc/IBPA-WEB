@@ -353,7 +353,9 @@ export function DashboardProfile({
       ?.value || specializationDisplay;
 
   const galleryImages = useMemo(() => {
-    const raw = mergedProfileData.applicationPayload?.portfolioImages;
+    const raw = Array.isArray(mergedProfileData.portfolioImages)
+      ? mergedProfileData.portfolioImages
+      : mergedProfileData.applicationPayload?.portfolioImages;
     if (!Array.isArray(raw)) return [] as string[];
 
     return raw
@@ -362,7 +364,7 @@ export function DashboardProfile({
           typeof item === "string" && item.trim().length > 0,
       )
       .slice(0, 6);
-  }, [mergedProfileData.applicationPayload]);
+  }, [mergedProfileData.applicationPayload, mergedProfileData.portfolioImages]);
 
   const profileServices = useMemo(
     () =>

@@ -16,11 +16,15 @@ export type DashboardProfileSaveInput = {
   imageUrl?: string | null;
   bio?: string | null;
   specialization?: string | null;
+  specializations?: string[] | null;
   experienceYears?: string | null;
   education?: string | null;
   instagramUrl?: string | null;
+  websiteUrl?: string | null;
   country?: string | null;
+  state?: string | null;
   city?: string | null;
+  portfolioImages?: string[];
   applicationPayload?: Record<string, unknown>;
 };
 
