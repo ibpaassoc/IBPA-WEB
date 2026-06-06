@@ -34,7 +34,10 @@ import {
   getProfileSpecializationDisplay,
   type ProfileRecordData,
 } from "@/lib/profile-record";
-import { formatMemberId, getPublicProfileHref } from "@/lib/member-identity";
+import {
+  formatMemberId,
+  getDashboardProfilePreviewHref,
+} from "@/lib/member-identity";
 import { getLocaleNumberFormat, useI18n } from "@/lib/i18n";
 
 type EventRegistrationFilter = "all" | "registered" | "not_registered";
@@ -261,7 +264,7 @@ export function useDashboardDerivedData({
     profileData.orderId || primaryCertificate?.certNumber || user?.id,
   );
 
-  const publicProfileHref = getPublicProfileHref(profileData.id);
+  const publicProfileHref = getDashboardProfilePreviewHref();
 
   const instagramUrl = normalizeExternalUrl(mergedProfileData.instagramUrl);
 
