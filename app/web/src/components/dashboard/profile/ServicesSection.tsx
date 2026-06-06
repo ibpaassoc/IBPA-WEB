@@ -19,9 +19,7 @@ function createServiceId() {
 }
 
 function normalizeServices(services: ProfileService[] | null | undefined) {
-  if (!Array.isArray(services)) {
-    return [] as ProfileService[];
-  }
+  if (!Array.isArray(services)) return [] as ProfileService[];
 
   return services
     .filter(
@@ -44,9 +42,7 @@ async function saveServices(
 ) {
   const response = await fetch("/api/profile/services", {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ services }),
   });
 
@@ -54,9 +50,7 @@ async function saveServices(
 
   if (!response.ok) {
     throw new Error(
-      typeof payload?.error === "string"
-        ? payload.error
-        : fallbackMessage,
+      typeof payload?.error === "string" ? payload.error : fallbackMessage,
     );
   }
 
@@ -70,6 +64,7 @@ export function ServicesSection({
 }) {
   const { t } = useI18n();
   const dashboard = t.dashboard;
+
   const [services, setServices] = useState<ProfileService[]>(() =>
     normalizeServices(initialServices),
   );
@@ -92,6 +87,7 @@ export function ServicesSection({
     successMessage: string,
   ) => {
     const previousServices = services;
+
     setServices(nextServices);
     setIsSaving(true);
     setErrorMessage(null);
@@ -101,12 +97,15 @@ export function ServicesSection({
         nextServices,
         dashboard.services.saveErrorNow,
       );
+
       setServices(savedServices);
       toast.success(successMessage);
     } catch (error) {
       setServices(previousServices);
+
       const message =
         error instanceof Error ? error.message : dashboard.services.saveError;
+
       setErrorMessage(message);
       toast.error(message);
     } finally {
@@ -115,15 +114,15 @@ export function ServicesSection({
   };
 
   return (
-    <section className="relative rounded-[28px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_18px_45px_rgba(11,31,68,0.08)]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#16386D]">
+    <section className="relative w-full min-w-0 rounded-[28px] border border-[#D4E0F0] bg-white/95 p-4 shadow-[0_14px_34px_rgba(11,31,68,0.07)]">
+      <div className="flex w-full min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#16386D]">
             {dashboard.services.title}
           </p>
 
           {services.length === 0 || isAdding ? (
-            <p className="mt-2 max-w-[32ch] text-sm leading-6 text-slate-500">
+            <p className="mt-2 max-w-[42ch] text-sm leading-6 text-slate-500">
               {dashboard.services.description}
             </p>
           ) : (
@@ -135,51 +134,55 @@ export function ServicesSection({
       </div>
 
       {errorMessage ? (
-        <div className="mt-4 rounded-2xl border border-[#F1CFD4] bg-[#FFF7F8] px-4 py-3 text-sm text-[#A23A4A]">
+        <div className="mt-3 rounded-2xl border border-[#F1CFD4] bg-[#FFF7F8] px-4 py-3 text-sm text-[#A23A4A]">
           {errorMessage}
         </div>
       ) : null}
 
-      <div className="mt-4 pr-1">
+      <div className="mt-3 w-full min-w-0">
         {isAdding ? (
-          <ServiceEditor
-            saving={isSaving}
-            onCancel={() => {
-              setIsAdding(false);
-              setErrorMessage(null);
-            }}
-            onSave={async (draft) => {
-              const nextServices = [
-                ...services,
-                {
-                  id: createServiceId(),
-                  title: draft.title,
-                  description: draft.description,
-                  price: draft.price,
-                },
-              ];
+          <div className="mb-3 w-full min-w-0">
+            <ServiceEditor
+              saving={isSaving}
+              onCancel={() => {
+                setIsAdding(false);
+                setErrorMessage(null);
+              }}
+              onSave={async (draft) => {
+                const nextServices = [
+                  ...services,
+                  {
+                    id: createServiceId(),
+                    title: draft.title,
+                    description: draft.description,
+                    price: draft.price,
+                  },
+                ];
 
-              setIsAdding(false);
-              await persistServices(nextServices, dashboard.services.addSuccess);
-            }}
-          />
+                setIsAdding(false);
+                await persistServices(
+                  nextServices,
+                  dashboard.services.addSuccess,
+                );
+              }}
+            />
+          </div>
         ) : null}
 
         {services.length === 0 && !isAdding ? (
-          <div className="rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#F8FBFF] px-5 py-6 text-sm leading-6 text-slate-500">
+          <div className="w-full rounded-[22px] border border-dashed border-[#D4E0F0] bg-[#F8FBFF] px-5 py-5 text-sm leading-6 text-slate-500">
             {dashboard.services.empty}
           </div>
         ) : null}
 
         {services.length > 0 ? (
-          <div className="relative">
-            <div
-              className="service-scroll grid max-h-[372px] overflow-x-hidden overflow-y-auto gap-3 sm:grid-cols-2"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-              }}
-            >
+          <div
+            className="service-scroll flex max-h-[210px] w-full min-w-0 flex-col gap-2 overflow-y-auto overflow-x-hidden pr-1"
+            style={{
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
             {services.map((service) => {
               const isEditing = editingId === service.id;
 
@@ -206,7 +209,10 @@ export function ServicesSection({
                       );
 
                       setEditingId(null);
-                      await persistServices(nextServices, dashboard.services.updateSuccess);
+                      await persistServices(
+                        nextServices,
+                        dashboard.services.updateSuccess,
+                      );
                     }}
                   />
                 );
@@ -223,14 +229,19 @@ export function ServicesSection({
                     setErrorMessage(null);
                   }}
                   onDelete={async () => {
-                    const nextServices = services.filter((item) => item.id !== service.id);
+                    const nextServices = services.filter(
+                      (item) => item.id !== service.id,
+                    );
+
                     setEditingId(null);
-                    await persistServices(nextServices, dashboard.services.removeSuccess);
+                    await persistServices(
+                      nextServices,
+                      dashboard.services.removeSuccess,
+                    );
                   }}
                 />
               );
             })}
-            </div>
           </div>
         ) : null}
       </div>
@@ -244,15 +255,18 @@ export function ServicesSection({
             setEditingId(null);
             setErrorMessage(null);
           }}
-          className="absolute bottom-5 right-5 inline-flex size-12 items-center justify-center rounded-full bg-[#16386D] text-white shadow-[0_12px_24px_rgba(22,56,109,0.28)] transition hover:bg-[#102c59] hover:shadow-[0_16px_28px_rgba(22,56,109,0.34)] disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label={isSaving ? dashboard.services.savingChanges : dashboard.services.add}
+          className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-[#16386D] text-sm font-semibold text-white shadow-[0_10px_20px_rgba(22,56,109,0.22)] transition hover:bg-[#102c59] disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label={
+            isSaving ? dashboard.services.savingChanges : dashboard.services.add
+          }
           title={dashboard.services.add}
         >
           {isSaving ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Plus className="h-5 w-5" />
+            <Plus className="h-4 w-4" />
           )}
+          {dashboard.services.add}
         </button>
       ) : null}
 

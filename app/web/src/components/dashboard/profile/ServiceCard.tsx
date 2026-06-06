@@ -19,46 +19,32 @@ export function ServiceCard({
   const { t } = useI18n();
 
   return (
-    <article className="group flex min-h-[172px] flex-col rounded-[24px] border border-[#D8E4F3] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FAFF_100%)] p-4 shadow-[0_10px_24px_rgba(15,37,71,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(15,37,71,0.11)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold text-[#10203B]">
+    <article className="flex w-full min-w-0 items-center gap-3 rounded-2xl border border-[#D8E4F3] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(15,37,71,0.06)] transition hover:border-[#BFD2EC] hover:bg-[#F8FBFF]">
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="min-w-0 truncate text-[14px] font-semibold text-[#10203B]">
             {service.title}
           </p>
 
           {service.price ? (
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#E9F2FF] px-3 py-1.5 text-xs font-semibold text-[#204E86]">
-              <Wallet className="h-3.5 w-3.5" />
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#E9F2FF] px-2 py-1 text-[11px] font-semibold text-[#204E86]">
+              <Wallet className="h-3 w-3" />
               {service.price}
-            </div>
+            </span>
           ) : null}
         </div>
+
+        <p className="mt-1 truncate text-[13px] leading-5 text-slate-500">
+          {service.description || t.dashboard.services.detailsPlaceholder}
+        </p>
       </div>
 
-      {service.description ? (
-        <p
-          className="mt-3 min-h-[40px] text-sm leading-5 text-slate-600"
-          style={{
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {service.description}
-        </p>
-      ) : (
-        <div className="mt-3 min-h-[40px] text-sm leading-5 text-slate-400">
-          {t.dashboard.services.detailsPlaceholder}
-        </div>
-      )}
-
-      <div className="mt-auto flex items-center justify-end gap-2 pt-4">
+      <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-[#F3F7FC] p-1">
         <button
           type="button"
           disabled={disabled}
           onClick={onEdit}
-          className="inline-flex size-9 items-center justify-center rounded-full border border-[#D7E3F2] bg-white text-[#173B70] transition hover:bg-[#F2F7FF] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex size-8 items-center justify-center rounded-full bg-white text-[#173B70] shadow-sm transition hover:bg-[#EEF5FF] disabled:cursor-not-allowed disabled:opacity-60"
           aria-label={t.dashboard.services.editService(service.title)}
           title={t.dashboard.services.editTitle}
         >
@@ -69,7 +55,7 @@ export function ServiceCard({
           type="button"
           disabled={disabled}
           onClick={onDelete}
-          className="inline-flex size-9 items-center justify-center rounded-full border border-[#F4D8DC] bg-[#FFF8F9] text-[#A23A4A] transition hover:bg-[#FDECEF] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex size-8 items-center justify-center rounded-full bg-white text-[#A23A4A] shadow-sm transition hover:bg-[#FFF0F2] disabled:cursor-not-allowed disabled:opacity-60"
           aria-label={t.dashboard.services.deleteService(service.title)}
           title={t.dashboard.services.deleteService(service.title)}
         >
