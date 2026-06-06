@@ -1,4 +1,4 @@
-import type { CombinedProfileData, ProfileService } from "@/lib/application-profile";
+import type { ProfileRecordData, ProfileService } from "@/lib/profile-record";
 
 export interface Certificate {
   certNumber: string;
@@ -11,7 +11,6 @@ export interface Certificate {
   status: string;
   certificateUrl?: string | null;
   expiresAt?: string | null;
-  applicationPayload?: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -75,8 +74,7 @@ export type PartnerTeamSummary = {
   invitedMembers: PartnerInvitedMember[];
 };
 
-export type DashboardProfileData = CombinedProfileData & {
-  achievements?: string | null;
+export type DashboardProfileData = ProfileRecordData & {
   certificatesSummary?: string | null;
   type?: string | null;
   accountType?: string | null;

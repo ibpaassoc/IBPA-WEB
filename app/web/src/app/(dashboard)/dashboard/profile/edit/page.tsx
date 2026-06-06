@@ -20,12 +20,6 @@ import { ServicesSection } from "@/components/dashboard/profile/ServicesSection"
 import { PortfolioUploadField } from "@/components/forms/PortfolioUploadField";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { countryOptions } from "@/constants/countries";
-import {
-  buildEditablePayload,
-  getApplicationPayload,
-  getEditableFields,
-} from "@/lib/application-profile";
-import { localizeEditableField } from "@/lib/dashboard-i18n";
 import { useI18n } from "@/lib/i18n";
 import { getPublicProfileHref } from "@/lib/member-identity";
 import {
@@ -46,8 +40,11 @@ const { uploadFiles } = genUploader<OurFileRouter>({
 type ProfileFormState = {
   firstName: string;
   lastName: string;
+  phone: string;
   imageUrl: string | null;
   bio: string;
+  achievements: string;
+  industryContribution: string;
   education: string;
   instagramUrl: string;
   websiteUrl: string;
@@ -57,40 +54,10 @@ type ProfileFormState = {
   yearsExperience: string;
   specializationInput: string;
   portfolioImages: string[];
-  applicationFields: Record<string, string>;
 };
-
-const CANONICAL_EDITABLE_KEYS = new Set([
-  "phone",
-  "country",
-  "city",
-  "yearsExperience",
-  "instagramLink",
-  "websiteLink",
-  "specialization",
-  "professionalDesc",
-]);
 
 function normalizeString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeFieldValue(value: unknown) {
-  if (Array.isArray(value)) {
-    return value
-      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-      .join(", ");
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (typeof value === "number") {
-    return String(value);
-  }
-
-  return "";
 }
 
 function splitCommaValues(value: string) {
@@ -105,51 +72,29 @@ function splitCommaValues(value: string) {
 }
 
 function buildProfileForm(profile: DashboardProfileData): ProfileFormState {
-  const payload = getApplicationPayload(profile);
-  const applicationFields: Record<string, string> = {};
-
-  for (const [key, value] of Object.entries(payload)) {
-    applicationFields[key] = normalizeFieldValue(value);
-  }
-
-  const portfolioImages =
-    Array.isArray(profile.portfolioImages) && profile.portfolioImages.length > 0
-      ? profile.portfolioImages.filter(
-          (item): item is string => typeof item === "string" && item.trim().length > 0,
-        )
-      : Array.isArray(payload.portfolioImages)
-        ? payload.portfolioImages.filter(
-            (item): item is string => typeof item === "string" && item.trim().length > 0,
-          )
-        : [];
-
-  const specializationInput =
-    Array.isArray(profile.specializations) && profile.specializations.length > 0
-      ? profile.specializations.join(", ")
-      : normalizeFieldValue(payload.specialization) || normalizeString(profile.specialization);
-
   return {
     firstName: normalizeString(profile.firstName),
     lastName: normalizeString(profile.lastName),
+    phone: normalizeString(profile.phone),
     imageUrl: typeof profile.imageUrl === "string" ? profile.imageUrl : null,
-    bio: normalizeString(profile.bio) || normalizeFieldValue(payload.professionalDesc),
-    education:
-      normalizeString(profile.education) ||
-      normalizeFieldValue(payload.educationDesc) ||
-      normalizeFieldValue(payload.studentSchool),
-    instagramUrl:
-      normalizeString(profile.instagramUrl) || normalizeFieldValue(payload.instagramLink),
-    websiteUrl:
-      normalizeString(profile.websiteUrl) || normalizeFieldValue(payload.websiteLink),
-    country: normalizeString(profile.country) || normalizeFieldValue(payload.country),
-    state: normalizeString(profile.state) || normalizeFieldValue(payload.state),
-    city: normalizeString(profile.city) || normalizeFieldValue(payload.city),
-    yearsExperience:
-      normalizeString(profile.experienceYears) ||
-      normalizeFieldValue(payload.yearsExperience),
-    specializationInput,
-    portfolioImages,
-    applicationFields,
+    bio: normalizeString(profile.bio),
+    achievements: normalizeString(profile.achievements),
+    industryContribution: normalizeString(profile.industryContribution),
+    education: normalizeString(profile.education),
+    instagramUrl: normalizeString(profile.instagramUrl),
+    websiteUrl: normalizeString(profile.websiteUrl),
+    country: normalizeString(profile.country),
+    state: normalizeString(profile.state),
+    city: normalizeString(profile.city),
+    yearsExperience: normalizeString(profile.experienceYears),
+    specializationInput: Array.isArray(profile.specializations)
+      ? profile.specializations.join(", ")
+      : normalizeString(profile.specialization),
+    portfolioImages: Array.isArray(profile.portfolioImages)
+      ? profile.portfolioImages.filter(
+          (item): item is string => typeof item === "string" && item.trim().length > 0,
+        )
+      : [],
   };
 }
 
@@ -218,23 +163,11 @@ export default function EditApplicationPage() {
     void loadProfile();
   }, [loadProfile]);
 
-  const editableFields = useMemo(
-    () =>
-      getEditableFields(profile?.membershipCategory)
-        .filter((field) => !CANONICAL_EDITABLE_KEYS.has(field.key))
-        .map((field) => localizeEditableField(field, t.dashboard, locale)),
-    [locale, profile?.membershipCategory, t.dashboard],
-  );
-
   const immutableInfo = useMemo(() => {
-    const payload = profile ? getApplicationPayload(profile) : {};
     return [
       {
         label: t.dashboard.editProfile.lockedFields.email,
-        value:
-          normalizeString(profile?.email) ||
-          normalizeFieldValue(payload.email) ||
-          t.dashboard.profile.notAddedYet,
+        value: normalizeString(profile?.email) || t.dashboard.profile.notAddedYet,
       },
       {
         label: t.dashboard.editProfile.lockedFields.membership,
@@ -280,10 +213,6 @@ export default function EditApplicationPage() {
     if (!profile || !form) return;
 
     const specializations = splitCommaValues(form.specializationInput);
-    const applicationPayload = buildEditablePayload(
-      form.applicationFields,
-      profile.membershipCategory,
-    );
 
     setSaving(true);
     try {
@@ -294,8 +223,11 @@ export default function EditApplicationPage() {
         body: JSON.stringify({
           firstName: form.firstName || null,
           lastName: form.lastName || null,
+          phone: form.phone || null,
           imageUrl: form.imageUrl,
           bio: form.bio || null,
+          achievements: form.achievements || null,
+          industryContribution: form.industryContribution || null,
           education: form.education || null,
           instagramUrl: form.instagramUrl || null,
           websiteUrl: form.websiteUrl || null,
@@ -303,10 +235,8 @@ export default function EditApplicationPage() {
           state: form.state || null,
           city: form.city || null,
           experienceYears: form.yearsExperience || null,
-          specialization: form.specializationInput || null,
           specializations,
           portfolioImages: form.portfolioImages,
-          applicationPayload,
         }),
       });
 
@@ -546,6 +476,22 @@ export default function EditApplicationPage() {
                   />
                 </label>
 
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Contact phone
+                  </span>
+                  <input
+                    value={form.phone}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, phone: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardInputClassName}
+                    placeholder="Phone number"
+                  />
+                </label>
+
                 <label className="grid gap-2 md:col-span-2">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                     Credentials / education
@@ -559,6 +505,43 @@ export default function EditApplicationPage() {
                     }
                     className={dashboardTextareaClassName}
                     placeholder="List your education, certifications, and credentials."
+                  />
+                </label>
+
+                <label className="grid gap-2 md:col-span-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Achievements
+                  </span>
+                  <textarea
+                    value={form.achievements}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, achievements: event.target.value } : prev,
+                      )
+                    }
+                    className={dashboardTextareaClassName}
+                    placeholder="Awards, milestones, speaking engagements, media features, or other notable highlights."
+                  />
+                </label>
+
+                <label className="grid gap-2 md:col-span-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Industry contribution
+                  </span>
+                  <textarea
+                    value={form.industryContribution}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              industryContribution: event.target.value,
+                            }
+                          : prev,
+                      )
+                    }
+                    className={dashboardTextareaClassName}
+                    placeholder="Describe how you contribute to the beauty industry, mentor peers, or support the community."
                   />
                 </label>
 
@@ -690,100 +673,6 @@ export default function EditApplicationPage() {
                 </label>
               </div>
             </SectionCard>
-
-            {editableFields.length > 0 ? (
-              <SectionCard>
-                <SectionHeader
-                  eyebrow="Application details"
-                  title="Category-specific fields"
-                  description="These fields stay aligned with your original membership or partner application and continue to support internal review flows."
-                />
-
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  {editableFields.map((field) => (
-                    <label
-                      key={field.key}
-                      className={`grid gap-2 ${
-                        field.type === "textarea" ? "md:col-span-2" : ""
-                      }`}
-                    >
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        {field.label}
-                      </span>
-
-                      {field.type === "textarea" ? (
-                        <textarea
-                          value={form.applicationFields[field.key] || ""}
-                          onChange={(event) =>
-                            setForm((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    applicationFields: {
-                                      ...prev.applicationFields,
-                                      [field.key]: event.target.value,
-                                    },
-                                  }
-                                : prev,
-                            )
-                          }
-                          className={dashboardTextareaClassName}
-                          placeholder={field.placeholder}
-                        />
-                      ) : field.type === "select" && field.options ? (
-                        <select
-                          value={form.applicationFields[field.key] || ""}
-                          onChange={(event) =>
-                            setForm((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    applicationFields: {
-                                      ...prev.applicationFields,
-                                      [field.key]: event.target.value,
-                                    },
-                                  }
-                                : prev,
-                            )
-                          }
-                          className={dashboardInputClassName}
-                        >
-                          <option value="">
-                            {field.placeholder ||
-                              t.dashboard.editProfile.selectPlaceholder}
-                          </option>
-                          {field.options.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type={field.type || "text"}
-                          value={form.applicationFields[field.key] || ""}
-                          onChange={(event) =>
-                            setForm((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    applicationFields: {
-                                      ...prev.applicationFields,
-                                      [field.key]: event.target.value,
-                                    },
-                                  }
-                                : prev,
-                            )
-                          }
-                          className={dashboardInputClassName}
-                          placeholder={field.placeholder}
-                        />
-                      )}
-                    </label>
-                  ))}
-                </div>
-              </SectionCard>
-            ) : null}
 
             <SectionCard>
               <SectionHeader

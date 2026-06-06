@@ -1,8 +1,8 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import type { CombinedProfileData } from "@/lib/application-profile";
 import type { DashboardNotification } from "@/lib/notifications";
+import type { ProfileRecordData } from "@/lib/profile-record";
 import type {
   Certificate,
   ExternalCertificate,
@@ -65,7 +65,7 @@ type Props = {
   }[];
 
   statusSummary: any;
-  mergedProfileData: CombinedProfileData;
+  mergedProfileData: ProfileRecordData;
   profileHeroImage: string | null;
   locationDisplay: string;
   specializationDisplay: string;

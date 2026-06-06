@@ -29,11 +29,11 @@ import {
   inferEventAudience,
 } from "@/lib/dashboard-cabinet";
 import {
-  getLocation,
-  getSnapshotItems,
-  getSpecializationDisplay,
-  type CombinedProfileData,
-} from "@/lib/application-profile";
+  getProfileLocation,
+  getProfileSnapshotItems,
+  getProfileSpecializationDisplay,
+  type ProfileRecordData,
+} from "@/lib/profile-record";
 import { formatMemberId, getPublicProfileHref } from "@/lib/member-identity";
 import { getLocaleNumberFormat, useI18n } from "@/lib/i18n";
 
@@ -161,15 +161,9 @@ export function useDashboardDerivedData({
   const mappedLastName = String(profileData.lastName || "").trim();
   const mappedFullName = String(profileData.fullName || "").trim();
 
-  const clerkFullName = [user?.firstName || "", user?.lastName || ""]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-
   const fullName =
     mappedFullName ||
     [mappedFirstName, mappedLastName].filter(Boolean).join(" ") ||
-    clerkFullName ||
     "IBPA Member";
 
   const dashboardContactEmail = String(
@@ -228,105 +222,34 @@ export function useDashboardDerivedData({
     statuses: dashboard.statuses,
   });
 
-  const activeApplicationPayload = useMemo<Record<string, unknown>>(() => {
-    if (
-      primaryCertificate?.applicationPayload &&
-      typeof primaryCertificate.applicationPayload === "object" &&
-      !Array.isArray(primaryCertificate.applicationPayload)
-    ) {
-      return primaryCertificate.applicationPayload;
-    }
-
-    if (
-      profileData.applicationPayload &&
-      typeof profileData.applicationPayload === "object" &&
-      !Array.isArray(profileData.applicationPayload)
-    ) {
-      return profileData.applicationPayload as Record<string, unknown>;
-    }
-
-    return {};
-  }, [primaryCertificate?.applicationPayload, profileData.applicationPayload]);
-
-  const mergedProfileData = useMemo<CombinedProfileData>(
+  const mergedProfileData = useMemo<ProfileRecordData>(
     () => ({
       ...profileData,
       membershipCategory: (primaryCertificate?.membershipCategory ||
         profileData.membershipCategory ||
-        null) as CombinedProfileData["membershipCategory"],
+        null) as ProfileRecordData["membershipCategory"],
       applicantType:
         primaryCertificate?.applicantType || profileData.applicantType,
-      specialization:
-        (Array.isArray(activeApplicationPayload.specialization) &&
-          activeApplicationPayload.specialization.filter(Boolean).join(", ")) ||
-        (typeof activeApplicationPayload.specialization === "string" &&
-          activeApplicationPayload.specialization) ||
-        profileData.specialization ||
-        null,
-      experienceYears:
-        profileData.experienceYears ||
-        (typeof activeApplicationPayload.yearsExperience === "string" &&
-          activeApplicationPayload.yearsExperience) ||
-        null,
-      education:
-        profileData.education ||
-        (typeof activeApplicationPayload.educationDesc === "string" &&
-          activeApplicationPayload.educationDesc) ||
-        (typeof activeApplicationPayload.studentSchool === "string" &&
-          activeApplicationPayload.studentSchool) ||
-        null,
-      instagramUrl:
-        profileData.instagramUrl ||
-        (typeof activeApplicationPayload.instagramLink === "string" &&
-          activeApplicationPayload.instagramLink) ||
-        null,
-      websiteUrl:
-        profileData.websiteUrl ||
-        (typeof activeApplicationPayload.websiteLink === "string" &&
-          activeApplicationPayload.websiteLink) ||
-        null,
-      country:
-        profileData.country ||
-        (typeof activeApplicationPayload.country === "string" &&
-          activeApplicationPayload.country) ||
-        null,
-      state:
-        profileData.state ||
-        (typeof activeApplicationPayload.state === "string" &&
-          activeApplicationPayload.state) ||
-        null,
-      city:
-        profileData.city ||
-        (typeof activeApplicationPayload.city === "string" &&
-          activeApplicationPayload.city) ||
-        null,
       specializations:
         Array.isArray(profileData.specializations) && profileData.specializations.length > 0
           ? profileData.specializations
-          : Array.isArray(activeApplicationPayload.specialization)
-            ? activeApplicationPayload.specialization.filter(
-                (item): item is string =>
-                  typeof item === "string" && item.trim().length > 0,
-              )
-            : null,
+          : [],
       portfolioImages:
         Array.isArray(profileData.portfolioImages) && profileData.portfolioImages.length > 0
           ? profileData.portfolioImages
-          : Array.isArray(activeApplicationPayload.portfolioImages)
-            ? activeApplicationPayload.portfolioImages.filter(
-                (item): item is string =>
-                  typeof item === "string" && item.trim().length > 0,
-              )
-            : null,
-      applicationPayload: activeApplicationPayload,
+          : [],
+      services:
+        Array.isArray(profileData.services) && profileData.services.length > 0
+          ? profileData.services
+          : [],
     }),
-    [activeApplicationPayload, primaryCertificate, profileData],
+    [primaryCertificate, profileData],
   );
 
-  const specializationDisplay = getSpecializationDisplay(mergedProfileData);
-  const locationDisplay = getLocation(mergedProfileData);
-  const snapshotItems = getSnapshotItems(mergedProfileData);
-  const profileHeroImage = mergedProfileData.imageUrl || user?.imageUrl || null;
+  const specializationDisplay = getProfileSpecializationDisplay(mergedProfileData);
+  const locationDisplay = getProfileLocation(mergedProfileData);
+  const snapshotItems = getProfileSnapshotItems(mergedProfileData);
+  const profileHeroImage = mergedProfileData.imageUrl || null;
 
   const profileChecklist = buildOnboardingChecklist({
     profile: mergedProfileData,
@@ -342,19 +265,10 @@ export function useDashboardDerivedData({
 
   const instagramUrl = normalizeExternalUrl(mergedProfileData.instagramUrl);
 
-  const websiteUrl = normalizeExternalUrl(
-    mergedProfileData.websiteUrl ||
-      (typeof activeApplicationPayload.websiteLink === "string"
-        ? activeApplicationPayload.websiteLink
-        : null),
-  );
+  const websiteUrl = normalizeExternalUrl(mergedProfileData.websiteUrl);
 
   const achievementsSummary = String(
-    profileData.achievements ||
-      (typeof activeApplicationPayload.achievementsDesc === "string"
-        ? activeApplicationPayload.achievementsDesc
-        : "") ||
-      "",
+    profileData.achievements || "",
   ).trim();
 
   const certificateSummary = String(

@@ -2,7 +2,7 @@
 
 import { Pencil, Trash2, Wallet } from "lucide-react";
 
-import type { ProfileService } from "@/lib/application-profile";
+import type { ProfileService } from "@/lib/profile-record";
 import { useI18n } from "@/lib/i18n";
 
 export function ServiceCard({

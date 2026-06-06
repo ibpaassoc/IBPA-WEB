@@ -1,4 +1,4 @@
-import type { CombinedProfileData } from "@/lib/application-profile";
+import type { ProfileRecordData } from "@/lib/profile-record";
 import type { DashboardDictionary } from "@/lib/dashboard-i18n";
 
 export type DashboardStatusTone = "pending" | "active" | "verified";
@@ -176,7 +176,7 @@ function isMeaningful(value?: string | null) {
 }
 
 export function buildOnboardingChecklist(params: {
-  profile: CombinedProfileData;
+  profile: ProfileRecordData;
   hasPhoto: boolean;
   certificatesCount: number;
 }, labels?: DashboardDictionary["checklist"]) {

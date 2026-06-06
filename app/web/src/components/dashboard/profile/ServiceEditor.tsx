@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Save, X } from "lucide-react";
 
-import type { ProfileService } from "@/lib/application-profile";
+import type { ProfileService } from "@/lib/profile-record";
 import { useI18n } from "@/lib/i18n";
 
 type ServiceDraft = {

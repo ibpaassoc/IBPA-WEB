@@ -29,8 +29,8 @@ import type {
   Certificate,
   TeamMemberAccessInfo,
 } from "@/components/dashboard/dashboard-types";
-import type { CombinedProfileData } from "@/lib/application-profile";
 import { getLocaleNumberFormat, useI18n } from "@/lib/i18n";
+import type { ProfileRecordData } from "@/lib/profile-record";
 
 function buildProfileUrl(href: string) {
   if (href.startsWith("http")) return href;
@@ -306,7 +306,7 @@ export function DashboardProfile({
   instagramUrl: string | null;
   websiteUrl: string | null;
   publicProfileHref: string | null;
-  mergedProfileData: CombinedProfileData;
+  mergedProfileData: ProfileRecordData;
   primaryCertificate?: Certificate;
   membershipExpiresDisplay: string;
   achievementsSummary: string;
@@ -339,7 +339,7 @@ export function DashboardProfile({
   const galleryImages = useMemo(() => {
     const raw = Array.isArray(mergedProfileData.portfolioImages)
       ? mergedProfileData.portfolioImages
-      : mergedProfileData.applicationPayload?.portfolioImages;
+      : [];
     if (!Array.isArray(raw)) return [] as string[];
 
     return raw
@@ -348,7 +348,7 @@ export function DashboardProfile({
           typeof item === "string" && item.trim().length > 0,
       )
       .slice(0, 6);
-  }, [mergedProfileData.applicationPayload, mergedProfileData.portfolioImages]);
+  }, [mergedProfileData.portfolioImages]);
 
   const profileServices = useMemo(
     () =>
@@ -358,17 +358,8 @@ export function DashboardProfile({
     [mergedProfileData.services],
   );
 
-  const applicationPayload =
-    mergedProfileData.applicationPayload &&
-    typeof mergedProfileData.applicationPayload === "object" &&
-    !Array.isArray(mergedProfileData.applicationPayload)
-      ? mergedProfileData.applicationPayload
-      : null;
-
-  const biography =
-    mergedProfileData.bio || textValue(applicationPayload?.professionalDesc);
-
-  const contribution = textValue(applicationPayload?.contributionDesc);
+  const biography = mergedProfileData.bio || "";
+  const contribution = mergedProfileData.industryContribution || "";
 
   if (isTeamMemberDashboard) {
     return (
