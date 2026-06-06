@@ -1,5 +1,3 @@
-import type { EditableField } from "@/lib/application-profile";
-
 export type DashboardDictionary = {
   nav: {
     mobileTitle: string;
@@ -382,6 +380,14 @@ export type DashboardDictionary = {
     fieldPlaceholders: Record<string, string>;
     selectPlaceholder: string;
   };
+};
+
+type EditableField = {
+  key: string;
+  label: string;
+  type?: "text" | "textarea" | "date" | "select";
+  placeholder?: string;
+  options?: { label: string; value: string }[];
 };
 
 function buildDashboardDictionary(copy: DashboardDictionary): DashboardDictionary {
