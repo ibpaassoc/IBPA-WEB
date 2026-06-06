@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 
-import { I18nProvider, resolveLocale } from "@/lib/i18n";
+import { I18nProvider } from "@/lib/i18n";
+import { resolveLocale } from "@/lib/locale";
 
 export default async function DashboardLayout({
   children,

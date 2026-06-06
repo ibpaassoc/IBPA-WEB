@@ -10,7 +10,7 @@ import { CommunitySection } from "@/components/landing/CommunitySection";
 import { GovernancePreviewSection } from "@/components/landing/GovernancePreviewSection";
 import { SponsorsSection } from "@/components/landing/SponsorsSection";
 import { CTASection } from "@/components/landing/CTASection";
-import { resolveLocale } from "@/lib/i18n";
+import { resolveLocale } from "@/lib/locale";
 
 export default async function Home() {
   const cookieStore = await cookies();
