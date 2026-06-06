@@ -380,11 +380,16 @@ export function MembersDirectory({
   return (
     <section
       className={cn(
-        "text-slate-950",
+        "w-full min-w-0 text-slate-950",
         isDashboardSurface ? "bg-transparent py-0" : "bg-[#F4F7FB] py-16 md:py-20",
       )}
     >
-      <div className={cn("mx-auto", isDashboardSurface ? "max-w-none px-0" : "max-w-7xl px-6")}>
+      <div
+        className={cn(
+          "mx-auto w-full min-w-0",
+          isDashboardSurface ? "max-w-full px-0" : "max-w-7xl px-6",
+        )}
+      >
         {showIntro ? (
           <div
             className={cn(
@@ -437,11 +442,11 @@ export function MembersDirectory({
 
         <div
           className={cn(
-            "rounded-[32px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_22px_60px_rgba(11,31,68,0.09)]",
+            "w-full min-w-0 overflow-hidden rounded-[32px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_22px_60px_rgba(11,31,68,0.09)]",
             showIntro ? "mt-5" : "mt-5",
           )}
         >
-          <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.35fr)_repeat(3,minmax(150px,1fr))] lg:items-end">
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(220px,1.35fr)_repeat(3,minmax(150px,1fr))] lg:items-end">
             <label className="grid gap-2">
               <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/70">
                 {copy.filtersTitle}
@@ -490,7 +495,7 @@ export function MembersDirectory({
             {items.length === 0 ? copy.empty : copy.noResults}
           </div>
         ) : (
-          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <div className="mt-5 grid min-w-0 gap-5 sm:grid-cols-2">
             {list.map((member) => (
               <MemberCard
                 key={member.id}
@@ -608,7 +613,7 @@ function MemberCard({
 
   return (
     <Dialog>
-      <div className="group flex min-h-[320px] flex-col overflow-hidden rounded-[32px] border border-[#D4E0F0] bg-white shadow-[0_22px_60px_rgba(11,31,68,0.09)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(11,31,68,0.14)]">
+      <div className="group flex min-h-[320px] min-w-0 flex-col overflow-hidden rounded-[32px] border border-[#D4E0F0] bg-white shadow-[0_22px_60px_rgba(11,31,68,0.09)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(11,31,68,0.14)]">
         <div className="h-20 bg-[radial-gradient(circle_at_18%_18%,rgba(114,160,193,0.34),transparent_32%),linear-gradient(135deg,#F6FAFF,#EAF3FD)]" />
 
         <div className="flex flex-1 flex-col px-5 pb-5 pt-0">
