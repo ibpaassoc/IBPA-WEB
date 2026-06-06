@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
 import { coreFiles } from "@/lib/schema";
 
@@ -14,7 +14,7 @@ export async function listExternalCertificateFilesByUserId(
     .where(
       and(
         eq(coreFiles.ownerUserId, userId),
-        eq(coreFiles.type, "external_certificate"),
+        inArray(coreFiles.type, ["certificate", "external_certificate"]),
       ),
     )
     .orderBy(desc(coreFiles.createdAt));
@@ -35,7 +35,7 @@ export async function createExternalCertificateFile(
       id: input.id,
       ownerUserId: input.ownerUserId,
       relatedId: input.ownerUserId,
-      type: "external_certificate",
+      type: "certificate",
       fileUrl: input.fileUrl,
       fileName: input.title,
     })
@@ -57,7 +57,7 @@ export async function deleteExternalCertificateFileById(
       and(
         eq(coreFiles.id, input.fileId),
         eq(coreFiles.ownerUserId, input.ownerUserId),
-        eq(coreFiles.type, "external_certificate"),
+        inArray(coreFiles.type, ["certificate", "external_certificate"]),
       ),
     )
     .returning();

@@ -17,7 +17,7 @@ export const applicationStatusEnum = pgEnum("ibpa_application_status", [
 export const membershipStatusEnum = pgEnum("ibpa_membership_status", ["ACTIVE", "EXPIRED", "CANCELLED"]);
 export const paymentStatusEnum = pgEnum("ibpa_payment_status", ["PENDING", "PAID", "FAILED", "REFUNDED"]);
 export const eventRegistrationStatusEnum = pgEnum("ibpa_event_registration_status", ["REGISTERED", "WAITLISTED", "CANCELLED", "ATTENDED"]);
-export const fileTypeEnum = pgEnum("ibpa_file_type", ["PROFILE", "APPLICATION", "EVENT", "external_certificate"]);
+export const fileTypeEnum = pgEnum("ibpa_file_type", ["PROFILE", "APPLICATION", "EVENT", "certificate", "external_certificate"]);
 
 export const coreUsers = ibpa.table("users", {
   id: uuid("id").primaryKey().defaultRandom(),
