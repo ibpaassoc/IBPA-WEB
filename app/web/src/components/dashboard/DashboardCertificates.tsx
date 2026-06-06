@@ -424,23 +424,23 @@ export function DashboardCertificates({
         </div>
 
         {externalCertificates.length > 0 ? (
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-5 grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
             {externalCertificates.map((item) => (
               <article
                 key={item.id}
-                className="group rounded-[28px] border border-[#D8E3F1] bg-[linear-gradient(180deg,#FFFFFF_0%,#F7FBFF_100%)] p-5 shadow-[0_18px_45px_rgba(11,31,68,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(11,31,68,0.10)]"
+                className="group flex min-h-[270px] flex-col rounded-[32px] border border-[#D8E3F1] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,251,255,0.98)_100%)] p-6 shadow-[0_20px_52px_rgba(11,31,68,0.08)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(11,31,68,0.12)]"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EAF4FF] text-[#2B5C99]">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-start gap-4">
+                    <div className="flex size-14 shrink-0 items-center justify-center rounded-[22px] border border-[#D6E3F2] bg-[linear-gradient(180deg,#F4F9FF_0%,#EAF4FF_100%)] text-[#2B5C99] shadow-[0_10px_25px_rgba(43,92,153,0.10)]">
                       {getFileIcon(item.fileUrl)}
                     </div>
 
                     <div className="min-w-0">
-                      <p className="line-clamp-2 text-base font-semibold leading-6 text-[#10203B]">
+                      <p className="line-clamp-2 text-lg font-semibold leading-7 tracking-tight text-[#10203B]">
                         {item.title}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-2 text-sm text-slate-500">
                         {t.dashboard.certificates.addedOn(
                           formatDate(item.createdAt, getLocaleNumberFormat(locale)) ||
                             t.dashboard.certificates.recently,
@@ -453,7 +453,7 @@ export function DashboardCertificates({
                     type="button"
                     onClick={() => void handleDelete(item.id)}
                     disabled={deletingId === item.id}
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#F0D7DB] bg-white text-rose-500 transition hover:border-rose-200 hover:bg-rose-50 disabled:opacity-60"
+                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[#F0D7DB] bg-white text-rose-500 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 disabled:opacity-60"
                     aria-label={t.dashboard.certificates.removeAria(item.title)}
                   >
                     {deletingId === item.id ? (
@@ -464,14 +464,23 @@ export function DashboardCertificates({
                   </button>
                 </div>
 
-                <div className="mt-5">
+                <div className="mt-6 flex-1 rounded-[26px] border border-[#E2EBF5] bg-white/70 px-5 py-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#21466D]/65">
+                    {t.dashboard.certificates.personalUploadsEyebrow}
+                  </p>
+                  <p className="mt-3 line-clamp-3 break-all text-sm leading-6 text-slate-600">
+                    {item.fileUrl}
+                  </p>
+                </div>
+
+                <div className="mt-6">
                   <a
                     href={item.fileUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-[#D4E0F0] bg-white px-3.5 py-2 text-xs font-semibold text-[#10203B] transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
+                    className="inline-flex items-center gap-2 rounded-full border border-[#D4E0F0] bg-white px-4 py-2.5 text-sm font-semibold text-[#10203B] shadow-sm transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
                   >
-                    <Download className="h-3.5 w-3.5" />
+                    <Download className="h-4 w-4" />
                     {t.dashboard.certificates.openFile}
                   </a>
                 </div>
@@ -479,12 +488,14 @@ export function DashboardCertificates({
             ))}
           </div>
         ) : (
-          <div className="mt-5 rounded-[28px] border border-dashed border-[#D4E0F0] bg-[#FBFDFF] px-6 py-12 text-center">
-            <FileBadge2 className="mx-auto h-10 w-10 text-[#9EB7D2]" />
-            <p className="mt-4 text-lg font-semibold text-[#10203B]">
+          <div className="mt-5 rounded-[32px] border border-dashed border-[#D4E0F0] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] px-6 py-14 text-center shadow-[0_18px_45px_rgba(11,31,68,0.05)]">
+            <div className="mx-auto flex size-16 items-center justify-center rounded-[24px] border border-[#D6E3F2] bg-[linear-gradient(180deg,#F4F9FF_0%,#EAF4FF_100%)] text-[#7FA3C7] shadow-[0_12px_32px_rgba(43,92,153,0.10)]">
+              <FileBadge2 className="h-7 w-7" />
+            </div>
+            <p className="mt-5 text-xl font-semibold tracking-tight text-[#10203B]">
               {t.dashboard.certificates.noUploadsTitle}
             </p>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-500">
               {t.dashboard.certificates.noUploadsDescription}
             </p>
           </div>
