@@ -20,3 +20,7 @@ export function getPublicProfileHref(source?: string | null) {
 
   return `/member/${encodeURIComponent(source)}`;
 }
+
+export function getDashboardProfilePreviewHref() {
+  return "/dashboard/profile/preview";
+}
