@@ -28,7 +28,12 @@ import {
   deleteExternalCertificate,
   listExternalCertificates,
 } from "../features/files/server/file.service";
-import { normalizeProfileServices, saveDashboardProfile, saveProfileServices } from "../features/profiles/server/profile.service";
+import {
+  ensureOwnedProfileRecord,
+  normalizeProfileServices,
+  saveOwnedProfileRecord,
+  saveProfileServices,
+} from "../features/profiles/server/profile.service";
 import { markNotificationsRead } from "../features/notifications/server/notification.service";
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
 import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
@@ -219,67 +224,46 @@ function buildOwnerDashboardProfile(params: {
   partnerTeamSummary?: Record<string, unknown> | null;
 }) {
   const { user, profile, application, membership, payment, certificate, accessType, partnerTeamSummary } = params;
-  const payload = getApplicationData(application);
+  const accountType =
+    application?.type
+      ? mapApplicationTypeToAccountType(application.type)
+      : accessType === "partner_owner"
+        ? "partner"
+        : "member";
   const fullName = [
     firstText(profile?.firstName),
     firstText(profile?.lastName),
-  ].filter(Boolean).join(" ") || firstText(application?.fullName) || user.email;
-  const specializations = uniqueStrings([
-    ...stringArray(payload.specialization),
-    ...stringArray(profile?.specializations),
-    ...commaSeparatedArray(payload.bizServices),
-  ]).filter(Boolean);
+  ].filter(Boolean).join(" ") || "IBPA Member";
+  const specializations = uniqueStrings(stringArray(profile?.specializations)).filter(Boolean);
   const services = normalizeProfileServices(profile?.services);
-  const mergedApplicationPayload = {
-    ...payload,
-    websiteLink: firstText(profile?.website, payload.websiteLink),
-    instagramLink: firstText(profile?.instagram, payload.instagramLink),
-    country: firstText(profile?.country, payload.country),
-    state: firstText(profile?.state, payload.state),
-    city: firstText(profile?.city, payload.city),
-    yearsExperience:
-      profile?.yearsExperience != null
-        ? String(profile.yearsExperience)
-        : firstText(payload.yearsExperience),
-    educationDesc: firstText(profile?.credentials, payload.educationDesc, payload.studentSchool),
-    professionalDesc: firstText(profile?.bio, payload.professionalDesc),
-    specialization:
-      (profile?.specializations?.length ?? 0) > 0
-        ? profile?.specializations
-        : payload.specialization,
-    portfolioImages:
-      (profile?.workGalleryPhotos?.length ?? 0) > 0
-        ? profile?.workGalleryPhotos
-        : payload.portfolioImages,
-  };
 
   return {
     id: user.id,
-    firstName: firstText(profile?.firstName, payload.firstName, fullName.split(" ")[0]),
-    lastName: firstText(profile?.lastName, payload.lastName),
+    firstName: profile?.firstName ?? null,
+    lastName: profile?.lastName ?? null,
     fullName,
     email: user.email,
-    phone: firstText(application?.phone, payload.phone),
+    phone: profile?.phone ?? null,
     imageUrl: profile?.avatarUrl ?? null,
     bio: profile?.bio ?? null,
-    websiteUrl: firstText(profile?.website, payload.websiteLink) || null,
+    achievements: profile?.achievements ?? null,
+    industryContribution: profile?.industryContribution ?? null,
+    websiteUrl: profile?.website ?? null,
     specialization: specializations.join(", ") || null,
     specializations,
-    experienceYears: profile?.yearsExperience != null ? String(profile.yearsExperience) : firstText(payload.yearsExperience),
-    education: firstText(profile?.credentials, payload.educationDesc, payload.studentSchool),
-    instagramUrl: firstText(profile?.instagram, payload.instagramLink) || null,
-    country: firstText(profile?.country, payload.country) || null,
-    city: firstText(profile?.city, payload.city) || null,
-    state: firstText(profile?.state, payload.state) || null,
+    experienceYears: profile?.yearsExperience != null ? String(profile.yearsExperience) : null,
+    education: profile?.credentials ?? null,
+    instagramUrl: profile?.instagram ?? null,
+    country: profile?.country ?? null,
+    city: profile?.city ?? null,
+    state: profile?.state ?? null,
     portfolioImages: profile?.workGalleryPhotos ?? [],
-    achievements: firstText(payload.achievementsDesc, payload.contributionDesc) || null,
-    certificatesSummary: firstText(payload.licenseNumber, payload.trainerCertificateFiles) || null,
+    certificatesSummary: null,
     services,
-    applicationPayload: mergedApplicationPayload,
-    type: mapApplicationTypeToAccountType(application?.type),
-    accountType: mapApplicationTypeToAccountType(application?.type),
-    applicationType: application?.type || null,
-    orderType: mapApplicationTypeToAccountType(application?.type),
+    type: accountType,
+    accountType,
+    applicationType: application?.type || (accessType === "partner_owner" ? "PARTNER" : "MEMBER"),
+    orderType: accountType,
     membershipStatus: membership?.status?.toLowerCase() || "pending",
     paymentStatus: mapPaymentStatusToLegacy(payment?.status),
     certificateStatus: certificate?.certificateNumber ? "issued" : "pending",
@@ -719,7 +703,7 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, accessType, canonicalUser, membership, application, payment, certificate, profile, team, teamMember, ownerUser } = access;
+    const { db, primaryEmail, accessType, canonicalUser, membership, application, payment, certificate, profile, team, teamMember, ownerUser } = access;
     if (!membership) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -728,7 +712,6 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
       return res.json({
         profile: {
-          applicationPayload: {},
           type: "partner",
           accountType: "partner",
           applicationType: "TEAM_MEMBER",
@@ -760,13 +743,19 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
+    const ensuredProfile = await ensureOwnedProfileRecord(db, {
+      clerkUserId,
+      email: primaryEmail || canonicalUser.email,
+      currentRole: canonicalUser.role,
+    });
+
     const partnerTeamSnapshot = accessType === "partner_owner" && team
       ? await getPartnerTeamSnapshot(db, team)
       : null;
 
     const mappedProfile = buildOwnerDashboardProfile({
       user: canonicalUser,
-      profile,
+      profile: ensuredProfile,
       application,
       membership,
       payment,
@@ -1178,7 +1167,7 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, clerkUser, primaryEmail, accessType, application, canonicalUser, membership, team } = access;
+    const { db, primaryEmail, accessType, canonicalUser } = access;
     if (accessType === "partner_team_member") {
       return res.status(403).json({
         error: "Team member profiles are managed by the partner owner.",
@@ -1193,10 +1182,12 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
     const {
       firstName,
       lastName,
+      phone,
       imageUrl,
       bio,
-      specialization,
       specializations,
+      achievements,
+      industryContribution,
       experienceYears,
       education,
       instagramUrl,
@@ -1205,33 +1196,22 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
       state,
       city,
       portfolioImages,
-      applicationPayload,
     } = req.body;
 
-    const existingPayload = getApplicationData(application);
-    const incomingApplicationPayload = {
-      ...existingPayload,
-      ...(applicationPayload && typeof applicationPayload === "object" ? applicationPayload as Record<string, unknown> : {}),
-    };
-
-    const { nextApplicationPayload } = await saveDashboardProfile(db, {
+    const { profile } = await saveOwnedProfileRecord(db, {
       clerkUserId,
       email: primaryEmail || canonicalUser.email,
       currentRole: canonicalUser.role,
-      firstName:
-        typeof firstName === "string"
-          ? firstName
-          : clerkUser?.firstName || access.profile?.firstName || "",
-      lastName:
-        typeof lastName === "string"
-          ? lastName
-          : clerkUser?.lastName || access.profile?.lastName || "",
+      firstName,
+      lastName,
+      phone,
       imageUrl,
       bio,
-      specialization,
       specializations: Array.isArray(specializations)
         ? specializations.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
         : undefined,
+      achievements,
+      industryContribution,
       experienceYears,
       education,
       instagramUrl,
@@ -1242,37 +1222,9 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
       portfolioImages: Array.isArray(portfolioImages)
         ? portfolioImages.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
         : undefined,
-      applicationPayload: incomingApplicationPayload,
     });
 
-    if (application) {
-      await db
-        .update(coreApplications)
-        .set({
-          phone: typeof nextApplicationPayload.phone === "string" ? nextApplicationPayload.phone : application.phone,
-          applicationData: nextApplicationPayload,
-        })
-        .where(eq(coreApplications.id, application.id));
-    } else if (membership) {
-      const fullName = [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ").trim() || canonicalUser.email;
-      await db.insert(coreApplications).values({
-        id: membership.id,
-        userId: canonicalUser.id,
-        type: team ? "PARTNER" : "MEMBER",
-        packageName: membership.type,
-        status: "PAID",
-        fullName,
-        email: canonicalUser.email,
-        phone: typeof nextApplicationPayload.phone === "string" ? nextApplicationPayload.phone : null,
-        paymentLink: null,
-        applicationData: nextApplicationPayload,
-        applicationFiles: [],
-        approvedAt: membership.startedAt ?? new Date(),
-        createdAt: membership.startedAt ?? new Date(),
-      }).onConflictDoNothing();
-    }
-
-    return res.json({ success: true, applicationPayload: nextApplicationPayload });
+    return res.json({ success: true, profile });
   } catch (error) {
     console.error("[Dashboard /profile PATCH] Error:", error);
     return res.status(500).json({ error: "Failed to update profile" });

@@ -7,16 +7,18 @@ export type ProfileService = {
   price: string;
 };
 
-export type DashboardProfileSaveInput = {
+export type ProfileRecordUpsertInput = {
   clerkUserId: string;
   email: string;
   currentRole?: UserRole | null;
   firstName?: string | null;
   lastName?: string | null;
+  phone?: string | null;
   imageUrl?: string | null;
   bio?: string | null;
-  specialization?: string | null;
   specializations?: string[] | null;
+  achievements?: string | null;
+  industryContribution?: string | null;
   experienceYears?: string | null;
   education?: string | null;
   instagramUrl?: string | null;
@@ -25,10 +27,9 @@ export type DashboardProfileSaveInput = {
   state?: string | null;
   city?: string | null;
   portfolioImages?: string[];
-  applicationPayload?: Record<string, unknown>;
 };
 
-export type CanonicalPublicMemberRow = {
+export type PublicProfileDirectoryRow = {
   id: string;
   membershipType: string;
   memberSince: Date | null;
@@ -36,9 +37,12 @@ export type CanonicalPublicMemberRow = {
   role: string;
   firstName: string | null;
   lastName: string | null;
+  phone: string | null;
   avatarUrl: string | null;
   bio: string | null;
   credentials: string | null;
+  achievements: string | null;
+  industryContribution: string | null;
   services: ProfileService[] | null;
   workGalleryPhotos: string[];
   specializations: string[];

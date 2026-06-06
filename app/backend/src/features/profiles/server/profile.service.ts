@@ -2,17 +2,19 @@ import { requireDb } from "@/lib/db";
 import type { SourceUserRecord } from "@/features/shared/server/source-records";
 import { resolveUserRole, ensureCanonicalUser } from "@/features/users/server/user.service";
 import { findCanonicalUserByClerkId } from "@/features/users/server/user.repository";
+import type { UserRole } from "@/lib/permissions";
 import {
+  findOrCreateProfileByUserId,
   findProfileByUserId,
   listCanonicalPublicMemberRows,
   updateProfileServicesByUserId,
   upsertCanonicalProfile,
 } from "./profile.repository";
 import type {
-  CanonicalPublicMemberRow,
-  DashboardProfileSaveInput,
   ProfileService,
+  ProfileRecordUpsertInput,
   PublicMemberDirectoryItem,
+  PublicProfileDirectoryRow,
 } from "./profile.types";
 
 type DbClient = ReturnType<typeof requireDb>;
@@ -54,41 +56,12 @@ function stringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
-function commaSeparatedArray(value: unknown) {
-  if (typeof value !== "string") {
-    return [] as string[];
-  }
-
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 function asPayload(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as Record<string, unknown>;
   }
 
   return {};
-}
-
-function firstNonEmpty(...values: unknown[]) {
-  for (const value of values) {
-    const normalized = textValue(value);
-    if (normalized) {
-      return normalized;
-    }
-  }
-
-  return "";
-}
-
-function joinTruthy(values: unknown[], separator = " | ") {
-  return values
-    .map((value) => textValue(value))
-    .filter(Boolean)
-    .join(separator);
 }
 
 function parseYearsExperience(value: unknown) {
@@ -128,18 +101,18 @@ export function normalizeProfileServices(input: unknown): ProfileService[] {
     .filter((service): service is ProfileService => service !== null);
 }
 
-function mapCanonicalRow(record: CanonicalPublicMemberRow): PublicMemberDirectoryItem {
+function mapCanonicalRow(record: PublicProfileDirectoryRow): PublicMemberDirectoryItem {
   const firstName = textValue(record.firstName);
   const lastName = textValue(record.lastName);
-  const fullName = [firstName, lastName].filter(Boolean).join(" ") || record.email;
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "IBPA Member";
   const city = textValue(record.city);
   const country = textValue(record.country);
   const location = [city, country].filter(Boolean).join(", ");
   const specializations = uniqueStrings(record.specializations ?? []);
   const highlights = uniqueStrings([
     textValue(record.credentials),
-    textValue(record.services),
-    textValue(record.state),
+    textValue(record.achievements),
+    textValue(record.industryContribution),
   ]).slice(0, 3);
 
   return {
@@ -170,7 +143,7 @@ export async function listPublicProfiles(db: DbClient) {
   return canonicalRows.map(mapCanonicalRow);
 }
 
-export async function saveDashboardProfile(db: DbClient, input: DashboardProfileSaveInput) {
+export async function saveOwnedProfileRecord(db: DbClient, input: ProfileRecordUpsertInput) {
   const { record: canonicalUser } = await ensureCanonicalUser(db, {
     clerkId: input.clerkUserId,
     email: input.email,
@@ -178,50 +151,30 @@ export async function saveDashboardProfile(db: DbClient, input: DashboardProfile
     status: "ACTIVE",
   });
 
-  const payload =
-    input.applicationPayload && typeof input.applicationPayload === "object"
-      ? input.applicationPayload
-      : {};
   const specializations = uniqueStrings([
     ...(Array.isArray(input.specializations) ? input.specializations : []),
-    textValue(input.specialization),
-    ...stringArray(payload.specialization),
-    ...commaSeparatedArray(input.specialization),
-    textValue(payload.specializationOther),
   ]);
-  const websiteUrl = optionalText(input.websiteUrl ?? payload.websiteLink);
-  const instagramUrl = optionalText(input.instagramUrl ?? payload.instagramLink);
-  const country = optionalText(input.country ?? payload.country);
-  const state = optionalText(input.state ?? payload.state);
-  const city = optionalText(input.city ?? payload.city);
-  const yearsExperience = textValue(input.experienceYears ?? payload.yearsExperience);
-  const education = optionalText(input.education ?? payload.educationDesc ?? payload.studentSchool);
+  const websiteUrl = optionalText(input.websiteUrl);
+  const instagramUrl = optionalText(input.instagramUrl);
+  const country = optionalText(input.country);
+  const state = optionalText(input.state);
+  const city = optionalText(input.city);
+  const yearsExperience = textValue(input.experienceYears);
+  const education = optionalText(input.education);
   const portfolioImages = Array.isArray(input.portfolioImages)
     ? uniqueStrings(input.portfolioImages)
-    : stringArray(payload.portfolioImages);
+    : [];
 
-  const nextApplicationPayload = {
-    ...payload,
-    phone: textValue(payload.phone),
-    websiteLink: websiteUrl ?? "",
-    instagramLink: instagramUrl ?? "",
-    country: country ?? "",
-    state: state ?? "",
-    city: city ?? "",
-    yearsExperience,
-    educationDesc: education ?? "",
-    professionalDesc: optionalText(input.bio) ?? textValue(payload.professionalDesc),
-    specialization: specializations,
-    portfolioImages,
-  };
-
-  await upsertCanonicalProfile(db, {
+  const { record } = await upsertCanonicalProfile(db, {
     userId: canonicalUser.id,
     firstName: optionalText(input.firstName),
     lastName: optionalText(input.lastName),
+    phone: optionalText(input.phone),
     avatarUrl: optionalText(input.imageUrl),
     bio: optionalText(input.bio),
     credentials: education,
+    achievements: optionalText(input.achievements),
+    industryContribution: optionalText(input.industryContribution),
     workGalleryPhotos: portfolioImages,
     specializations,
     city,
@@ -233,8 +186,23 @@ export async function saveDashboardProfile(db: DbClient, input: DashboardProfile
   });
 
   return {
-    nextApplicationPayload,
+    profile: record,
   };
+}
+
+export async function ensureOwnedProfileRecord(db: DbClient, params: {
+  clerkUserId: string;
+  email: string;
+  currentRole?: UserRole | null;
+}) {
+  const { record: canonicalUser } = await ensureCanonicalUser(db, {
+    clerkId: params.clerkUserId,
+    email: params.email,
+    role: resolveUserRole({ role: params.currentRole }),
+    status: "ACTIVE",
+  });
+
+  return findOrCreateProfileByUserId(db, canonicalUser.id);
 }
 
 export async function saveProfileServices(input: {
@@ -275,9 +243,12 @@ export async function importSourceUserProfile(db: DbClient, params: {
     userId: params.canonicalUserId,
     firstName: params.sourceUser.firstName ?? null,
     lastName: params.sourceUser.lastName ?? null,
+    phone: textValue(payload.phone) || null,
     avatarUrl: params.sourceUser.imageUrl ?? null,
     bio: params.sourceUser.bio ?? null,
     credentials: params.sourceUser.education ?? null,
+    achievements: textValue(payload.achievementsDesc) || null,
+    industryContribution: textValue(payload.contributionDesc) || null,
     workGalleryPhotos: stringArray(payload.portfolioImages),
     specializations: uniqueStrings([
       textValue(params.sourceUser.specialization),

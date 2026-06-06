@@ -1,11 +1,11 @@
 import { desc, eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
 import { coreMemberships, coreProfiles, coreUsers } from "@/lib/schema";
-import type { CanonicalPublicMemberRow, ProfileService } from "./profile.types";
+import type { ProfileService, PublicProfileDirectoryRow } from "./profile.types";
 
 type DbClient = ReturnType<typeof requireDb>;
 
-export async function listCanonicalPublicMemberRows(db: DbClient): Promise<CanonicalPublicMemberRow[]> {
+export async function listCanonicalPublicMemberRows(db: DbClient): Promise<PublicProfileDirectoryRow[]> {
   return db
     .select({
       id: coreUsers.id,
@@ -15,9 +15,12 @@ export async function listCanonicalPublicMemberRows(db: DbClient): Promise<Canon
       role: coreUsers.role,
       firstName: coreProfiles.firstName,
       lastName: coreProfiles.lastName,
+      phone: coreProfiles.phone,
       avatarUrl: coreProfiles.avatarUrl,
       bio: coreProfiles.bio,
       credentials: coreProfiles.credentials,
+      achievements: coreProfiles.achievements,
+      industryContribution: coreProfiles.industryContribution,
       services: coreProfiles.services,
       workGalleryPhotos: coreProfiles.workGalleryPhotos,
       specializations: coreProfiles.specializations,
@@ -40,9 +43,12 @@ export async function upsertCanonicalProfile(db: DbClient, params: {
   userId: string;
   firstName?: string | null;
   lastName?: string | null;
+  phone?: string | null;
   avatarUrl?: string | null;
   bio?: string | null;
   credentials?: string | null;
+  achievements?: string | null;
+  industryContribution?: string | null;
   services?: ProfileService[] | null;
   workGalleryPhotos?: string[];
   specializations?: string[];
@@ -61,9 +67,12 @@ export async function upsertCanonicalProfile(db: DbClient, params: {
       .set({
         firstName: params.firstName !== undefined ? params.firstName : existing.firstName,
         lastName: params.lastName !== undefined ? params.lastName : existing.lastName,
+        phone: params.phone !== undefined ? params.phone : existing.phone,
         avatarUrl: params.avatarUrl !== undefined ? params.avatarUrl : existing.avatarUrl,
         bio: params.bio !== undefined ? params.bio : existing.bio,
         credentials: params.credentials !== undefined ? params.credentials : existing.credentials,
+        achievements: params.achievements !== undefined ? params.achievements : existing.achievements,
+        industryContribution: params.industryContribution !== undefined ? params.industryContribution : existing.industryContribution,
         services: params.services !== undefined ? params.services : existing.services ?? [],
         workGalleryPhotos: params.workGalleryPhotos !== undefined ? params.workGalleryPhotos : existing.workGalleryPhotos,
         specializations: params.specializations !== undefined ? params.specializations : existing.specializations,
@@ -87,9 +96,12 @@ export async function upsertCanonicalProfile(db: DbClient, params: {
       userId: params.userId,
       firstName: params.firstName ?? null,
       lastName: params.lastName ?? null,
+      phone: params.phone ?? null,
       avatarUrl: params.avatarUrl ?? null,
       bio: params.bio ?? null,
       credentials: params.credentials ?? null,
+      achievements: params.achievements ?? null,
+      industryContribution: params.industryContribution ?? null,
       services: params.services ?? [],
       workGalleryPhotos: params.workGalleryPhotos ?? [],
       specializations: params.specializations ?? [],
@@ -113,6 +125,16 @@ export async function findProfileByUserId(db: DbClient, userId: string) {
     .limit(1);
 
   return profile ?? null;
+}
+
+export async function findOrCreateProfileByUserId(db: DbClient, userId: string) {
+  const existing = await findProfileByUserId(db, userId);
+  if (existing) {
+    return existing;
+  }
+
+  const { record } = await upsertCanonicalProfile(db, { userId });
+  return record;
 }
 
 export async function updateProfileServicesByUserId(
