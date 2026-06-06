@@ -127,6 +127,10 @@ export type DashboardContentItem = {
   eventDate?: string | null;
   eventEndDate?: string | null;
   eventAddress?: string | null;
+  isRegistered?: boolean;
+  registrationStatus?: string | null;
+  registrationId?: string | null;
+  registrationSource?: string | null;
 };
 
 export type SupportMode = "question" | "idea" | "problem";

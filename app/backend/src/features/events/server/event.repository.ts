@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
-import { coreEvents } from "@/lib/schema";
+import { coreEventRegistrations, coreEvents } from "@/lib/schema";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -27,6 +27,100 @@ export type EventPersistenceInput = {
 
 export async function listCanonicalEvents(db: DbClient) {
   return db.select().from(coreEvents).orderBy(desc(coreEvents.isPinned), desc(coreEvents.createdAt));
+}
+
+export async function listDashboardEvents(db: DbClient) {
+  return db
+    .select()
+    .from(coreEvents)
+    .where(eq(coreEvents.publishToDashboard, true))
+    .orderBy(desc(coreEvents.isPinned), desc(coreEvents.createdAt));
+}
+
+export async function findCanonicalEventById(db: DbClient, id: string) {
+  const [event] = await db.select().from(coreEvents).where(eq(coreEvents.id, id)).limit(1);
+  return event ?? null;
+}
+
+export async function listEventRegistrationsByUserId(db: DbClient, userId: string) {
+  return db
+    .select()
+    .from(coreEventRegistrations)
+    .where(eq(coreEventRegistrations.userId, userId))
+    .orderBy(desc(coreEventRegistrations.registeredAt), desc(coreEventRegistrations.createdAt));
+}
+
+export async function findEventRegistrationByEventAndUser(
+  db: DbClient,
+  params: {
+    eventId: string;
+    userId: string;
+  },
+) {
+  const [registration] = await db
+    .select()
+    .from(coreEventRegistrations)
+    .where(
+      and(
+        eq(coreEventRegistrations.eventId, params.eventId),
+        eq(coreEventRegistrations.userId, params.userId),
+      ),
+    )
+    .limit(1);
+
+  return registration ?? null;
+}
+
+export async function upsertEventRegistration(
+  db: DbClient,
+  input: {
+    id: string;
+    eventId: string;
+    userId: string;
+    email: string;
+    source: string;
+    status: "REGISTERED" | "WAITLISTED" | "CANCELLED" | "ATTENDED";
+    registeredAt?: Date;
+    cancelledAt?: Date | null;
+  },
+) {
+  const existing = await findEventRegistrationByEventAndUser(db, {
+    eventId: input.eventId,
+    userId: input.userId,
+  });
+
+  if (existing) {
+    const [updated] = await db
+      .update(coreEventRegistrations)
+      .set({
+        email: input.email,
+        source: input.source,
+        status: input.status,
+        registeredAt: input.registeredAt ?? existing.registeredAt,
+        cancelledAt: input.cancelledAt ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(coreEventRegistrations.id, existing.id))
+      .returning();
+
+    return { record: updated ?? existing, created: false };
+  }
+
+  const [created] = await db
+    .insert(coreEventRegistrations)
+    .values({
+      id: input.id,
+      eventId: input.eventId,
+      userId: input.userId,
+      email: input.email,
+      source: input.source,
+      status: input.status,
+      registeredAt: input.registeredAt ?? new Date(),
+      cancelledAt: input.cancelledAt ?? null,
+    })
+    .returning();
+
+  return { record: created, created: true };
 }
 
 export async function clearCanonicalPinnedEvents(db: DbClient, excludeId?: string) {

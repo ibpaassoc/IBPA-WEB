@@ -33,6 +33,10 @@ import { markNotificationsRead } from "../features/notifications/server/notifica
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
 import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
 import { findCanonicalTeam, upsertCanonicalTeam, upsertCanonicalTeamMember } from "../features/teams/server/team.repository";
+import {
+  listDashboardEventsForUser,
+  registerDashboardEvent,
+} from "../features/events/server/event.service";
 
 export const dashboardRouter = Router();
 export const cardsRouter = Router();
@@ -789,6 +793,77 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
   } catch (error) {
     console.error("[Dashboard /profile GET] Error:", error);
     return res.status(500).json({ error: "Failed to fetch profile" });
+  }
+});
+
+dashboardRouter.get("/events", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const items = await listDashboardEventsForUser(access.db, {
+      userId: access.canonicalUser?.id ?? null,
+    });
+
+    return res.json({ items });
+  } catch (error) {
+    console.error("[Dashboard /events GET] Error:", error);
+    return res.status(500).json({ error: "Failed to fetch dashboard events" });
+  }
+});
+
+dashboardRouter.post("/events/:id/register", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  const eventId = trimValue(req.params.id, 80);
+  if (!eventId) {
+    return res.status(400).json({ error: "Invalid event id." });
+  }
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    if (!access.canonicalUser) {
+      return res.status(400).json({ error: "User record is not ready for event registration." });
+    }
+
+    const registration = await registerDashboardEvent(access.db, {
+      eventId,
+      userId: access.canonicalUser.id,
+      email:
+        access.primaryEmail ||
+        access.canonicalUser.email ||
+        access.teamMember?.email ||
+        "",
+      source: "dashboard",
+    });
+
+    return res.status(registration.alreadyRegistered ? 200 : 201).json({
+      success: true,
+      alreadyRegistered: registration.alreadyRegistered,
+      item: registration.event,
+    });
+  } catch (error) {
+    console.error("[Dashboard /events/register POST] Error:", error);
+    return res.status(
+      error instanceof Error && error.message === "Event not found." ? 404 : 500,
+    ).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to register for the event",
+    });
   }
 });
 

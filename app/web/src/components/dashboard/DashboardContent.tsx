@@ -23,7 +23,7 @@ import { DashboardAccountSettings } from "./DashboardAccountSettings";
 import { UnderDevelopmentPage } from "@/shared/components/UnderDevelopment";
 import { useI18n } from "@/lib/i18n";
 
-type EventAudienceFilter = "all" | "members" | "open";
+type EventRegistrationFilter = "all" | "registered" | "not_registered";
 
 type ProfileChecklist = ReturnType<
   typeof import("@/lib/dashboard-cabinet").buildOnboardingChecklist
@@ -81,10 +81,11 @@ type Props = {
   profileChecklist: ProfileChecklist;
   quickActions: any[];
 
-  eventAudienceFilter: EventAudienceFilter;
-  setEventAudienceFilter: (filter: EventAudienceFilter) => void;
+  eventRegistrationFilter: EventRegistrationFilter;
+  setEventRegistrationFilter: (filter: EventRegistrationFilter) => void;
   filteredEventCards: any[];
   dashboardEvents: any[];
+  registerDashboardEvent: (eventId: string) => Promise<unknown>;
 
   directoryMembers: any[];
 
@@ -145,10 +146,11 @@ export function DashboardContent(props: Props) {
     overviewCards,
     profileChecklist,
     quickActions,
-    eventAudienceFilter,
-    setEventAudienceFilter,
+    eventRegistrationFilter,
+    setEventRegistrationFilter,
     filteredEventCards,
     dashboardEvents,
+    registerDashboardEvent,
     directoryMembers,
     allNotifications,
     alertCards,
@@ -217,9 +219,10 @@ export function DashboardContent(props: Props) {
     case "events":
       return (
         <DashboardEvents
-          eventAudienceFilter={eventAudienceFilter}
-          setEventAudienceFilter={setEventAudienceFilter}
+          eventRegistrationFilter={eventRegistrationFilter}
+          setEventRegistrationFilter={setEventRegistrationFilter}
           filteredEventCards={filteredEventCards}
+          registerDashboardEvent={registerDashboardEvent}
         />
       );
 

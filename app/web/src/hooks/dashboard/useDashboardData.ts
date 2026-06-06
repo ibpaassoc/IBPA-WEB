@@ -73,6 +73,45 @@ export function useDashboardData({
     }
   }, []);
 
+  const registerDashboardEvent = useCallback(async (eventId: string) => {
+    const response = await fetch(`/api/dashboard/events/${eventId}/register`, {
+      method: "POST",
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        typeof payload?.error === "string"
+          ? payload.error
+          : "Unable to register for this event right now.",
+      );
+    }
+
+    const nextItem =
+      payload?.item && typeof payload.item === "object" ? payload.item : null;
+
+    if (nextItem?.id) {
+      setDashboardEvents((prev) =>
+        prev.map((item) =>
+          item.id === nextItem.id
+            ? {
+                ...item,
+                ...nextItem,
+                isRegistered: true,
+                registrationStatus:
+                  typeof nextItem.registrationStatus === "string"
+                    ? nextItem.registrationStatus
+                    : "REGISTERED",
+              }
+            : item,
+        ),
+      );
+    }
+
+    return payload;
+  }, []);
+
   const refreshDashboardData = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
       if (!isSignedIn) {
@@ -108,9 +147,7 @@ export function useDashboardData({
           fetch("/api/dashboard/profile", { cache: "no-store" }),
           fetch("/api/dashboard/notifications", { cache: "no-store" }),
           fetch("/api/content?type=news&target=dashboard", { cache: "no-store" }),
-          fetch("/api/content?type=events&target=dashboard", {
-            cache: "no-store",
-          }),
+          fetch("/api/dashboard/events", { cache: "no-store" }),
           fetch("/api/dashboard/community/members", { cache: "no-store" }),
         ]);
 
@@ -382,6 +419,7 @@ export function useDashboardData({
     dashboardEvents,
     lastSyncedAt,
     markNotificationsAsRead,
+    registerDashboardEvent,
     refreshDashboardData,
   };
 }

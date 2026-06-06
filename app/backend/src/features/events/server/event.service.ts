@@ -1,6 +1,18 @@
 import crypto from "crypto";
 import { requireDb } from "@/lib/db";
-import { clearCanonicalPinnedEvents, deleteCanonicalEvent, listCanonicalEvents, upsertCanonicalEvent, type EventPersistenceInput } from "./event.repository";
+import type { CoreEventRegistration } from "@/lib/schema";
+import {
+  clearCanonicalPinnedEvents,
+  deleteCanonicalEvent,
+  findCanonicalEventById,
+  findEventRegistrationByEventAndUser,
+  listCanonicalEvents,
+  listDashboardEvents,
+  listEventRegistrationsByUserId,
+  upsertCanonicalEvent,
+  upsertEventRegistration,
+  type EventPersistenceInput,
+} from "./event.repository";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -130,6 +142,94 @@ export async function listPublicEvents(db: DbClient, target: "site" | "dashboard
   const canonicalItems = await listAdminEvents(db);
 
   return canonicalItems.filter((item: any) => (target === "dashboard" ? item.publishToDashboard : item.publishToSite));
+}
+
+function isActiveRegistration(registration: {
+  status: string;
+  cancelledAt?: Date | null;
+} | null | undefined) {
+  if (!registration) {
+    return false;
+  }
+
+  return registration.status !== "CANCELLED" && !registration.cancelledAt;
+}
+
+export async function listDashboardEventsForUser(
+  db: DbClient,
+  params: {
+    userId?: string | null;
+  },
+) {
+  const [events, registrations] = await Promise.all([
+    listDashboardEvents(db),
+    params.userId
+      ? listEventRegistrationsByUserId(db, params.userId)
+      : Promise.resolve([] as CoreEventRegistration[]),
+  ]);
+
+  const registrationsByEventId = new Map<string, CoreEventRegistration>(
+    registrations.map((registration: CoreEventRegistration) => [
+      registration.eventId,
+      registration,
+    ]),
+  );
+
+  return events.map((item: (typeof events)[number]) => {
+    const registration: CoreEventRegistration | null =
+      registrationsByEventId.get(item.id) ?? null;
+    return {
+      ...mapCanonicalEvent(item),
+      isRegistered: isActiveRegistration(registration),
+      registrationId: registration?.id ?? null,
+      registrationStatus: registration?.status ?? null,
+      registrationSource: registration?.source ?? null,
+    };
+  });
+}
+
+export async function registerDashboardEvent(
+  db: DbClient,
+  input: {
+    eventId: string;
+    userId: string;
+    email: string;
+    source?: string;
+  },
+) {
+  const event = await findCanonicalEventById(db, input.eventId);
+
+  if (!event || !event.publishToDashboard) {
+    throw new Error("Event not found.");
+  }
+
+  const existing = await findEventRegistrationByEventAndUser(db, {
+    eventId: input.eventId,
+    userId: input.userId,
+  });
+
+  const registrationResult = await upsertEventRegistration(db, {
+    id: existing?.id ?? crypto.randomUUID(),
+    eventId: input.eventId,
+    userId: input.userId,
+    email: input.email,
+    source: input.source ?? "dashboard",
+    status: "REGISTERED",
+    registeredAt: new Date(),
+    cancelledAt: null,
+  });
+
+  return {
+    event: {
+      ...mapCanonicalEvent(event),
+      isRegistered: true,
+      registrationId: registrationResult.record.id,
+      registrationStatus: registrationResult.record.status,
+      registrationSource: registrationResult.record.source,
+    },
+    alreadyRegistered: isActiveRegistration(existing),
+    created: registrationResult.created,
+  };
 }
 
 export async function listAdminEvents(db: DbClient) {

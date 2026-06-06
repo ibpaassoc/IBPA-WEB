@@ -37,7 +37,7 @@ import {
 import { formatMemberId, getPublicProfileHref } from "@/lib/member-identity";
 import { getLocaleNumberFormat, useI18n } from "@/lib/i18n";
 
-type EventAudienceFilter = "all" | "members" | "open";
+type EventRegistrationFilter = "all" | "registered" | "not_registered";
 
 type Params = {
   user: any;
@@ -54,7 +54,7 @@ type Params = {
   dashboardMeta: any;
   dashboardAccessType: string;
   dashboardEvents: any[];
-  eventAudienceFilter: EventAudienceFilter;
+  eventRegistrationFilter: EventRegistrationFilter;
   hasNewEvents: boolean;
   unreadNotificationsCount: number;
   setActiveTab: React.Dispatch<React.SetStateAction<TabType>>;
@@ -88,7 +88,7 @@ export function useDashboardDerivedData({
   dashboardMeta,
   dashboardAccessType,
   dashboardEvents,
-  eventAudienceFilter,
+  eventRegistrationFilter,
   hasNewEvents,
   unreadNotificationsCount,
   setActiveTab,
@@ -410,10 +410,21 @@ export function useDashboardDerivedData({
     };
   });
 
-  const filteredEventCards = eventCards.filter(
-    (item) =>
-      eventAudienceFilter === "all" || item.audience === eventAudienceFilter,
-  );
+  const filteredEventCards = eventCards.filter((item) => {
+    const isRegistered =
+      item.isRegistered === true ||
+      String(item.registrationStatus || "").toUpperCase() === "REGISTERED";
+
+    if (eventRegistrationFilter === "registered") {
+      return isRegistered;
+    }
+
+    if (eventRegistrationFilter === "not_registered") {
+      return !isRegistered;
+    }
+
+    return true;
+  });
 
   const copyPublicLink = useCallback(() => {
     if (!publicProfileHref || typeof window === "undefined") {

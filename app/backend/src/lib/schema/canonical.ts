@@ -146,8 +146,13 @@ export const coreEventRegistrations = ibpa.table("event_registrations", {
   id: uuid("id").primaryKey().defaultRandom(),
   eventId: uuid("event_id").references(() => coreEvents.id, { onDelete: "cascade" }).notNull(),
   userId: uuid("user_id").references(() => coreUsers.id, { onDelete: "cascade" }).notNull(),
+  email: varchar("email", { length: 255 }).notNull().default(""),
   status: eventRegistrationStatusEnum("status").notNull().default("REGISTERED"),
+  source: varchar("source", { length: 80 }).notNull().default("dashboard"),
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
+  cancelledAt: timestamp("cancelled_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
   index("ibpa_event_registrations_event_id_idx").on(table.eventId),
   index("ibpa_event_registrations_user_id_idx").on(table.userId),

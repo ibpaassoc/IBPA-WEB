@@ -7,8 +7,8 @@ export function useDashboardUiState() {
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [eventAudienceFilter, setEventAudienceFilter] = useState<
-    "all" | "members" | "open"
+  const [eventRegistrationFilter, setEventRegistrationFilter] = useState<
+    "all" | "registered" | "not_registered"
   >("all");
   const [supportMode, setSupportMode] = useState<SupportMode>("question");
 
@@ -32,8 +32,8 @@ export function useDashboardUiState() {
     setIsMobileMenuOpen,
     isNotificationsOpen,
     setIsNotificationsOpen,
-    eventAudienceFilter,
-    setEventAudienceFilter,
+    eventRegistrationFilter,
+    setEventRegistrationFilter,
     supportMode,
     setSupportMode,
   };
