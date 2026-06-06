@@ -19,6 +19,11 @@ import {
 
 import { StatusPill } from "@/shared/components/DashboardShared";
 import { ServicesSection } from "@/components/dashboard/profile/ServicesSection";
+import {
+  ProfileAvatarCircle,
+  ProfileImageGrid,
+  ProfilePanel,
+} from "@/components/profile/ProfileDisplayShared";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import type {
   Certificate,
@@ -31,27 +36,6 @@ function buildProfileUrl(href: string) {
   if (href.startsWith("http")) return href;
   if (typeof window === "undefined") return href;
   return `${window.location.origin}${href}`;
-}
-
-function Panel({
-  title,
-  children,
-  className = "",
-}: {
-  title: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={`rounded-[28px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_18px_45px_rgba(11,31,68,0.08)] ${className}`}
-    >
-      <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#16386D]">
-        {title}
-      </p>
-      <div className="mt-4">{children}</div>
-    </section>
-  );
 }
 
 function InfoItem({
@@ -389,23 +373,23 @@ export function DashboardProfile({
   if (isTeamMemberDashboard) {
     return (
       <div className="grid gap-4 md:grid-cols-3">
-        <Panel title={dashboard.profile.role}>
+        <ProfilePanel title={dashboard.profile.role}>
           <p className="text-sm font-semibold text-[#10203B]">
             {teamMemberAccess?.role || dashboard.profile.teamMember}
           </p>
-        </Panel>
+        </ProfilePanel>
 
-        <Panel title={dashboard.profile.partnerBusiness}>
+        <ProfilePanel title={dashboard.profile.partnerBusiness}>
           <p className="text-sm font-semibold text-[#10203B]">
             {teamMemberAccess?.partnerBusinessName || dashboard.profile.partnerAccount}
           </p>
-        </Panel>
+        </ProfilePanel>
 
-        <Panel title={dashboard.profile.access}>
+        <ProfilePanel title={dashboard.profile.access}>
           <p className="text-sm font-semibold text-[#10203B]">
             {teamMemberAccess?.status || dashboard.profile.invited}
           </p>
-        </Panel>
+        </ProfilePanel>
       </div>
     );
   }
@@ -418,18 +402,12 @@ export function DashboardProfile({
         <div className="px-6 pb-6">
           <div className="-mt-16 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="flex flex-col gap-4 md:flex-row md:items-end">
-              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[linear-gradient(135deg,#D8E8FB_0%,#C7DCF7_100%)] text-2xl font-semibold text-[#10203B] shadow-[0_18px_35px_rgba(11,31,68,0.18)]">
-                {profileHeroImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={profileHeroImage}
-                    alt={fullName}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  initials
-                )}
-              </div>
+              <ProfileAvatarCircle
+                imageUrl={profileHeroImage}
+                alt={fullName}
+                initials={initials}
+                className="size-28"
+              />
 
               <div className="pb-1">
                 <h2 className="break-words text-3xl font-semibold tracking-tight text-[#10203B]">
@@ -492,7 +470,7 @@ export function DashboardProfile({
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            <Panel title={dashboard.profile.locationAndSpecialization}>
+            <ProfilePanel title={dashboard.profile.locationAndSpecialization}>
               <div className="space-y-3">
                 <InfoItem
                   icon={<MapPin className="h-4 w-4" />}
@@ -506,14 +484,14 @@ export function DashboardProfile({
                   value={specializationDisplay}
                 />
               </div>
-            </Panel>
+            </ProfilePanel>
 
             <ServicesSection initialServices={profileServices} />
           </div>
         </div>
       </section>
 
-      <Panel title={dashboard.profile.professionalBiography}>
+      <ProfilePanel title={dashboard.profile.professionalBiography}>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <ExperienceText
             value={mergedProfileData.experienceYears || dashboard.profile.notAddedYet}
@@ -553,10 +531,10 @@ export function DashboardProfile({
             emptyLabel={dashboard.profile.noEducation}
           />
         </div>
-      </Panel>
+      </ProfilePanel>
 
       <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-        <Panel
+        <ProfilePanel
           title={dashboard.profile.communityIdentity}
           className="bg-[radial-gradient(circle_at_20%_0%,rgba(59,130,246,0.18),transparent_35%),linear-gradient(135deg,#F5F9FF_0%,#EAF2FD_100%)]"
         >
@@ -571,27 +549,16 @@ export function DashboardProfile({
               <InfoItem label={dashboard.profile.industry} value={industry} />
             </div>
           </div>
-        </Panel>
+        </ProfilePanel>
 
-        <Panel title={dashboard.profile.workGallery}>
+        <ProfilePanel title={dashboard.profile.workGallery}>
           {galleryImages.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {galleryImages.map((image, index) => (
-                <a
-                  key={`${image}-${index}`}
-                  href={buildProfileUrl(image)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group overflow-hidden rounded-[24px] border border-[#D4E0F0] bg-[#F5F9FF]"
-                >
-                  <ImageWithFallback
-                    src={image}
-                    alt={dashboard.profile.galleryImageAlt(fullName, index + 1)}
-                    className="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.02]"
-                  />
-                </a>
-              ))}
-            </div>
+            <ProfileImageGrid
+              images={galleryImages.map((image) => buildProfileUrl(image))}
+              altBuilder={(index) =>
+                dashboard.profile.galleryImageAlt(fullName, index + 1)
+              }
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-3">
               <GallerySlot label={dashboard.profile.galleryFallbackOne} />
@@ -599,7 +566,7 @@ export function DashboardProfile({
               <GallerySlot label={dashboard.profile.galleryFallbackThree} />
             </div>
           )}
-        </Panel>
+        </ProfilePanel>
       </div>
     </div>
   );
