@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { RefreshCw } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -54,7 +55,7 @@ import type {
 import { ApplicationDetailsPanel } from "./ApplicationDetailsPanel";
 import { ApplicationsTable } from "./ApplicationsTable";
 
-const initialFilters: AdminApplicationFilters = {
+const baseFilters: AdminApplicationFilters = {
   applicantType: "all",
   paymentStatus: "all",
   status: "all",
@@ -64,7 +65,18 @@ function selectedKey(record?: AdminApplicationRecord | null) {
   return record ? `${record.kind}:${record.id}` : null;
 }
 
+function readApplicantTypeParam(value: string | null): "all" | "member" | "partner" {
+  return value === "member" || value === "partner" ? value : "all";
+}
+
 export function AdminApplicationsPage() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
+  const initialFilters: AdminApplicationFilters = {
+    ...baseFilters,
+    applicantType: readApplicantTypeParam(searchParams.get("applicantType")),
+  };
+
   const {
     deferredSearch,
     filters,
@@ -73,7 +85,7 @@ export function AdminApplicationsPage() {
     search,
     setFilter,
     setSearch,
-  } = useAdminFilters(initialFilters);
+  } = useAdminFilters(initialFilters, initialQuery);
   const [applications, setApplications] = useState<AdminApplicationRecord[]>([]);
   const [memberTotal, setMemberTotal] = useState(0);
   const [partnerTotal, setPartnerTotal] = useState(0);

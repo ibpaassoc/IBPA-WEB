@@ -4,8 +4,9 @@ import { useDeferredValue, useState, useTransition } from "react";
 
 export function useAdminFilters<TFilters extends Record<string, string>>(
   initialFilters: TFilters,
+  initialSearch = "",
 ) {
-  const [search, setSearchValue] = useState("");
+  const [search, setSearchValue] = useState(initialSearch);
   const [filters, setFilters] = useState<TFilters>(initialFilters);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search);

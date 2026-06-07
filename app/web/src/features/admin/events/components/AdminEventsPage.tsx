@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { Download, RefreshCw } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -57,8 +58,11 @@ const emptyCounts: EventRegistrationCounts = {
 };
 
 export function AdminEventsPage() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
+
   const { deferredSearch, filters, resetFilters, search, setFilter, setSearch } =
-    useAdminFilters<{ visibility: EventVisibilityFilter }>({ visibility: "all" });
+    useAdminFilters<{ visibility: EventVisibilityFilter }>({ visibility: "all" }, initialQuery);
   const [registrationSearch, setRegistrationSearch] = useState("");
   const [registrationStatus, setRegistrationStatus] = useState<"all" | EventRegistrationStatus>("all");
   const [events, setEvents] = useState<AdminEvent[]>([]);

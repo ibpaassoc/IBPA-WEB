@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { RefreshCw } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -46,6 +47,9 @@ const initialFilters: AdminProfileFilters = {
 };
 
 export function AdminProfilesPage() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
+
   const {
     deferredSearch,
     filters,
@@ -53,7 +57,7 @@ export function AdminProfilesPage() {
     search,
     setFilter,
     setSearch,
-  } = useAdminFilters(initialFilters);
+  } = useAdminFilters(initialFilters, initialQuery);
   const [profiles, setProfiles] = useState<AdminProfileRecord[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [totalProfiles, setTotalProfiles] = useState(0);
