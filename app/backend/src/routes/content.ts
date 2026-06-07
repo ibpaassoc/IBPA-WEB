@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { requireDb } from "../lib/db";
 import { coreArticles, coreEvents, corePartners } from "../lib/schema";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
-import { createOrUpdateEvent, listAdminEvents, listPublicEvents, removeEvent } from "../features/events/server/event.service";
+import { createOrUpdateEvent, listAdminEventRegistrations, listAdminEvents, listPublicEvents, removeEvent } from "../features/events/server/event.service";
 import { createOrUpdateArticle, listAdminArticles, listPublicArticles, removeArticle } from "../features/news/server/article.service";
 import { createOrUpdatePartner, listAdminPartners, listPublicPartners, removePartner } from "../features/partners/server/partner.service";
 
@@ -77,6 +77,36 @@ contentRouter.get("/admin", adminClerkMiddleware, requireAdminAccess, async (_re
 
     console.error("[Content /admin GET] Error:", error);
     res.status(500).json({ error: "Failed to fetch content items" });
+  }
+});
+
+contentRouter.get("/admin/events/:id/registrations", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  try {
+    const db = requireDb();
+    const id = getSingleValue(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({ error: "Invalid event id" });
+    }
+
+    const items = await listAdminEventRegistrations(db, id);
+    return res.json({
+      items,
+      total: items.length,
+      counts: {
+        attended: items.filter((item: { status: string }) => item.status === "ATTENDED").length,
+        cancelled: items.filter((item: { status: string }) => item.status === "CANCELLED").length,
+        registered: items.filter((item: { status: string }) => item.status === "REGISTERED").length,
+        waitlisted: items.filter((item: { status: string }) => item.status === "WAITLISTED").length,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+
+    console.error("[Content /admin/events/:id/registrations GET] Error:", error);
+    return res.status(500).json({ error: "Failed to fetch event registrations" });
   }
 });
 

@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { AdminEventsPage } from "@/features/admin/events/components/AdminEventsPage";
 
 export default function EventsRoute() {
-  redirect("/admin/content");
+  return <AdminEventsPage />;
 }

@@ -1,0 +1,208 @@
+"use client";
+
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
+import type { EventEditorState } from "../types/event-admin.types";
+
+type EventEditorFormProps = {
+  form: EventEditorState;
+  isSaving: boolean;
+  onChange: (form: EventEditorState) => void;
+  onReset: () => void;
+  onSave: () => void;
+};
+
+export function EventEditorForm({
+  form,
+  isSaving,
+  onChange,
+  onReset,
+  onSave,
+}: EventEditorFormProps) {
+  const patch = (next: Partial<EventEditorState>) => onChange({ ...form, ...next });
+
+  return (
+    <form
+      className="flex flex-col gap-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSave();
+      }}
+    >
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="event-title">Event title</FieldLabel>
+          <Input
+            id="event-title"
+            onChange={(event) => patch({ title: event.target.value })}
+            placeholder="Event title"
+            value={form.title}
+          />
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="event-body">Event details</FieldLabel>
+          <Textarea
+            id="event-body"
+            onChange={(event) => patch({ body: event.target.value })}
+            placeholder="Describe the event..."
+            rows={8}
+            value={form.body}
+          />
+        </Field>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="event-start">Start</FieldLabel>
+            <Input
+              id="event-start"
+              onChange={(event) => patch({ eventDate: event.target.value })}
+              type="datetime-local"
+              value={form.eventDate}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="event-end">End</FieldLabel>
+            <Input
+              id="event-end"
+              onChange={(event) => patch({ eventEndDate: event.target.value })}
+              type="datetime-local"
+              value={form.eventEndDate}
+            />
+          </Field>
+        </div>
+
+        <Field orientation="horizontal">
+          <Checkbox
+            checked={form.eventAllDay}
+            id="event-all-day"
+            onCheckedChange={(checked) => patch({ eventAllDay: checked === true })}
+          />
+          <FieldContent>
+            <FieldTitle>All-day event</FieldTitle>
+            <FieldDescription>Public cards can hide time details for this event.</FieldDescription>
+          </FieldContent>
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="event-address">Location</FieldLabel>
+          <Input
+            id="event-address"
+            onChange={(event) => patch({ eventAddress: event.target.value })}
+            placeholder="Venue, address, or online"
+            value={form.eventAddress}
+          />
+        </Field>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="event-cta-label">CTA label</FieldLabel>
+            <Input
+              id="event-cta-label"
+              onChange={(event) => patch({ ctaLabel: event.target.value })}
+              placeholder="Register"
+              value={form.ctaLabel}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="event-cta-url">Event URL</FieldLabel>
+            <Input
+              id="event-cta-url"
+              onChange={(event) => patch({ ctaUrl: event.target.value })}
+              placeholder="https://..."
+              value={form.ctaUrl}
+            />
+          </Field>
+        </div>
+
+        <Field>
+          <FieldLabel htmlFor="event-cover">Cover image URL</FieldLabel>
+          <Input
+            id="event-cover"
+            onChange={(event) => patch({ coverImage: event.target.value })}
+            placeholder="https://..."
+            value={form.coverImage}
+          />
+        </Field>
+      </FieldGroup>
+
+      <AdminUploadZone
+        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+        buttonText="Choose image"
+        endpoint="contentImageUploader"
+        helperText="JPG, PNG, WEBP up to 16 MB."
+        label="Upload event cover"
+        onError={(message) => toast.error(message)}
+        onUploaded={(url, metadata) => patch({ coverAspect: metadata?.aspect ?? form.coverAspect, coverImage: url })}
+      />
+
+      <FieldGroup>
+        <Field orientation="horizontal">
+          <Checkbox
+            checked={form.publishToSite}
+            id="event-publish-site"
+            onCheckedChange={(checked) => patch({ publishToSite: checked === true })}
+          />
+          <FieldContent>
+            <FieldTitle>Publish to site</FieldTitle>
+            <FieldDescription>Visible on the public events page.</FieldDescription>
+          </FieldContent>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox
+            checked={form.publishToDashboard}
+            id="event-publish-dashboard"
+            onCheckedChange={(checked) => patch({ publishToDashboard: checked === true })}
+          />
+          <FieldContent>
+            <FieldTitle>Publish to member dashboard</FieldTitle>
+            <FieldDescription>Allows dashboard registrations.</FieldDescription>
+          </FieldContent>
+        </Field>
+        <Field orientation="horizontal">
+          <Checkbox
+            checked={form.isPinned}
+            id="event-pinned"
+            onCheckedChange={(checked) => patch({ isPinned: checked === true })}
+          />
+          <FieldContent>
+            <FieldTitle>Pin event</FieldTitle>
+            <FieldDescription>Prioritize this event in event lists.</FieldDescription>
+          </FieldContent>
+        </Field>
+      </FieldGroup>
+
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={isSaving} type="submit">
+          {isSaving ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
+          {form.id ? "Update event" : "Add event"}
+        </Button>
+        <Button onClick={onReset} type="button" variant="outline">
+          New event
+        </Button>
+        <Button
+          onClick={() => patch({ publishToDashboard: false, publishToSite: false })}
+          type="button"
+          variant="ghost"
+        >
+          Save as draft
+        </Button>
+      </div>
+    </form>
+  );
+}

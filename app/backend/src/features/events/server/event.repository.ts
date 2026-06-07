@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
-import { coreEventRegistrations, coreEvents } from "@/lib/schema";
+import { coreEventRegistrations, coreEvents, coreProfiles, coreUsers } from "@/lib/schema";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -47,6 +47,20 @@ export async function listEventRegistrationsByUserId(db: DbClient, userId: strin
     .select()
     .from(coreEventRegistrations)
     .where(eq(coreEventRegistrations.userId, userId))
+    .orderBy(desc(coreEventRegistrations.registeredAt), desc(coreEventRegistrations.createdAt));
+}
+
+export async function listEventRegistrationsByEventId(db: DbClient, eventId: string) {
+  return db
+    .select({
+      registration: coreEventRegistrations,
+      user: coreUsers,
+      profile: coreProfiles,
+    })
+    .from(coreEventRegistrations)
+    .leftJoin(coreUsers, eq(coreUsers.id, coreEventRegistrations.userId))
+    .leftJoin(coreProfiles, eq(coreProfiles.userId, coreEventRegistrations.userId))
+    .where(eq(coreEventRegistrations.eventId, eventId))
     .orderBy(desc(coreEventRegistrations.registeredAt), desc(coreEventRegistrations.createdAt));
 }
 

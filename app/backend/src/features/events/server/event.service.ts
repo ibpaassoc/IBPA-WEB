@@ -9,6 +9,7 @@ import {
   findEventRegistrationByEventAndUser,
   listCanonicalEvents,
   listDashboardEvents,
+  listEventRegistrationsByEventId,
   listEventRegistrationsByUserId,
   upsertCanonicalEvent,
   upsertEventRegistration,
@@ -143,6 +144,27 @@ export async function listPublicEvents(db: DbClient, target: "site" | "dashboard
   const canonicalItems = await listAdminEvents(db);
 
   return canonicalItems.filter((item: any) => (target === "dashboard" ? item.publishToDashboard : item.publishToSite));
+}
+
+export async function listAdminEventRegistrations(db: DbClient, eventId: string) {
+  const rows = await listEventRegistrationsByEventId(db, eventId);
+
+  return rows.map((row: Awaited<ReturnType<typeof listEventRegistrationsByEventId>>[number]) => {
+    const profileName = [row.profile?.firstName, row.profile?.lastName].filter(Boolean).join(" ");
+
+    return {
+      id: row.registration.id,
+      eventId: row.registration.eventId,
+      userId: row.registration.userId,
+      email: row.registration.email || row.user?.email || "",
+      name: profileName || row.user?.email || "Registered user",
+      status: row.registration.status,
+      source: row.registration.source,
+      registeredAt: row.registration.registeredAt,
+      cancelledAt: row.registration.cancelledAt,
+      profileId: row.profile?.id ?? null,
+    };
+  });
 }
 
 function isActiveRegistration(registration: {
