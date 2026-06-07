@@ -29,11 +29,14 @@ export type ApplicationAdditionalFile = {
 
 export type AdminClient = {
   id: string;
+  userId?: string | null;
+  profileId?: string | null;
   userName: string;
   email: string;
   cardName: string;
   membershipCategory?: string | null;
   phone?: string | null;
+  avatarUrl?: string | null;
   status: string;
   certificateNumber?: string | null;
   certificateUrl?: string | null;
@@ -41,11 +44,23 @@ export type AdminClient = {
   applicationPayload?: ApplicationPayload;
   createdAt: string;
   bio?: string | null;
+  achievements?: string | null;
+  industryContribution?: string | null;
+  services?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    price: string;
+  }> | null;
+  portfolioImages?: string[] | null;
+  specializations?: string[] | null;
   specialization?: string | null;
   experienceYears?: string | null;
   education?: string | null;
   instagramUrl?: string | null;
+  websiteUrl?: string | null;
   country?: string | null;
+  state?: string | null;
   city?: string | null;
   hasDashboardAccess?: boolean;
 };

@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { AdminProfilesPage } from "@/features/admin/profiles/components/AdminProfilesPage";
 
 export default function ProfilesRoute() {
-  redirect("/admin/clients");
+  return <AdminProfilesPage />;
 }
