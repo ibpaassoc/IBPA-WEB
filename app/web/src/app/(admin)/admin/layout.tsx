@@ -1,6 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { AdminNav } from "@/features/admin/shared/components/AdminNav";
+import { AdminShell } from "@/features/admin/shared/components/AdminShell";
 import { isAdminEmail } from "@/lib/admin-auth";
 
 function getPrimaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
@@ -29,10 +29,5 @@ export default async function AdminLayout({
     redirect("/dashboard");
   }
 
-  return (
-    <>
-      <AdminNav />
-      {children}
-    </>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }
