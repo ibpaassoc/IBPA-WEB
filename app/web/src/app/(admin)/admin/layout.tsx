@@ -1,6 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminNav } from "@/features/admin/shared/components/AdminNav";
 import { isAdminEmail } from "@/lib/admin-auth";
 
 function getPrimaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
