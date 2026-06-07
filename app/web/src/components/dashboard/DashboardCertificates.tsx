@@ -66,6 +66,49 @@ function getFileIcon(fileUrl: string) {
   return <FileText className="h-4 w-4" />;
 }
 
+function isDocumentFile(fileUrl: string) {
+  const normalized = fileUrl.toLowerCase();
+
+  return (
+    normalized.includes(".pdf") ||
+    normalized.includes(".doc") ||
+    normalized.includes(".docx")
+  );
+}
+
+function ExternalCertificatePreview({
+  fileUrl,
+  title,
+}: {
+  fileUrl: string;
+  title: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(isDocumentFile(fileUrl));
+  const showImage = !imageFailed;
+
+  return (
+    <div className="mt-6 flex-1 overflow-hidden rounded-[26px] border border-[#E2EBF5] bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+      {showImage ? (
+        <img
+          src={fileUrl}
+          alt={title}
+          className="h-40 w-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <div className="flex h-40 flex-col items-center justify-center gap-3 bg-[linear-gradient(180deg,#F7FBFF_0%,#EDF5FF_100%)] px-4 text-center">
+          <div className="flex size-12 items-center justify-center rounded-[18px] border border-[#D6E3F2] bg-white text-[#2B5C99] shadow-sm">
+            {getFileIcon(fileUrl)}
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#21466D]/65">
+            {isDocumentFile(fileUrl) ? "Document" : "Preview unavailable"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CertificatePreview({
   cert,
   fullName,
@@ -407,7 +450,7 @@ export function DashboardCertificates({
         </section>
       </div>
 
-      <section className={shellCardClassName}>
+      <section className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#21466D]/75">
@@ -428,7 +471,7 @@ export function DashboardCertificates({
             {externalCertificates.map((item) => (
               <article
                 key={item.id}
-                className="group flex min-h-[270px] flex-col rounded-[32px] border border-[#D8E3F1] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,251,255,0.98)_100%)] p-6 shadow-[0_20px_52px_rgba(11,31,68,0.08)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(11,31,68,0.12)]"
+                className="group flex min-h-[320px] flex-col rounded-[32px] border border-[#D8E3F1] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,251,255,0.98)_100%)] p-7 shadow-[0_20px_52px_rgba(11,31,68,0.08)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(11,31,68,0.12)]"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-start gap-4">
@@ -464,14 +507,10 @@ export function DashboardCertificates({
                   </button>
                 </div>
 
-                <div className="mt-6 flex-1 rounded-[26px] border border-[#E2EBF5] bg-white/70 px-5 py-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#21466D]/65">
-                    {t.dashboard.certificates.personalUploadsEyebrow}
-                  </p>
-                  <p className="mt-3 line-clamp-3 break-all text-sm leading-6 text-slate-600">
-                    {item.fileUrl}
-                  </p>
-                </div>
+                <ExternalCertificatePreview
+                  fileUrl={item.fileUrl}
+                  title={item.title}
+                />
 
                 <div className="mt-6">
                   <a

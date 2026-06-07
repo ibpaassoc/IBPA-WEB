@@ -41,6 +41,7 @@ import { findCanonicalTeam, upsertCanonicalTeam, upsertCanonicalTeamMember } fro
 import {
   listDashboardEventsForUser,
   registerDashboardEvent,
+  unregisterDashboardEvent,
 } from "../features/events/server/event.service";
 
 export const dashboardRouter = Router();
@@ -852,6 +853,49 @@ dashboardRouter.post("/events/:id/register", clerkMiddleware(clerkOptions), asyn
         error instanceof Error
           ? error.message
           : "Failed to register for the event",
+    });
+  }
+});
+
+dashboardRouter.delete("/events/:id/register", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  const eventId = trimValue(req.params.id, 80);
+  if (!eventId) {
+    return res.status(400).json({ error: "Invalid event id." });
+  }
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    if (!access.canonicalUser) {
+      return res.status(400).json({ error: "User record is not ready for event registration." });
+    }
+
+    const registration = await unregisterDashboardEvent(access.db, {
+      eventId,
+      userId: access.canonicalUser.id,
+    });
+
+    return res.json({
+      success: true,
+      removed: registration.removed,
+      item: registration.event,
+    });
+  } catch (error) {
+    console.error("[Dashboard /events/register DELETE] Error:", error);
+    return res.status(
+      error instanceof Error && error.message === "Event not found." ? 404 : 500,
+    ).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to unregister from the event",
     });
   }
 });

@@ -76,3 +76,25 @@ export type PublicMemberDirectoryItem = {
   highlights: string[];
   memberSince: string;
 };
+
+export type PublicProfilePreviewItem = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone: string | null;
+  avatarUrl: string | null;
+  bio: string;
+  education: string;
+  achievements: string;
+  industryContribution: string;
+  services: ProfileService[];
+  portfolioImages: string[];
+  specializations: string[];
+  city: string;
+  state: string;
+  country: string;
+  websiteUrl: string | null;
+  instagramUrl: string | null;
+  yearsExperience: string;
+};

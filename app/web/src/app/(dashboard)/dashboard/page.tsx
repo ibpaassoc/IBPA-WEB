@@ -47,6 +47,7 @@ export default function DashboardPage() {
     dashboardEvents,
     lastSyncedAt,
     registerDashboardEvent,
+    unregisterDashboardEvent,
     refreshDashboardData,
   } = useDashboardData({
     isSignedIn: Boolean(isSignedIn),
@@ -216,6 +217,7 @@ export default function DashboardPage() {
         filteredEventCards: finalDerived.filteredEventCards,
         dashboardEvents,
         registerDashboardEvent,
+        unregisterDashboardEvent,
         directoryMembers,
         allNotifications,
         alertCards,

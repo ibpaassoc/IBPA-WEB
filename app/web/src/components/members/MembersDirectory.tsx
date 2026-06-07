@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { getPublicProfileHref } from "@/lib/member-identity";
+import { getPublicProfilePreviewHref } from "@/lib/member-identity";
 import { cn } from "@/lib/utils";
 import type { PublicMember } from "@/lib/public-members";
 
@@ -587,7 +587,7 @@ function MemberCard({
 }) {
   const instagramUrl = normalizeUrl(member.instagramUrl);
   const websiteUrl = normalizeUrl(member.websiteUrl);
-  const publicProfileHref = getPublicProfileHref(member.id);
+  const publicProfileHref = getPublicProfilePreviewHref(member.id);
 
   const memberSince = new Date(member.memberSince).toLocaleDateString("en-US", {
     month: "short",

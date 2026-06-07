@@ -22,7 +22,7 @@ import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { countryOptions } from "@/constants/countries";
 import { useOwnedDashboardProfile } from "@/hooks/dashboard/useOwnedDashboardProfile";
 import { useI18n } from "@/lib/i18n";
-import { getDashboardProfilePreviewHref } from "@/lib/member-identity";
+import { getPublicProfilePreviewHref } from "@/lib/member-identity";
 import {
   SectionCard,
   dashboardInputClassName,
@@ -258,13 +258,15 @@ export default function EditProfilePage() {
             {t.dashboard.editProfile.backToDashboard}
           </Link>
 
-          <Link
-            href={getDashboardProfilePreviewHref()}
-            className={dashboardSecondaryButtonClassName}
-          >
-            <ExternalLink className="h-4 w-4" />
-            Preview Profile
-          </Link>
+          {profile?.id ? (
+            <Link
+              href={getPublicProfilePreviewHref(profile.id) ?? "#"}
+              className={dashboardSecondaryButtonClassName}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Preview Profile
+            </Link>
+          ) : null}
         </div>
 
         <SectionCard className="overflow-hidden rounded-[32px] p-0">

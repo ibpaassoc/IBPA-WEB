@@ -123,6 +123,27 @@ export async function upsertEventRegistration(
   return { record: created, created: true };
 }
 
+export async function deleteEventRegistrationByEventAndUser(
+  db: DbClient,
+  params: {
+    eventId: string;
+    userId: string;
+  },
+) {
+  const existing = await findEventRegistrationByEventAndUser(db, params);
+
+  if (!existing) {
+    return null;
+  }
+
+  const [deleted] = await db
+    .delete(coreEventRegistrations)
+    .where(eq(coreEventRegistrations.id, existing.id))
+    .returning();
+
+  return deleted ?? existing;
+}
+
 export async function clearCanonicalPinnedEvents(db: DbClient, excludeId?: string) {
   const existing = await db.select().from(coreEvents);
   const pinnedIds = existing.filter((item: typeof coreEvents.$inferSelect) => item.isPinned && item.id !== excludeId).map((item: typeof coreEvents.$inferSelect) => item.id);

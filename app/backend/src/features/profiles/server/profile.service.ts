@@ -4,6 +4,7 @@ import { resolveUserRole, ensureCanonicalUser } from "@/features/users/server/us
 import { findCanonicalUserByClerkId } from "@/features/users/server/user.repository";
 import type { UserRole } from "@/lib/permissions";
 import {
+  findPublicProfileByUserId,
   findOrCreateProfileByUserId,
   findProfileByUserId,
   listCanonicalPublicMemberRows,
@@ -14,6 +15,7 @@ import type {
   ProfileService,
   ProfileRecordUpsertInput,
   PublicMemberDirectoryItem,
+  PublicProfilePreviewItem,
   PublicProfileDirectoryRow,
 } from "./profile.types";
 
@@ -141,6 +143,46 @@ function mapCanonicalRow(record: PublicProfileDirectoryRow): PublicMemberDirecto
 export async function listPublicProfiles(db: DbClient) {
   const canonicalRows = await listCanonicalPublicMemberRows(db);
   return canonicalRows.map(mapCanonicalRow);
+}
+
+export async function getPublicProfilePreviewByUserId(
+  db: DbClient,
+  userId: string,
+): Promise<PublicProfilePreviewItem | null> {
+  const profile = await findPublicProfileByUserId(db, userId);
+
+  if (!profile) {
+    return null;
+  }
+
+  const firstName = textValue(profile.firstName);
+  const lastName = textValue(profile.lastName);
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "IBPA Member";
+
+  return {
+    id: profile.userId,
+    firstName,
+    lastName,
+    fullName,
+    phone: textValue(profile.phone) || null,
+    avatarUrl: profile.avatarUrl,
+    bio: textValue(profile.bio),
+    education: textValue(profile.credentials),
+    achievements: textValue(profile.achievements),
+    industryContribution: textValue(profile.industryContribution),
+    services: normalizeProfileServices(profile.services),
+    portfolioImages: stringArray(profile.workGalleryPhotos),
+    specializations: uniqueStrings(
+      Array.isArray(profile.specializations) ? profile.specializations : [],
+    ),
+    city: textValue(profile.city),
+    state: textValue(profile.state),
+    country: textValue(profile.country),
+    websiteUrl: textValue(profile.website) || null,
+    instagramUrl: textValue(profile.instagram) || null,
+    yearsExperience:
+      profile.yearsExperience != null ? String(profile.yearsExperience) : "",
+  };
 }
 
 export async function saveOwnedProfileRecord(db: DbClient, input: ProfileRecordUpsertInput) {

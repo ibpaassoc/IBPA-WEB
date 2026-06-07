@@ -26,14 +26,25 @@ function normalizeServices(services: ProfileService[] | null | undefined) {
 
 export function ProfileServicesDisplay({
   services,
+  title,
+  emptyLabel,
+  detailsPlaceholder,
 }: {
   services?: ProfileService[] | null;
+  title?: string;
+  emptyLabel?: string;
+  detailsPlaceholder?: string;
 }) {
   const { t } = useI18n();
   const items = normalizeServices(services);
+  const resolvedTitle = title || t.dashboard.services.title;
+  const resolvedEmptyLabel =
+    emptyLabel || t.dashboard.services.empty;
+  const resolvedDetailsPlaceholder =
+    detailsPlaceholder || t.dashboard.services.detailsPlaceholder;
 
   return (
-    <ProfilePanel title={t.dashboard.services.title}>
+    <ProfilePanel title={resolvedTitle}>
       {items.length > 0 ? (
         <div className="flex flex-col gap-3">
           {items.map((service) => (
@@ -55,14 +66,14 @@ export function ProfileServicesDisplay({
               </div>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                {service.description || t.dashboard.services.detailsPlaceholder}
+                {service.description || resolvedDetailsPlaceholder}
               </p>
             </article>
           ))}
         </div>
       ) : (
         <div className="rounded-[22px] border border-dashed border-[#D4E0F0] bg-[#F8FBFF] px-5 py-5 text-sm leading-6 text-slate-500">
-          {t.dashboard.services.empty}
+          {resolvedEmptyLabel}
         </div>
       )}
     </ProfilePanel>

@@ -3,6 +3,7 @@ import { requireDb } from "@/lib/db";
 import type { CoreEventRegistration } from "@/lib/schema";
 import {
   clearCanonicalPinnedEvents,
+  deleteEventRegistrationByEventAndUser,
   deleteCanonicalEvent,
   findCanonicalEventById,
   findEventRegistrationByEventAndUser,
@@ -229,6 +230,36 @@ export async function registerDashboardEvent(
     },
     alreadyRegistered: isActiveRegistration(existing),
     created: registrationResult.created,
+  };
+}
+
+export async function unregisterDashboardEvent(
+  db: DbClient,
+  input: {
+    eventId: string;
+    userId: string;
+  },
+) {
+  const event = await findCanonicalEventById(db, input.eventId);
+
+  if (!event || !event.publishToDashboard) {
+    throw new Error("Event not found.");
+  }
+
+  const deleted = await deleteEventRegistrationByEventAndUser(db, {
+    eventId: input.eventId,
+    userId: input.userId,
+  });
+
+  return {
+    event: {
+      ...mapCanonicalEvent(event),
+      isRegistered: false,
+      registrationId: null,
+      registrationStatus: null,
+      registrationSource: null,
+    },
+    removed: Boolean(deleted),
   };
 }
 

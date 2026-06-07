@@ -13,14 +13,10 @@ export function formatMemberId(source?: string | null) {
   return `IBPA #${getStableMemberNumericId(source)}`;
 }
 
-export function getPublicProfileHref(source?: string | null) {
+export function getPublicProfilePreviewHref(source?: string | null) {
   if (!source) {
     return null;
   }
 
-  return `/member/${encodeURIComponent(source)}`;
-}
-
-export function getDashboardProfilePreviewHref() {
-  return "/dashboard/profile/preview";
+  return `/profile-preview/${encodeURIComponent(source)}`;
 }

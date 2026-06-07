@@ -86,6 +86,7 @@ type Props = {
   filteredEventCards: any[];
   dashboardEvents: any[];
   registerDashboardEvent: (eventId: string) => Promise<unknown>;
+  unregisterDashboardEvent: (eventId: string) => Promise<unknown>;
 
   directoryMembers: any[];
 
@@ -151,6 +152,7 @@ export function DashboardContent(props: Props) {
     filteredEventCards,
     dashboardEvents,
     registerDashboardEvent,
+    unregisterDashboardEvent,
     directoryMembers,
     allNotifications,
     alertCards,
@@ -223,6 +225,7 @@ export function DashboardContent(props: Props) {
           setEventRegistrationFilter={setEventRegistrationFilter}
           filteredEventCards={filteredEventCards}
           registerDashboardEvent={registerDashboardEvent}
+          unregisterDashboardEvent={unregisterDashboardEvent}
         />
       );
 

@@ -127,6 +127,16 @@ export async function findProfileByUserId(db: DbClient, userId: string) {
   return profile ?? null;
 }
 
+export async function findPublicProfileByUserId(db: DbClient, userId: string) {
+  const [profile] = await db
+    .select()
+    .from(coreProfiles)
+    .where(eq(coreProfiles.userId, userId))
+    .limit(1);
+
+  return profile ?? null;
+}
+
 export async function findOrCreateProfileByUserId(db: DbClient, userId: string) {
   const existing = await findProfileByUserId(db, userId);
   if (existing) {

@@ -213,7 +213,10 @@ export type DashboardDictionary = {
     date: string;
     price: string;
     registration: string;
+    location: string;
+    locationTbd: string;
     register: string;
+    unregister: string;
     openEvent: string;
     noMatches: string;
     membersRate: string;
@@ -643,7 +646,10 @@ export const dashboardDictionaries = {
       date: "Date",
       price: "Price",
       registration: "Registration",
+      location: "Location",
+      locationTbd: "Location to be announced",
       register: "Register",
+      unregister: "Unregister",
       openEvent: "Open event",
       noMatches: "No events match the current filter yet.",
       membersRate: "Members rate",
@@ -1191,7 +1197,10 @@ export const dashboardDictionaries = {
       date: "Дата",
       price: "Цена",
       registration: "Регистрация",
+      location: "Локация",
+      locationTbd: "Локация будет объявлена",
       register: "Зарегистрироваться",
+      unregister: "Отменить регистрацию",
       openEvent: "Открыть событие",
       noMatches: "По текущему фильтру событий пока нет.",
       membersRate: "Тариф для участников",
@@ -1741,7 +1750,10 @@ export const dashboardDictionaries = {
       date: "Дата",
       price: "Ціна",
       registration: "Реєстрація",
+      location: "Локація",
+      locationTbd: "Локацію буде оголошено",
       register: "Зареєструватися",
+      unregister: "Скасувати реєстрацію",
       openEvent: "Відкрити подію",
       noMatches: "За поточним фільтром подій поки немає.",
       membersRate: "Тариф для учасників",

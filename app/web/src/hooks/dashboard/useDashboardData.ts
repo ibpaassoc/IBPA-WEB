@@ -112,6 +112,44 @@ export function useDashboardData({
     return payload;
   }, []);
 
+  const unregisterDashboardEvent = useCallback(async (eventId: string) => {
+    const response = await fetch(`/api/dashboard/events/${eventId}/register`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        typeof payload?.error === "string"
+          ? payload.error
+          : "Unable to unregister from this event right now.",
+      );
+    }
+
+    const nextItem =
+      payload?.item && typeof payload.item === "object" ? payload.item : null;
+
+    if (nextItem?.id) {
+      setDashboardEvents((prev) =>
+        prev.map((item) =>
+          item.id === nextItem.id
+            ? {
+                ...item,
+                ...nextItem,
+                isRegistered: false,
+                registrationStatus: null,
+                registrationId: null,
+                registrationSource: null,
+              }
+            : item,
+        ),
+      );
+    }
+
+    return payload;
+  }, []);
+
   const refreshDashboardData = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
       if (!isSignedIn) {
@@ -420,6 +458,7 @@ export function useDashboardData({
     lastSyncedAt,
     markNotificationsAsRead,
     registerDashboardEvent,
+    unregisterDashboardEvent,
     refreshDashboardData,
   };
 }

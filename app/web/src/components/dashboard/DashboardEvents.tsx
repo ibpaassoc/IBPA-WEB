@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowUpRight, ExternalLink, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { DashboardContentItem } from "@/components/dashboard/dashboard-types";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import {
   dashboardPrimaryButtonClassName,
-  dashboardSecondaryButtonClassName,
   getDashboardFilterButtonClassName,
 } from "@/shared/components/DashboardShared";
 import { useI18n } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 type EventCard = DashboardContentItem & {
   audience: "members" | "open";
@@ -24,10 +24,8 @@ const eventCardClassName =
   "overflow-hidden rounded-[28px] border border-[#D4E0F0] bg-white shadow-[0_18px_45px_rgba(11,31,68,0.08)]";
 
 const infoBoxClassName = "rounded-2xl bg-[#F8FBFF] px-3.5 py-3";
-
-function isExternalUrl(value: string) {
-  return /^https?:\/\//i.test(value);
-}
+const unregisterButtonClassName =
+  "inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60";
 
 function isRegistered(item: EventCard) {
   return (
@@ -41,6 +39,7 @@ export function DashboardEvents({
   setEventRegistrationFilter,
   filteredEventCards,
   registerDashboardEvent,
+  unregisterDashboardEvent,
 }: {
   eventRegistrationFilter: "all" | "registered" | "not_registered";
   setEventRegistrationFilter: (
@@ -48,12 +47,13 @@ export function DashboardEvents({
   ) => void;
   filteredEventCards: EventCard[];
   registerDashboardEvent: (eventId: string) => Promise<unknown>;
+  unregisterDashboardEvent: (eventId: string) => Promise<unknown>;
 }) {
   const { t } = useI18n();
-  const [registeringId, setRegisteringId] = useState<string | null>(null);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   async function handleRegister(eventId: string) {
-    setRegisteringId(eventId);
+    setSubmittingId(eventId);
 
     try {
       const result = await registerDashboardEvent(eventId);
@@ -73,7 +73,24 @@ export function DashboardEvents({
           : "Unable to register for this event right now.",
       );
     } finally {
-      setRegisteringId(null);
+      setSubmittingId(null);
+    }
+  }
+
+  async function handleUnregister(eventId: string) {
+    setSubmittingId(eventId);
+
+    try {
+      await unregisterDashboardEvent(eventId);
+      toast.success("Event registration removed.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to unregister from this event right now.",
+      );
+    } finally {
+      setSubmittingId(null);
     }
   }
 
@@ -91,7 +108,7 @@ export function DashboardEvents({
 
       <div className="flex flex-wrap items-center gap-3">
         {[
-          { key: "all" as const, label: "All events" },
+          { key: "all" as const, label: t.dashboard.events.filters.all },
           { key: "registered" as const, label: "Registered" },
           { key: "not_registered" as const, label: "Not registered" },
         ].map((filter) => (
@@ -112,7 +129,8 @@ export function DashboardEvents({
         {filteredEventCards.length > 0 ? (
           filteredEventCards.map((item) => {
             const itemRegistered = isRegistered(item);
-            const itemRegistering = registeringId === item.id;
+            const itemSubmitting = submittingId === item.id;
+            const locationLabel = item.eventAddress?.trim() || t.dashboard.events.locationTbd;
 
             return (
               <article key={item.id} className={eventCardClassName}>
@@ -127,35 +145,13 @@ export function DashboardEvents({
                 ) : null}
 
                 <div className="flex min-h-[350px] flex-col p-5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                        item.audience === "members"
-                          ? "bg-[#EAF4FF] text-[#4C7D9D]"
-                          : "bg-[#F4F4F5] text-slate-600"
-                      }`}
-                    >
-                      {item.audience === "members"
-                        ? t.dashboard.events.audienceMembers
-                        : t.dashboard.events.audienceOpen}
-                    </span>
-
-                    <span
-                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                        itemRegistered
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-amber-50 text-amber-700"
-                      }`}
-                    >
-                      {itemRegistered ? "Registered" : "Not registered"}
-                    </span>
-
-                    {item.isPinned ? (
+                  {item.isPinned ? (
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-[#FFF5D8] px-3 py-1 text-[11px] font-semibold text-amber-700">
                         {t.dashboard.events.highlighted}
                       </span>
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
 
                   <h3 className="mt-4 line-clamp-2 text-xl font-semibold leading-tight text-[#10203B]">
                     {item.title}
@@ -187,10 +183,10 @@ export function DashboardEvents({
 
                       <div className={infoBoxClassName}>
                         <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                          {t.dashboard.events.registration}
+                          {t.dashboard.events.location}
                         </p>
                         <p className="mt-2 line-clamp-1 text-sm font-semibold text-[#10203B]">
-                          {itemRegistered ? "Registered" : t.dashboard.events.register}
+                          {locationLabel}
                         </p>
                       </div>
                     </div>
@@ -198,31 +194,25 @@ export function DashboardEvents({
                     <div className="mt-5 flex flex-wrap gap-3">
                       <button
                         type="button"
-                        disabled={itemRegistered || itemRegistering}
-                        onClick={() => void handleRegister(item.id)}
-                        className={dashboardPrimaryButtonClassName}
+                        disabled={itemSubmitting}
+                        onClick={() =>
+                          void (itemRegistered
+                            ? handleUnregister(item.id)
+                            : handleRegister(item.id))
+                        }
+                        className={cn(
+                          itemRegistered
+                            ? unregisterButtonClassName
+                            : dashboardPrimaryButtonClassName,
+                        )}
                       >
-                        {itemRegistering ? (
+                        {itemSubmitting ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : null}
-                        {itemRegistered ? "Registered" : t.dashboard.events.register}
+                        {itemRegistered
+                          ? t.dashboard.events.unregister
+                          : t.dashboard.events.register}
                       </button>
-
-                      {item.ctaUrl ? (
-                        <a
-                          href={item.ctaUrl}
-                          target={isExternalUrl(item.ctaUrl) ? "_blank" : undefined}
-                          rel={isExternalUrl(item.ctaUrl) ? "noreferrer" : undefined}
-                          className={dashboardSecondaryButtonClassName}
-                        >
-                          {item.ctaLabel || t.dashboard.events.openEvent}
-                          {isExternalUrl(item.ctaUrl) ? (
-                            <ExternalLink className="h-4 w-4" />
-                          ) : (
-                            <ArrowUpRight className="h-4 w-4" />
-                          )}
-                        </a>
-                      ) : null}
                     </div>
                   </div>
                 </div>

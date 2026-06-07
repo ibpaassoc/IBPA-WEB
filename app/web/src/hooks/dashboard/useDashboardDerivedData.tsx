@@ -36,7 +36,7 @@ import {
 } from "@/lib/profile-record";
 import {
   formatMemberId,
-  getDashboardProfilePreviewHref,
+  getPublicProfilePreviewHref,
 } from "@/lib/member-identity";
 import { getLocaleNumberFormat, useI18n } from "@/lib/i18n";
 
@@ -264,7 +264,7 @@ export function useDashboardDerivedData({
     profileData.orderId || primaryCertificate?.certNumber || user?.id,
   );
 
-  const publicProfileHref = getDashboardProfilePreviewHref();
+  const publicProfileHref = getPublicProfilePreviewHref(profileData.id);
 
   const instagramUrl = normalizeExternalUrl(mergedProfileData.instagramUrl);
 
