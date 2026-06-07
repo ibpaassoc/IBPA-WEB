@@ -32,8 +32,9 @@ export function AdminSidebarNav({ className, onNavigate }: AdminSidebarNavProps)
               <Link
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                  isActive && "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
+                  "flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-primary",
+                  isActive &&
+                    "bg-[linear-gradient(135deg,#21466d_0%,#2b5c99_100%)] text-white shadow-[0_10px_22px_rgba(33,70,109,0.28)] hover:bg-[linear-gradient(135deg,#21466d_0%,#2b5c99_100%)] hover:text-white",
                 )}
                 href={item.href}
                 key={item.href}

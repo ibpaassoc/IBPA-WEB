@@ -27,7 +27,12 @@ export function AdminSectionCard({
   title,
 }: AdminSectionCardProps) {
   return (
-    <Card className={cn("border-border/70 shadow-sm", className)}>
+    <Card
+      className={cn(
+        "border-border/80 bg-card shadow-[0_1px_2px_rgba(33,70,109,0.04),0_18px_40px_-28px_rgba(33,70,109,0.35)]",
+        className,
+      )}
+    >
       {title || description || actions ? (
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-1.5">

@@ -41,6 +41,43 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/**
+ * IBPA Admin theme — premium blue surface, scoped to the admin workspace only.
+ * Built from the brand's existing blue palette (member dashboard, public site)
+ * so the admin feels like part of the same platform rather than a generic SaaS shell.
+ */
+.admin-theme {
+  --background: #f4f9ff;
+  --foreground: #16243a;
+  --card: #ffffff;
+  --card-foreground: #16243a;
+  --popover: #ffffff;
+  --popover-foreground: #16243a;
+  --primary: #21466d;
+  --primary-foreground: #ffffff;
+  --secondary: #e9f1f8;
+  --secondary-foreground: #21466d;
+  --muted: #eef4fa;
+  --muted-foreground: #5c7896;
+  --accent: #dce7f4;
+  --accent-foreground: #1a3157;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: #dce7f4;
+  --input: #ffffff;
+  --input-background: #f4f9ff;
+  --switch-background: #c7d7e8;
+  --ring: #2b5c99;
+  --sidebar: #fbfdff;
+  --sidebar-foreground: #21466d;
+  --sidebar-primary: #21466d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e9f1f8;
+  --sidebar-accent-foreground: #1a3157;
+  --sidebar-border: #dce7f4;
+  --sidebar-ring: #2b5c99;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
