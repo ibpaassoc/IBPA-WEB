@@ -1,13 +1,10 @@
 import {
-  Award,
-  BadgeCheck,
   CalendarDays,
   ClipboardList,
   CreditCard,
   LayoutDashboard,
   Mail,
   Newspaper,
-  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -39,16 +36,7 @@ export const adminNavGroups: AdminNavGroup[] = [
   },
   {
     items: [
-      {
-        href: "/admin/members",
-        label: "Members",
-        icon: Users,
-        children: [
-          { href: "/admin/members", label: "Profiles", icon: UserRound },
-          { href: "/admin/members?view=memberships", label: "Memberships", icon: BadgeCheck },
-          { href: "/admin/members?view=certificates", label: "Certificates", icon: Award },
-        ],
-      },
+      { href: "/admin/members", label: "Members", icon: Users },
     ],
   },
   {

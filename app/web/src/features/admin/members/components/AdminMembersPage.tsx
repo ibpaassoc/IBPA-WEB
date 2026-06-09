@@ -90,11 +90,21 @@ export function AdminMembersPage() {
   );
 
   const openMember = (member: AdminMemberRecord, tab?: MemberTab) => {
-    if (memberId(selectedMember) === member.id && !tab) {
+    const alreadyOpen = memberId(selectedMember) === member.id;
+
+    if (alreadyOpen && tab) {
+      // Just switch tab — keep panel open
+      setActiveTab(tab);
+      return;
+    }
+
+    if (alreadyOpen && !tab) {
+      // Toggle closed
       setSelectedMember(null);
       return;
     }
 
+    // Open a new member, optionally on a specific tab
     if (tab) setActiveTab(tab);
     setSelectedMember(member);
     setSelectedCategory(member.membershipCategory ?? "");

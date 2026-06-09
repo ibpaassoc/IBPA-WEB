@@ -1,7 +1,7 @@
 "use client";
 
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { ChevronRight } from "lucide-react";
+import { Award, ChevronRight, ShieldCheck, User } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,6 +29,12 @@ type Props = {
   onRemoveCertificate: () => void;
 };
 
+const TAB_BUTTONS: { tab: MemberTab; icon: React.ElementType; label: string }[] = [
+  { icon: User, label: "Profile", tab: "profile" },
+  { icon: ShieldCheck, label: "Membership", tab: "membership" },
+  { icon: Award, label: "Certificate", tab: "certificate" },
+];
+
 export function MemberExpandableRow({
   activeTab,
   busyAction,
@@ -46,40 +52,32 @@ export function MemberExpandableRow({
   selectedCategory,
 }: Props) {
   return (
-    <Collapsible.Root onOpenChange={() => onToggle(member)} open={isOpen}>
-      <Collapsible.Trigger
+    // Controlled externally — no Collapsible.Trigger needed
+    <Collapsible.Root open={isOpen}>
+      {/* Row — plain div so tab buttons aren't nested inside a button */}
+      <div
         className={cn(
-          "flex w-full cursor-pointer items-center gap-4 px-5 py-3.5 text-left transition-colors",
+          "flex w-full items-center gap-4 px-5 py-3.5 transition-colors",
           isOpen ? "bg-secondary/50" : "hover:bg-secondary/30",
         )}
       >
-        {/* Avatar */}
-        <Avatar className="size-9 shrink-0">
-          <AvatarImage src={member.avatarUrl || undefined} />
-          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-            {initialsFromName(member.userName)}
-          </AvatarFallback>
-        </Avatar>
-
-        {/* Name + email */}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">{member.userName}</p>
-          <p className="truncate text-xs text-muted-foreground">{member.email}</p>
-        </div>
-
-        {/* Certificate status — medium screens */}
-        <span className="hidden shrink-0 xl:block">
-          <AdminStatusBadge tone={member.certStatusTone}>
-            {member.certStatusLabel}
-          </AdminStatusBadge>
-        </span>
-
-        {/* Expiry — large screens */}
-        <span className="hidden shrink-0 lg:block">
-          <AdminStatusBadge tone={member.expiryTone}>
-            {member.expiryLabel}
-          </AdminStatusBadge>
-        </span>
+        {/* Clickable left area: avatar + name/email */}
+        <button
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 text-left"
+          onClick={() => onToggle(member)}
+          type="button"
+        >
+          <Avatar className="size-9 shrink-0">
+            <AvatarImage src={member.avatarUrl || undefined} />
+            <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+              {initialsFromName(member.userName)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">{member.userName}</p>
+            <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+          </div>
+        </button>
 
         {/* Membership badge */}
         <span className="hidden shrink-0 sm:block">
@@ -88,16 +86,43 @@ export function MemberExpandableRow({
           </AdminStatusBadge>
         </span>
 
-        <ChevronRight
-          className={cn(
-            "ml-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200",
-            isOpen && "rotate-90",
-          )}
-        />
-      </Collapsible.Trigger>
+        {/* Tab quick-jump buttons — standalone, outside any trigger */}
+        <div className="hidden shrink-0 items-center gap-1 lg:flex">
+          {TAB_BUTTONS.map(({ icon: Icon, label, tab }) => (
+            <button
+              className={cn(
+                "flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                isOpen && activeTab === tab
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/20 hover:text-foreground",
+              )}
+              key={tab}
+              onClick={() => onToggle(member, tab)}
+              type="button"
+            >
+              <Icon className="size-3 shrink-0" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Chevron toggle */}
+        <button
+          className="ml-1 cursor-pointer rounded p-0.5"
+          onClick={() => onToggle(member)}
+          type="button"
+        >
+          <ChevronRight
+            className={cn(
+              "size-4 text-muted-foreground transition-transform duration-200",
+              isOpen && "rotate-90",
+            )}
+          />
+        </button>
+      </div>
 
       <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-[collapsible-up_200ms_ease] data-[state=open]:animate-[collapsible-down_200ms_ease]">
-        <div className="border-t border-border bg-background/50 p-4 pt-5">
+        <div className="border-t border-border bg-background/50 p-6">
           {isLoadingDetail ? (
             <div className="flex flex-col gap-3 py-2">
               <Skeleton className="h-6 w-48" />
