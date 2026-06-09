@@ -1,7 +1,6 @@
 "use client";
 
 import { UploadCloud } from "lucide-react";
-import { motion } from "motion/react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { applicationSectionTitles } from "@/lib/application-fields";
@@ -58,9 +57,9 @@ function PanelCard({
   title?: string;
 }) {
   return (
-    <section className="rounded-[24px] border border-[#D9E4F2] bg-white/82 p-4 shadow-[0_14px_36px_rgba(15,35,70,0.07)] backdrop-blur-2xl">
+    <section className="rounded-[24px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
       {title ? (
-        <h3 className="mb-3 text-sm font-semibold tracking-[-0.01em] text-[#10203B]">
+        <h3 className="mb-4 text-sm font-semibold tracking-[-0.01em] text-[#10203B]">
           {title}
         </h3>
       ) : null}
@@ -72,7 +71,7 @@ function PanelCard({
 function FieldList({ sections }: { sections: ApplicationFieldSection[] }) {
   if (sections.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#D9E4F2] bg-[#F7FAFE]/80 p-4 text-sm text-[#6B7C93]">
+      <div className="rounded-[20px] border border-dashed border-[#CFE0F3] bg-[#F8FBFF] p-4 text-sm text-[#6C7F95]">
         No submitted details were found for this section.
       </div>
     );
@@ -93,15 +92,15 @@ function FieldList({ sections }: { sections: ApplicationFieldSection[] }) {
 
               return (
                 <div
-                  className={`rounded-2xl border border-[#E4ECF6] bg-[#F7FAFE]/82 px-3.5 py-3 ${
+                  className={`rounded-[18px] border border-[#DCE7F5] bg-[#F8FBFF] px-4 py-3 ${
                     isLong ? "md:col-span-2" : ""
                   }`}
                   key={`${section.title}-${item.label}`}
                 >
-                  <dt className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#8AA2BD]">
+                  <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6C7F95]">
                     {item.label}
                   </dt>
-                  <dd className="mt-1.5 whitespace-pre-wrap break-words text-[13px] leading-5 text-[#10203B]">
+                  <dd className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-5 text-[#10203B]">
                     {value || "Not provided"}
                   </dd>
                 </div>
@@ -139,8 +138,8 @@ export function ApplicationDetailsPanel({
     return (
       <div className="space-y-5">
         <Skeleton className="h-10 w-full rounded-2xl" />
-        <Skeleton className="h-[280px] w-full rounded-[26px]" />
-        <Skeleton className="h-[360px] w-full rounded-[26px]" />
+        <Skeleton className="h-[280px] w-full rounded-[24px]" />
+        <Skeleton className="h-[360px] w-full rounded-[24px]" />
       </div>
     );
   }
@@ -178,12 +177,7 @@ export function ApplicationDetailsPanel({
 
   const memberContent =
     record.kind === "member" && memberApplication ? (
-      <motion.div
-        animate={{ opacity: 1, x: 0 }}
-        className="space-y-5"
-        initial={{ opacity: 0, x: 28 }}
-        transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-      >
+      <div className="space-y-5">
         <PanelCard title="Personal information">
           <FieldList sections={personalSections} />
         </PanelCard>
@@ -191,17 +185,12 @@ export function ApplicationDetailsPanel({
         <PanelCard title="Professional information">
           <FieldList sections={professionalSections} />
         </PanelCard>
-      </motion.div>
+      </div>
     ) : null;
 
   const partnerContent =
     record.kind === "partner" && partnerApplication ? (
-      <motion.div
-        animate={{ opacity: 1, x: 0 }}
-        className="space-y-5"
-        initial={{ opacity: 0, x: 28 }}
-        transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-      >
+      <div className="space-y-5">
         <PanelCard title="Contact">
           <FieldList
             sections={[
@@ -269,7 +258,7 @@ export function ApplicationDetailsPanel({
             ]}
           />
         </PanelCard>
-      </motion.div>
+      </div>
     ) : null;
 
   const content = (

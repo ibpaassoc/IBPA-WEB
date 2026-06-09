@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { getMembershipCategory } from "@/lib/membership";
 
+import { AdminMetricCard } from "../../shared/components/AdminMetricCard";
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSheet } from "../../shared/components/AdminSheet";
@@ -69,77 +70,6 @@ function selectedKey(record?: AdminApplicationRecord | null) {
 
 function readApplicantTypeParam(value: string | null): "all" | "member" | "partner" {
   return value === "member" || value === "partner" ? value : "all";
-}
-
-function MetricCard({
-  label,
-  value,
-  hint,
-  active,
-}: {
-  label: string;
-  value: number;
-  hint?: string;
-  active?: boolean;
-}) {
-  return (
-    <section
-      className={[
-        "relative overflow-hidden rounded-[28px] border p-5 shadow-[0_18px_48px_rgba(15,35,70,0.08)] backdrop-blur-2xl",
-        active
-          ? "border-[#BDD0E8] bg-[linear-gradient(135deg,#10203B_0%,#21466D_100%)] text-white"
-          : "border-white/70 bg-white/80 text-[#10203B]",
-      ].join(" ")}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-80"
-        style={{
-          background: active
-            ? "radial-gradient(circle at 12% 0%, rgba(255,255,255,0.18), transparent 34%)"
-            : "radial-gradient(circle at 12% 0%, rgba(33,70,109,0.10), transparent 34%)",
-        }}
-      />
-
-      <div className="relative flex items-end justify-between gap-4">
-        <div>
-          <p
-            className={[
-              "text-[10px] font-bold uppercase tracking-[0.24em]",
-              active ? "text-white/65" : "text-[#8AA2BD]",
-            ].join(" ")}
-          >
-            {label}
-          </p>
-          <p className="mt-4 text-4xl font-semibold leading-none tracking-[-0.05em] tabular-nums">
-            {value.toLocaleString("en-US")}
-          </p>
-        </div>
-
-        {hint ? (
-          <span
-            className={[
-              "rounded-full border px-3 py-1 text-xs font-semibold",
-              active
-                ? "border-white/20 bg-white/10 text-white/80"
-                : "border-[#D9E4F2] bg-[#EEF5FF] text-[#21466D]",
-            ].join(" ")}
-          >
-            {hint}
-          </span>
-        ) : (
-          <span
-            className={[
-              "h-1.5 w-16 rounded-full",
-              active
-                ? "bg-white/45"
-                : "bg-gradient-to-r from-[#21466D] via-[#4F7CB3] to-[#8AA2BD]",
-            ].join(" ")}
-          />
-        )}
-      </div>
-    </section>
-  );
 }
 
 export function AdminApplicationsPage() {
@@ -421,13 +351,13 @@ export function AdminApplicationsPage() {
         actions={
           <Button
             aria-label="Refresh applications"
-            className="size-10 rounded-full border-[#D4E0F0] bg-white/80 text-[#21466D] shadow-sm hover:bg-white hover:text-[#0B1F44]"
+            className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
             onClick={() => void loadApplications()}
-            size="icon"
             type="button"
             variant="outline"
           >
-            <RefreshCw className="size-3.5" />
+            <RefreshCw data-icon="inline-start" />
+            Refresh
           </Button>
         }
         eyebrow="Admin workspace"
@@ -435,16 +365,16 @@ export function AdminApplicationsPage() {
         title="Applications"
       >
         <div className="grid gap-4 sm:grid-cols-3">
-          <MetricCard active label="Members in queue" value={memberTotal} />
-          <MetricCard label="Partners in queue" value={partnerTotal} />
-          <MetricCard
+          <AdminMetricCard active label="Members in queue" value={memberTotal} />
+          <AdminMetricCard label="Partners in queue" value={partnerTotal} />
+          <AdminMetricCard
             hint={isPending ? "Filtering…" : formatAdminCount(filteredApplications.length, "match")}
             label="Filtered view"
             value={filteredApplications.length}
           />
         </div>
 
-        <section className="rounded-[30px] border border-white/70 bg-white/78 p-4 shadow-[0_18px_48px_rgba(15,35,70,0.08)] backdrop-blur-2xl">
+        <section className="rounded-[28px] border border-[#D7E5F4] bg-white p-4 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
             <div className="xl:flex-1">
               <AdminSearch
@@ -461,7 +391,7 @@ export function AdminApplicationsPage() {
                 }
                 value={filters.applicantType}
               >
-                <SelectTrigger className="h-10 w-40 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE] text-[#10203B]">
+                <SelectTrigger className="h-10 w-40 rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B]">
                   <SelectValue placeholder="Applicant" />
                 </SelectTrigger>
                 <SelectContent>
@@ -479,7 +409,7 @@ export function AdminApplicationsPage() {
                 }
                 value={filters.status}
               >
-                <SelectTrigger className="h-10 w-44 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE] text-[#10203B]">
+                <SelectTrigger className="h-10 w-44 rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -501,7 +431,7 @@ export function AdminApplicationsPage() {
                 }
                 value={filters.paymentStatus}
               >
-                <SelectTrigger className="h-10 w-40 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE] text-[#10203B]">
+                <SelectTrigger className="h-10 w-40 rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B]">
                   <SelectValue placeholder="Payment" />
                 </SelectTrigger>
                 <SelectContent>
@@ -516,7 +446,7 @@ export function AdminApplicationsPage() {
               </Select>
 
               <Button
-                className="h-10 rounded-2xl px-4 text-[#21466D]"
+                className="h-10 rounded-2xl px-4 text-[#1F5D8F] hover:bg-[#EEF6FF]"
                 onClick={resetFilters}
                 type="button"
                 variant="ghost"
@@ -530,15 +460,15 @@ export function AdminApplicationsPage() {
         {isLoading ? (
           <div className="grid gap-3">
             {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton className="h-[78px] rounded-[24px] bg-white/70" key={index} />
+              <Skeleton className="h-[78px] rounded-[24px] bg-white" key={index} />
             ))}
           </div>
         ) : filteredApplications.length === 0 ? (
-          <div className="rounded-[30px] border border-white/70 bg-white/78 px-8 py-16 text-center shadow-[0_18px_48px_rgba(15,35,70,0.08)]">
+          <div className="rounded-[28px] border border-[#D7E5F4] bg-white px-8 py-16 text-center shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
             <p className="text-xl font-semibold tracking-[-0.02em] text-[#10203B]">
               Nothing matches your filters
             </p>
-            <p className="mt-2 text-sm text-[#6B7C93]">
+            <p className="mt-2 text-sm text-[#6C7F95]">
               Reset the filters above to see the full queue.
             </p>
           </div>

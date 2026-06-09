@@ -49,7 +49,7 @@ function ApplicantInitials({ name }: { name: string }) {
     ? `${parts[0][0]}${parts[parts.length - 1][0]}`
     : name.slice(0, 2);
   return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/12 text-xs font-semibold text-primary">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#D7E5F4] bg-[#EEF6FF] text-xs font-semibold text-[#1F5D8F]">
       {initials.toUpperCase()}
     </span>
   );
@@ -83,44 +83,42 @@ export function ApplicationExpandableRow({
       <Collapsible.Trigger
         className={cn(
           "flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors",
-          isOpen ? "bg-secondary/50" : "hover:bg-secondary/30",
+          isOpen ? "bg-[#F4F9FF]" : "hover:bg-[#F8FBFF]",
         )}
       >
         <ApplicantInitials name={record.applicantName} />
 
-        {/* Applicant */}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">{record.applicantName}</p>
-          <p className="truncate text-xs text-muted-foreground">{record.applicantEmail}</p>
+          <p className="truncate text-sm font-semibold text-[#10203B]">{record.applicantName}</p>
+          <p className="truncate text-xs text-[#6C7F95]">{record.applicantEmail}</p>
         </div>
 
-        {/* Type */}
-        <span className="hidden w-28 shrink-0 text-xs text-muted-foreground sm:block">
+        <span className="hidden w-28 shrink-0 text-xs text-[#6C7F95] sm:block">
           {record.applicantType}
         </span>
 
-        {/* Status */}
         <span className="hidden shrink-0 sm:block">
           <ApplicationCombinedStatus record={record} />
         </span>
 
-        {/* Date */}
-        <span className="hidden w-24 shrink-0 text-right text-xs text-muted-foreground lg:block">
+        <span className="hidden w-24 shrink-0 text-right text-xs text-[#6C7F95] lg:block">
           {formatAdminDate(record.submittedAt)}
         </span>
 
-        <ChevronRight
-          className={cn(
-            "ml-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200",
-            isOpen && "rotate-90",
-          )}
-        />
+        <span className="ml-1 flex size-8 shrink-0 items-center justify-center rounded-full border border-[#D7E5F4] bg-white text-[#55708D]">
+          <ChevronRight
+            className={cn(
+              "size-4 transition-transform duration-200",
+              isOpen && "rotate-90 text-[#1F5D8F]",
+            )}
+          />
+        </span>
       </Collapsible.Trigger>
 
       <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-[collapsible-up_200ms_ease] data-[state=open]:animate-[collapsible-down_200ms_ease]">
-        <div className="border-t border-border bg-background/50 p-6">
+        <div className="border-t border-[#D7E5F4] bg-[#F6FAFF] p-5">
           {isLoadingDetail ? (
-            <div className="flex flex-col gap-3 py-2">
+            <div className="flex flex-col gap-3 rounded-[24px] border border-[#D7E5F4] bg-white p-5">
               <Skeleton className="h-6 w-48" />
               <Skeleton className="h-28 w-full" />
               <Skeleton className="h-20 w-full" />

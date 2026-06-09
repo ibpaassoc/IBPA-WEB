@@ -1,9 +1,9 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { AdminEmptyState } from "../../shared/components/AdminEmptyState";
+import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
 import { AdminTable } from "../../shared/components/AdminTable";
 import { formatAdminDate } from "../../shared/utils/admin-formatters";
 import type {
@@ -26,7 +26,7 @@ export function ApplicationsTable({
 }: ApplicationsTableProps) {
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+      <div className="flex flex-col gap-3 rounded-[24px] border border-[#D7E5F4] bg-white p-4">
         {Array.from({ length: 6 }).map((_, index) => (
           <Skeleton className="h-14 w-full" key={index} />
         ))}
@@ -50,9 +50,9 @@ export function ApplicationsTable({
           key: "applicant",
           label: "Applicant",
           render: (application) => (
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-foreground">{application.applicantName}</span>
-              <span className="text-xs text-muted-foreground">{application.applicantEmail}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-semibold text-[#10203B]">{application.applicantName}</span>
+              <span className="text-xs text-[#6C7F95]">{application.applicantEmail}</span>
             </div>
           ),
         },
@@ -60,15 +60,15 @@ export function ApplicationsTable({
           key: "type",
           label: "Applicant type",
           render: (application) => (
-            <Badge variant="secondary" className="rounded-full">
-              {application.applicantType}
-            </Badge>
+            <AdminStatusBadge tone="neutral">{application.applicantType}</AdminStatusBadge>
           ),
         },
         {
           key: "package",
           label: "Membership package",
-          render: (application) => application.membershipPackage,
+          render: (application) => (
+            <span className="text-sm text-[#10203B]">{application.membershipPackage}</span>
+          ),
         },
         {
           key: "status",
@@ -83,7 +83,9 @@ export function ApplicationsTable({
         {
           key: "submitted",
           label: "Submitted",
-          render: (application) => formatAdminDate(application.submittedAt),
+          render: (application) => (
+            <span className="text-xs text-[#6C7F95]">{formatAdminDate(application.submittedAt)}</span>
+          ),
         },
       ]}
       getRowKey={(application) => `${application.kind}:${application.id}`}

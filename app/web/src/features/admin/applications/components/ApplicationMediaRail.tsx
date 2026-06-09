@@ -49,10 +49,18 @@ function RailCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[26px] border border-[#D9E4F2] bg-white/82 p-4 shadow-[0_16px_42px_rgba(15,35,70,0.08)]">
-      <h3 className="mb-3 text-sm font-semibold text-[#10203B]">{title}</h3>
+    <section className="rounded-[24px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+      <h3 className="mb-4 text-sm font-semibold tracking-[-0.01em] text-[#10203B]">{title}</h3>
       {children}
     </section>
+  );
+}
+
+function EmptyHint({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-[20px] border border-dashed border-[#CFE0F3] bg-[#F8FBFF] p-4 text-sm text-[#6C7F95]">
+      {children}
+    </p>
   );
 }
 
@@ -65,9 +73,7 @@ export function ApplicationMediaRail({
 }: Props) {
   if (!memberApplication) {
     return (
-      <div className="rounded-[26px] border border-dashed border-[#D9E4F2] bg-white/70 p-5 text-sm text-[#6B7C93]">
-        Media is available for member applications.
-      </div>
+      <EmptyHint>Media is available for member applications.</EmptyHint>
     );
   }
 
@@ -84,7 +90,7 @@ export function ApplicationMediaRail({
             <div className="grid grid-cols-3 gap-3">
               {visibleImages.map((image, index) => (
                 <a
-                  className="group relative aspect-[4/5] overflow-hidden rounded-[20px] border border-[#D9E4F2] bg-[#EEF5FF] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#BDD0E8]"
+                  className="group relative aspect-[4/5] overflow-hidden rounded-[18px] border border-[#D7E5F4] bg-[#EEF6FF] transition-colors hover:border-[#BFD3EA]"
                   href={image}
                   key={`${image}-${index}`}
                   rel="noreferrer"
@@ -99,7 +105,7 @@ export function ApplicationMediaRail({
                     src={image}
                   />
 
-                  <span className="absolute bottom-2 right-2 flex size-8 items-center justify-center rounded-full bg-white/90 text-[#21466D] opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                  <span className="absolute bottom-2 right-2 flex size-8 items-center justify-center rounded-full border border-[#D7E5F4] bg-white text-[#1F5D8F] opacity-0 transition-opacity group-hover:opacity-100">
                     <ExternalLink className="size-3.5" />
                   </span>
                 </a>
@@ -107,15 +113,13 @@ export function ApplicationMediaRail({
             </div>
 
             {hiddenImagesCount > 0 ? (
-              <p className="mt-3 rounded-2xl bg-[#F7FAFE] px-4 py-3 text-center text-xs font-semibold text-[#6B7C93]">
+              <p className="mt-3 rounded-2xl border border-[#D7E5F4] bg-[#F8FBFF] px-4 py-2.5 text-center text-xs font-semibold text-[#6C7F95]">
                 +{hiddenImagesCount} more images available in application data
               </p>
             ) : null}
           </>
         ) : (
-          <p className="rounded-2xl border border-dashed border-[#D9E4F2] bg-[#F7FAFE]/80 p-4 text-sm text-[#6B7C93]">
-            No portfolio images submitted.
-          </p>
+          <EmptyHint>No portfolio images submitted.</EmptyHint>
         )}
       </RailCard>
 
@@ -130,13 +134,13 @@ export function ApplicationMediaRail({
 
                 {group.files.map((file, index) => (
                   <a
-                    className="flex min-w-0 items-center gap-2 rounded-xl border border-[#D9E4F2] bg-white/80 px-3 py-2 text-sm text-[#10203B] shadow-sm transition-colors hover:bg-white"
+                    className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#D7E5F4] bg-[#F8FBFF] px-3 py-2 text-sm text-[#10203B] transition-colors hover:bg-white"
                     href={file}
                     key={`${file}-${index}`}
                     rel="noreferrer"
                     target="_blank"
                   >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#EEF5FF] text-[#21466D]">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#EEF6FF] text-[#1F5D8F]">
                       <FileText className="size-3.5" />
                     </span>
                     <span className="min-w-0 flex-1 truncate">{fileNameOf(file)}</span>
@@ -148,9 +152,7 @@ export function ApplicationMediaRail({
           )}
 
           {documentGroups.every((group) => group.files.length === 0) ? (
-            <p className="rounded-2xl border border-dashed border-[#D9E4F2] bg-[#F7FAFE]/80 p-4 text-sm text-[#6B7C93]">
-              No trainer documents submitted.
-            </p>
+            <EmptyHint>No trainer documents submitted.</EmptyHint>
           ) : null}
         </div>
       </RailCard>
@@ -158,18 +160,18 @@ export function ApplicationMediaRail({
       <RailCard title="Admin-added documents">
         {isLoadingFiles ? (
           <div className="space-y-2">
-            <Skeleton className="h-11 rounded-xl" />
-            <Skeleton className="h-11 rounded-xl" />
+            <Skeleton className="h-11 rounded-2xl" />
+            <Skeleton className="h-11 rounded-2xl" />
           </div>
         ) : additionalFiles.length ? (
           <div className="space-y-2">
             {additionalFiles.map((file) => (
               <div
-                className="flex min-w-0 items-center gap-2 rounded-xl border border-[#D9E4F2] bg-white/80 p-2 shadow-sm"
+                className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#D7E5F4] bg-[#F8FBFF] p-2"
                 key={file.id}
               >
                 <a
-                  className="block size-10 shrink-0 overflow-hidden rounded-lg border border-[#D9E4F2] bg-[#EEF5FF]"
+                  className="block size-10 shrink-0 overflow-hidden rounded-xl border border-[#D7E5F4] bg-[#EEF6FF]"
                   href={file.fileUrl}
                   rel="noreferrer"
                   target="_blank"
@@ -183,7 +185,7 @@ export function ApplicationMediaRail({
                       src={file.fileUrl}
                     />
                   ) : (
-                    <span className="flex h-full w-full items-center justify-center text-[#21466D]">
+                    <span className="flex h-full w-full items-center justify-center text-[#1F5D8F]">
                       <FileText className="size-4" />
                     </span>
                   )}
@@ -199,7 +201,7 @@ export function ApplicationMediaRail({
                 </a>
 
                 <Button
-                  className="h-8 rounded-xl px-3 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+                  className="h-8 rounded-xl px-3 text-xs text-[#B42318] hover:bg-[#FFF5F5] hover:text-[#8B1A12]"
                   onClick={() => onDeleteAdditionalFile(file.id)}
                   type="button"
                   variant="ghost"
@@ -210,9 +212,7 @@ export function ApplicationMediaRail({
             ))}
           </div>
         ) : (
-          <p className="rounded-2xl border border-dashed border-[#D9E4F2] bg-[#F7FAFE]/80 p-4 text-sm text-[#6B7C93]">
-            No admin-added documents yet.
-          </p>
+          <EmptyHint>No admin-added documents yet.</EmptyHint>
         )}
 
         <div className="mt-4">

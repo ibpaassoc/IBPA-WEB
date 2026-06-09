@@ -52,14 +52,14 @@ export function ApplicationReviewActions({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[24px] border border-[#D9E4F2] bg-white/75 p-3 shadow-sm">
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.24em] text-[#8AA2BD]">
+      <div className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
           Primary action
         </p>
 
         {canApprove ? (
           <Button
-            className="h-11 w-full rounded-2xl bg-[#0B1F44] text-white hover:bg-[#123C7A]"
+            className="h-11 w-full rounded-2xl bg-[#1F5D8F] text-white hover:bg-[#10203B]"
             disabled={isBusy}
             onClick={onApprove}
             type="button"
@@ -72,21 +72,21 @@ export function ApplicationReviewActions({
             Approve application
           </Button>
         ) : (
-          <div className="rounded-2xl bg-[#F7FAFE] px-4 py-3 text-sm text-[#6B7C93]">
+          <p className="rounded-2xl border border-dashed border-[#CFE0F3] bg-white px-4 py-3 text-sm text-[#6C7F95]">
             No primary action available.
-          </div>
+          </p>
         )}
       </div>
 
-      <div className="rounded-[24px] border border-[#D9E4F2] bg-white/75 p-3 shadow-sm">
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.24em] text-[#8AA2BD]">
+      <div className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
           Secondary actions
         </p>
 
         <div className="grid gap-2">
           {canReview && onReview ? (
             <Button
-              className="h-10 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE] text-[#21466D] hover:bg-white"
+              className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
               disabled={isBusy}
               onClick={onReview}
               type="button"
@@ -103,7 +103,7 @@ export function ApplicationReviewActions({
 
           {canResend && onResendPaymentLink ? (
             <Button
-              className="h-10 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE] text-[#21466D] hover:bg-white"
+              className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
               disabled={isBusy}
               onClick={onResendPaymentLink}
               type="button"
@@ -121,7 +121,7 @@ export function ApplicationReviewActions({
           {memberApplication?.checkoutUrl ? (
             <Button
               asChild
-              className="h-10 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE] text-[#21466D] hover:bg-white"
+              className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
               type="button"
               variant="outline"
             >
@@ -131,11 +131,17 @@ export function ApplicationReviewActions({
               </a>
             </Button>
           ) : null}
+
+          {!canReview && !canResend && !memberApplication?.checkoutUrl ? (
+            <p className="rounded-2xl border border-dashed border-[#CFE0F3] bg-white px-4 py-2.5 text-xs text-[#8AA2BD]">
+              No secondary actions available.
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <div className="rounded-[24px] border border-red-100 bg-red-50/60 p-3">
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">
+      <div className="rounded-[22px] border border-[#F2C7C7] bg-[#FFF5F5] p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#B42318]">
           Danger zone
         </p>
 
@@ -158,7 +164,7 @@ export function ApplicationReviewActions({
           ) : null}
 
           <Button
-            className="h-10 rounded-2xl text-red-600 hover:bg-red-100 hover:text-red-700"
+            className="h-10 rounded-2xl text-[#B42318] hover:bg-[#FFE5E5] hover:text-[#8B1A12]"
             disabled={isBusy}
             onClick={onDelete}
             type="button"

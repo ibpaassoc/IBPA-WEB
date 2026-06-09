@@ -50,8 +50,8 @@ function RailCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[26px] border border-[#D9E4F2] bg-white/82 p-4 shadow-[0_16px_42px_rgba(15,35,70,0.08)] backdrop-blur-2xl">
-      <h3 className="mb-3 text-sm font-semibold text-[#10203B]">{title}</h3>
+    <section className="rounded-[24px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+      <h3 className="mb-4 text-sm font-semibold tracking-[-0.01em] text-[#10203B]">{title}</h3>
       {children}
     </section>
   );
@@ -65,13 +65,13 @@ function SummaryFields({ sections }: { sections: ApplicationFieldSection[] }) {
       {sections.flatMap((section) =>
         section.items.map((item) => (
           <div
-            className="rounded-2xl border border-[#E4ECF6] bg-[#F7FAFE]/82 px-3.5 py-3"
+            className="rounded-[18px] border border-[#DCE7F5] bg-[#F8FBFF] px-4 py-3"
             key={`${section.title}-${item.label}`}
           >
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#8AA2BD]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6C7F95]">
               {item.label}
             </p>
-            <p className="mt-1.5 break-words text-[13px] leading-5 text-[#10203B]">
+            <p className="mt-1.5 break-words text-sm leading-5 text-[#10203B]">
               {String(item.value ?? "").trim() || "Not provided"}
             </p>
           </div>
@@ -116,14 +116,14 @@ export function ApplicationReviewRail({
 
             <FieldGroup>
               <Field>
-                <FieldLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8AA2BD]">
+                <FieldLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6C7F95]">
                   Membership package
                 </FieldLabel>
                 <Select
                   onValueChange={onMembershipCategoryChange}
                   value={selectedMembershipCategory || undefined}
                 >
-                  <SelectTrigger className="h-11 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE]">
+                  <SelectTrigger className="h-11 rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B]">
                     <SelectValue placeholder="Select membership package" />
                   </SelectTrigger>
                   <SelectContent>
@@ -140,7 +140,7 @@ export function ApplicationReviewRail({
             </FieldGroup>
 
             <Button
-              className="h-11 w-full rounded-2xl border-[#D9E4F2] bg-white text-[#21466D] hover:bg-[#F7FAFE]"
+              className="h-11 w-full rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
               disabled={busyAction === "membership"}
               onClick={onSaveMembershipCategory}
               type="button"
@@ -165,14 +165,14 @@ export function ApplicationReviewRail({
         <RailCard title="Partner tier">
           <FieldGroup>
             <Field>
-              <FieldLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8AA2BD]">
+              <FieldLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6C7F95]">
                 Partner tier
               </FieldLabel>
               <Select
                 onValueChange={onPartnerTierChange}
                 value={selectedPartnerTier}
               >
-                <SelectTrigger className="h-11 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE]">
+                <SelectTrigger className="h-11 rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B]">
                   <SelectValue placeholder="Select partner tier" />
                 </SelectTrigger>
                 <SelectContent>
