@@ -19,7 +19,7 @@ type UsersTableProps = {
 export function UsersTable({ isLoading, onOpen, selectedId, users }: UsersTableProps) {
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+      <div className="flex flex-col gap-3 rounded-[24px] border border-[#D7E5F4] bg-white p-4">
         {Array.from({ length: 6 }).map((_, index) => (
           <Skeleton className="h-14 w-full" key={index} />
         ))}
@@ -44,13 +44,15 @@ export function UsersTable({ isLoading, onOpen, selectedId, users }: UsersTableP
           label: "User",
           render: (user) => (
             <div className="flex items-center gap-3">
-              <Avatar className="size-9">
+              <Avatar className="size-9 border border-[#D7E5F4]">
                 <AvatarImage src={user.avatarUrl || undefined} />
-                <AvatarFallback>{initialsFromName(user.userName)}</AvatarFallback>
+                <AvatarFallback className="bg-[#EEF6FF] text-xs font-semibold text-[#1F5D8F]">
+                  {initialsFromName(user.userName)}
+                </AvatarFallback>
               </Avatar>
               <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate font-medium text-foreground">{user.userName}</span>
-                <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                <span className="truncate font-semibold text-[#10203B]">{user.userName}</span>
+                <span className="truncate text-xs text-[#6C7F95]">{user.email}</span>
               </div>
             </div>
           ),
@@ -58,7 +60,11 @@ export function UsersTable({ isLoading, onOpen, selectedId, users }: UsersTableP
         {
           key: "membership",
           label: "Membership",
-          render: (user) => user.cardName || user.membershipCategory || "Member",
+          render: (user) => (
+            <span className="text-sm text-[#10203B]">
+              {user.cardName || user.membershipCategory || "Member"}
+            </span>
+          ),
         },
         {
           key: "access",
@@ -68,7 +74,9 @@ export function UsersTable({ isLoading, onOpen, selectedId, users }: UsersTableP
         {
           key: "since",
           label: "Member since",
-          render: (user) => formatAdminDate(user.createdAt),
+          render: (user) => (
+            <span className="text-xs text-[#6C7F95]">{formatAdminDate(user.createdAt)}</span>
+          ),
         },
       ]}
       getRowKey={(user) => user.id}

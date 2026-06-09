@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 
 import { AdminEmptyState } from "../../shared/components/AdminEmptyState";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
@@ -47,52 +46,69 @@ export function UserDetailPanel({ user }: UserDetailPanelProps) {
 
   return (
     <AdminSectionCard title="User detail">
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="size-12">
-            <AvatarImage src={user.avatarUrl || undefined} />
-            <AvatarFallback>{initialsFromName(user.userName)}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-semibold text-foreground">{user.userName}</h3>
-            <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+      <div className="space-y-5">
+        <div className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="size-12 border border-[#D7E5F4]">
+              <AvatarImage src={user.avatarUrl || undefined} />
+              <AvatarFallback className="bg-[#EEF6FF] text-sm font-semibold text-[#1F5D8F]">
+                {initialsFromName(user.userName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-base font-semibold text-[#10203B]">{user.userName}</h3>
+              <p className="truncate text-sm text-[#6C7F95]">{user.email}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <AdminStatusBadge tone="info">
+              {user.cardName || user.membershipCategory || "Member"}
+            </AdminStatusBadge>
+            <AdminStatusBadge tone={user.accessTone}>{user.accessLabel}</AdminStatusBadge>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <AdminStatusBadge tone="info">{user.cardName || user.membershipCategory || "Member"}</AdminStatusBadge>
-          <AdminStatusBadge tone={user.accessTone}>{user.accessLabel}</AdminStatusBadge>
+
+        <section>
+          <h3 className="mb-3 text-sm font-semibold text-[#10203B]">Account</h3>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <InfoRow label="Phone" value={formatNullableText(user.phone)} />
+            <InfoRow label="Member since" value={formatAdminDate(user.createdAt)} />
+            <InfoRow label="Certificate" value={user.certificateNumber || "Not issued"} />
+            <InfoRow label="Linked profile" value={user.userId ? "Yes" : "No"} />
+          </dl>
+        </section>
+
+        <div className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+            Profile actions
+          </p>
+          <div className="flex flex-col gap-2">
+            {previewHref && user.hasDashboardAccess ? (
+              <Button
+                asChild
+                className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                type="button"
+                variant="outline"
+              >
+                <a href={previewHref} rel="noreferrer" target="_blank">
+                  <ExternalLink data-icon="inline-start" />
+                  View public profile
+                </a>
+              </Button>
+            ) : null}
+            <Button
+              asChild
+              className="h-10 rounded-2xl text-[#1F5D8F] hover:bg-[#EEF6FF]"
+              type="button"
+              variant="ghost"
+            >
+              <Link href={`/admin/profiles?q=${encodeURIComponent(user.email)}`}>
+                <ExternalLink data-icon="inline-start" />
+                Manage in profiles
+              </Link>
+            </Button>
+          </div>
         </div>
-      </div>
-
-      <Separator />
-
-      <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">Account</h3>
-        <dl className="grid gap-3 sm:grid-cols-2">
-          <InfoRow label="Phone" value={formatNullableText(user.phone)} />
-          <InfoRow label="Member since" value={formatAdminDate(user.createdAt)} />
-          <InfoRow label="Certificate" value={user.certificateNumber || "Not issued"} />
-          <InfoRow label="Linked profile" value={user.userId ? "Yes" : "No"} />
-        </dl>
-      </section>
-
-      <Separator />
-
-      <div className="flex flex-wrap gap-2">
-        {previewHref && user.hasDashboardAccess ? (
-          <Button asChild type="button" variant="outline">
-            <a href={previewHref} rel="noreferrer" target="_blank">
-              <ExternalLink data-icon="inline-start" />
-              View public profile
-            </a>
-          </Button>
-        ) : null}
-        <Button asChild type="button" variant="ghost">
-          <Link href={`/admin/profiles?q=${encodeURIComponent(user.email)}`}>
-            <ExternalLink data-icon="inline-start" />
-            Manage in profiles
-          </Link>
-        </Button>
       </div>
     </AdminSectionCard>
   );
