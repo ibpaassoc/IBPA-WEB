@@ -17,7 +17,7 @@ type PaymentsTableProps = {
 export function PaymentsTable({ isLoading, payments }: PaymentsTableProps) {
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+      <div className="flex flex-col gap-3 rounded-[24px] border border-[#D7E5F4] bg-white p-4">
         {Array.from({ length: 6 }).map((_, index) => (
           <Skeleton className="h-14 w-full" key={index} />
         ))}
@@ -41,31 +41,42 @@ export function PaymentsTable({ isLoading, payments }: PaymentsTableProps) {
           key: "payer",
           label: "Payer",
           render: (payment) => (
-            <Link className="flex flex-col gap-0.5 hover:underline" href={payment.href}>
-              <span className="truncate font-medium text-foreground">{payment.payerName}</span>
-              <span className="truncate text-xs text-muted-foreground">{payment.payerEmail}</span>
+            <Link
+              className="flex flex-col gap-0.5 transition-colors hover:text-[#1F5D8F]"
+              href={payment.href}
+            >
+              <span className="truncate font-semibold text-[#10203B]">{payment.payerName}</span>
+              <span className="truncate text-xs text-[#6C7F95]">{payment.payerEmail}</span>
             </Link>
           ),
         },
         {
           key: "source",
           label: "Source",
-          render: (payment) => <AdminStatusBadge tone="info">{payment.sourceLabel}</AdminStatusBadge>,
+          render: (payment) => (
+            <AdminStatusBadge tone="info">{payment.sourceLabel}</AdminStatusBadge>
+          ),
         },
         {
           key: "package",
           label: "Package",
-          render: (payment) => payment.packageLabel,
+          render: (payment) => (
+            <span className="text-sm text-[#10203B]">{payment.packageLabel}</span>
+          ),
         },
         {
           key: "status",
           label: "Payment status",
-          render: (payment) => <AdminStatusBadge tone={payment.statusTone}>{payment.statusLabel}</AdminStatusBadge>,
+          render: (payment) => (
+            <AdminStatusBadge tone={payment.statusTone}>{payment.statusLabel}</AdminStatusBadge>
+          ),
         },
         {
           key: "date",
           label: "Date",
-          render: (payment) => payment.dateLabel,
+          render: (payment) => (
+            <span className="text-xs text-[#6C7F95]">{payment.dateLabel}</span>
+          ),
         },
       ]}
       getRowKey={(payment) => payment.id}

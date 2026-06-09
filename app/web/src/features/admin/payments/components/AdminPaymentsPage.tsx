@@ -15,13 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 import {
   listMemberApplications,
   listPartnerApplications,
 } from "../../applications/server/application-admin.repository";
 import { AdminFilters } from "../../shared/components/AdminFilters";
+import { AdminMetricCard } from "../../shared/components/AdminMetricCard";
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
@@ -119,7 +119,12 @@ export function AdminPaymentsPage() {
   return (
     <AdminPageShell
       actions={
-        <Button onClick={() => void loadPayments()} type="button" variant="outline">
+        <Button
+          className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={() => void loadPayments()}
+          type="button"
+          variant="outline"
+        >
           <RefreshCw data-icon="inline-start" />
           Refresh
         </Button>
@@ -129,57 +134,29 @@ export function AdminPaymentsPage() {
       title="Payments"
     >
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {summaryCards.map((card, index) => {
-          const Icon = card.icon;
-          const isAccent = index === 0;
-
-          return (
-            <div
-              className={cn(
-                "flex flex-col gap-3 overflow-hidden rounded-2xl border p-6",
-                "[box-shadow:var(--card-shadow)] transition-shadow duration-200 hover:[box-shadow:var(--card-shadow-hover)]",
-                isAccent
-                  ? "border-transparent bg-primary text-primary-foreground"
-                  : "border-border bg-card",
-              )}
-              key={card.key}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={cn(
-                    "text-xs font-medium uppercase tracking-wide",
-                    isAccent ? "text-primary-foreground/70" : "text-muted-foreground",
-                  )}
-                >
-                  {card.label}
-                </span>
-                <span
-                  className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-full",
-                    isAccent ? "bg-white/20" : "bg-primary/10",
-                  )}
-                >
-                  <Icon className={cn("size-3.5", isAccent ? "text-white/80" : "text-primary")} />
-                </span>
-              </div>
-              <span className={cn("font-serif text-4xl font-medium tabular-nums leading-none", isAccent ? "text-primary-foreground" : "text-foreground")}>
-                {card.value.toLocaleString("en-US")}
-              </span>
-              <span className={cn("text-sm", isAccent ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                {card.description}
-              </span>
-            </div>
-          );
-        })}
+        {summaryCards.map((card, index) => (
+          <AdminMetricCard
+            active={index === 0}
+            description={card.description}
+            icon={card.icon}
+            key={card.key}
+            label={card.label}
+            value={card.value}
+          />
+        ))}
       </section>
 
       <AdminFilters>
-        <AdminSearch onChange={setSearch} placeholder="Search by payer name, email, or package" value={search} />
+        <AdminSearch
+          onChange={setSearch}
+          placeholder="Search by payer name, email, or package"
+          value={search}
+        />
         <Select
           onValueChange={(value) => setFilter("source", value as AdminPaymentFilters["source"])}
           value={filters.source}
         >
-          <SelectTrigger className="w-full lg:w-44">
+          <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B] lg:w-44">
             <SelectValue placeholder="Source" />
           </SelectTrigger>
           <SelectContent>
@@ -194,7 +171,7 @@ export function AdminPaymentsPage() {
           onValueChange={(value) => setFilter("status", value as AdminPaymentFilters["status"])}
           value={filters.status}
         >
-          <SelectTrigger className="w-full lg:w-48">
+          <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B] lg:w-48">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -207,12 +184,20 @@ export function AdminPaymentsPage() {
             </SelectGroup>
           </SelectContent>
         </Select>
-        <Button onClick={resetFilters} type="button" variant="ghost">
+        <Button
+          className="h-10 rounded-2xl px-4 text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={resetFilters}
+          type="button"
+          variant="ghost"
+        >
           Reset
         </Button>
       </AdminFilters>
 
-      <AdminSectionCard description={formatAdminCount(visiblePayments.length, "payment")} title="Payment ledger">
+      <AdminSectionCard
+        description={formatAdminCount(visiblePayments.length, "payment")}
+        title="Payment ledger"
+      >
         <PaymentsTable isLoading={isLoading} payments={visiblePayments} />
       </AdminSectionCard>
     </AdminPageShell>
