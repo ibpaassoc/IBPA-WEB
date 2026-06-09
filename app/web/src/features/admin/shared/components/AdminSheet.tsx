@@ -105,24 +105,18 @@ export function AdminSheet({
             )}
           >
             {resolvedLeftRail ? (
-              <aside className="no-scrollbar min-h-0 overflow-y-auto border-r border-[#D9E4F2] bg-white/48 p-5">
-                <div className="will-change-transform animate-[adminColumnIn_260ms_cubic-bezier(0.16,1,0.3,1)_60ms_both]">
-                  {resolvedLeftRail}
-                </div>
+              <aside className="no-scrollbar min-h-0 overflow-y-auto border-r border-[#D9E4F2] bg-white/60 p-5">
+                <div className="admin-sheet-rail">{resolvedLeftRail}</div>
               </aside>
             ) : null}
 
             <main className="no-scrollbar min-h-0 overflow-y-auto px-6 py-6">
-              <div className="will-change-transform animate-[adminContentIn_280ms_cubic-bezier(0.16,1,0.3,1)_90ms_both]">
-                {children}
-              </div>
+              <div className="admin-sheet-main">{children}</div>
             </main>
 
             {rightRail ? (
-              <aside className="no-scrollbar min-h-0 overflow-y-auto border-l border-[#D9E4F2] bg-white/48 p-5">
-                <div className="will-change-transform animate-[adminColumnIn_260ms_cubic-bezier(0.16,1,0.3,1)_120ms_both]">
-                  {rightRail}
-                </div>
+              <aside className="no-scrollbar min-h-0 overflow-y-auto border-l border-[#D9E4F2] bg-white/60 p-5">
+                <div className="admin-sheet-rail">{rightRail}</div>
               </aside>
             ) : null}
           </div>
