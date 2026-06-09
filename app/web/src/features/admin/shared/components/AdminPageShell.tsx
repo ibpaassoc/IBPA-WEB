@@ -8,9 +8,7 @@ type AdminPageShellProps = {
   subtitle?: string;
   actions?: ReactNode;
   children: ReactNode;
-  /** @deprecated kept for migration; unused in the new design. */
   description?: string;
-  /** @deprecated kept for migration; unused in the new design. */
   lastSyncedAt?: string | null;
 };
 
@@ -23,14 +21,15 @@ export function AdminPageShell({
   description,
 }: AdminPageShellProps) {
   return (
-    <div className="relative z-[1] mx-auto flex w-full max-w-screen-2xl flex-col gap-10 px-6 py-10 lg:px-14 lg:py-16">
+    <div className="w-full space-y-6">
       <AdminHeader
         actions={actions}
         eyebrow={eyebrow}
         subtitle={subtitle ?? description}
         title={title}
       />
-      <div className="flex flex-col gap-10">{children}</div>
+
+      {children}
     </div>
   );
 }

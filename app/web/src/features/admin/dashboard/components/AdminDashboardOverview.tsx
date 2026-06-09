@@ -1,7 +1,15 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  CalendarDays,
+  FileText,
+  Mail,
+  RefreshCw,
+  Users,
+  WalletCards,
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,23 +31,36 @@ const emptyOverview: AdminOverviewData = {
   recentActivity: [],
 };
 
+const quickActions = [
+  { label: "Applications", href: "/admin/applications", icon: FileText },
+  { label: "Members", href: "/admin/members", icon: Users },
+  { label: "Events", href: "/admin/events", icon: CalendarDays },
+  { label: "Mailing", href: "/admin/mailing", icon: Mail },
+  { label: "Finance", href: "/admin/payments", icon: WalletCards },
+];
+
 export function AdminDashboardOverview() {
   const [overview, setOverview] = useState<AdminOverviewData>(emptyOverview);
   const [isLoading, setIsLoading] = useState(true);
 
   const load = async (silent = false) => {
     if (!silent) setIsLoading(true);
+
     try {
       const data = await getAdminOverview();
       setOverview(data);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load dashboard.");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load dashboard.",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -47,96 +68,125 @@ export function AdminDashboardOverview() {
     day: "numeric",
   });
 
+  const featuredStat = overview.stats[0];
+  const secondaryStats = useMemo(() => overview.stats.slice(1), [overview.stats]);
+
   return (
     <AdminPageShell
       actions={
         <Button
-          className="size-10 rounded-full"
+          className="size-10 rounded-full border-[#D4E0F0] bg-white/80 text-[#21466D] shadow-sm backdrop-blur-xl hover:bg-white hover:text-[#0B1F44]"
           disabled={isLoading}
           onClick={() => void load(true)}
           size="icon"
           variant="outline"
         >
-          <RefreshCw className={`size-3.5 ${isLoading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`size-3.5 ${isLoading ? "animate-spin" : ""}`}
+          />
         </Button>
       }
       eyebrow={today}
-      subtitle="A quiet view across applications, members, content, and finance — the briefing for the day."
       title="Today at IBPA"
     >
-      {/* Stat constellation — asymmetric: featured + tertiary */}
-      <div className="grid gap-5 lg:grid-cols-4 lg:gap-6">
-        {isLoading
-          ? Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton
-                className="h-44 rounded-3xl"
-                key={i}
-                style={{ backgroundColor: "var(--mist)" }}
-              />
-            ))
-          : overview.stats.map((stat, i) => (
-              <DashboardStatCard index={i} key={stat.key} stat={stat} />
-            ))}
-      </div>
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6">
+          <section className="grid gap-4 sm:grid-cols-2">
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, index) => (
+                  <Skeleton
+                    className="h-36 rounded-[30px] bg-white/70"
+                    key={index}
+                  />
+                ))
+              : overview.stats.map((stat, index) => (
+                  <DashboardStatCard index={index} key={stat.key} stat={stat} />
+                ))}
+          </section>
 
-      {/* Editorial divider */}
-      <div className="flex items-center gap-5 pt-2">
-        <span className="editorial-eyebrow text-sm">Atelier ledger</span>
-        <span className="h-px flex-1 bg-[var(--hairline)]" />
-      </div>
-
-      {/* Charts — full width band */}
-      {isLoading ? (
-        <Skeleton className="h-80 rounded-3xl" style={{ backgroundColor: "var(--mist)" }} />
-      ) : (
-        <DashboardCharts data={overview} />
-      )}
-
-      {/* Asymmetric bottom — upcoming events take wider column */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_1fr]">
-        <AdminSectionCard
-          actions={
-            <a
-              className="group inline-flex items-center gap-1.5 text-xs font-medium tracking-tight text-foreground hairline-grow"
-              href="/admin/events"
-            >
-              Open events
-              <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
-            </a>
-          }
-          eyebrow="On the calendar"
-          title="Upcoming events"
-        >
           {isLoading ? (
-            <div className="flex flex-col gap-2">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton className="h-14" key={i} />)}
+            <div className="grid gap-6 xl:grid-cols-2">
+              <Skeleton className="h-80 rounded-[32px] bg-white/70" />
+              <Skeleton className="h-80 rounded-[32px] bg-white/70" />
             </div>
           ) : (
-            <DashboardEventsList events={overview.upcomingEvents} />
+            <DashboardCharts data={overview} />
           )}
-        </AdminSectionCard>
 
-        <AdminSectionCard
-          actions={
-            <a
-              className="group inline-flex items-center gap-1.5 text-xs font-medium tracking-tight text-foreground hairline-grow"
-              href="/admin/applications"
+          <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
+            <AdminSectionCard
+              actions={
+                <Link
+                  className="text-xs font-semibold text-[#21466D] transition-colors hover:text-[#0B1F44]"
+                  href="/admin/events"
+                >
+                  View all →
+                </Link>
+              }
+              eyebrow="Calendar"
+              title="Upcoming events"
             >
-              Open queue
-              <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
-            </a>
-          }
-          eyebrow="From the floor"
-          title="Recent activity"
-        >
-          {isLoading ? (
-            <div className="flex flex-col gap-2">
-              {Array.from({ length: 5 }).map((_, i) => <Skeleton className="h-14" key={i} />)}
+              {isLoading ? (
+                <div className="grid gap-3">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Skeleton className="h-16 rounded-2xl" key={index} />
+                  ))}
+                </div>
+              ) : (
+                <DashboardEventsList events={overview.upcomingEvents} />
+              )}
+            </AdminSectionCard>
+
+            <AdminSectionCard
+              actions={
+                <Link
+                  className="text-xs font-semibold text-[#21466D] transition-colors hover:text-[#0B1F44]"
+                  href="/admin/applications"
+                >
+                  Open queue →
+                </Link>
+              }
+              eyebrow="Activity"
+              title="Recent activity"
+            >
+              {isLoading ? (
+                <div className="grid gap-3">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Skeleton className="h-16 rounded-2xl" key={index} />
+                  ))}
+                </div>
+              ) : (
+                <DashboardActivityFeed items={overview.recentActivity} />
+              )}
+            </AdminSectionCard>
+          </div>
+        </div>
+
+        <aside className="2xl:sticky 2xl:top-24 2xl:self-start">
+          <AdminSectionCard
+            className="shadow-[0_26px_80px_rgba(15,35,70,0.12)]"
+            eyebrow="Shortcuts"
+            title="Quick actions"
+          >
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-1">
+              {quickActions.map((action) => (
+                <Link
+                  className="group flex items-center gap-3 rounded-2xl border border-[#D9E4F2] bg-white/72 p-3.5 text-sm font-semibold text-[#10203B] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#BDD0E8] hover:bg-white hover:shadow-[0_18px_40px_rgba(15,35,70,0.10)]"
+                  href={action.href}
+                  key={action.href}
+                >
+                  <span className="flex size-10 items-center justify-center rounded-2xl bg-[#EEF5FF] text-[#21466D] transition-colors group-hover:bg-[#E3EFFC]">
+                    <action.icon className="size-4" />
+                  </span>
+                  <span className="flex-1">{action.label}</span>
+                  <span className="text-[#8AA2BD] transition-transform group-hover:translate-x-1">
+                    →
+                  </span>
+                </Link>
+              ))}
             </div>
-          ) : (
-            <DashboardActivityFeed items={overview.recentActivity} />
-          )}
-        </AdminSectionCard>
+          </AdminSectionCard>
+        </aside>
       </div>
     </AdminPageShell>
   );

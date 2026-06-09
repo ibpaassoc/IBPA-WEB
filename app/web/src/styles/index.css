@@ -127,7 +127,7 @@
   font-style: italic;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: var(--accent-copper);
+  color: #8AA2BD;
 }
 
 /* Fade + rise on mount, respects reduced motion */

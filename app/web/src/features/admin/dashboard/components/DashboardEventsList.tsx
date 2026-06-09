@@ -10,36 +10,47 @@ type DashboardEventsListProps = {
 export function DashboardEventsList({ events }: DashboardEventsListProps) {
   if (!events.length) {
     return (
-      <p className="py-8 text-center text-sm text-muted-foreground">No upcoming events.</p>
+      <div className="rounded-2xl border border-[#D9E4F2] bg-white/70 px-4 py-8 text-center text-sm text-[#6B7C93]">
+        No upcoming events.
+      </div>
     );
   }
 
   return (
-    <ul className="flex flex-col gap-1">
+    <ul className="grid gap-3">
       {events.map((event) => (
         <li key={event.id}>
           <Link
-            className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary"
+            className="group flex items-center gap-4 rounded-2xl border border-[#D9E4F2] bg-white/72 p-3.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#BDD0E8] hover:bg-white hover:shadow-[0_18px_40px_rgba(15,35,70,0.10)]"
             href={event.href}
           >
-            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <CalendarDays className="size-3.5" />
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#EEF5FF] text-[#21466D] transition-colors group-hover:bg-[#E3EFFC]">
+              <CalendarDays className="size-4" />
             </span>
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{event.dateLabel}</span>
+
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className="line-clamp-1 max-w-full text-sm font-semibold text-[#10203B]">
+                {event.title}
+              </p>
+
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#6B7C93]">
+                <span className="shrink-0">{event.dateLabel}</span>
+
                 {event.location !== "Location to be announced" ? (
                   <>
-                    <span>·</span>
-                    <span className="flex items-center gap-0.5 truncate">
-                      <MapPin className="size-3" />
-                      {event.location}
+                    <span className="text-[#A7B8CC]">·</span>
+                    <span className="flex min-w-0 max-w-full items-center gap-1 truncate">
+                      <MapPin className="size-3 shrink-0 text-[#8AA2BD]" />
+                      <span className="truncate">{event.location}</span>
                     </span>
                   </>
                 ) : null}
               </div>
             </div>
+
+            <span className="shrink-0 text-[#8AA2BD] transition-transform group-hover:translate-x-1">
+              →
+            </span>
           </Link>
         </li>
       ))}

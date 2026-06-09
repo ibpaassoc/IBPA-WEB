@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowUpRight, CalendarDays, CreditCard, Newspaper, Users } from "lucide-react";
+import {
+  ArrowUpRight,
+  CalendarDays,
+  CreditCard,
+  Newspaper,
+  Users,
+} from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 
@@ -27,108 +33,96 @@ export function DashboardStatCard({ index, stat }: DashboardStatCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
-        delay: 0.04 + index * 0.06,
+        delay: 0.04 + index * 0.05,
         duration: 0.45,
         ease: [0.16, 1, 0.3, 1],
       }}
+      className="h-full"
     >
       <Link
         className={cn(
-          "group relative flex h-full flex-col justify-between gap-6 overflow-hidden rounded-3xl border p-6 lg:p-7",
-          "transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "group relative flex h-full min-h-36 flex-col justify-between overflow-hidden rounded-[28px] border p-5",
+          "shadow-[0_18px_48px_rgba(15,35,70,0.09)] backdrop-blur-2xl",
+          "transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:shadow-[0_26px_70px_rgba(15,35,70,0.14)]",
           isAccent
-            ? "border-[rgba(255,255,255,0.12)] bg-[#100e0d] text-[var(--sidebar-foreground)] hover:-translate-y-1"
-            : "card-premium text-foreground",
+            ? "border-[#123C7A]/20 bg-[#0B1F44] text-white"
+            : "border-white/70 bg-white/78 text-[#10203B]",
         )}
         href={stat.href}
-        style={
-          isAccent
-            ? {
-                backgroundImage:
-                  "radial-gradient(120% 50% at 0% 0%, rgba(185,122,62,0.22), transparent 60%), radial-gradient(80% 60% at 100% 100%, rgba(217,156,94,0.10), transparent 70%)",
-              }
-            : undefined
-        }
       >
-        {/* Decorative sheen on the accent tile */}
-        {isAccent ? (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full opacity-50 blur-3xl"
-            style={{ backgroundColor: "rgba(217,156,94,0.20)" }}
-          />
-        ) : null}
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-0",
+            isAccent
+              ? "bg-[radial-gradient(circle_at_20%_0%,rgba(159,199,242,0.24),transparent_42%),linear-gradient(145deg,rgba(18,60,122,0.92),rgba(11,31,68,1))]"
+              : "bg-[linear-gradient(145deg,rgba(255,255,255,0.85),rgba(239,246,255,0.52))]",
+          )}
+        />
+
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-12 -top-14 size-40 rounded-full bg-white/20 blur-3xl transition-transform duration-700 group-hover:scale-125"
+        />
 
         <div className="relative flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
             <span
               className={cn(
-                "text-[11px] font-medium tracking-tight",
-                isAccent ? "text-[var(--accent-copper-soft)]" : "text-muted-foreground",
+                "text-[10px] font-bold uppercase tracking-[0.24em]",
+                isAccent ? "text-[#BFD9F7]" : "text-[#7A94B2]",
               )}
-              style={isAccent ? undefined : { color: "var(--accent-copper)" }}
             >
-              <span className="editorial-eyebrow text-xs">{stat.label}</span>
+              {stat.label}
             </span>
           </div>
+
           <span
             className={cn(
-              "flex size-10 shrink-0 items-center justify-center rounded-full border transition-transform duration-500 group-hover:rotate-[18deg]",
+              "flex size-10 shrink-0 items-center justify-center rounded-2xl border transition-all duration-500 group-hover:rotate-[10deg]",
               isAccent
-                ? "border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.06)]"
-                : "border-[var(--hairline)] bg-[var(--vellum)]",
+                ? "border-white/15 bg-white/10 text-white"
+                : "border-[#D9E4F2] bg-[#EEF5FF] text-[#21466D]",
             )}
           >
-            {Icon ? (
-              <Icon
-                className={cn(
-                  "size-[15px]",
-                  isAccent ? "text-[var(--accent-copper-soft)]" : "text-foreground",
-                )}
-              />
-            ) : null}
+            {Icon ? <Icon className="size-4" /> : null}
           </span>
         </div>
 
         <div className="relative flex items-end justify-between gap-3">
           <span
             className={cn(
-              "font-serif font-medium leading-none tabular-nums",
-              "text-[2.6rem] lg:text-[3.2rem]",
-              isAccent ? "text-[var(--sidebar-foreground)]" : "text-foreground",
+              "font-serif text-[2.5rem] font-medium leading-none tracking-[-0.04em] tabular-nums",
+              isAccent ? "text-white" : "text-[#10203B]",
             )}
-            style={{ letterSpacing: "-0.02em" }}
           >
             {stat.value.toLocaleString("en-US")}
           </span>
-          <div className="mb-1 flex flex-col items-end gap-1">
+
+          <div className="mb-1 flex flex-col items-end gap-2">
             {stat.change ? (
               <span
                 className={cn(
-                  "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium tabular-nums",
+                  "rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums",
                   isAccent
-                    ? "border-[rgba(255,255,255,0.10)] text-[var(--sidebar-foreground)]"
+                    ? "border-white/15 bg-white/10 text-white"
                     : positiveChange
-                      ? "border-[rgba(74,122,71,0.20)] text-[var(--tone-success)]"
-                      : "border-[var(--hairline)] text-muted-foreground",
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-[#D9E4F2] bg-white/70 text-[#6B7C93]",
                 )}
-                style={
-                  positiveChange && !isAccent
-                    ? { backgroundColor: "var(--tone-success-tint)" }
-                    : undefined
-                }
               >
                 {positiveChange ? "+" : ""}
                 {stat.change.label}
               </span>
             ) : null}
+
             <ArrowUpRight
               className={cn(
-                "size-3.5 opacity-0 transition-all duration-500 group-hover:opacity-100 group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
-                isAccent ? "text-[var(--accent-copper-soft)]" : "text-muted-foreground",
+                "size-3.5 opacity-0 transition-all duration-500 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100",
+                isAccent ? "text-[#BFD9F7]" : "text-[#7A94B2]",
               )}
             />
           </div>
