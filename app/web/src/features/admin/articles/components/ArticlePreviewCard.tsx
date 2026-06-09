@@ -20,21 +20,36 @@ export function ArticlePreviewCard({ article, draft }: ArticlePreviewCardProps) 
   const publishedLabel = article ? getArticleVisibility(article) : "Draft preview";
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4">
+    <div className="flex flex-col gap-5 rounded-[24px] border border-[#D7E5F4] bg-white p-6 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
       <div className="flex items-center justify-between gap-3">
         <AdminStatusBadge tone={publishedLabel === "Published" ? "success" : "neutral"}>
           {publishedLabel}
         </AdminStatusBadge>
         {article ? (
-          <span className="text-xs text-muted-foreground">{formatAdminDate(article.updatedAt)}</span>
+          <span className="text-xs text-[#6C7F95]">{formatAdminDate(article.updatedAt)}</span>
         ) : null}
       </div>
-      <div className="flex flex-col gap-2">
-        <h3 className="text-xl font-semibold tracking-tight text-foreground">{title}</h3>
-        <p className="line-clamp-6 text-sm leading-6 text-muted-foreground">{body}</p>
+      <div className="flex flex-col gap-3">
+        <h3
+          className="text-2xl font-semibold tracking-[-0.02em] text-[#10203B]"
+          style={{ textWrap: "balance" }}
+        >
+          {title}
+        </h3>
+        <p
+          className="whitespace-pre-wrap text-sm leading-7 text-[#55708D]"
+          style={{ textWrap: "pretty" }}
+        >
+          {body}
+        </p>
       </div>
       {ctaUrl ? (
-        <Button asChild type="button" variant="outline">
+        <Button
+          asChild
+          className="h-10 w-fit rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          type="button"
+          variant="outline"
+        >
           <a href={ctaUrl} rel="noreferrer" target="_blank">
             <ExternalLink data-icon="inline-start" />
             {ctaLabel}

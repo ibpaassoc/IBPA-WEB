@@ -29,7 +29,7 @@ export function ArticlesTable({
 }: ArticlesTableProps) {
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+      <div className="flex flex-col gap-3 rounded-[24px] border border-[#D7E5F4] bg-white p-4">
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton className="h-14 w-full" key={index} />
         ))}
@@ -53,9 +53,9 @@ export function ArticlesTable({
           key: "title",
           label: "Article",
           render: (article) => (
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-foreground">{article.title}</span>
-              <span className="line-clamp-1 text-xs text-muted-foreground">{article.body}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-semibold text-[#10203B]">{article.title}</span>
+              <span className="line-clamp-1 text-xs text-[#6C7F95]">{article.body}</span>
             </div>
           ),
         },
@@ -63,7 +63,9 @@ export function ArticlesTable({
           key: "status",
           label: "Status",
           render: (article) => (
-            <AdminStatusBadge tone={getArticleVisibility(article) === "Published" ? "success" : "neutral"}>
+            <AdminStatusBadge
+              tone={getArticleVisibility(article) === "Published" ? "success" : "neutral"}
+            >
               {getArticleVisibility(article)}
             </AdminStatusBadge>
           ),
@@ -71,18 +73,32 @@ export function ArticlesTable({
         {
           key: "updated",
           label: "Updated",
-          render: (article) => formatAdminDate(article.updatedAt),
+          render: (article) => (
+            <span className="text-xs text-[#6C7F95]">{formatAdminDate(article.updatedAt)}</span>
+          ),
         },
         {
           key: "actions",
           label: "Actions",
           render: (article) => (
-            <div className="flex justify-end gap-1">
-              <Button onClick={() => onEdit(article)} size="icon-sm" type="button" variant="ghost">
-                <Pencil data-icon="inline-start" />
+            <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+              <Button
+                className="size-8 rounded-full text-[#55708D] hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
+                onClick={() => onEdit(article)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Pencil className="size-3.5" />
               </Button>
-              <Button onClick={() => onDelete(article)} size="icon-sm" type="button" variant="ghost">
-                <Trash2 data-icon="inline-start" />
+              <Button
+                className="size-8 rounded-full text-[#55708D] hover:bg-[#FFF5F5] hover:text-[#B42318]"
+                onClick={() => onDelete(article)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Trash2 className="size-3.5" />
               </Button>
             </div>
           ),

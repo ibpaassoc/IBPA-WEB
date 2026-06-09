@@ -147,66 +147,67 @@ export function AdminArticlesPage() {
         actions={
           <>
             <Button
-              className="size-10 rounded-full"
+              className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
               onClick={() => void loadArticles()}
-              size="icon"
               type="button"
               variant="outline"
-              aria-label="Refresh articles"
             >
-              <RefreshCw className="size-3.5" />
+              <RefreshCw data-icon="inline-start" />
+              Refresh
             </Button>
             <Button
-              className="group h-10 gap-2 rounded-full px-5 text-sm shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-px hover:shadow-[var(--shadow-lift)]"
+              className="h-10 gap-2 rounded-2xl bg-[#1F5D8F] px-5 text-sm text-white hover:bg-[#10203B]"
               onClick={openCreate}
               type="button"
             >
-              <Plus className="size-4 transition-transform duration-300 group-hover:rotate-90" />
+              <Plus className="size-4" />
               Add article
             </Button>
           </>
         }
-        eyebrow="Editorial briefing"
-        subtitle="Every article that goes out under the IBPA mast. One canvas — write, preview, publish."
+        eyebrow="Admin workspace"
+        subtitle="Draft, edit, and publish every article that goes out under IBPA. One canvas, three steps: write, preview, publish."
         title="Articles"
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-          <div className="lg:flex-1">
-            <AdminSearch
-              onChange={setSearch}
-              placeholder="Search title, body, or CTA"
-              value={search}
-            />
+        <section className="rounded-[28px] border border-[#D7E5F4] bg-white p-4 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+            <div className="lg:flex-1">
+              <AdminSearch
+                onChange={setSearch}
+                placeholder="Search title, body, or CTA"
+                value={search}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                onValueChange={(value) => setFilter("visibility", value as ArticleVisibilityFilter)}
+                value={filters.visibility}
+              >
+                <SelectTrigger className="h-10 w-44 rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B]">
+                  <SelectValue placeholder="Visibility" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">All articles</SelectItem>
+                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="draft">Drafts</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Button
+                className="h-10 rounded-2xl px-4 text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                onClick={resetFilters}
+                type="button"
+                variant="ghost"
+              >
+                Reset
+              </Button>
+            </div>
+            <span className="hidden text-xs tabular-nums text-[#6C7F95] lg:inline">
+              {formatAdminCount(visibleArticles.length, "article")}
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              onValueChange={(value) => setFilter("visibility", value as ArticleVisibilityFilter)}
-              value={filters.visibility}
-            >
-              <SelectTrigger className="h-10 w-44 rounded-full">
-                <SelectValue placeholder="Visibility" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="all">All articles</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="draft">Drafts</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Button
-              className="h-10 rounded-full px-4"
-              onClick={resetFilters}
-              type="button"
-              variant="ghost"
-            >
-              Reset
-            </Button>
-          </div>
-          <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
-            {formatAdminCount(visibleArticles.length, "article")}
-          </span>
-        </div>
+        </section>
 
         <ArticleCardGrid
           articles={visibleArticles}
@@ -220,7 +221,7 @@ export function AdminArticlesPage() {
       <AdminSheet
         onOpenChange={(next) => (next ? null : closeSheet())}
         open={sheetOpen}
-        eyebrow={sheetMode === "create" ? "Briefing · Compose" : "Briefing · Edit"}
+        eyebrow={sheetMode === "create" ? "Compose article" : "Edit article"}
         title={sheetTitle}
         description={
           sheetMode === "create"
