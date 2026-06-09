@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { AdminEmptyState } from "../../shared/components/AdminEmptyState";
@@ -64,116 +63,154 @@ export function CertificateActionPanel({
   if (isLoading) {
     return (
       <AdminSectionCard title="Loading certificate">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-40 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
       </AdminSectionCard>
     );
   }
 
+  const isBusy = Boolean(busyAction);
+
   return (
     <AdminSectionCard title="Certificate management">
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="size-12">
-            <AvatarImage src={certificate.avatarUrl || undefined} />
-            <AvatarFallback>{initialsFromName(certificate.userName)}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-semibold text-foreground">{certificate.userName}</h3>
-            <p className="truncate text-sm text-muted-foreground">{certificate.email}</p>
+      <div className="space-y-5">
+        <div className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="size-12 border border-[#D7E5F4]">
+              <AvatarImage src={certificate.avatarUrl || undefined} />
+              <AvatarFallback className="bg-[#EEF6FF] text-sm font-semibold text-[#1F5D8F]">
+                {initialsFromName(certificate.userName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-base font-semibold text-[#10203B]">{certificate.userName}</h3>
+              <p className="truncate text-sm text-[#6C7F95]">{certificate.email}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <AdminStatusBadge tone="info">
+              {certificate.cardName || certificate.membershipCategory || "Member"}
+            </AdminStatusBadge>
+            <AdminStatusBadge tone={certificate.statusTone}>{certificate.statusLabel}</AdminStatusBadge>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <AdminStatusBadge tone="info">{certificate.cardName || certificate.membershipCategory || "Member"}</AdminStatusBadge>
-          <AdminStatusBadge tone={certificate.statusTone}>{certificate.statusLabel}</AdminStatusBadge>
-        </div>
-      </div>
 
-      <Separator />
+        <section>
+          <h3 className="mb-3 text-sm font-semibold text-[#10203B]">Certificate details</h3>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <InfoRow label="Certificate number" value={certificate.certificateNumber || "Not assigned"} />
+            <InfoRow label="Issued" value={formatAdminDate(certificate.createdAt)} />
+            <InfoRow label="Expires" value={formatAdminDate(certificate.expiresAt)} />
+          </dl>
+        </section>
 
-      <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">Certificate details</h3>
-        <dl className="grid gap-3 sm:grid-cols-2">
-          <InfoRow label="Certificate number" value={certificate.certificateNumber || "Not assigned"} />
-          <InfoRow label="Issued" value={formatAdminDate(certificate.createdAt)} />
-          <InfoRow label="Expires" value={formatAdminDate(certificate.expiresAt)} />
-        </dl>
-      </section>
-
-      <Separator />
-
-      {certificate.certificateUrl ? (
-        <div className="flex flex-wrap gap-2">
-          <Button asChild type="button" variant="outline">
-            <a href={certificate.certificateUrl} rel="noreferrer" target="_blank">
-              <FileText data-icon="inline-start" />
-              Open certificate
-            </a>
-          </Button>
-          <Button
-            disabled={Boolean(busyAction)}
-            onClick={onResendCertificate}
-            type="button"
-            variant="secondary"
-          >
-            {busyAction === "resend" ? (
-              <Loader2 className="animate-spin" data-icon="inline-start" />
-            ) : (
-              <Mail data-icon="inline-start" />
-            )}
-            Resend PDF
-          </Button>
-          <Button
-            disabled={Boolean(busyAction)}
-            onClick={onRemoveCertificate}
-            type="button"
-            variant="destructive"
-          >
-            {busyAction === "remove" ? (
-              <Loader2 className="animate-spin" data-icon="inline-start" />
-            ) : (
-              <Trash2 data-icon="inline-start" />
-            )}
-            Remove PDF
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <AdminUploadZone
-            accept=".pdf,application/pdf"
-            buttonText="Choose file"
-            endpoint="certificateUploader"
-            helperText="The uploaded file is saved only after confirmation."
-            label="Issue certificate (PDF)"
-            onError={(message) => toast.error(`Upload failed: ${message}`)}
-            onUploaded={onCertificateUploaded}
-          />
-          {pendingCertificateUrl ? (
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
-              <p className="font-medium text-foreground">Pending certificate upload</p>
-              <p className="mt-1 break-all text-muted-foreground">{pendingCertificateUrl}</p>
+        {certificate.certificateUrl ? (
+          <div className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+              Primary actions
+            </p>
+            <div className="flex flex-col gap-2">
               <Button
-                className="mt-3"
-                disabled={busyAction === "save"}
-                onClick={onSaveCertificate}
+                asChild
+                className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                type="button"
+                variant="outline"
+              >
+                <a href={certificate.certificateUrl} rel="noreferrer" target="_blank">
+                  <FileText data-icon="inline-start" />
+                  Open certificate
+                </a>
+              </Button>
+              <Button
+                className="h-10 rounded-2xl bg-[#1F5D8F] text-white hover:bg-[#10203B]"
+                disabled={isBusy}
+                onClick={onResendCertificate}
                 type="button"
               >
-                {busyAction === "save" ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
-                Confirm certificate
+                {busyAction === "resend" ? (
+                  <Loader2 className="animate-spin" data-icon="inline-start" />
+                ) : (
+                  <Mail data-icon="inline-start" />
+                )}
+                Resend PDF
               </Button>
             </div>
-          ) : null}
+          </div>
+        ) : (
+          <div className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+              Issue certificate
+            </p>
+            <AdminUploadZone
+              accept=".pdf,application/pdf"
+              buttonText="Choose file"
+              endpoint="certificateUploader"
+              helperText="The uploaded file is saved only after confirmation."
+              label="Issue certificate (PDF)"
+              onError={(message) => toast.error(`Upload failed: ${message}`)}
+              onUploaded={onCertificateUploaded}
+            />
+            {pendingCertificateUrl ? (
+              <div className="mt-3 rounded-2xl border border-[#D7E5F4] bg-white p-3 text-sm">
+                <p className="font-medium text-[#10203B]">Pending certificate upload</p>
+                <p className="mt-1 break-all text-xs text-[#6C7F95]">{pendingCertificateUrl}</p>
+                <Button
+                  className="mt-3 h-10 w-full rounded-2xl bg-[#1F5D8F] text-white hover:bg-[#10203B]"
+                  disabled={busyAction === "save"}
+                  onClick={onSaveCertificate}
+                  type="button"
+                >
+                  {busyAction === "save" ? (
+                    <Loader2 className="animate-spin" data-icon="inline-start" />
+                  ) : null}
+                  Confirm certificate
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        <div className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+            Secondary
+          </p>
+          <Button
+            asChild
+            className="h-10 w-full rounded-2xl text-[#1F5D8F] hover:bg-[#EEF6FF]"
+            type="button"
+            variant="ghost"
+          >
+            <a href={`/admin/profiles?q=${encodeURIComponent(certificate.email)}`}>
+              <ExternalLink data-icon="inline-start" />
+              View full profile
+            </a>
+          </Button>
         </div>
-      )}
 
-      <Separator />
-
-      <Button asChild type="button" variant="ghost">
-        <a href={`/admin/profiles?q=${encodeURIComponent(certificate.email)}`}>
-          <ExternalLink data-icon="inline-start" />
-          View full profile
-        </a>
-      </Button>
+        {certificate.certificateUrl ? (
+          <div className="rounded-[22px] border border-[#F2C7C7] bg-[#FFF5F5] p-4">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#B42318]">
+              Danger zone
+            </p>
+            <Button
+              className="h-10 w-full rounded-2xl"
+              disabled={isBusy}
+              onClick={onRemoveCertificate}
+              type="button"
+              variant="destructive"
+            >
+              {busyAction === "remove" ? (
+                <Loader2 className="animate-spin" data-icon="inline-start" />
+              ) : (
+                <Trash2 data-icon="inline-start" />
+              )}
+              Remove PDF
+            </Button>
+          </div>
+        ) : null}
+      </div>
     </AdminSectionCard>
   );
 }

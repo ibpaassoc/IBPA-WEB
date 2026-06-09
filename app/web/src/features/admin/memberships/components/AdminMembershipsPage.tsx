@@ -15,9 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 import { AdminFilters } from "../../shared/components/AdminFilters";
+import { AdminMetricCard } from "../../shared/components/AdminMetricCard";
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
@@ -91,14 +91,14 @@ export function AdminMembershipsPage() {
       icon: BadgeCheck,
       key: "total",
       label: "Active memberships",
-      value: stats.total.toLocaleString("en-US"),
+      value: stats.total,
     },
     {
       description: "Renewing within the next 60 days",
       icon: TimerReset,
       key: "expiring",
       label: "Expiring soon",
-      value: stats.expiringSoon.toLocaleString("en-US"),
+      value: stats.expiringSoon,
     },
     {
       description: `${stats.categories.length || 0} ${stats.categories.length === 1 ? "category" : "categories"} represented`,
@@ -122,45 +122,16 @@ export function AdminMembershipsPage() {
       title="Memberships"
     >
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {summaryCards.map((card, index) => {
-          const Icon = card.icon;
-          const isHighlight = index === 0;
-
-          return (
-            <div
-              className={cn(
-                "flex flex-col gap-3 overflow-hidden rounded-2xl border p-5 shadow-[0_1px_2px_rgba(33,70,109,0.04),0_18px_36px_-26px_rgba(33,70,109,0.4)]",
-                isHighlight
-                  ? "border-transparent bg-[radial-gradient(circle_at_85%_-10%,rgba(114,160,193,0.45),transparent_46%),linear-gradient(135deg,#10203b_0%,#21466d_55%,#2b5c99_100%)] text-white"
-                  : "border-border bg-card text-[#16243a]",
-              )}
-              key={card.key}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={cn(
-                    "text-xs font-semibold uppercase tracking-[0.16em]",
-                    isHighlight ? "text-white/65" : "text-[#5c7896]",
-                  )}
-                >
-                  {card.label}
-                </span>
-                <span
-                  className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-full",
-                    isHighlight ? "bg-white/15 text-white" : "bg-[#e9f1f8] text-[#2b5c99]",
-                  )}
-                >
-                  <Icon className="size-3.5" />
-                </span>
-              </div>
-              <span className="truncate text-2xl font-semibold tracking-tight">{card.value}</span>
-              <span className={cn("text-sm", isHighlight ? "text-white/70" : "text-muted-foreground")}>
-                {card.description}
-              </span>
-            </div>
-          );
-        })}
+        {summaryCards.map((card, index) => (
+          <AdminMetricCard
+            active={index === 0}
+            description={card.description}
+            icon={card.icon}
+            key={card.key}
+            label={card.label}
+            value={card.value}
+          />
+        ))}
       </section>
 
       <AdminFilters>
