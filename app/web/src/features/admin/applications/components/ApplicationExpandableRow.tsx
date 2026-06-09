@@ -82,8 +82,8 @@ export function ApplicationExpandableRow({
     <Collapsible.Root open={isOpen} onOpenChange={() => onToggle(record)}>
       <Collapsible.Trigger
         className={cn(
-          "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-          isOpen ? "bg-secondary/60" : "hover:bg-secondary/40",
+          "flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors",
+          isOpen ? "bg-secondary/50" : "hover:bg-secondary/30",
         )}
       >
         <ApplicantInitials name={record.applicantName} />
@@ -105,7 +105,7 @@ export function ApplicationExpandableRow({
         </span>
 
         {/* Date */}
-        <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground lg:block">
+        <span className="hidden w-24 shrink-0 text-right text-xs text-muted-foreground lg:block">
           {formatAdminDate(record.submittedAt)}
         </span>
 
@@ -118,7 +118,7 @@ export function ApplicationExpandableRow({
       </Collapsible.Trigger>
 
       <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-[collapsible-up_200ms_ease] data-[state=open]:animate-[collapsible-down_200ms_ease]">
-        <div className="border-t border-border bg-background/50 p-4">
+        <div className="border-t border-border bg-background/50 p-6">
           {isLoadingDetail ? (
             <div className="flex flex-col gap-3 py-2">
               <Skeleton className="h-6 w-48" />

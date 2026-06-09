@@ -250,11 +250,12 @@ export function AdminMembersPage() {
         ) : (
           <div className="flex flex-col divide-y divide-border">
             {/* Column headers */}
-            <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-4 px-5 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <span className="w-9 shrink-0" />
               <span className="flex-1">Member</span>
-              <span className="hidden shrink-0 sm:block w-28">Membership</span>
-              <span className="hidden shrink-0 lg:block w-56">Quick actions</span>
+              <span className="hidden shrink-0 xl:block w-24">Certificate</span>
+              <span className="hidden shrink-0 lg:block w-28">Expiry</span>
+              <span className="hidden shrink-0 sm:block w-24">Membership</span>
               <span className="w-4 shrink-0" />
             </div>
 

@@ -26,14 +26,14 @@ export function AdminSectionCard({
   return (
     <div
       className={cn(
-        "rounded-xl bg-card",
+        "rounded-2xl bg-card",
         "border border-border",
         "[box-shadow:var(--card-shadow)] transition-shadow duration-200 hover:[box-shadow:var(--card-shadow-hover)]",
         className,
       )}
     >
       {hasHeader ? (
-        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-3.5">
+        <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
           <div className="flex min-w-0 flex-col gap-0.5">
             {title ? <h2 className="text-sm font-semibold text-foreground">{title}</h2> : null}
             {description ? (
@@ -43,7 +43,7 @@ export function AdminSectionCard({
           {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
         </div>
       ) : null}
-      <div className={cn(!noPadding && "p-5", contentClassName)}>{children}</div>
+      <div className={cn(!noPadding && "p-6", contentClassName)}>{children}</div>
     </div>
   );
 }

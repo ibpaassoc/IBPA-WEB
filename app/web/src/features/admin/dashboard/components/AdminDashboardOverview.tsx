@@ -60,7 +60,7 @@ export function AdminDashboardOverview() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton className="h-28 rounded-xl" key={i} />
+              <Skeleton className="h-36 rounded-2xl" key={i} />
             ))
           : overview.stats.map((stat, i) => (
               <DashboardStatCard index={i} key={stat.key} stat={stat} />
@@ -69,16 +69,16 @@ export function AdminDashboardOverview() {
 
       {/* Charts */}
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <Skeleton className="h-[216px] rounded-xl" />
-          <Skeleton className="h-[216px] rounded-xl" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Skeleton className="h-64 rounded-2xl" />
+          <Skeleton className="h-64 rounded-2xl" />
         </div>
       ) : (
         <DashboardCharts data={overview} />
       )}
 
       {/* Bottom row: upcoming events + recent activity */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1.4fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1.4fr]">
         <AdminSectionCard
           actions={
             <a className="text-xs font-medium text-primary hover:underline" href="/admin/events">

@@ -53,9 +53,9 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
   const membershipData = buildMembershipData(data);
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <AdminSectionCard title="Payments this year">
-        <div className="h-44">
+        <div className="h-56">
           <ResponsiveContainer height="100%" width="100%">
             <AreaChart data={monthlyData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
               <defs>
@@ -93,7 +93,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
       </AdminSectionCard>
 
       <AdminSectionCard title="Membership breakdown">
-        <div className="h-44">
+        <div className="h-56">
           <ResponsiveContainer height="100%" width="100%">
             <BarChart data={membershipData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />

@@ -430,13 +430,13 @@ export function AdminApplicationsPage() {
         ) : (
           <div className="flex flex-col divide-y divide-border">
             {/* Column headers */}
-            <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-4 px-5 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <span className="w-8 shrink-0" />
               <span className="flex-1">Applicant</span>
               <span className="hidden w-28 shrink-0 sm:block">Type</span>
               <span className="hidden w-20 shrink-0 sm:block">Status</span>
-              <span className="hidden w-20 shrink-0 text-right lg:block">Submitted</span>
-              <span className="w-6 shrink-0" />
+              <span className="hidden w-24 shrink-0 text-right lg:block">Submitted</span>
+              <span className="w-4 shrink-0" />
             </div>
             {filteredApplications.map((record) => {
               const key = selectedKey(record);

@@ -68,8 +68,8 @@
   --switch-background: #b8cdd9;
   --ring: #6e9ab8;
   /* Card shadow for floating effect */
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
-  --card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --card-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0, 0, 0, 0.06);
   --sidebar: #ffffff;
   --sidebar-foreground: #111111;
   --sidebar-primary: #6e9ab8;

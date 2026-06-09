@@ -1,3 +1,4 @@
+import { CalendarDays, CreditCard, Newspaper, Users } from "lucide-react";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
@@ -8,21 +9,21 @@ type DashboardStatCardProps = {
   index: number;
 };
 
-const STAT_ICONS: Record<string, string> = {
-  members: "👥",
-  "active-events": "📅",
-  revenue: "💳",
-  articles: "📰",
+const STAT_ICONS: Record<string, React.ElementType> = {
+  members: Users,
+  "active-events": CalendarDays,
+  revenue: CreditCard,
+  articles: Newspaper,
 };
 
 export function DashboardStatCard({ index, stat }: DashboardStatCardProps) {
   const isAccent = index === 0;
-  const emoji = STAT_ICONS[stat.key];
+  const Icon = STAT_ICONS[stat.key];
 
   return (
     <Link
       className={cn(
-        "group relative flex flex-col gap-3 overflow-hidden rounded-xl border p-5",
+        "group relative flex flex-col justify-between overflow-hidden rounded-2xl border p-6",
         "[box-shadow:var(--card-shadow)] transition-all duration-200 hover:-translate-y-0.5 hover:[box-shadow:var(--card-shadow-hover)]",
         isAccent
           ? "border-primary/20 bg-primary text-white"
@@ -34,32 +35,39 @@ export function DashboardStatCard({ index, stat }: DashboardStatCardProps) {
         <span
           className={cn(
             "text-xs font-semibold uppercase tracking-wide",
-            isAccent ? "text-white/70" : "text-muted-foreground",
+            isAccent ? "text-white/60" : "text-muted-foreground",
           )}
         >
           {stat.label}
         </span>
-        {emoji ? (
+        {Icon ? (
           <span
             className={cn(
-              "flex size-7 shrink-0 items-center justify-center rounded-lg text-sm",
+              "flex size-8 shrink-0 items-center justify-center rounded-xl",
               isAccent ? "bg-white/15" : "bg-secondary",
             )}
           >
-            {emoji}
+            <Icon
+              className={cn("size-4", isAccent ? "text-white/80" : "text-primary")}
+            />
           </span>
         ) : null}
       </div>
 
-      <div className="flex items-end justify-between gap-2">
-        <span className="text-3xl font-semibold tabular-nums tracking-tight">
+      <div className="mt-4 flex items-end justify-between gap-2">
+        <span
+          className={cn(
+            "font-serif text-4xl font-medium tabular-nums leading-none",
+            isAccent ? "text-white" : "text-foreground",
+          )}
+        >
           {stat.value.toLocaleString("en-US")}
         </span>
         {stat.change ? (
           <span
             className={cn(
               "mb-0.5 text-xs font-medium",
-              isAccent ? "text-white/70" : "text-muted-foreground",
+              isAccent ? "text-white/60" : "text-muted-foreground",
             )}
           >
             {stat.change.value >= 0 ? "+" : ""}
