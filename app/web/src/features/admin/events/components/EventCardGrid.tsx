@@ -35,14 +35,30 @@ type EventCardGridProps = {
   onDelete: (event: AdminEvent) => void;
 };
 
+/** Always returns a displayable price label — "Free" when no price is set. */
+function formatEventPrice(price?: string | null): string {
+  const value = price?.trim();
+  return value ? value : "Free";
+}
+
 function EventCardSkeleton() {
   return (
-    <div className="flex gap-4 overflow-hidden rounded-[24px] border border-[#D7E5F4] bg-white p-4">
-      <Skeleton className="size-24 shrink-0 rounded-2xl" />
-      <div className="flex flex-1 flex-col gap-2">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-3 w-1/2" />
-        <Skeleton className="h-3 w-2/3" />
+    <div className="flex flex-col gap-3 overflow-hidden rounded-[24px] border border-[#D7E5F4] bg-white p-4">
+      <div className="flex gap-3">
+        <Skeleton className="size-20 shrink-0 rounded-2xl sm:size-24" />
+        <div className="flex flex-1 flex-col gap-2 pt-0.5">
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="h-3 w-3/5" />
+          <Skeleton className="h-3 w-2/5" />
+          <Skeleton className="mt-1 h-5 w-16 rounded-full" />
+        </div>
+      </div>
+      <div className="flex gap-2 border-t border-[#E4EEF8] pt-3">
+        <Skeleton className="size-7 rounded-full" />
+        <Skeleton className="size-7 rounded-full" />
+        <div className="flex-1" />
+        <Skeleton className="h-7 w-24 rounded-full" />
+        <Skeleton className="size-7 rounded-full" />
       </div>
     </div>
   );
@@ -51,14 +67,15 @@ function EventCardSkeleton() {
 function EventThumbnail({ event }: { event: AdminEvent }) {
   if (!event.coverImage) {
     return (
-      <div className="flex aspect-square size-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-28">
-        <CalendarDays className="size-7 text-[#BFD3EA]" strokeWidth={1.25} />
+      <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-24">
+        <CalendarDays className="size-6 text-[#BFD3EA]" strokeWidth={1.25} />
       </div>
     );
   }
 
   return (
-    <div className="relative aspect-square size-24 shrink-0 overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-28">
+    <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-24">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         alt=""
         className="h-full w-full object-cover"
@@ -70,7 +87,7 @@ function EventThumbnail({ event }: { event: AdminEvent }) {
   );
 }
 
-/** Icon-only publish target indicators: active = solid blue chip, inactive = muted. */
+/** Icon-only publish target indicators: filled blue = active, muted = inactive. */
 function PublishIcons({
   publishToSite,
   publishToDashboard,
@@ -82,22 +99,20 @@ function PublishIcons({
     <div className="flex items-center gap-1">
       <span
         className={cn(
-          "flex size-5 items-center justify-center rounded-full transition-colors",
+          "flex size-[18px] items-center justify-center rounded-full transition-colors",
           publishToSite ? "bg-[#1F5D8F] text-white" : "bg-[#EEF6FF] text-[#BFD3EA]",
         )}
-        title={publishToSite ? "Visible on the public site" : "Not on the public site"}
+        title={publishToSite ? "Visible on public site" : "Not on public site"}
       >
         <Globe className="size-2.5" />
       </span>
       <span
         className={cn(
-          "flex size-5 items-center justify-center rounded-full transition-colors",
+          "flex size-[18px] items-center justify-center rounded-full transition-colors",
           publishToDashboard ? "bg-[#1F5D8F] text-white" : "bg-[#EEF6FF] text-[#BFD3EA]",
         )}
         title={
-          publishToDashboard
-            ? "Visible in the member dashboard"
-            : "Not in the member dashboard"
+          publishToDashboard ? "Visible in member dashboard" : "Not in member dashboard"
         }
       >
         <LayoutDashboard className="size-2.5" />
@@ -107,8 +122,8 @@ function PublishIcons({
 }
 
 /**
- * Loads and renders registrations for one event.
- * `skip=true` until the card is first expanded — prevents fetching all events upfront.
+ * Loads registrations on first expand.
+ * `skip=true` keeps it dormant until the card is opened for the first time.
  */
 function EventRegistrationsPanel({
   eventId,
@@ -186,42 +201,50 @@ export function EventCardGrid({
       {events.map((event) => {
         const isSelected = event.id === selectedId;
         const isExpanded = event.id === expandedId;
+        const priceLabel = formatEventPrice(event.price);
+        const isFree = priceLabel === "Free";
 
         return (
-          <Collapsible.Root key={event.id} open={isExpanded}>
-            {/* Card — click body to expand/collapse registrations */}
+          // Flex column so the article fills the grid cell height and the panel
+          // attaches flush below it when expanded.
+          <Collapsible.Root key={event.id} open={isExpanded} className="flex flex-col">
+
+            {/* ── Card ─────────────────────────────────────────────────── */}
             <article
               className={cn(
-                "group flex cursor-pointer flex-col gap-3 border bg-white p-4 transition-all duration-200 ease-out",
+                "group flex flex-1 cursor-pointer flex-col border bg-white transition-all duration-200 ease-out",
                 isExpanded
                   ? "rounded-t-[24px] rounded-b-none border-b-0 shadow-none"
-                  : "rounded-[24px] shadow-[0_18px_45px_rgba(15,46,83,0.06)] hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(15,46,83,0.09)]",
-                isSelected ? "border-[#1F5D8F] ring-4 ring-[#1F5D8F]/10" : "border-[#D7E5F4]",
+                  : "rounded-[24px] shadow-[0_2px_12px_rgba(15,46,83,0.07)] hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(15,46,83,0.11)]",
+                isSelected
+                  ? "border-[#1F5D8F] ring-2 ring-[#1F5D8F]/15"
+                  : "border-[#D7E5F4]",
               )}
               onClick={() => toggleExpand(event.id)}
             >
-              <div className="flex gap-4">
+              {/* Top content — grows to push action row to bottom */}
+              <div className="flex flex-1 gap-3 p-4 pb-3">
                 <EventThumbnail event={event} />
 
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <div className="flex items-start gap-2">
-                    <h3
-                      className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-snug text-[#10203B]"
-                      style={{ textWrap: "balance" }}
-                    >
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+
+                  {/* Title + pin */}
+                  <div className="flex items-start gap-1.5">
+                    <h3 className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-snug text-[#10203B]">
                       {event.title}
                     </h3>
                     {event.isPinned ? (
                       <Pin
                         aria-label="Pinned"
-                        className="size-3.5 shrink-0 text-[#1F5D8F]"
+                        className="mt-0.5 size-3 shrink-0 text-[#1F5D8F]"
                       />
                     ) : null}
                   </div>
 
-                  <dl className="flex flex-col gap-1 text-xs text-[#6C7F95]">
+                  {/* Date + location meta */}
+                  <dl className="flex flex-col gap-1">
                     {event.eventDate ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#6C7F95]">
                         <CalendarDays className="size-3 shrink-0 text-[#8AA2BD]" />
                         <span className="truncate tabular-nums">
                           {formatAdminDate(event.eventDate)}
@@ -232,72 +255,75 @@ export function EventCardGrid({
                       </div>
                     ) : null}
                     {event.eventAddress ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#6C7F95]">
                         <MapPin className="size-3 shrink-0 text-[#8AA2BD]" />
                         <span className="truncate">{event.eventAddress}</span>
                       </div>
                     ) : null}
                   </dl>
 
-                  <div className="mt-1 flex items-center gap-2">
+                  {/* Publish icons + price pill */}
+                  <div className="mt-auto flex items-center gap-2 pt-1">
                     <PublishIcons
                       publishToDashboard={event.publishToDashboard}
                       publishToSite={event.publishToSite}
                     />
-                    {event.price ? (
-                      <span className="text-[11px] font-semibold tabular-nums text-[#1F5D8F]">
-                        {event.price}
-                      </span>
-                    ) : null}
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+                        isFree
+                          ? "border-[#E4EEF8] bg-[#F6FAFF] text-[#8AA2BD]"
+                          : "border-[#C5DAFA] bg-[#EEF6FF] text-[#1F5D8F]",
+                      )}
+                    >
+                      {priceLabel}
+                    </span>
                   </div>
+
                 </div>
               </div>
 
-              {/* Action row — stopPropagation so clicks here don't toggle expansion */}
+              {/* ── Action row ─────────────────────────────────────────── */}
               <div
-                className="flex items-center border-t border-[#E4EEF8] pt-3"
+                className="flex items-center gap-0.5 border-t border-[#E4EEF8] px-3 py-2"
                 onClick={(e) => e.stopPropagation()}
               >
+                {/* Edit */}
                 <Button
                   aria-label="Edit event"
-                  className="size-8 rounded-full text-[#1F5D8F] hover:bg-[#EEF6FF]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(event);
-                  }}
+                  className="size-8 rounded-full text-[#55708D] hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
+                  onClick={(e) => { e.stopPropagation(); onEdit(event); }}
                   size="icon"
                   type="button"
                   variant="ghost"
                 >
                   <Pencil className="size-3.5" />
                 </Button>
+
+                {/* Duplicate */}
                 <Button
                   aria-label="Duplicate event"
                   className="size-8 rounded-full text-[#55708D] hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDuplicate(event);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); onDuplicate(event); }}
                   size="icon"
                   type="button"
                   variant="ghost"
                 >
                   <Copy className="size-3.5" />
                 </Button>
+
                 <div className="flex-1" />
+
+                {/* Registrations toggle */}
                 <button
                   aria-expanded={isExpanded}
-                  aria-label={
-                    isExpanded ? "Collapse registrations" : "Show registrations"
-                  }
-                  className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-[#8AA2BD] transition-colors hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleExpand(event.id);
-                  }}
+                  aria-label={isExpanded ? "Collapse registrations" : "Show registrations"}
+                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium text-[#8AA2BD] transition-colors hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
+                  onClick={(e) => { e.stopPropagation(); toggleExpand(event.id); }}
                   type="button"
                 >
                   <Users className="size-3" />
+                  <span>Registrations</span>
                   <ChevronDown
                     className={cn(
                       "size-3 transition-transform duration-200",
@@ -305,13 +331,12 @@ export function EventCardGrid({
                     )}
                   />
                 </button>
+
+                {/* Delete */}
                 <Button
                   aria-label="Delete event"
-                  className="size-8 rounded-full text-[#55708D] hover:bg-[#FFF5F5] hover:text-[#B42318]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(event);
-                  }}
+                  className="size-8 rounded-full text-[#55708D] hover:bg-[#FFF3F3] hover:text-[#B42318]"
+                  onClick={(e) => { e.stopPropagation(); onDelete(event); }}
                   size="icon"
                   type="button"
                   variant="ghost"
@@ -321,12 +346,13 @@ export function EventCardGrid({
               </div>
             </article>
 
-            {/* Registrations panel — expands below the card with smooth animation */}
+            {/* ── Registrations panel ───────────────────────────────────── */}
             <Collapsible.Content className="overflow-hidden rounded-b-[24px] border border-t-0 border-[#D7E5F4] bg-white data-[state=closed]:animate-[collapsible-up_200ms_ease] data-[state=open]:animate-[collapsible-down_220ms_ease]">
-              <div className="p-4">
+              <div className="p-4 pt-3">
                 <EventRegistrationsPanel eventId={event.id} skip={!isExpanded} />
               </div>
             </Collapsible.Content>
+
           </Collapsible.Root>
         );
       })}
