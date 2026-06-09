@@ -2,12 +2,12 @@ import { cn } from "@/lib/utils";
 import type { AdminStatusTone } from "../types/admin.types";
 
 const toneClasses: Record<AdminStatusTone, string> = {
-  accent: "border-primary/20 bg-primary/10 text-primary",
-  danger: "border-destructive/20 bg-destructive/10 text-destructive",
-  info: "border-primary/20 bg-primary/10 text-primary",
-  neutral: "border-border bg-muted text-muted-foreground",
-  success: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700",
-  warning: "border-amber-500/20 bg-amber-500/10 text-amber-700",
+  accent: "border-[#B9D4F0] bg-[#EEF6FF] text-[#1F5D8F]",
+  danger: "border-[#F2C7C7] bg-[#FFF5F5] text-[#B42318]",
+  info: "border-[#B9D4F0] bg-[#EEF6FF] text-[#1F5D8F]",
+  neutral: "border-[#D7E5F4] bg-[#F6FAFF] text-[#315F8A]",
+  success: "border-[#BFE6D4] bg-[#F2FBF7] text-[#197A52]",
+  warning: "border-[#D7E5F4] bg-[#F8FBFF] text-[#55708D]",
 };
 
 type AdminStatusBadgeProps = {
@@ -24,7 +24,7 @@ export function AdminStatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm",
         toneClasses[tone],
         className,
       )}

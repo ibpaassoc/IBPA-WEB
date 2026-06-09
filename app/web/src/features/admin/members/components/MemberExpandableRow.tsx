@@ -1,7 +1,7 @@
 "use client";
 
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { Award, ChevronRight, ShieldCheck, User } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,12 +29,6 @@ type Props = {
   onRemoveCertificate: () => void;
 };
 
-const TAB_BUTTONS: { tab: MemberTab; icon: React.ElementType; label: string }[] = [
-  { icon: User, label: "Profile", tab: "profile" },
-  { icon: ShieldCheck, label: "Membership", tab: "membership" },
-  { icon: Award, label: "Certificate", tab: "certificate" },
-];
-
 export function MemberExpandableRow({
   activeTab,
   busyAction,
@@ -52,82 +46,73 @@ export function MemberExpandableRow({
   selectedCategory,
 }: Props) {
   return (
-    // Controlled externally — no Collapsible.Trigger needed
-    <Collapsible.Root open={isOpen}>
-      {/* Row — plain div so tab buttons aren't nested inside a button */}
+    <Collapsible.Root
+      className={cn(
+        "overflow-hidden border-b border-[#D7E5F4] bg-white transition-colors",
+        isOpen && "bg-[#F6FAFF]",
+      )}
+      open={isOpen}
+    >
       <div
         className={cn(
-          "flex w-full items-center gap-4 px-5 py-3.5 transition-colors",
-          isOpen ? "bg-secondary/50" : "hover:bg-secondary/30",
+          "grid min-h-[68px] grid-cols-[minmax(0,1fr)_150px_110px_150px_44px] items-center gap-4 px-5 transition-colors",
+          isOpen ? "bg-[#F4F9FF]" : "hover:bg-[#F8FBFF]",
         )}
       >
-        {/* Clickable left area: avatar + name/email */}
         <button
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 text-left"
+          className="flex min-w-0 items-center gap-4 text-left"
           onClick={() => onToggle(member)}
           type="button"
         >
-          <Avatar className="size-9 shrink-0">
+          <Avatar className="size-10 shrink-0 border border-[#D6E3F2] shadow-sm">
             <AvatarImage src={member.avatarUrl || undefined} />
-            <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+            <AvatarFallback className="bg-[#EEF6FF] text-xs font-semibold text-[#1F5D8F]">
               {initialsFromName(member.userName)}
             </AvatarFallback>
           </Avatar>
+
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">{member.userName}</p>
-            <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+            <p className="truncate text-sm font-semibold text-[#10203B]">
+              {member.userName}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-[#6C7F95]">{member.email}</p>
           </div>
         </button>
 
-        {/* Membership badge */}
-        <span className="hidden shrink-0 sm:block">
-          <AdminStatusBadge tone="neutral">
-            {member.membershipCategory || "Uncategorized"}
+        <div className="hidden justify-start md:flex">
+          <AdminStatusBadge tone={member.hasCertificate ? "success" : "neutral"}>
+            {member.hasCertificate ? "Issued" : "Not issued"}
           </AdminStatusBadge>
-        </span>
-
-        {/* Tab quick-jump buttons — standalone, outside any trigger */}
-        <div className="hidden shrink-0 items-center gap-1 lg:flex">
-          {TAB_BUTTONS.map(({ icon: Icon, label, tab }) => (
-            <button
-              className={cn(
-                "flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                isOpen && activeTab === tab
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:border-primary/20 hover:text-foreground",
-              )}
-              key={tab}
-              onClick={() => onToggle(member, tab)}
-              type="button"
-            >
-              <Icon className="size-3 shrink-0" />
-              {label}
-            </button>
-          ))}
         </div>
 
-        {/* Chevron toggle */}
+        <p className="hidden truncate text-xs font-medium text-[#6C7F95] md:block">
+          {member.expiryLabel}
+        </p>
+
+        <div className="hidden justify-start lg:flex">
+          <AdminStatusBadge tone="neutral">
+            {member.cardName || member.membershipCategory || "Uncategorized"}
+          </AdminStatusBadge>
+        </div>
+
         <button
-          className="ml-1 cursor-pointer rounded p-0.5"
+          className="flex size-9 items-center justify-center rounded-full border border-[#D7E5F4] bg-white text-[#55708D] shadow-sm transition hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
           onClick={() => onToggle(member)}
           type="button"
         >
           <ChevronRight
-            className={cn(
-              "size-4 text-muted-foreground transition-transform duration-200",
-              isOpen && "rotate-90",
-            )}
+            className={cn("size-4 transition-transform duration-200", isOpen && "rotate-90")}
           />
         </button>
       </div>
 
-      <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-[collapsible-up_200ms_ease] data-[state=open]:animate-[collapsible-down_200ms_ease]">
-        <div className="border-t border-border bg-background/50 p-6">
+      <Collapsible.Content className="overflow-hidden data-[state=closed]:animate-[collapsible-up_200ms_ease] data-[state=open]:animate-[collapsible-down_220ms_ease]">
+        <div className="border-t border-[#D7E5F4] bg-[#F6FAFF] p-5">
           {isLoadingDetail ? (
-            <div className="flex flex-col gap-3 py-2">
+            <div className="rounded-[28px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
               <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-16 w-full" />
+              <Skeleton className="mt-4 h-24 w-full" />
+              <Skeleton className="mt-3 h-16 w-full" />
             </div>
           ) : (
             <MemberExpandedPanel

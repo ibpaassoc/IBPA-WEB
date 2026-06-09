@@ -25,9 +25,11 @@ import type { AdminMemberRecord } from "../types/members-admin.types";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-muted/30 p-3">
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-sm text-foreground">{value}</dd>
+    <div className="rounded-[18px] border border-[#DCE7F5] bg-[#F8FBFF] p-4">
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6C7F95]">
+        {label}
+      </dt>
+      <dd className="mt-1.5 break-words text-sm font-medium text-[#10203B]">{value}</dd>
     </div>
   );
 }
