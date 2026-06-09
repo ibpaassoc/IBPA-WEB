@@ -1,7 +1,6 @@
 "use client";
 
 import { CalendarDays, Copy, MapPin, Pencil, Pin, Trash2 } from "lucide-react";
-import { motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,8 +25,8 @@ function EventCardSkeleton({ feature }: { feature?: boolean }) {
   return (
     <div
       className={cn(
-        "card-vellum flex flex-col overflow-hidden",
-        feature ? "md:col-span-2 md:row-span-2" : "",
+        "flex flex-col overflow-hidden rounded-[24px] border border-[#D7E5F4] bg-white",
+        feature && "md:col-span-2 md:row-span-2",
       )}
     >
       <Skeleton className="aspect-[16/10] w-full rounded-none" />
@@ -76,26 +75,18 @@ export function EventCardGrid({
         const isFeature = index === 0;
 
         return (
-          <motion.article
-            key={event.id}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              delay: Math.min(0.04 + index * 0.045, 0.5),
-              duration: 0.5,
-              ease: [0.16, 1, 0.3, 1],
-            }}
+          <article
             className={cn(
-              "group card-premium relative flex cursor-pointer flex-col overflow-hidden",
-              isSelected && "ring-2 ring-[var(--accent-copper)]",
+              "group relative flex cursor-pointer flex-col overflow-hidden rounded-[24px] border bg-white shadow-[0_18px_45px_rgba(15,46,83,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(15,46,83,0.09)]",
+              isSelected ? "border-[#1F5D8F] ring-4 ring-[#1F5D8F]/10" : "border-[#D7E5F4]",
               isFeature && "md:col-span-2 md:row-span-2",
             )}
+            key={event.id}
             onClick={() => onOpen(event)}
           >
-            {/* Cover */}
             <div
               className={cn(
-                "relative overflow-hidden bg-[var(--mist)]",
+                "relative overflow-hidden bg-[#EEF6FF]",
                 isFeature ? "aspect-[16/10]" : "aspect-[16/11]",
               )}
             >
@@ -103,71 +94,50 @@ export function EventCardGrid({
                 <>
                   <img
                     alt={event.title}
-                    className="h-full w-full object-cover transition-transform duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
+                    className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
                     loading="lazy"
                     src={event.coverImage}
                   />
                   <div
                     aria-hidden
-                    className="absolute inset-0 bg-gradient-to-t from-[rgba(20,14,8,0.45)] via-transparent to-transparent opacity-90"
+                    className="absolute inset-0 bg-gradient-to-t from-[rgba(15,46,83,0.45)] via-transparent to-transparent"
                   />
                 </>
               ) : (
-                <div
-                  className="flex h-full w-full items-center justify-center"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(80% 60% at 50% 40%, rgba(185,122,62,0.10), transparent 70%)",
-                  }}
-                >
-                  <CalendarDays className="size-10 text-foreground/20" strokeWidth={1} />
+                <div className="flex h-full w-full items-center justify-center">
+                  <CalendarDays className="size-10 text-[#BFD3EA]" strokeWidth={1.25} />
                 </div>
               )}
 
-              {/* Glass badges */}
               <div className="absolute left-4 top-4 flex flex-wrap gap-1.5">
-                <span
-                  className={cn(
-                    "glass inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-medium tracking-tight",
-                    visibility === "Published"
-                      ? "text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  <span
-                    className="size-1.5 rounded-full"
-                    style={{
-                      backgroundColor:
-                        visibility === "Published" ? "var(--tone-success)" : "var(--muted-foreground)",
-                    }}
-                  />
+                <AdminStatusBadge tone={visibility === "Published" ? "success" : "neutral"}>
                   {visibility}
-                </span>
+                </AdminStatusBadge>
                 {event.isPinned ? (
-                  <span className="glass inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-medium text-foreground">
+                  <AdminStatusBadge tone="info">
                     <Pin className="size-2.5" />
                     Pinned
-                  </span>
+                  </AdminStatusBadge>
                 ) : null}
               </div>
 
-              {/* Date pill bottom-left for visual interest on feature */}
               {isFeature && event.eventDate ? (
                 <div className="absolute bottom-4 left-4 flex flex-col gap-0.5">
-                  <span className="editorial-eyebrow text-[11px] text-white/85">Save the date</span>
-                  <span className="font-serif text-xl font-medium text-white drop-shadow-sm">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/80">
+                    Save the date
+                  </span>
+                  <span className="text-xl font-semibold tracking-[-0.02em] text-white">
                     {formatAdminDate(event.eventDate)}
                   </span>
                 </div>
               ) : null}
             </div>
 
-            {/* Content */}
             <div className="flex flex-1 flex-col gap-3 p-6">
               <h3
                 className={cn(
-                  "line-clamp-2 font-serif font-medium leading-snug text-foreground",
-                  isFeature ? "text-2xl tracking-tight" : "text-lg",
+                  "line-clamp-2 font-semibold leading-snug tracking-[-0.01em] text-[#10203B]",
+                  isFeature ? "text-xl" : "text-base",
                 )}
                 style={{ textWrap: "balance" }}
               >
@@ -176,14 +146,14 @@ export function EventCardGrid({
 
               <div className="flex flex-col gap-1.5">
                 {!isFeature && event.eventDate ? (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CalendarDays className="size-3.5 shrink-0" />
+                  <div className="flex items-center gap-2 text-xs text-[#6C7F95]">
+                    <CalendarDays className="size-3.5 shrink-0 text-[#8AA2BD]" />
                     <span className="tabular-nums">{formatAdminDate(event.eventDate)}</span>
                   </div>
                 ) : null}
                 {event.eventAddress ? (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <MapPin className="size-3.5 shrink-0" />
+                  <div className="flex items-center gap-2 text-xs text-[#6C7F95]">
+                    <MapPin className="size-3.5 shrink-0 text-[#8AA2BD]" />
                     <span className="truncate">{event.eventAddress}</span>
                   </div>
                 ) : null}
@@ -192,11 +162,11 @@ export function EventCardGrid({
               <div className="flex-1" />
 
               <div
-                className="-mb-1 flex items-center gap-1 border-t border-[var(--hairline)] pt-3"
+                className="-mb-1 flex items-center gap-1 border-t border-[#E4EEF8] pt-3"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Button
-                  className="h-8 gap-1.5 rounded-full px-2.5 text-xs"
+                  className="h-8 gap-1.5 rounded-full px-3 text-xs text-[#1F5D8F] hover:bg-[#EEF6FF]"
                   onClick={() => onOpen(event)}
                   type="button"
                   variant="ghost"
@@ -205,7 +175,7 @@ export function EventCardGrid({
                   Edit
                 </Button>
                 <Button
-                  className="h-8 gap-1.5 rounded-full px-2.5 text-xs"
+                  className="h-8 gap-1.5 rounded-full px-3 text-xs text-[#55708D] hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
                   onClick={() => onDuplicate(event)}
                   type="button"
                   variant="ghost"
@@ -215,7 +185,7 @@ export function EventCardGrid({
                 </Button>
                 <div className="flex-1" />
                 <Button
-                  className="size-8 rounded-full text-muted-foreground hover:bg-[var(--tone-warning-tint)] hover:text-destructive"
+                  className="size-8 rounded-full text-[#55708D] hover:bg-[#FFF5F5] hover:text-[#B42318]"
                   onClick={() => onDelete(event)}
                   size="icon"
                   type="button"
@@ -225,7 +195,7 @@ export function EventCardGrid({
                 </Button>
               </div>
             </div>
-          </motion.article>
+          </article>
         );
       })}
     </div>

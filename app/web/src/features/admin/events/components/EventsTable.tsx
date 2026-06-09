@@ -31,7 +31,7 @@ export function EventsTable({
 }: EventsTableProps) {
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+      <div className="flex flex-col gap-3 rounded-[24px] border border-[#D7E5F4] bg-white p-4">
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton className="h-14 w-full" key={index} />
         ))}
@@ -55,22 +55,28 @@ export function EventsTable({
           key: "event",
           label: "Event",
           render: (event) => (
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-foreground">{event.title}</span>
-              <span className="text-xs text-muted-foreground">{event.eventAddress || "Location not set"}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-semibold text-[#10203B]">{event.title}</span>
+              <span className="text-xs text-[#6C7F95]">
+                {event.eventAddress || "Location not set"}
+              </span>
             </div>
           ),
         },
         {
           key: "date",
           label: "Date",
-          render: (event) => formatAdminDate(event.eventDate),
+          render: (event) => (
+            <span className="text-xs text-[#6C7F95]">{formatAdminDate(event.eventDate)}</span>
+          ),
         },
         {
           key: "status",
           label: "Status",
           render: (event) => (
-            <AdminStatusBadge tone={getEventVisibility(event) === "Published" ? "success" : "neutral"}>
+            <AdminStatusBadge
+              tone={getEventVisibility(event) === "Published" ? "success" : "neutral"}
+            >
               {getEventVisibility(event)}
             </AdminStatusBadge>
           ),
@@ -79,15 +85,33 @@ export function EventsTable({
           key: "actions",
           label: "Actions",
           render: (event) => (
-            <div className="flex justify-end gap-1">
-              <Button onClick={() => onOpen(event)} size="icon-sm" type="button" variant="ghost">
-                <Pencil data-icon="inline-start" />
+            <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+              <Button
+                className="size-8 rounded-full text-[#55708D] hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
+                onClick={() => onOpen(event)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Pencil className="size-3.5" />
               </Button>
-              <Button onClick={() => onDuplicate(event)} size="icon-sm" type="button" variant="ghost">
-                <Copy data-icon="inline-start" />
+              <Button
+                className="size-8 rounded-full text-[#55708D] hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
+                onClick={() => onDuplicate(event)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Copy className="size-3.5" />
               </Button>
-              <Button onClick={() => onDelete(event)} size="icon-sm" type="button" variant="ghost">
-                <Trash2 data-icon="inline-start" />
+              <Button
+                className="size-8 rounded-full text-[#55708D] hover:bg-[#FFF5F5] hover:text-[#B42318]"
+                onClick={() => onDelete(event)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Trash2 className="size-3.5" />
               </Button>
             </div>
           ),

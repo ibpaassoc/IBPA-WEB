@@ -210,7 +210,7 @@ export function AdminEventsPage() {
 
   const sheetOpen = sheetMode !== "closed";
   const sheetTitle = sheetMode === "create" ? "New event" : selectedEvent?.title || "Edit event";
-  const sheetEyebrow = sheetMode === "create" ? "Atelier · Compose" : "Atelier · Edit";
+  const sheetEyebrow = sheetMode === "create" ? "Compose event" : "Edit event";
 
   return (
     <>
@@ -218,67 +218,67 @@ export function AdminEventsPage() {
         actions={
           <>
             <Button
-              className="size-10 rounded-full"
+              className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
               onClick={() => void loadEvents()}
-              size="icon"
               type="button"
               variant="outline"
-              aria-label="Refresh events"
             >
-              <RefreshCw className="size-3.5" />
+              <RefreshCw data-icon="inline-start" />
+              Refresh
             </Button>
             <Button
-              className="group h-10 gap-2 rounded-full px-5 text-sm shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-px hover:shadow-[var(--shadow-lift)]"
+              className="h-10 gap-2 rounded-2xl bg-[#1F5D8F] px-5 text-sm text-white hover:bg-[#10203B]"
               onClick={openCreate}
               type="button"
             >
-              <Plus className="size-4 transition-transform duration-300 group-hover:rotate-90" />
+              <Plus className="size-4" />
               Add event
             </Button>
           </>
         }
-        eyebrow="Editorial calendar"
-        subtitle="A curated grid of every IBPA gathering. Click any card to edit details, registrations, and publishing in one focused sheet."
+        eyebrow="Admin workspace"
+        subtitle="Schedule, edit, and review every IBPA event. Open any card to manage details, registrations, and publishing."
         title="Events"
       >
-        {/* Inline toolbar (no big card) */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-          <div className="lg:flex-1">
-            <AdminSearch
-              onChange={setSearch}
-              placeholder="Search by title, location, or detail"
-              value={search}
-            />
+        <section className="rounded-[28px] border border-[#D7E5F4] bg-white p-4 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+            <div className="lg:flex-1">
+              <AdminSearch
+                onChange={setSearch}
+                placeholder="Search by title, location, or detail"
+                value={search}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                onValueChange={(value) => setFilter("visibility", value as EventVisibilityFilter)}
+                value={filters.visibility}
+              >
+                <SelectTrigger className="h-10 w-44 rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B]">
+                  <SelectValue placeholder="Visibility" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">All events</SelectItem>
+                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="draft">Drafts</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Button
+                className="h-10 rounded-2xl px-4 text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                onClick={resetFilters}
+                type="button"
+                variant="ghost"
+              >
+                Reset
+              </Button>
+            </div>
+            <span className="hidden text-xs tabular-nums text-[#6C7F95] lg:inline">
+              {formatAdminCount(visibleEvents.length, "event")}
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              onValueChange={(value) => setFilter("visibility", value as EventVisibilityFilter)}
-              value={filters.visibility}
-            >
-              <SelectTrigger className="h-10 w-44 rounded-full">
-                <SelectValue placeholder="Visibility" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="all">All events</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="draft">Drafts</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Button
-              className="h-10 rounded-full px-4"
-              onClick={resetFilters}
-              type="button"
-              variant="ghost"
-            >
-              Reset
-            </Button>
-          </div>
-          <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
-            {formatAdminCount(visibleEvents.length, "event")}
-          </span>
-        </div>
+        </section>
 
         {/* The grid */}
         <EventCardGrid
@@ -332,11 +332,14 @@ export function AdminEventsPage() {
 
           <TabsContent value="registrations" className="m-0">
             <AdminSectionCard
-              variant="vellum"
-              eyebrow="Atelier · Attendees"
               title="Registrations"
               actions={
-                <Button onClick={exportRegistrations} type="button" variant="outline">
+                <Button
+                  className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                  onClick={exportRegistrations}
+                  type="button"
+                  variant="outline"
+                >
                   <Download data-icon="inline-start" />
                   Export
                 </Button>
@@ -357,7 +360,7 @@ export function AdminEventsPage() {
                     }
                     value={registrationStatus}
                   >
-                    <SelectTrigger className="h-10 w-full rounded-full lg:w-48">
+                    <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B] lg:w-48">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>

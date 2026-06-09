@@ -188,14 +188,24 @@ export function EventEditorForm({
       </FieldGroup>
 
       <div className="flex flex-wrap gap-2">
-        <Button disabled={isSaving} type="submit">
+        <Button
+          className="h-10 rounded-2xl bg-[#1F5D8F] px-5 text-white hover:bg-[#10203B]"
+          disabled={isSaving}
+          type="submit"
+        >
           {isSaving ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
           {form.id ? "Update event" : "Add event"}
         </Button>
-        <Button onClick={onReset} type="button" variant="outline">
+        <Button
+          className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={onReset}
+          type="button"
+          variant="outline"
+        >
           New event
         </Button>
         <Button
+          className="h-10 rounded-2xl px-4 text-[#1F5D8F] hover:bg-[#EEF6FF]"
           onClick={() => patch({ publishToDashboard: false, publishToSite: false })}
           type="button"
           variant="ghost"
