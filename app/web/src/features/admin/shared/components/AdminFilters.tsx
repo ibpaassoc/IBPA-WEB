@@ -11,7 +11,7 @@ export function AdminFilters({ children, className }: AdminFiltersProps) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 [box-shadow:var(--card-shadow)] lg:flex-row lg:items-center",
+        "flex flex-col gap-3 rounded-[28px] border border-[#D7E5F4] bg-white p-4 shadow-[0_18px_45px_rgba(15,46,83,0.06)] lg:flex-row lg:items-center",
         className,
       )}
     >
