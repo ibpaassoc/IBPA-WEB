@@ -7,32 +7,48 @@ type AdminHeaderProps = {
   actions?: ReactNode;
 };
 
-/**
- * Asymmetric page header. Editorial italic eyebrow + display title on the left,
- * primary actions floated right. Generous breathing room.
- */
-export function AdminHeader({ actions, eyebrow, subtitle, title }: AdminHeaderProps) {
+export function AdminHeader({
+  actions,
+  eyebrow,
+  subtitle,
+  title,
+}: AdminHeaderProps) {
   return (
-    <div className="admin-rise flex flex-col gap-6 pb-2 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
-      <div className="flex min-w-0 flex-col gap-2">
-        {eyebrow ? (
-          <span className="editorial-eyebrow text-sm tracking-tight">{eyebrow}</span>
-        ) : null}
-        <h1
-          className="font-serif text-[2.6rem] font-medium leading-[1.02] tracking-[-0.02em] text-foreground lg:text-[3.4rem]"
-          style={{ textWrap: "balance" }}
-        >
-          {title}
-        </h1>
-        {subtitle ? (
-          <p className="max-w-[58ch] text-sm leading-relaxed text-muted-foreground lg:text-[0.95rem]">
-            {subtitle}
-          </p>
+    <section className="relative overflow-hidden rounded-[34px] border border-white/70 bg-white/78 p-6 shadow-[0_24px_70px_rgba(15,35,70,0.10)] backdrop-blur-2xl lg:p-8">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-80"
+        style={{
+          background:
+            "radial-gradient(circle at 8% 0%, rgba(33,70,109,0.14), transparent 34%), radial-gradient(circle at 92% 12%, rgba(138,162,189,0.16), transparent 30%)",
+        }}
+      />
+
+      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          {eyebrow ? (
+            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#8AA2BD]">
+              {eyebrow}
+            </p>
+          ) : null}
+
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.045em] text-[#10203B] lg:text-5xl">
+            {title}
+          </h1>
+
+          {subtitle ? (
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#6B7C93] lg:text-[15px]">
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
+
+        {actions ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2.5">
+            {actions}
+          </div>
         ) : null}
       </div>
-      {actions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2.5">{actions}</div>
-      ) : null}
-    </div>
+    </section>
   );
 }

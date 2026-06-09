@@ -13,21 +13,20 @@ type AdminSheetProps = {
   eyebrow?: string;
   description?: string;
   actions?: ReactNode;
+  leftRail?: ReactNode;
+  rightRail?: ReactNode;
+  sideRail?: ReactNode;
   children: ReactNode;
   className?: string;
   size?: "md" | "lg" | "xl";
 };
 
 const sizeMap = {
-  md: "max-w-xl",
-  lg: "max-w-3xl",
-  xl: "max-w-5xl",
+  md: "max-w-3xl",
+  lg: "max-w-6xl",
+  xl: "max-w-[min(1680px,calc(100vw-1rem))]",
 };
 
-/**
- * Right-side sliding sheet used for record details / forms.
- * Premium glass scrim + paper sheet, motion respects reduced-motion.
- */
 export function AdminSheet({
   open,
   onOpenChange,
@@ -35,65 +34,98 @@ export function AdminSheet({
   eyebrow,
   description,
   actions,
+  leftRail,
+  rightRail,
+  sideRail,
   children,
   className,
-  size = "lg",
+  size = "xl",
 }: AdminSheetProps) {
+  const resolvedLeftRail = leftRail ?? sideRail;
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
-          className={cn(
-            "fixed inset-0 z-50 bg-[rgba(20,14,8,0.45)] backdrop-blur-[6px]",
-            "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
-            "data-[state=open]:animate-in data-[state=open]:fade-in-0",
-            "data-[state=open]:duration-300 data-[state=closed]:duration-200",
-          )}
-        />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[#10203B]/18 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:duration-200 data-[state=closed]:duration-150" />
+
         <DialogPrimitive.Content
           className={cn(
-            "fixed right-0 top-0 z-50 flex h-dvh w-full flex-col bg-[var(--vellum)]",
-            "border-l border-[var(--hairline-strong)] shadow-[var(--shadow-deep)]",
-            "data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right",
-            "data-[state=open]:animate-in data-[state=open]:slide-in-from-right",
-            "data-[state=open]:duration-400 data-[state=closed]:duration-250",
+            "fixed right-2 top-2 z-50 flex h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-[32px]",
+            "border border-white/70 bg-[#F4F7FB] shadow-[0_34px_120px_rgba(15,35,70,0.24)]",
+            "will-change-transform data-[state=open]:animate-in data-[state=open]:slide-in-from-right-8 data-[state=open]:fade-in-0",
+            "data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-8 data-[state=closed]:fade-out-0",
+            "data-[state=open]:duration-300 data-[state=closed]:duration-200",
             sizeMap[size],
             className,
           )}
         >
-          {/* Sticky header */}
-          <div className="glass sticky top-0 z-10 flex shrink-0 items-start justify-between gap-4 border-x-0 border-t-0 border-b border-[var(--hairline)] px-8 py-5">
-            <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex shrink-0 items-start justify-between gap-5 border-b border-[#D9E4F2] bg-white/90 px-7 py-5">
+            <div className="min-w-0">
               {eyebrow ? (
-                <span className="editorial-eyebrow text-xs">{eyebrow}</span>
+                <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#8AA2BD]">
+                  {eyebrow}
+                </p>
               ) : null}
+
               {title ? (
-                <DialogPrimitive.Title className="font-serif text-2xl font-medium tracking-tight text-foreground">
+                <DialogPrimitive.Title className="mt-1 truncate text-2xl font-semibold tracking-[-0.03em] text-[#10203B]">
                   {title}
                 </DialogPrimitive.Title>
               ) : null}
+
               {description ? (
-                <DialogPrimitive.Description className="max-w-prose text-sm text-muted-foreground">
+                <DialogPrimitive.Description className="mt-1 truncate text-sm text-[#6B7C93]">
                   {description}
                 </DialogPrimitive.Description>
               ) : null}
             </div>
+
             <div className="flex shrink-0 items-center gap-2">
               {actions}
+
               <DialogPrimitive.Close
-                className={cn(
-                  "flex size-9 items-center justify-center rounded-full border border-[var(--hairline)] bg-white/70",
-                  "text-muted-foreground transition-all hover:rotate-90 hover:border-[var(--hairline-strong)] hover:text-foreground",
-                )}
                 aria-label="Close"
+                className="flex size-10 items-center justify-center rounded-full border border-[#D9E4F2] bg-white text-[#6B7C93] shadow-sm transition-all hover:border-[#BDD0E8] hover:text-[#10203B]"
               >
                 <X className="size-4" />
               </DialogPrimitive.Close>
             </div>
           </div>
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto px-8 py-8">{children}</div>
+          <div
+            className={cn(
+              "grid min-h-0 flex-1",
+              resolvedLeftRail && rightRail
+                ? "lg:grid-cols-[520px_minmax(0,1fr)_320px]"
+                : resolvedLeftRail
+                  ? "lg:grid-cols-[520px_minmax(0,1fr)]"
+                  : rightRail
+                    ? "lg:grid-cols-[minmax(0,1fr)_320px]"
+                    : "grid-cols-1",
+            )}
+          >
+            {resolvedLeftRail ? (
+              <aside className="no-scrollbar min-h-0 overflow-y-auto border-r border-[#D9E4F2] bg-white/48 p-5">
+                <div className="will-change-transform animate-[adminColumnIn_260ms_cubic-bezier(0.16,1,0.3,1)_60ms_both]">
+                  {resolvedLeftRail}
+                </div>
+              </aside>
+            ) : null}
+
+            <main className="no-scrollbar min-h-0 overflow-y-auto px-6 py-6">
+              <div className="will-change-transform animate-[adminContentIn_280ms_cubic-bezier(0.16,1,0.3,1)_90ms_both]">
+                {children}
+              </div>
+            </main>
+
+            {rightRail ? (
+              <aside className="no-scrollbar min-h-0 overflow-y-auto border-l border-[#D9E4F2] bg-white/48 p-5">
+                <div className="will-change-transform animate-[adminColumnIn_260ms_cubic-bezier(0.16,1,0.3,1)_120ms_both]">
+                  {rightRail}
+                </div>
+              </aside>
+            ) : null}
+          </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

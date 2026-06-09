@@ -191,3 +191,36 @@
   .card-premium { transition: none; }
   .card-premium:hover { transform: none; }
 }
+
+@keyframes adminColumnIn {
+  from {
+    opacity: 0;
+    transform: translate3d(14px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes adminContentIn {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
