@@ -22,45 +22,34 @@ function toTimestamp(value?: string | null) {
 
 function buildStats(
   memberTotal: number,
-  partnerActive: number,
-  pendingApplications: number,
   upcomingEventsCount: number,
+  publishedArticlesCount: number,
+  paidThisMonth: number,
 ): AdminOverviewStat[] {
   return [
     {
       key: "members",
       label: "Total members",
       value: memberTotal,
-      href: "/admin/profiles",
-      description: "Active member profiles",
+      href: "/admin/members",
     },
     {
-      key: "partners",
-      label: "Total partners",
-      value: partnerActive,
-      href: "/admin/applications?applicantType=partner",
-      description: "Approved partner accounts",
-    },
-    {
-      key: "active-memberships",
-      label: "Active memberships",
-      value: memberTotal + partnerActive,
-      href: "/admin/memberships",
-      description: "Members and partners combined",
-    },
-    {
-      key: "pending-applications",
-      label: "Pending applications",
-      value: pendingApplications,
-      href: "/admin/applications",
-      description: "Awaiting review or decision",
-    },
-    {
-      key: "upcoming-events",
-      label: "Upcoming events",
+      key: "active-events",
+      label: "Active events",
       value: upcomingEventsCount,
       href: "/admin/events",
-      description: "Scheduled and published",
+    },
+    {
+      key: "revenue",
+      label: "Revenue this month",
+      value: paidThisMonth,
+      href: "/admin/payments",
+    },
+    {
+      key: "articles",
+      label: "Published articles",
+      value: publishedArticlesCount,
+      href: "/admin/articles",
     },
   ];
 }
@@ -224,15 +213,19 @@ export async function getAdminOverview(): Promise<AdminOverviewData> {
   const contentItems =
     contentResult.status === "fulfilled" && contentResult.value ? contentResult.value : { items: [] };
 
-  const partnerActive = partnerSummary?.approved ?? 0;
-  const pendingApplications =
-    (memberSummary ? memberSummary.pending + memberSummary.review : 0) +
-    (partnerSummary ? partnerSummary.pending + partnerSummary.submitted : 0);
-
   const upcomingEvents = buildUpcomingEvents(contentItems);
 
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const paidThisMonth = memberOrders.filter(
+    (o) => o.status === "paid" && new Date(o.createdAt ?? "") >= startOfMonth,
+  ).length;
+
+  const publishedArticlesCount =
+    contentItems.items?.filter((i) => i.type === "news" && (i.publishToSite || i.publishToDashboard)).length ?? 0;
+
   return {
-    stats: buildStats(memberTotal, partnerActive, pendingApplications, upcomingEvents.length),
+    stats: buildStats(memberTotal, upcomingEvents.length, publishedArticlesCount, paidThisMonth),
     upcomingEvents,
     recentPayments: buildRecentPayments(memberOrders, partnerApplications),
     recentActivity: buildRecentActivity(memberOrders, partnerApplications, contentItems),

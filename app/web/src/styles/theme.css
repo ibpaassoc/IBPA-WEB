@@ -42,40 +42,47 @@
 }
 
 /**
- * IBPA Admin theme — premium blue surface, scoped to the admin workspace only.
- * Built from the brand's existing blue palette (member dashboard, public site)
- * so the admin feels like part of the same platform rather than a generic SaaS shell.
+ * IBPA Admin theme — light gray canvas with steel-blue primary.
+ * White cards float on #f3f3f3, Raleway for body, Cormorant Garamond for page titles.
  */
 .admin-theme {
-  --background: #f4f9ff;
-  --foreground: #16243a;
+  --background: #f3f3f3;
+  --foreground: #111111;
   --card: #ffffff;
-  --card-foreground: #16243a;
+  --card-foreground: #111111;
   --popover: #ffffff;
-  --popover-foreground: #16243a;
-  --primary: #21466d;
+  --popover-foreground: #111111;
+  --primary: #6e9ab8;
   --primary-foreground: #ffffff;
-  --secondary: #e9f1f8;
-  --secondary-foreground: #21466d;
-  --muted: #eef4fa;
-  --muted-foreground: #5c7896;
-  --accent: #dce7f4;
-  --accent-foreground: #1a3157;
+  --secondary: #eaf1f6;
+  --secondary-foreground: #2c4a60;
+  --muted: #e8e8e8;
+  --muted-foreground: #6b7280;
+  --accent: #daeaf4;
+  --accent-foreground: #1e3d55;
   --destructive: #d4183d;
   --destructive-foreground: #ffffff;
-  --border: #dce7f4;
-  --input: #ffffff;
-  --input-background: #f4f9ff;
-  --switch-background: #c7d7e8;
-  --ring: #2b5c99;
-  --sidebar: #fbfdff;
-  --sidebar-foreground: #21466d;
-  --sidebar-primary: #21466d;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: transparent;
+  --input-background: #ffffff;
+  --switch-background: #b8cdd9;
+  --ring: #6e9ab8;
+  /* Card shadow for floating effect */
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #6e9ab8;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e9f1f8;
-  --sidebar-accent-foreground: #1a3157;
-  --sidebar-border: #dce7f4;
-  --sidebar-ring: #2b5c99;
+  --sidebar-accent: #f0f5f9;
+  --sidebar-accent-foreground: #2c4a60;
+  --sidebar-border: rgba(0, 0, 0, 0.06);
+  --sidebar-ring: #6e9ab8;
+}
+
+/* Raleway body font scoped to admin workspace */
+.admin-theme {
+  font-family: var(--font-raleway), var(--font-sans), sans-serif;
 }
 
 .dark {

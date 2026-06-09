@@ -1,12 +1,5 @@
 import type { ReactNode } from "react";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type AdminSectionCardProps = {
@@ -16,6 +9,7 @@ type AdminSectionCardProps = {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  noPadding?: boolean;
 };
 
 export function AdminSectionCard({
@@ -24,27 +18,32 @@ export function AdminSectionCard({
   className,
   contentClassName,
   description,
+  noPadding,
   title,
 }: AdminSectionCardProps) {
+  const hasHeader = title || description || actions;
+
   return (
-    <Card
+    <div
       className={cn(
-        "border-border/80 bg-card shadow-[0_1px_2px_rgba(33,70,109,0.04),0_18px_40px_-28px_rgba(33,70,109,0.35)]",
+        "rounded-xl bg-card",
+        "border border-border",
+        "[box-shadow:var(--card-shadow)] transition-shadow duration-200 hover:[box-shadow:var(--card-shadow-hover)]",
         className,
       )}
     >
-      {title || description || actions ? (
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-1.5">
-            {title ? <CardTitle>{title}</CardTitle> : null}
-            {description ? <CardDescription>{description}</CardDescription> : null}
+      {hasHeader ? (
+        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-3.5">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            {title ? <h2 className="text-sm font-semibold text-foreground">{title}</h2> : null}
+            {description ? (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            ) : null}
           </div>
-          {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
-        </CardHeader>
+          {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+        </div>
       ) : null}
-      <CardContent className={cn("flex flex-col gap-4", contentClassName)}>
-        {children}
-      </CardContent>
-    </Card>
+      <div className={cn(!noPadding && "p-5", contentClassName)}>{children}</div>
+    </div>
   );
 }

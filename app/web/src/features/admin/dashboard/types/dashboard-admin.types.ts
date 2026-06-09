@@ -5,7 +5,7 @@ export type AdminOverviewStat = {
   label: string;
   value: number;
   href: string;
-  description: string;
+  change?: { value: number; label: string } | null;
 };
 
 export type AdminOverviewEvent = {
@@ -14,6 +14,7 @@ export type AdminOverviewEvent = {
   dateLabel: string;
   location: string;
   href: string;
+  registrationCount?: number;
 };
 
 export type AdminOverviewPayment = {

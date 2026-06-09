@@ -7,15 +7,22 @@ import {
   LayoutDashboard,
   Mail,
   Newspaper,
-  UserCog,
   UserRound,
+  Users,
   type LucideIcon,
 } from "lucide-react";
+
+export type AdminNavChild = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
 
 export type AdminNavLink = {
   href: string;
   label: string;
   icon: LucideIcon;
+  children?: AdminNavChild[];
 };
 
 export type AdminNavGroup = {
@@ -28,17 +35,24 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
-    label: "Membership",
+    items: [{ href: "/admin/applications", label: "Applications", icon: ClipboardList }],
+  },
+  {
     items: [
-      { href: "/admin/applications", label: "Applications", icon: ClipboardList },
-      { href: "/admin/profiles", label: "Profiles", icon: UserRound },
-      { href: "/admin/users", label: "Users", icon: UserCog },
-      { href: "/admin/memberships", label: "Memberships", icon: BadgeCheck },
-      { href: "/admin/certificates", label: "Certificates", icon: Award },
+      {
+        href: "/admin/members",
+        label: "Members",
+        icon: Users,
+        children: [
+          { href: "/admin/members", label: "Profiles", icon: UserRound },
+          { href: "/admin/members?view=memberships", label: "Memberships", icon: BadgeCheck },
+          { href: "/admin/members?view=certificates", label: "Certificates", icon: Award },
+        ],
+      },
     ],
   },
   {
-    label: "Engagement",
+    label: "Content",
     items: [
       { href: "/admin/events", label: "Events", icon: CalendarDays },
       { href: "/admin/articles", label: "Articles", icon: Newspaper },
@@ -46,17 +60,20 @@ export const adminNavGroups: AdminNavGroup[] = [
     ],
   },
   {
-    label: "Finance",
-    items: [{ href: "/admin/payments", label: "Payments", icon: CreditCard }],
+    items: [{ href: "/admin/payments", label: "Finance", icon: CreditCard }],
   },
 ];
 
 export const adminNavLinks: AdminNavLink[] = adminNavGroups.flatMap((group) => group.items);
 
 export function isAdminLinkActive(pathname: string, href: string) {
-  if (href === "/admin") {
+  const cleanHref = href.split("?")[0];
+  if (cleanHref === "/admin") {
     return pathname === "/admin";
   }
+  return pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
+}
 
-  return pathname === href || pathname.startsWith(`${href}/`);
+export function isMembersActive(pathname: string) {
+  return pathname === "/admin/members" || pathname.startsWith("/admin/members/");
 }

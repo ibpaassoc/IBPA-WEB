@@ -21,30 +21,30 @@ export function AdminShell({ children }: AdminShellProps) {
       <AdminMobileNav onClose={() => setIsMobileNavOpen(false)} open={isMobileNavOpen} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-[linear-gradient(180deg,#fbfdff_0%,rgba(244,249,255,0.85)_100%)] px-4 backdrop-blur-xl lg:px-6">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-white/80 px-4 backdrop-blur-xl lg:px-5">
           <button
             aria-label="Open navigation menu"
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-primary lg:hidden"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:hidden"
             onClick={() => setIsMobileNavOpen(true)}
             type="button"
           >
             <Menu className="size-4" />
           </button>
 
-          <div className="min-w-0 max-w-md flex-1">
+          <div className="min-w-0 max-w-sm flex-1">
             <AdminGlobalSearch />
           </div>
 
-          <div className="shrink-0 lg:hidden">
+          <div className="ml-auto shrink-0">
             <UserButton
               appearance={{
-                elements: { userButtonAvatarBox: "size-9 border border-border shadow-sm" },
+                elements: { userButtonAvatarBox: "size-8" },
               }}
             />
           </div>
         </header>
 
-        <div className="flex-1 bg-[linear-gradient(180deg,#f4f9ff_0%,#f8fbff_420px,#f8fbff_100%)]">{children}</div>
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   );

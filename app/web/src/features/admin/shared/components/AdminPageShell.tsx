@@ -4,28 +4,19 @@ import { AdminHeader } from "./AdminHeader";
 
 type AdminPageShellProps = {
   title: string;
-  description?: string;
   actions?: ReactNode;
   children: ReactNode;
+  /** @deprecated – description removed from header. Prop accepted to avoid breaking other pages during migration. */
+  description?: string;
+  /** @deprecated – sync time removed from header. Prop accepted to avoid breaking other pages during migration. */
   lastSyncedAt?: string | null;
 };
 
-export function AdminPageShell({
-  actions,
-  children,
-  description,
-  lastSyncedAt,
-  title,
-}: AdminPageShellProps) {
+export function AdminPageShell({ actions, children, title }: AdminPageShellProps) {
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 lg:px-6 lg:py-8">
-      <AdminHeader
-        actions={actions}
-        description={description}
-        lastSyncedAt={lastSyncedAt}
-        title={title}
-      />
+    <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-5 px-5 py-6 lg:px-8 lg:py-7">
+      <AdminHeader actions={actions} title={title} />
       {children}
-    </main>
+    </div>
   );
 }
