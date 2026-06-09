@@ -1,7 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-
 import { mailingTemplates } from "../server/mailing.service";
 import type { MailingTemplate } from "../types/mailing.types";
 
@@ -13,14 +11,14 @@ export function MailingTemplateSelector({ onSelect }: MailingTemplateSelectorPro
   return (
     <div className="flex flex-wrap gap-2">
       {mailingTemplates.map((template) => (
-        <Button
+        <button
+          className="rounded-full border border-[#D7E5F4] bg-white px-4 py-1.5 text-xs font-medium text-[#1F5D8F] transition-colors hover:border-[#BFD3EA] hover:bg-[#EEF6FF]"
           key={template.id}
           onClick={() => onSelect(template)}
           type="button"
-          variant="outline"
         >
           {template.name}
-        </Button>
+        </button>
       ))}
     </div>
   );

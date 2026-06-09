@@ -79,7 +79,12 @@ export function MailingEditor({
       </FieldGroup>
 
       <div className="flex flex-wrap gap-2">
-        <Button disabled={isSending || recipientCount === 0} onClick={onSend} type="button">
+        <Button
+          className="h-10 rounded-2xl bg-[#1F5D8F] px-5 text-white hover:bg-[#10203B]"
+          disabled={isSending || recipientCount === 0}
+          onClick={onSend}
+          type="button"
+        >
           {isSending ? (
             <Loader2 className="animate-spin" data-icon="inline-start" />
           ) : (
@@ -87,7 +92,12 @@ export function MailingEditor({
           )}
           Send email
         </Button>
-        <Button onClick={onSaveDraft} type="button" variant="outline">
+        <Button
+          className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={onSaveDraft}
+          type="button"
+          variant="outline"
+        >
           <Save data-icon="inline-start" />
           Save draft
         </Button>

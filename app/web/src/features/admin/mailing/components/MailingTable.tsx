@@ -29,7 +29,7 @@ export function MailingTable({
 }: MailingTableProps) {
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+      <div className="flex flex-col gap-3 rounded-[24px] border border-[#D7E5F4] bg-white p-4">
         <Skeleton className="h-14 w-full" />
         <Skeleton className="h-14 w-full" />
       </div>
@@ -52,26 +52,36 @@ export function MailingTable({
           key: "subject",
           label: "Subject",
           render: (email) => (
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-foreground">{email.subject}</span>
-              <span className="text-xs text-muted-foreground">{email.sender || "IBPA Support"}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-semibold text-[#10203B]">{email.subject}</span>
+              <span className="text-xs text-[#6C7F95]">{email.sender || "IBPA Support"}</span>
             </div>
           ),
         },
         {
           key: "recipients",
           label: "Recipients",
-          render: (email) => getEmailLogRecipientCount(email),
+          render: (email) => (
+            <span className="text-sm tabular-nums text-[#10203B]">
+              {getEmailLogRecipientCount(email)}
+            </span>
+          ),
         },
         {
           key: "created",
           label: "Created",
-          render: (email) => formatAdminDateTime(email.createdAt),
+          render: (email) => (
+            <span className="text-xs text-[#6C7F95]">{formatAdminDateTime(email.createdAt)}</span>
+          ),
         },
         {
           key: "sent",
           label: "Sent",
-          render: (email) => formatAdminDateTime(email.sentAt || email.createdAt),
+          render: (email) => (
+            <span className="text-xs text-[#6C7F95]">
+              {formatAdminDateTime(email.sentAt || email.createdAt)}
+            </span>
+          ),
         },
         {
           key: "status",
@@ -85,15 +95,16 @@ export function MailingTable({
           label: "Actions",
           render: (email) => (
             <Button
+              className="size-8 rounded-full text-[#55708D] hover:bg-[#FFF5F5] hover:text-[#B42318]"
               onClick={(event) => {
                 event.stopPropagation();
                 onDelete(email);
               }}
-              size="icon-sm"
+              size="icon"
               type="button"
               variant="ghost"
             >
-              <Trash2 data-icon="inline-start" />
+              <Trash2 className="size-3.5" />
             </Button>
           ),
         },

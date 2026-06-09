@@ -12,7 +12,6 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -42,6 +41,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+import { AdminMetricCard } from "../../shared/components/AdminMetricCard";
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSheet } from "../../shared/components/AdminSheet";
@@ -59,10 +59,10 @@ import {
   emptyApplicationStatusEmails,
   getEmailLogRecipientCount,
   mailingTemplates,
+  normalizeRecipients,
   parseCustomEmails,
   renderEmailHtml,
   resolveAudienceEmails,
-  normalizeRecipients,
 } from "../server/mailing.service";
 import type {
   ApplicationAudienceStatus,
@@ -81,9 +81,9 @@ type DetailMode = "closed" | "detail";
 export function AdminMailingPage() {
   const [draft, setDraft] = useState<MailingDraft>(emptyMailingDraft);
   const [recipients, setRecipients] = useState<ReturnType<typeof normalizeRecipients>>([]);
-  const [applicationStatusEmails, setApplicationStatusEmails] = useState<Record<ApplicationAudienceStatus, string[]>>(
-    emptyApplicationStatusEmails,
-  );
+  const [applicationStatusEmails, setApplicationStatusEmails] = useState<
+    Record<ApplicationAudienceStatus, string[]>
+  >(emptyApplicationStatusEmails);
   const [eventRegistrantEmails, setEventRegistrantEmails] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [history, setHistory] = useState<EmailLog[]>([]);
@@ -96,7 +96,8 @@ export function AdminMailingPage() {
   const [detailMode, setDetailMode] = useState<DetailMode>("closed");
 
   const membershipTypes = useMemo(
-    () => Array.from(new Set(recipients.map((recipient) => recipient.cardName).filter(Boolean))).sort(),
+    () =>
+      Array.from(new Set(recipients.map((recipient) => recipient.cardName).filter(Boolean))).sort(),
     [recipients],
   );
 
@@ -193,10 +194,7 @@ export function AdminMailingPage() {
     void loadMailing();
   }, []);
 
-  const openCompose = () => {
-    setComposeMode("compose");
-  };
-
+  const openCompose = () => setComposeMode("compose");
   const closeCompose = () => setComposeMode("closed");
 
   const openDetail = (email: EmailLog) => {
@@ -271,173 +269,161 @@ export function AdminMailingPage() {
 
   const patch = (next: Partial<MailingDraft>) => setDraft((current) => ({ ...current, ...next }));
 
+  const draftSummary = draft.subject || draft.body
+    ? draft.subject || "Unnamed draft"
+    : "Nothing in progress";
+
   return (
     <>
       <AdminPageShell
         actions={
           <>
             <Button
-              className="size-10 rounded-full"
+              className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
               onClick={() => void loadMailing()}
-              size="icon"
               type="button"
               variant="outline"
-              aria-label="Refresh mailing"
             >
-              <RefreshCw className="size-3.5" />
+              <RefreshCw data-icon="inline-start" />
+              Refresh
             </Button>
             <Button
-              className="group h-10 gap-2 rounded-full px-5 text-sm shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-px hover:shadow-[var(--shadow-lift)]"
+              className="h-10 gap-2 rounded-2xl bg-[#1F5D8F] px-5 text-sm text-white hover:bg-[#10203B]"
               onClick={openCompose}
               type="button"
             >
-              <Plus className="size-4 transition-transform duration-300 group-hover:rotate-90" />
+              <Plus className="size-4" />
               New campaign
             </Button>
           </>
         }
-        eyebrow="Editorial dispatch"
-        subtitle="Every campaign IBPA sends, kept as its own card. Click any campaign to inspect what went out. Compose a new one from the top right."
+        eyebrow="Admin workspace"
+        subtitle="Send and review every IBPA campaign. Open a card to inspect a sent campaign. Compose a new one from the top right."
         title="Mailing"
       >
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="card-vellum flex items-end justify-between gap-3 px-5 py-4">
-            <div className="flex flex-col gap-1">
-              <span className="editorial-eyebrow text-[11px]">Campaigns sent</span>
-              <span className="font-serif text-3xl font-medium tabular-nums tracking-tight text-foreground">
-                {history.length.toLocaleString("en-US")}
-              </span>
-            </div>
-            <Mail className="size-5 text-foreground/30" strokeWidth={1.25} />
-          </div>
-          <div className="card-vellum flex items-end justify-between gap-3 px-5 py-4">
-            <div className="flex flex-col gap-1">
-              <span className="editorial-eyebrow text-[11px]">Members on file</span>
-              <span className="font-serif text-3xl font-medium tabular-nums tracking-tight text-foreground">
-                {recipients.length.toLocaleString("en-US")}
-              </span>
-            </div>
-            <Users className="size-5 text-foreground/30" strokeWidth={1.25} />
-          </div>
-          <div className="card-vellum flex items-end justify-between gap-3 px-5 py-4">
-            <div className="flex flex-col gap-1">
-              <span className="editorial-eyebrow text-[11px]">Draft in browser</span>
-              <span
-                className={cn(
-                  "font-serif text-xl font-medium tracking-tight text-foreground",
-                  !draft.subject && !draft.body && "text-muted-foreground",
-                )}
-              >
-                {draft.subject || draft.body ? draft.subject || "Unnamed draft" : "Nothing in progress"}
-              </span>
-            </div>
+          <AdminMetricCard
+            active
+            description="Total campaigns delivered"
+            icon={Mail}
+            label="Campaigns sent"
+            value={history.length}
+          />
+          <AdminMetricCard
+            description="Members eligible to receive campaigns"
+            icon={Users}
+            label="Members on file"
+            value={recipients.length}
+          />
+          <div className="flex flex-col gap-3 rounded-[28px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+              Draft in browser
+            </span>
+            <p
+              className={cn(
+                "truncate text-lg font-semibold tracking-[-0.01em]",
+                draft.subject || draft.body ? "text-[#10203B]" : "text-[#8AA2BD]",
+              )}
+            >
+              {draftSummary}
+            </p>
             {draft.subject || draft.body ? (
               <Button
-                className="h-8 gap-1.5 rounded-full px-3 text-xs"
+                className="mt-auto h-9 w-fit rounded-2xl border-[#D7E5F4] bg-white px-3 text-xs text-[#1F5D8F] hover:bg-[#EEF6FF]"
                 onClick={openCompose}
                 type="button"
                 variant="outline"
               >
-                <PenLine className="size-3" />
+                <PenLine className="size-3" data-icon="inline-start" />
                 Continue
               </Button>
             ) : null}
           </div>
         </div>
 
-        <div className="flex items-center gap-4 pt-2">
-          <span className="editorial-eyebrow text-sm">Recently sent</span>
-          <span className="h-px flex-1 bg-[var(--hairline)]" />
-          <div className="w-64">
-            <AdminSearch
-              onChange={setHistorySearch}
-              placeholder="Search subject…"
-              value={historySearch}
-            />
+        <section className="rounded-[28px] border border-[#D7E5F4] bg-white p-4 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="lg:flex-1">
+              <AdminSearch
+                onChange={setHistorySearch}
+                placeholder="Search by subject, sender, or body"
+                value={historySearch}
+              />
+            </div>
+            <span className="hidden text-xs tabular-nums text-[#6C7F95] lg:inline">
+              {filteredHistory.length.toLocaleString("en-US")} campaign
+              {filteredHistory.length === 1 ? "" : "s"}
+            </span>
           </div>
-        </div>
+        </section>
 
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton className="h-44 rounded-3xl" key={i} style={{ backgroundColor: "var(--mist)" }} />
+              <Skeleton className="h-44 rounded-[24px] bg-white" key={i} />
             ))}
           </div>
         ) : filteredHistory.length === 0 ? (
-          <div className="card-vellum px-8 py-16 text-center">
-            <p className="font-serif text-xl tracking-tight text-foreground">
+          <div className="rounded-[28px] border border-[#D7E5F4] bg-white px-8 py-16 text-center shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+            <p className="text-xl font-semibold tracking-[-0.02em] text-[#10203B]">
               {history.length === 0 ? "No campaigns yet" : "Nothing matches your search"}
             </p>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-[#6C7F95]">
               {history.length === 0
-                ? "When you send a campaign, it will appear here as its own card."
+                ? "When you send a campaign it will appear here as its own card."
                 : "Try another keyword from a subject or sender."}
             </p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filteredHistory.map((email, index) => (
-              <motion.button
+            {filteredHistory.map((email) => (
+              <button
+                className="group flex flex-col gap-4 rounded-[24px] border border-[#D7E5F4] bg-white p-6 text-left shadow-[0_18px_45px_rgba(15,46,83,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#BFD3EA] hover:shadow-[0_22px_60px_rgba(15,46,83,0.09)]"
                 key={email.id}
-                type="button"
                 onClick={() => openDetail(email)}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  delay: Math.min(0.04 + index * 0.04, 0.4),
-                  duration: 0.45,
-                  ease: [0.16, 1, 0.3, 1],
-                }}
-                className="card-premium group flex flex-col gap-4 p-6 text-left"
+                type="button"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="editorial-eyebrow text-[11px]">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
                     {formatAdminDate(email.sentAt || email.createdAt)}
                   </span>
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium"
-                    style={{
-                      backgroundColor: "var(--tone-success-tint)",
-                      borderColor: "rgba(74,122,71,0.20)",
-                      color: "var(--tone-success)",
-                    }}
-                  >
-                    <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--tone-success)" }} />
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BFE6D4] bg-[#F2FBF7] px-2.5 py-1 text-[11px] font-semibold text-[#197A52]">
+                    <span className="size-1.5 rounded-full bg-[#197A52]" />
                     {(email.status || "sent").toString()}
                   </span>
                 </div>
 
                 <h3
-                  className="line-clamp-2 font-serif text-xl font-medium leading-snug text-foreground"
+                  className="line-clamp-2 text-lg font-semibold leading-snug tracking-[-0.01em] text-[#10203B]"
                   style={{ textWrap: "balance" }}
                 >
                   {email.subject || "Untitled campaign"}
                 </h3>
 
                 {email.content ? (
-                  <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+                  <p className="line-clamp-3 text-sm leading-relaxed text-[#55708D]">
                     {email.content.replace(/<[^>]+>/g, " ").trim()}
                   </p>
                 ) : null}
 
-                <div className="mt-auto flex items-center justify-between border-t border-[var(--hairline)] pt-3 text-xs text-muted-foreground">
+                <div className="mt-auto flex items-center justify-between border-t border-[#E4EEF8] pt-3 text-xs text-[#6C7F95]">
                   <span className="tabular-nums">
-                    <span className="font-medium text-foreground">
+                    <span className="font-semibold text-[#10203B]">
                       {getEmailLogRecipientCount(email)}
                     </span>{" "}
                     recipients
                   </span>
                   <span
-                    className="inline-flex cursor-pointer items-center gap-1 text-foreground"
+                    className="inline-flex size-7 cursor-pointer items-center justify-center rounded-full text-[#55708D] transition-colors hover:bg-[#FFF5F5] hover:text-[#B42318]"
                     onClick={(event) => {
                       event.stopPropagation();
                       void handleDeleteHistory(email);
                     }}
                   >
-                    <Trash2 className="size-3.5 text-muted-foreground transition-colors hover:text-destructive" />
+                    <Trash2 className="size-3.5" />
                   </span>
                 </div>
-              </motion.button>
+              </button>
             ))}
           </div>
         )}
@@ -445,15 +431,9 @@ export function AdminMailingPage() {
 
       {/* Compose sheet */}
       <AdminSheet
-        onOpenChange={(next) => (next ? null : closeCompose())}
-        open={composeMode === "compose"}
-        eyebrow="Dispatch · Compose"
-        title="New campaign"
-        description="Pick recipients, write the email, preview, then send. Drafts save to this browser."
-        size="xl"
         actions={
           <Button
-            className="group h-10 gap-2 rounded-full px-5 text-sm"
+            className="h-10 gap-2 rounded-2xl bg-[#1F5D8F] px-5 text-sm text-white hover:bg-[#10203B]"
             disabled={isSending || finalEmails.length === 0}
             onClick={() => void handleSend()}
             type="button"
@@ -461,18 +441,24 @@ export function AdminMailingPage() {
             {isSending ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Send className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              <Send className="size-4" />
             )}
             Send to {finalEmails.length}
           </Button>
         }
+        description="Pick recipients, write the email, preview, then send. Drafts save to this browser."
+        eyebrow="Compose campaign"
+        onOpenChange={(next) => (next ? null : closeCompose())}
+        open={composeMode === "compose"}
+        size="xl"
+        title="New campaign"
       >
-        <Tabs defaultValue="recipients" className="flex flex-col gap-6">
+        <Tabs className="flex flex-col gap-6" defaultValue="recipients">
           <TabsList className="self-start">
             <TabsTrigger value="recipients">
               Recipients
               {finalEmails.length > 0 ? (
-                <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-foreground px-1.5 text-[10px] font-medium text-[var(--primary-foreground)]">
+                <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#1F5D8F] px-1.5 text-[10px] font-semibold text-white">
                   {finalEmails.length}
                 </span>
               ) : null}
@@ -481,17 +467,15 @@ export function AdminMailingPage() {
             <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="recipients" className="m-0">
-            <div className="flex flex-col gap-7">
-              {/* Primary: member picker */}
-              <section className="flex flex-col gap-3">
-                <header className="flex items-center justify-between">
-                  <div className="flex min-w-0 flex-col">
-                    <span className="editorial-eyebrow text-xs">Primary</span>
-                    <h3 className="font-serif text-xl font-medium tracking-tight text-foreground">
+          <TabsContent className="m-0" value="recipients">
+            <div className="flex flex-col gap-6">
+              <section className="rounded-[24px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+                <header className="mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold tracking-[-0.01em] text-[#10203B]">
                       Choose members
                     </h3>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="mt-1 text-xs text-[#6C7F95]">
                       Click a member card to include them. Picked members override the bulk audience.
                     </p>
                   </div>
@@ -503,19 +487,20 @@ export function AdminMailingPage() {
                 />
               </section>
 
-              {/* Secondary: bulk audiences (fall back when nothing picked) */}
               <section
                 className={cn(
-                  "flex flex-col gap-3 rounded-2xl border border-dashed border-[var(--hairline)] p-5",
-                  useMemberPicker && "opacity-50",
+                  "rounded-[24px] border border-dashed border-[#CFE0F3] bg-[#F8FBFF] p-5 transition-opacity",
+                  useMemberPicker && "opacity-60",
                 )}
               >
-                <header className="flex flex-col">
-                  <span className="editorial-eyebrow text-xs">Alternate · Bulk audience</span>
-                  <h3 className="font-serif text-lg font-medium tracking-tight text-foreground">
+                <header className="mb-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+                    Alternate: bulk audience
+                  </p>
+                  <h3 className="mt-1 text-base font-semibold tracking-[-0.01em] text-[#10203B]">
                     Or send to a group
                   </h3>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-[#6C7F95]">
                     Used only when no members are picked above.
                   </p>
                 </header>
@@ -526,7 +511,7 @@ export function AdminMailingPage() {
                     }
                     value={draft.audienceKind}
                   >
-                    <SelectTrigger className="h-10 rounded-full">
+                    <SelectTrigger className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#10203B]">
                       <SelectValue placeholder="Audience" />
                     </SelectTrigger>
                     <SelectContent>
@@ -535,9 +520,9 @@ export function AdminMailingPage() {
                         <SelectItem value="members">Members</SelectItem>
                         <SelectItem value="partners">Partners</SelectItem>
                         <SelectItem value="event_registrants">Event registrants</SelectItem>
-                        <SelectItem value="application_pending">Applications · pending</SelectItem>
-                        <SelectItem value="application_approved">Applications · approved</SelectItem>
-                        <SelectItem value="application_rejected">Applications · rejected</SelectItem>
+                        <SelectItem value="application_pending">Applications: pending</SelectItem>
+                        <SelectItem value="application_approved">Applications: approved</SelectItem>
+                        <SelectItem value="application_rejected">Applications: rejected</SelectItem>
                         <SelectItem value="membership_category">By membership category</SelectItem>
                         <SelectItem value="membership_type">By membership type</SelectItem>
                         <SelectItem value="custom">Custom emails</SelectItem>
@@ -550,18 +535,19 @@ export function AdminMailingPage() {
                       onValueChange={(value) => patch({ audienceValue: value })}
                       value={draft.audienceValue}
                     >
-                      <SelectTrigger className="h-10 rounded-full">
+                      <SelectTrigger className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#10203B]">
                         <SelectValue placeholder="Choose membership" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          {(draft.audienceKind === "membership_type" ? membershipTypes : categories).map(
-                            (item) => (
-                              <SelectItem key={item} value={item}>
-                                {item}
-                              </SelectItem>
-                            ),
-                          )}
+                          {(draft.audienceKind === "membership_type"
+                            ? membershipTypes
+                            : categories
+                          ).map((item) => (
+                            <SelectItem key={item} value={item}>
+                              {item}
+                            </SelectItem>
+                          ))}
                         </SelectGroup>
                       </SelectContent>
                     </Select>
@@ -569,6 +555,7 @@ export function AdminMailingPage() {
                 </div>
                 {draft.audienceKind === "custom" ? (
                   <Textarea
+                    className="mt-3 rounded-2xl border-[#D7E5F4] bg-white text-sm text-[#10203B]"
                     onChange={(event) => patch({ customEmails: event.target.value })}
                     placeholder="Paste emails separated by commas, spaces, or new lines"
                     rows={4}
@@ -576,9 +563,9 @@ export function AdminMailingPage() {
                   />
                 ) : null}
                 {!useMemberPicker ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="mt-3 text-xs text-[#6C7F95]">
                     Resolves to{" "}
-                    <span className="font-medium text-foreground tabular-nums">
+                    <span className="font-semibold tabular-nums text-[#10203B]">
                       {resolvedAudienceEmails.length}
                     </span>{" "}
                     recipient{resolvedAudienceEmails.length === 1 ? "" : "s"}.
@@ -588,14 +575,16 @@ export function AdminMailingPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="compose" className="m-0">
+          <TabsContent className="m-0" value="compose">
             <div className="flex flex-col gap-6">
-              <section className="flex flex-col gap-2">
-                <span className="editorial-eyebrow text-xs">Start from a template</span>
+              <section className="rounded-[24px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+                  Start from a template
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {mailingTemplates.map((template) => (
                     <button
-                      className="rounded-full border border-[var(--hairline)] bg-white px-3.5 py-1.5 text-xs font-medium text-foreground transition-all hover:-translate-y-px hover:border-[var(--hairline-strong)] hover:shadow-[var(--shadow-soft)]"
+                      className="rounded-full border border-[#D7E5F4] bg-white px-4 py-1.5 text-xs font-medium text-[#1F5D8F] transition-colors hover:border-[#BFD3EA] hover:bg-[#EEF6FF]"
                       key={template.id}
                       onClick={() => patch({ body: template.body, subject: template.subject })}
                       type="button"
@@ -610,6 +599,7 @@ export function AdminMailingPage() {
                 <Field>
                   <FieldLabel htmlFor="mailing-subject">Subject</FieldLabel>
                   <Input
+                    className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-sm text-[#10203B]"
                     id="mailing-subject"
                     onChange={(event) => patch({ subject: event.target.value })}
                     placeholder="Important IBPA update"
@@ -619,6 +609,7 @@ export function AdminMailingPage() {
                 <Field>
                   <FieldLabel htmlFor="mailing-body">Email body</FieldLabel>
                   <Textarea
+                    className="rounded-2xl border-[#D7E5F4] bg-white text-sm leading-7 text-[#10203B]"
                     id="mailing-body"
                     onChange={(event) => patch({ body: event.target.value })}
                     placeholder="Write the campaign body..."
@@ -630,18 +621,28 @@ export function AdminMailingPage() {
               </FieldGroup>
 
               <div className="flex flex-wrap gap-2">
-                <Button onClick={saveDraft} type="button" variant="outline">
+                <Button
+                  className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                  onClick={saveDraft}
+                  type="button"
+                  variant="outline"
+                >
                   <Save data-icon="inline-start" />
                   Save draft
                 </Button>
-                <Button onClick={resetDraft} type="button" variant="ghost">
+                <Button
+                  className="h-10 rounded-2xl px-4 text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                  onClick={resetDraft}
+                  type="button"
+                  variant="ghost"
+                >
                   Clear
                 </Button>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="preview" className="m-0">
+          <TabsContent className="m-0" value="preview">
             <MailingPreview draft={draft} recipientCount={finalEmails.length} />
           </TabsContent>
         </Tabs>
@@ -649,59 +650,61 @@ export function AdminMailingPage() {
 
       {/* Detail sheet for a sent campaign */}
       <AdminSheet
-        onOpenChange={(next) => (next ? null : closeDetail())}
-        open={detailMode === "detail" && !!selectedEmail}
-        eyebrow="Dispatch · Sent"
-        title={selectedEmail?.subject ?? "Campaign"}
         description={
           selectedEmail
             ? `Sent ${formatAdminDateTime(selectedEmail.sentAt || selectedEmail.createdAt)} · ${getEmailLogRecipientCount(selectedEmail)} recipients`
             : undefined
         }
+        eyebrow="Sent campaign"
+        onOpenChange={(next) => (next ? null : closeDetail())}
+        open={detailMode === "detail" && !!selectedEmail}
         size="lg"
+        title={selectedEmail?.subject ?? "Campaign"}
       >
         {selectedEmail ? (
           <div className="flex flex-col gap-6">
-            <section className="card-vellum p-6">
-              <div className="flex flex-col gap-3 text-sm">
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">From</span>
-                  <span className="font-medium text-foreground">
+            <section className="rounded-[24px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+              <dl className="grid gap-2.5 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-[#6C7F95]">From</dt>
+                  <dd className="font-semibold text-[#10203B]">
                     {selectedEmail.sender || "IBPA Support"}
-                  </span>
+                  </dd>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">Recipients</span>
-                  <span className="font-medium text-foreground tabular-nums">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-[#6C7F95]">Recipients</dt>
+                  <dd className="font-semibold tabular-nums text-[#10203B]">
                     {getEmailLogRecipientCount(selectedEmail)}
-                  </span>
+                  </dd>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">Created</span>
-                  <span className="text-foreground">{formatAdminDateTime(selectedEmail.createdAt)}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-[#6C7F95]">Created</dt>
+                  <dd className="text-[#10203B]">{formatAdminDateTime(selectedEmail.createdAt)}</dd>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">Sent</span>
-                  <span className="text-foreground">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-[#6C7F95]">Sent</dt>
+                  <dd className="text-[#10203B]">
                     {formatAdminDateTime(selectedEmail.sentAt || selectedEmail.createdAt)}
-                  </span>
+                  </dd>
                 </div>
-              </div>
+              </dl>
             </section>
 
-            <section className="card-premium overflow-hidden">
-              <header className="flex items-center justify-between border-b border-[var(--hairline)] px-6 py-4">
-                <span className="editorial-eyebrow text-xs">Body</span>
-                <span className="text-xs text-muted-foreground">Rendered preview</span>
+            <section className="overflow-hidden rounded-[24px] border border-[#D7E5F4] bg-white shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
+              <header className="flex items-center justify-between border-b border-[#E4EEF8] px-6 py-4">
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+                  Body
+                </span>
+                <span className="text-xs text-[#6C7F95]">Rendered preview</span>
               </header>
               <div className="bg-white p-7">
                 {selectedEmail.content ? (
                   <div
-                    className="prose prose-sm max-w-none text-foreground"
+                    className="prose prose-sm max-w-none text-[#10203B]"
                     dangerouslySetInnerHTML={{ __html: selectedEmail.content }}
                   />
                 ) : (
-                  <p className="text-sm text-muted-foreground">No body recorded for this campaign.</p>
+                  <p className="text-sm text-[#6C7F95]">No body recorded for this campaign.</p>
                 )}
               </div>
             </section>

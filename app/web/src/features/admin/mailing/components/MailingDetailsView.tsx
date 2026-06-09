@@ -9,6 +9,17 @@ type MailingDetailsViewProps = {
   email?: EmailLog | null;
 };
 
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[18px] border border-[#DCE7F5] bg-[#F8FBFF] p-4">
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6C7F95]">
+        {label}
+      </dt>
+      <dd className="mt-1.5 break-words text-sm font-medium text-[#10203B]">{value}</dd>
+    </div>
+  );
+}
+
 export function MailingDetailsView({ email }: MailingDetailsViewProps) {
   if (!email) {
     return (
@@ -21,47 +32,47 @@ export function MailingDetailsView({ email }: MailingDetailsViewProps) {
     );
   }
 
-  const recipients = email.recipients?.length ? email.recipients : email.to.split(",").map((item) => item.trim()).filter(Boolean);
+  const recipients = email.recipients?.length
+    ? email.recipients
+    : email.to.split(",").map((item) => item.trim()).filter(Boolean);
 
   return (
     <AdminSectionCard title="Email details">
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         <div className="flex flex-wrap gap-2">
           <AdminStatusBadge tone="success">{email.status || "sent"}</AdminStatusBadge>
-          <AdminStatusBadge tone="neutral">{getEmailLogRecipientCount(email)} recipients</AdminStatusBadge>
+          <AdminStatusBadge tone="neutral">
+            {getEmailLogRecipientCount(email)} recipients
+          </AdminStatusBadge>
         </div>
+
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Subject</p>
-          <h3 className="mt-1 text-lg font-semibold text-foreground">{email.subject}</h3>
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">Subject</p>
+          <h3 className="mt-1 text-lg font-semibold tracking-[-0.01em] text-[#10203B]">
+            {email.subject}
+          </h3>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg bg-muted/30 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Created</p>
-            <p className="mt-1 text-sm text-foreground">{formatAdminDateTime(email.createdAt)}</p>
-          </div>
-          <div className="rounded-lg bg-muted/30 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Sent</p>
-            <p className="mt-1 text-sm text-foreground">{formatAdminDateTime(email.sentAt || email.createdAt)}</p>
-          </div>
-          <div className="rounded-lg bg-muted/30 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Sender</p>
-            <p className="mt-1 text-sm text-foreground">{email.sender || "IBPA Support"}</p>
-          </div>
-          <div className="rounded-lg bg-muted/30 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Campaign</p>
-            <p className="mt-1 text-sm text-foreground">{email.relatedCampaign || email.id}</p>
-          </div>
-        </div>
+
+        <dl className="grid gap-3 sm:grid-cols-2">
+          <InfoRow label="Created" value={formatAdminDateTime(email.createdAt)} />
+          <InfoRow label="Sent" value={formatAdminDateTime(email.sentAt || email.createdAt)} />
+          <InfoRow label="Sender" value={email.sender || "IBPA Support"} />
+          <InfoRow label="Campaign" value={email.relatedCampaign || email.id} />
+        </dl>
+
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Recipients</p>
-          <div className="mt-2 max-h-40 overflow-auto rounded-lg border border-border p-3 text-sm text-muted-foreground">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+            Recipients
+          </p>
+          <div className="mt-2 max-h-40 overflow-auto rounded-[18px] border border-[#DCE7F5] bg-[#F8FBFF] p-4 text-sm text-[#55708D]">
             {recipients.join(", ") || "No recipients recorded"}
           </div>
         </div>
+
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Content</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">Content</p>
           <div
-            className="mt-2 rounded-lg border border-border bg-background p-4 text-sm leading-6 text-foreground"
+            className="prose prose-sm mt-2 max-w-none rounded-[18px] border border-[#DCE7F5] bg-white p-5 text-sm leading-7 text-[#10203B]"
             dangerouslySetInnerHTML={{ __html: email.content || "" }}
           />
         </div>

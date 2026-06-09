@@ -35,10 +35,12 @@ export function MailingAudienceSelector({
     <div className="flex flex-col gap-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <Select
-          onValueChange={(value) => patch({ audienceKind: value as MailingAudienceKind, audienceValue: "" })}
+          onValueChange={(value) =>
+            patch({ audienceKind: value as MailingAudienceKind, audienceValue: "" })
+          }
           value={draft.audienceKind}
         >
-          <SelectTrigger>
+          <SelectTrigger className="h-10 rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B]">
             <SelectValue placeholder="Audience" />
           </SelectTrigger>
           <SelectContent>
@@ -63,7 +65,7 @@ export function MailingAudienceSelector({
             onValueChange={(value) => patch({ audienceValue: value })}
             value={draft.audienceValue}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-10 rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B]">
               <SelectValue placeholder="Choose membership" />
             </SelectTrigger>
             <SelectContent>
@@ -81,6 +83,7 @@ export function MailingAudienceSelector({
 
       {draft.audienceKind === "custom" ? (
         <Textarea
+          className="rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-sm text-[#10203B]"
           onChange={(event) => patch({ customEmails: event.target.value })}
           placeholder="Paste emails separated by commas, spaces, or new lines"
           rows={5}
@@ -88,12 +91,15 @@ export function MailingAudienceSelector({
         />
       ) : null}
 
-      <p className="text-sm text-muted-foreground">
-        Current audience resolves to {recipientCount} recipient{recipientCount === 1 ? "" : "s"}.
+      <p className="text-sm text-[#6C7F95]">
+        Current audience resolves to{" "}
+        <span className="font-semibold tabular-nums text-[#10203B]">{recipientCount}</span>{" "}
+        recipient{recipientCount === 1 ? "" : "s"}.
       </p>
       {isFutureAudience ? (
-        <p className="text-sm text-amber-700">
-          Team-member targeting is ready in the UI but needs a dedicated admin audience resolver before sending.
+        <p className="rounded-2xl border border-[#D7E5F4] bg-[#F8FBFF] px-4 py-3 text-sm text-[#55708D]">
+          Team-member targeting is ready in the UI but needs a dedicated admin audience resolver
+          before sending.
         </p>
       ) : null}
     </div>
