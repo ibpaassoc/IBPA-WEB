@@ -135,9 +135,9 @@ export function MemberProfileTab({ member }: Props) {
               Portfolio ({member.portfolioImages.length} images)
             </p>
             <div className="grid grid-cols-3 gap-1.5">
-              {member.portfolioImages.slice(0, 6).map((src) => (
+              {member.portfolioImages.slice(0, 6).map((src, index) => (
                 <a
-                  className="overflow-hidden rounded-lg border border-[#D7E5F4]"
+                  className="relative aspect-square overflow-hidden rounded-lg border border-[#D7E5F4] bg-[#EEF6FF]"
                   href={src}
                   key={src}
                   rel="noreferrer"
@@ -145,12 +145,19 @@ export function MemberProfileTab({ member }: Props) {
                 >
                   <img
                     alt="Portfolio"
-                    className="aspect-square h-full w-full object-cover"
+                    className="h-full w-full object-cover"
+                    decoding="async"
+                    loading={index < 3 ? "eager" : "lazy"}
                     src={src}
                   />
                 </a>
               ))}
             </div>
+            {member.portfolioImages.length > 6 ? (
+              <p className="text-[11px] tabular-nums text-[#8AA2BD]">
+                +{member.portfolioImages.length - 6} more
+              </p>
+            ) : null}
           </div>
         ) : null}
 

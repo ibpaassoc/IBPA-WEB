@@ -136,8 +136,8 @@ export function AdminUploadZone({
       }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
-      className={`rounded-[20px] border-2 border-dashed bg-white/80 p-6 text-center transition-colors ${
-        isDragging ? "border-[#72A0C1] bg-[#F0F8FF]" : "border-slate-300"
+      className={`rounded-[20px] border-2 border-dashed bg-white p-5 text-center transition-colors ${
+        isDragging ? "border-[#1F5D8F] bg-[#EEF6FF]" : "border-[#CFE0F3]"
       }`}
     >
       <input
@@ -149,21 +149,21 @@ export function AdminUploadZone({
         onChange={handleInputChange}
       />
 
-      <div className="flex flex-col items-center gap-4">
-        <div className="text-slate-400">
-          {isUploading ? <Loader2 className="h-12 w-12 animate-spin" /> : <UploadCloud className="h-12 w-12" />}
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex size-12 items-center justify-center rounded-2xl bg-[#EEF6FF] text-[#1F5D8F]">
+          {isUploading ? <Loader2 className="size-5 animate-spin" /> : <UploadCloud className="size-5" />}
         </div>
 
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-slate-700">{label}</p>
-          <p className="text-xs text-slate-400">{helperText}</p>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-[#10203B]">{label}</p>
+          <p className="text-xs text-[#6C7F95]">{helperText}</p>
         </div>
 
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={isUploading}
-          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-black transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#D7E5F4] bg-white px-4 text-xs font-semibold text-[#1F5D8F] transition-colors hover:bg-[#EEF6FF] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isUploading ? "Uploading..." : buttonText}
         </button>
