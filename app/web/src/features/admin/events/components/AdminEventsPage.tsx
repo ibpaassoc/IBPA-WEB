@@ -45,10 +45,10 @@ import type {
   EventRegistrationStatus,
   EventVisibilityFilter,
 } from "../types/event-admin.types";
+import { EventCardGrid } from "./EventCardGrid";
 import { EventDetailsView } from "./EventDetailsView";
 import { EventEditorForm } from "./EventEditorForm";
 import { EventRegistrationsTable } from "./EventRegistrationsTable";
-import { EventsTable } from "./EventsTable";
 
 const emptyCounts: EventRegistrationCounts = {
   attended: 0,
@@ -244,7 +244,7 @@ export function AdminEventsPage() {
             description={formatAdminCount(visibleEvents.length, "event")}
             title="Event management"
           >
-            <EventsTable
+            <EventCardGrid
               events={visibleEvents}
               isLoading={isLoading}
               onDelete={handleDelete}

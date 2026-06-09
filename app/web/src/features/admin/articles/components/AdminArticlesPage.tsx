@@ -37,9 +37,9 @@ import type {
   ArticleEditorState,
   ArticleVisibilityFilter,
 } from "../types/article-admin.types";
+import { ArticleCardGrid } from "./ArticleCardGrid";
 import { ArticleEditorForm } from "./ArticleEditorForm";
 import { ArticlePreviewCard } from "./ArticlePreviewCard";
-import { ArticlesTable } from "./ArticlesTable";
 
 export function AdminArticlesPage() {
   const { deferredSearch, search, setFilter, setSearch, filters, resetFilters } =
@@ -170,7 +170,7 @@ export function AdminArticlesPage() {
           description={formatAdminCount(visibleArticles.length, "article")}
           title="Articles list"
         >
-          <ArticlesTable
+          <ArticleCardGrid
             articles={visibleArticles}
             isLoading={isLoading}
             onDelete={handleDelete}
