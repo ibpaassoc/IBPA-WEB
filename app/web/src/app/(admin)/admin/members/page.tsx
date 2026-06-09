@@ -1,9 +1,11 @@
-import { AdminPageShell } from "@/features/admin/shared/components/AdminPageShell";
+import { Suspense } from "react";
 
-export default function AdminMembersPage() {
+import { AdminMembersPage } from "@/features/admin/members/components/AdminMembersPage";
+
+export default function MembersPage() {
   return (
-    <AdminPageShell title="Members">
-      <p className="text-sm text-muted-foreground">Members page — coming in Phase 2.</p>
-    </AdminPageShell>
+    <Suspense>
+      <AdminMembersPage />
+    </Suspense>
   );
 }

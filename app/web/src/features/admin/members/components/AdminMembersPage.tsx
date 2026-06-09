@@ -1,0 +1,288 @@
+"use client";
+/* eslint-disable react-hooks/set-state-in-effect */
+
+import { RefreshCw } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+
+import { listProfiles, saveProfileCertificate, removeProfileCertificate, resendProfileCertificate, deleteProfileMembership } from "../../profiles/server/profile-admin.repository";
+import { AdminFilters } from "../../shared/components/AdminFilters";
+import { AdminPageShell } from "../../shared/components/AdminPageShell";
+import { AdminSearch } from "../../shared/components/AdminSearch";
+import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
+import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
+import { formatAdminCount } from "../../shared/utils/admin-formatters";
+import { filterMemberRecords, toMemberRecord } from "../server/members-admin.service";
+import type { AdminMemberFilters, AdminMemberRecord, MemberTab } from "../types/members-admin.types";
+import { MemberExpandableRow } from "./MemberExpandableRow";
+
+const baseFilters: AdminMemberFilters = {
+  certificate: "all",
+  membership: "all",
+};
+
+function readTabParam(value: string | null): MemberTab {
+  if (value === "membership" || value === "certificate") return value;
+  return "profile";
+}
+
+function memberId(member?: AdminMemberRecord | null) {
+  return member?.id ?? null;
+}
+
+export function AdminMembersPage() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
+  const initialTab = readTabParam(searchParams.get("tab"));
+
+  const { deferredSearch, filters, isPending, resetFilters, search, setFilter, setSearch } =
+    useAdminFilters<AdminMemberFilters>(baseFilters, initialQuery);
+
+  const [members, setMembers] = useState<AdminMemberRecord[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedMember, setSelectedMember] = useState<AdminMemberRecord | null>(null);
+  const [activeTab, setActiveTab] = useState<MemberTab>(initialTab);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  const loadMembers = async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setIsLoading(true);
+
+    try {
+      const response = await listProfiles({ limit: 200, q: deferredSearch });
+      const nextMembers = Array.isArray(response.items)
+        ? response.items.map(toMemberRecord)
+        : [];
+      setMembers(nextMembers);
+      setCategories(Array.isArray(response.categories) ? response.categories : []);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load members.");
+      if (!silent) {
+        setMembers([]);
+        setCategories([]);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deferredSearch]);
+
+  const filteredMembers = useMemo(
+    () => filterMemberRecords(members, filters),
+    [members, filters],
+  );
+
+  const openMember = (member: AdminMemberRecord, tab?: MemberTab) => {
+    if (memberId(selectedMember) === member.id && !tab) {
+      setSelectedMember(null);
+      return;
+    }
+
+    if (tab) setActiveTab(tab);
+    setSelectedMember(member);
+    setSelectedCategory(member.membershipCategory ?? "");
+  };
+
+  const runAction = async (action: string, callback: () => Promise<void>) => {
+    setBusyAction(action);
+    try {
+      await callback();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Action failed.");
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleSaveCategory = () => {
+    if (!selectedMember) return;
+
+    void runAction("membership", async () => {
+      if (!selectedCategory) throw new Error("Select a membership package first.");
+      await loadMembers({ silent: true });
+      toast.success("Membership category updated.");
+    });
+  };
+
+  const handleDeleteMembership = () => {
+    if (!selectedMember) return;
+    if (!window.confirm("Delete this member's membership? This cannot be undone.")) return;
+
+    void runAction("delete_membership", async () => {
+      await deleteProfileMembership(selectedMember.id);
+      setSelectedMember(null);
+      toast.success("Membership deleted.");
+      await loadMembers({ silent: true });
+    });
+  };
+
+  const handleIssueCertificate = (
+    url: string,
+    metadata?: { fileKey?: string | null },
+  ) => {
+    if (!selectedMember) return;
+
+    void runAction("issue_cert", async () => {
+      await saveProfileCertificate(selectedMember.id, url);
+      toast.success("Certificate saved.");
+      await loadMembers({ silent: true });
+      const refreshed = members.find((m) => m.id === selectedMember.id);
+      if (refreshed) setSelectedMember(toMemberRecord(refreshed));
+    });
+  };
+
+  const handleResendCertificate = () => {
+    if (!selectedMember) return;
+
+    void runAction("resend", async () => {
+      await resendProfileCertificate(selectedMember.id);
+      toast.success("Certificate email sent.");
+    });
+  };
+
+  const handleRemoveCertificate = () => {
+    if (!selectedMember) return;
+    if (!window.confirm("Remove the certificate from this member's profile?")) return;
+
+    void runAction("remove_cert", async () => {
+      await removeProfileCertificate(selectedMember.id);
+      toast.success("Certificate removed.");
+      await loadMembers({ silent: true });
+      const refreshed = members.find((m) => m.id === selectedMember.id);
+      if (refreshed) setSelectedMember(toMemberRecord(refreshed));
+    });
+  };
+
+  const totalLabel = `${formatAdminCount(filteredMembers.length, "member")}${isPending ? " · filtering" : ""}`;
+
+  return (
+    <AdminPageShell
+      actions={
+        <Button onClick={() => void loadMembers()} type="button" variant="outline">
+          <RefreshCw data-icon="inline-start" />
+          Refresh
+        </Button>
+      }
+      title="Members"
+    >
+      <AdminFilters>
+        <AdminSearch
+          onChange={setSearch}
+          placeholder="Search by name, email, or membership"
+          value={search}
+        />
+        <Select
+          onValueChange={(value) => setFilter("membership", value)}
+          value={filters.membership}
+        >
+          <SelectTrigger className="w-full lg:w-52">
+            <SelectValue placeholder="Membership" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="all">All memberships</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Select
+          onValueChange={(value) =>
+            setFilter("certificate", value as AdminMemberFilters["certificate"])
+          }
+          value={filters.certificate}
+        >
+          <SelectTrigger className="w-full lg:w-44">
+            <SelectValue placeholder="Certificate" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="all">All certificates</SelectItem>
+              <SelectItem value="issued">Certificate issued</SelectItem>
+              <SelectItem value="not_issued">Not issued</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Button onClick={resetFilters} type="button" variant="ghost">
+          Reset
+        </Button>
+      </AdminFilters>
+
+      <AdminSectionCard description={totalLabel} noPadding title="Member directory">
+        {isLoading ? (
+          <div className="flex flex-col gap-0">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                className="flex items-center gap-3 border-b border-border px-4 py-3"
+                key={i}
+              >
+                <Skeleton className="size-9 rounded-full" />
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <Skeleton className="h-3.5 w-36" />
+                  <Skeleton className="h-3 w-52" />
+                </div>
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </div>
+            ))}
+          </div>
+        ) : filteredMembers.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+            No members match the current filters.
+          </div>
+        ) : (
+          <div className="flex flex-col divide-y divide-border">
+            {/* Column headers */}
+            <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-muted-foreground">
+              <span className="w-9 shrink-0" />
+              <span className="flex-1">Member</span>
+              <span className="hidden shrink-0 sm:block w-28">Membership</span>
+              <span className="hidden shrink-0 lg:block w-56">Quick actions</span>
+              <span className="w-4 shrink-0" />
+            </div>
+
+            {filteredMembers.map((member) => {
+              const isOpen = memberId(selectedMember) === member.id;
+              return (
+                <MemberExpandableRow
+                  activeTab={activeTab}
+                  busyAction={busyAction}
+                  isLoadingDetail={false}
+                  isOpen={isOpen}
+                  key={member.id}
+                  member={member}
+                  onCategoryChange={setSelectedCategory}
+                  onDeleteMembership={handleDeleteMembership}
+                  onIssueCertificate={handleIssueCertificate}
+                  onRemoveCertificate={handleRemoveCertificate}
+                  onResendCertificate={handleResendCertificate}
+                  onSaveCategory={handleSaveCategory}
+                  onTabChange={setActiveTab}
+                  onToggle={openMember}
+                  selectedCategory={selectedCategory}
+                />
+              );
+            })}
+          </div>
+        )}
+      </AdminSectionCard>
+    </AdminPageShell>
+  );
+}
