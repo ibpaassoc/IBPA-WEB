@@ -237,7 +237,6 @@ export function AdminEventsPage() {
           </>
         }
         eyebrow="Admin workspace"
-        subtitle="Schedule, edit, and review every IBPA event. Open any card to manage details, registrations, and publishing."
         title="Events"
       >
         <section className="rounded-[28px] border border-[#D7E5F4] bg-white p-4 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
@@ -290,7 +289,7 @@ export function AdminEventsPage() {
             setSelectedEvent(null);
             setSheetMode("create");
           }}
-          onOpen={openEvent}
+          onEdit={openEvent}
           selectedId={selectedEvent?.id ?? null}
         />
       </AdminPageShell>
