@@ -239,11 +239,16 @@ export function EventCardGrid({
                     ) : null}
                   </dl>
 
-                  <div className="mt-1">
+                  <div className="mt-1 flex items-center gap-2">
                     <PublishIcons
                       publishToDashboard={event.publishToDashboard}
                       publishToSite={event.publishToSite}
                     />
+                    {event.price ? (
+                      <span className="text-[11px] font-semibold tabular-nums text-[#1F5D8F]">
+                        {event.price}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>

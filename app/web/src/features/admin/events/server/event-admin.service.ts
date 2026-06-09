@@ -18,6 +18,7 @@ export const emptyEventEditorState: EventEditorState = {
   eventDate: "",
   eventEndDate: "",
   isPinned: false,
+  price: "",
   publishToDashboard: true,
   publishToSite: true,
   title: "",
@@ -29,7 +30,7 @@ function toInputDate(value?: string | Date | null) {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 16);
 }
 
-export function normalizeEvent(item: AdminContentItem): AdminEvent {
+export function normalizeEvent(item: AdminContentItem & { price?: string | null }): AdminEvent {
   return {
     ...item,
     body: item.body ?? "",
@@ -42,6 +43,7 @@ export function normalizeEvent(item: AdminContentItem): AdminEvent {
     eventDate: item.eventDate ?? "",
     eventEndDate: item.eventEndDate ?? "",
     isPinned: Boolean(item.isPinned),
+    price: item.price ?? "",
     publishToDashboard: Boolean(item.publishToDashboard),
     publishToSite: Boolean(item.publishToSite),
     title: item.title ?? "",
@@ -66,6 +68,7 @@ export function toEventEditorState(event?: AdminEvent | null): EventEditorState 
     eventEndDate: toInputDate(event.eventEndDate),
     id: event.id,
     isPinned: Boolean(event.isPinned),
+    price: event.price ?? "",
     publishToDashboard: Boolean(event.publishToDashboard),
     publishToSite: Boolean(event.publishToSite),
     title: event.title,

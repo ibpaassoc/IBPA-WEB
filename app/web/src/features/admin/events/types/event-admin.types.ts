@@ -2,6 +2,8 @@ import type { AdminContentItem } from "../../shared/types/admin.types";
 
 export type AdminEvent = AdminContentItem & {
   type: "events";
+  /** Free-text price label set by admins, e.g. "$25", "Free", "Members: $10". */
+  price?: string | null;
 };
 
 export type EventEditorState = {
@@ -14,6 +16,7 @@ export type EventEditorState = {
   eventAllDay: boolean;
   eventDate: string;
   eventEndDate: string;
+  price: string;
   ctaUrl: string;
   ctaLabel: string;
   isPinned: boolean;

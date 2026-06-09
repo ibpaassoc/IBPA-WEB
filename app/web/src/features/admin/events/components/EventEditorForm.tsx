@@ -109,6 +109,16 @@ export function EventEditorForm({
           />
         </Field>
 
+        <Field>
+          <FieldLabel htmlFor="event-price">Price</FieldLabel>
+          <Input
+            id="event-price"
+            onChange={(event) => patch({ price: event.target.value })}
+            placeholder="Free, $25, Members: $10…"
+            value={form.price}
+          />
+        </Field>
+
         <div className="grid gap-4 md:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="event-cta-label">CTA label</FieldLabel>
