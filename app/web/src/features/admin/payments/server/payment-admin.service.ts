@@ -80,6 +80,8 @@ function toMemberRecord(order: AdminOrder): AdminPaymentRecord {
     status,
     statusLabel: presentation.label,
     statusTone: presentation.tone,
+    // stripeSessionId is the available Stripe reference on member orders
+    stripeRef: order.stripeSessionId ?? null,
     timestamp,
   };
 }
@@ -88,6 +90,13 @@ function toPartnerRecord(application: AdminPartnerApplication): AdminPaymentReco
   const status = toPartnerPaymentStatus(application);
   const presentation = STATUS_PRESENTATION[status];
   const timestamp = toTimestamp(application.paidAt ?? application.updatedAt ?? application.createdAt);
+
+  // Prefer the most specific Stripe ID available: intent > session > invoice
+  const stripeRef =
+    application.stripePaymentIntentId ??
+    application.stripeCheckoutSessionId ??
+    application.stripeInvoiceId ??
+    null;
 
   return {
     amountLabel: partnerAmountLabel(application),
@@ -103,6 +112,7 @@ function toPartnerRecord(application: AdminPartnerApplication): AdminPaymentReco
     status,
     statusLabel: presentation.label,
     statusTone: presentation.tone,
+    stripeRef,
     timestamp,
   };
 }

@@ -24,6 +24,8 @@ export type AdminPaymentRecord = {
   statusLabel: string;
   statusTone: AdminStatusTone;
   status: AdminPaymentStatus;
+  /** Stripe session / payment intent ID for reference, if available on the source record. */
+  stripeRef: string | null;
   timestamp: number;
 };
 

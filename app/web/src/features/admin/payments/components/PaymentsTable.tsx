@@ -47,6 +47,14 @@ export function PaymentsTable({ isLoading, payments }: PaymentsTableProps) {
             >
               <span className="truncate font-semibold text-[#10203B]">{payment.payerName}</span>
               <span className="truncate text-xs text-[#6C7F95]">{payment.payerEmail}</span>
+              {payment.stripeRef ? (
+                <span
+                  className="truncate font-mono text-[10px] tabular-nums text-[#8AA2BD]"
+                  title={payment.stripeRef}
+                >
+                  {payment.stripeRef.slice(0, 24)}…
+                </span>
+              ) : null}
             </Link>
           ),
         },
