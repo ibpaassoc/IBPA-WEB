@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -52,8 +53,7 @@ import type {
   MemberApplicationDetail,
   PartnerApplicationDetail,
 } from "../types/application-admin.types";
-import { ApplicationDetailsPanel } from "./ApplicationDetailsPanel";
-import { ApplicationsTable } from "./ApplicationsTable";
+import { ApplicationExpandableRow } from "./ApplicationExpandableRow";
 
 const baseFilters: AdminApplicationFilters = {
   applicantType: "all",
@@ -136,6 +136,10 @@ export function AdminApplicationsPage() {
   );
 
   const openApplication = async (record: AdminApplicationRecord) => {
+    if (selectedApplication && selectedKey(selectedApplication) === selectedKey(record)) {
+      setSelectedApplication(null);
+      return;
+    }
     setSelectedApplication(record);
     setMemberDetail(null);
     setPartnerDetail(null);
@@ -401,41 +405,72 @@ export function AdminApplicationsPage() {
         </Button>
       </AdminFilters>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(380px,0.65fr)]">
-        <AdminSectionCard
-          description={`${totalsLabel}${isPending ? " · filtering" : ""}`}
-          title="Application queue"
-        >
-          <ApplicationsTable
-            applications={filteredApplications}
-            isLoading={isLoading}
-            onOpen={openApplication}
-            selectedId={selectedKey(selectedApplication)}
-          />
-        </AdminSectionCard>
-
-        <ApplicationDetailsPanel
-          additionalFiles={additionalFiles}
-          busyAction={busyAction}
-          isLoading={isLoadingDetail}
-          isLoadingFiles={isLoadingFiles}
-          memberApplication={memberDetail}
-          onApprove={handleApprove}
-          onDelete={handleDelete}
-          onDeleteAdditionalFile={handleDeleteAdditionalFile}
-          onMembershipCategoryChange={setSelectedMembershipCategory}
-          onPartnerTierChange={setSelectedPartnerTier}
-          onReject={handleReject}
-          onResendPaymentLink={handleResendPaymentLink}
-          onReview={handleReview}
-          onSaveMembershipCategory={handleSaveMembershipCategory}
-          onUploadAdditionalFile={handleUploadAdditionalFile}
-          partnerApplication={partnerDetail}
-          record={selectedApplication}
-          selectedMembershipCategory={selectedMembershipCategory}
-          selectedPartnerTier={selectedPartnerTier}
-        />
-      </div>
+      <AdminSectionCard
+        description={`${totalsLabel}${isPending ? " · filtering" : ""}`}
+        noPadding
+        title="Application queue"
+      >
+        {isLoading ? (
+          <div className="flex flex-col gap-0">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div className="flex items-center gap-3 border-b border-border px-4 py-3" key={i}>
+                <Skeleton className="size-8 rounded-full" />
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <Skeleton className="h-3.5 w-32" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+            ))}
+          </div>
+        ) : filteredApplications.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+            No applications match the current filters.
+          </div>
+        ) : (
+          <div className="flex flex-col divide-y divide-border">
+            {/* Column headers */}
+            <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-muted-foreground">
+              <span className="w-8 shrink-0" />
+              <span className="flex-1">Applicant</span>
+              <span className="hidden w-28 shrink-0 sm:block">Type</span>
+              <span className="hidden w-20 shrink-0 sm:block">Status</span>
+              <span className="hidden w-20 shrink-0 text-right lg:block">Submitted</span>
+              <span className="w-6 shrink-0" />
+            </div>
+            {filteredApplications.map((record) => {
+              const key = selectedKey(record);
+              const isOpen = key === selectedKey(selectedApplication);
+              return (
+                <ApplicationExpandableRow
+                  additionalFiles={additionalFiles}
+                  busyAction={busyAction}
+                  isLoadingDetail={isLoadingDetail}
+                  isLoadingFiles={isLoadingFiles}
+                  isOpen={isOpen}
+                  key={key}
+                  memberDetail={memberDetail}
+                  onApprove={handleApprove}
+                  onDelete={handleDelete}
+                  onDeleteAdditionalFile={handleDeleteAdditionalFile}
+                  onMembershipCategoryChange={setSelectedMembershipCategory}
+                  onPartnerTierChange={setSelectedPartnerTier}
+                  onReject={handleReject}
+                  onResendPaymentLink={handleResendPaymentLink}
+                  onReview={handleReview}
+                  onSaveMembershipCategory={handleSaveMembershipCategory}
+                  onToggle={openApplication}
+                  onUploadAdditionalFile={handleUploadAdditionalFile}
+                  partnerDetail={partnerDetail}
+                  record={record}
+                  selectedMembershipCategory={selectedMembershipCategory}
+                  selectedPartnerTier={selectedPartnerTier}
+                />
+              );
+            })}
+          </div>
+        )}
+      </AdminSectionCard>
     </AdminPageShell>
   );
 }
