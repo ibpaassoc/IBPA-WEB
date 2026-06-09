@@ -54,6 +54,8 @@ import type {
 } from "../types/application-admin.types";
 import { ApplicationDetailsPanel } from "./ApplicationDetailsPanel";
 import { ApplicationListRow } from "./ApplicationListRow";
+import { ApplicationMediaRail } from "./ApplicationMediaRail";
+import { ApplicationReviewRail } from "./ApplicationReviewRail";
 
 const baseFilters: AdminApplicationFilters = {
   applicantType: "all",
@@ -67,6 +69,77 @@ function selectedKey(record?: AdminApplicationRecord | null) {
 
 function readApplicantTypeParam(value: string | null): "all" | "member" | "partner" {
   return value === "member" || value === "partner" ? value : "all";
+}
+
+function MetricCard({
+  label,
+  value,
+  hint,
+  active,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  active?: boolean;
+}) {
+  return (
+    <section
+      className={[
+        "relative overflow-hidden rounded-[28px] border p-5 shadow-[0_18px_48px_rgba(15,35,70,0.08)] backdrop-blur-2xl",
+        active
+          ? "border-[#BDD0E8] bg-[linear-gradient(135deg,#10203B_0%,#21466D_100%)] text-white"
+          : "border-white/70 bg-white/80 text-[#10203B]",
+      ].join(" ")}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-80"
+        style={{
+          background: active
+            ? "radial-gradient(circle at 12% 0%, rgba(255,255,255,0.18), transparent 34%)"
+            : "radial-gradient(circle at 12% 0%, rgba(33,70,109,0.10), transparent 34%)",
+        }}
+      />
+
+      <div className="relative flex items-end justify-between gap-4">
+        <div>
+          <p
+            className={[
+              "text-[10px] font-bold uppercase tracking-[0.24em]",
+              active ? "text-white/65" : "text-[#8AA2BD]",
+            ].join(" ")}
+          >
+            {label}
+          </p>
+          <p className="mt-4 text-4xl font-semibold leading-none tracking-[-0.05em] tabular-nums">
+            {value.toLocaleString("en-US")}
+          </p>
+        </div>
+
+        {hint ? (
+          <span
+            className={[
+              "rounded-full border px-3 py-1 text-xs font-semibold",
+              active
+                ? "border-white/20 bg-white/10 text-white/80"
+                : "border-[#D9E4F2] bg-[#EEF5FF] text-[#21466D]",
+            ].join(" ")}
+          >
+            {hint}
+          </span>
+        ) : (
+          <span
+            className={[
+              "h-1.5 w-16 rounded-full",
+              active
+                ? "bg-white/45"
+                : "bg-gradient-to-r from-[#21466D] via-[#4F7CB3] to-[#8AA2BD]",
+            ].join(" ")}
+          />
+        )}
+      </div>
+    </section>
+  );
 }
 
 export function AdminApplicationsPage() {
@@ -86,13 +159,15 @@ export function AdminApplicationsPage() {
     setFilter,
     setSearch,
   } = useAdminFilters(initialFilters, initialQuery);
+
   const [applications, setApplications] = useState<AdminApplicationRecord[]>([]);
   const [memberTotal, setMemberTotal] = useState(0);
   const [partnerTotal, setPartnerTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
-  const [selectedApplication, setSelectedApplication] = useState<AdminApplicationRecord | null>(null);
+  const [selectedApplication, setSelectedApplication] =
+    useState<AdminApplicationRecord | null>(null);
   const [memberDetail, setMemberDetail] = useState<MemberApplicationDetail | null>(null);
   const [partnerDetail, setPartnerDetail] = useState<PartnerApplicationDetail | null>(null);
   const [additionalFiles, setAdditionalFiles] = useState<ApplicationAdditionalFile[]>([]);
@@ -137,27 +212,36 @@ export function AdminApplicationsPage() {
     setPartnerDetail(null);
     setAdditionalFiles([]);
     setIsLoadingDetail(true);
+    setIsLoadingFiles(false);
     setSheetOpen(true);
 
     try {
       if (record.kind === "member") {
         const detail = await getMemberApplication(record.id);
+
         setMemberDetail(detail);
         setSelectedApplication(toMemberApplicationRecord(detail));
         setSelectedMembershipCategory(getMembershipCategory(detail.membershipCategory) ?? "");
+
+        setIsLoadingDetail(false);
         setIsLoadingFiles(true);
+
         const fileResponse = await listMemberApplicationFiles(record.id);
         setAdditionalFiles(Array.isArray(fileResponse.files) ? fileResponse.files : []);
       } else {
         const detail = await getPartnerApplication(record.id);
+
         setPartnerDetail(detail);
         setSelectedApplication(toPartnerApplicationRecord(detail));
         setSelectedPartnerTier(detail.requestedTier || "Associate");
+        setIsLoadingDetail(false);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load application details.");
-    } finally {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load application details.",
+      );
       setIsLoadingDetail(false);
+    } finally {
       setIsLoadingFiles(false);
     }
   };
@@ -247,9 +331,11 @@ export function AdminApplicationsPage() {
       const result = await updateMemberApplication(selectedApplication.id, {
         membershipCategory: selectedMembershipCategory,
       });
+
       if (result.application) {
         setMemberDetail(result.application);
       }
+
       toast.success("Membership package saved.");
       await refreshSelectedApplication();
     });
@@ -262,9 +348,11 @@ export function AdminApplicationsPage() {
     void runAction("resend", async () => {
       const result = await resendMemberPaymentLink(selectedApplication.id);
       const paymentLink = result.paymentLinkUrl || result.checkoutUrl;
+
       if (paymentLink) {
         await navigator.clipboard?.writeText(paymentLink).catch(() => undefined);
       }
+
       toast.success("Payment link sent.");
       await refreshSelectedApplication();
     });
@@ -306,6 +394,7 @@ export function AdminApplicationsPage() {
           fileUrl: url,
         },
       ]);
+
       setAdditionalFiles((current) => [...(result.files ?? []), ...current]);
       toast.success("Additional file added.");
     } catch (error) {
@@ -331,145 +420,130 @@ export function AdminApplicationsPage() {
       <AdminPageShell
         actions={
           <Button
-            className="size-10 rounded-full"
+            aria-label="Refresh applications"
+            className="size-10 rounded-full border-[#D4E0F0] bg-white/80 text-[#21466D] shadow-sm hover:bg-white hover:text-[#0B1F44]"
             onClick={() => void loadApplications()}
             size="icon"
             type="button"
             variant="outline"
-            aria-label="Refresh applications"
           >
             <RefreshCw className="size-3.5" />
           </Button>
         }
-        eyebrow="Atelier intake"
-        subtitle="Every application lands here — member and partner. Click a card to review submitted details, files, and act on them in one focused view."
+        eyebrow="Admin workspace"
+        subtitle="Review member and partner applications in one focused workspace."
         title="Applications"
       >
-        {/* Totals strip */}
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="card-vellum flex items-end justify-between gap-3 px-5 py-4">
-            <div className="flex flex-col gap-1">
-              <span className="editorial-eyebrow text-[11px]">Members in queue</span>
-              <span className="font-serif text-3xl font-medium tabular-nums tracking-tight text-foreground">
-                {memberTotal.toLocaleString("en-US")}
-              </span>
-            </div>
-            <span className="h-1.5 w-16 rounded-full" style={{ backgroundColor: "var(--accent-copper)" }} />
-          </div>
-          <div className="card-vellum flex items-end justify-between gap-3 px-5 py-4">
-            <div className="flex flex-col gap-1">
-              <span className="editorial-eyebrow text-[11px]">Partners in queue</span>
-              <span className="font-serif text-3xl font-medium tabular-nums tracking-tight text-foreground">
-                {partnerTotal.toLocaleString("en-US")}
-              </span>
-            </div>
-            <span className="h-1.5 w-16 rounded-full bg-foreground/30" />
-          </div>
-          <div className="card-vellum flex items-end justify-between gap-3 px-5 py-4">
-            <div className="flex flex-col gap-1">
-              <span className="editorial-eyebrow text-[11px]">Filtered view</span>
-              <span className="font-serif text-3xl font-medium tabular-nums tracking-tight text-foreground">
-                {filteredApplications.length.toLocaleString("en-US")}
-              </span>
-            </div>
-            <span className="text-[11px] text-muted-foreground">
-              {isPending ? "Filtering…" : formatAdminCount(filteredApplications.length, "match")}
-            </span>
-          </div>
+          <MetricCard active label="Members in queue" value={memberTotal} />
+          <MetricCard label="Partners in queue" value={partnerTotal} />
+          <MetricCard
+            hint={isPending ? "Filtering…" : formatAdminCount(filteredApplications.length, "match")}
+            label="Filtered view"
+            value={filteredApplications.length}
+          />
         </div>
 
-        {/* Toolbar */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
-          <div className="lg:flex-1">
-            <AdminSearch
-              onChange={setSearch}
-              placeholder="Search by name, email, package, or type"
-              value={search}
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              onValueChange={(value) =>
-                setFilter("applicantType", value as AdminApplicationFilters["applicantType"])
-              }
-              value={filters.applicantType}
-            >
-              <SelectTrigger className="h-10 w-40 rounded-full">
-                <SelectValue placeholder="Applicant" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="all">All applicants</SelectItem>
-                  <SelectItem value="member">Members</SelectItem>
-                  <SelectItem value="partner">Partners</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Select
-              onValueChange={(value) =>
-                setFilter("status", value as AdminApplicationFilters["status"])
-              }
-              value={filters.status}
-            >
-              <SelectTrigger className="h-10 w-44 rounded-full">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="review">Additional review</SelectItem>
-                  <SelectItem value="submitted">Submitted</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Select
-              onValueChange={(value) =>
-                setFilter("paymentStatus", value as AdminApplicationFilters["paymentStatus"])
-              }
-              value={filters.paymentStatus}
-            >
-              <SelectTrigger className="h-10 w-40 rounded-full">
-                <SelectValue placeholder="Payment" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="all">All payments</SelectItem>
-                  <SelectItem value="not_requested">Not requested</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Button
-              className="h-10 rounded-full px-4"
-              onClick={resetFilters}
-              type="button"
-              variant="ghost"
-            >
-              Reset
-            </Button>
-          </div>
-        </div>
+        <section className="rounded-[30px] border border-white/70 bg-white/78 p-4 shadow-[0_18px_48px_rgba(15,35,70,0.08)] backdrop-blur-2xl">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="xl:flex-1">
+              <AdminSearch
+                onChange={setSearch}
+                placeholder="Search by name, email, package, or type"
+                value={search}
+              />
+            </div>
 
-        {/* The queue */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                onValueChange={(value) =>
+                  setFilter("applicantType", value as AdminApplicationFilters["applicantType"])
+                }
+                value={filters.applicantType}
+              >
+                <SelectTrigger className="h-10 w-40 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE] text-[#10203B]">
+                  <SelectValue placeholder="Applicant" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">All applicants</SelectItem>
+                    <SelectItem value="member">Members</SelectItem>
+                    <SelectItem value="partner">Partners</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+
+              <Select
+                onValueChange={(value) =>
+                  setFilter("status", value as AdminApplicationFilters["status"])
+                }
+                value={filters.status}
+              >
+                <SelectTrigger className="h-10 w-44 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE] text-[#10203B]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="review">Additional review</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+
+              <Select
+                onValueChange={(value) =>
+                  setFilter("paymentStatus", value as AdminApplicationFilters["paymentStatus"])
+                }
+                value={filters.paymentStatus}
+              >
+                <SelectTrigger className="h-10 w-40 rounded-2xl border-[#D9E4F2] bg-[#F7FAFE] text-[#10203B]">
+                  <SelectValue placeholder="Payment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">All payments</SelectItem>
+                    <SelectItem value="not_requested">Not requested</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+
+              <Button
+                className="h-10 rounded-2xl px-4 text-[#21466D]"
+                onClick={resetFilters}
+                type="button"
+                variant="ghost"
+              >
+                Reset
+              </Button>
+            </div>
+          </div>
+        </section>
+
         {isLoading ? (
-          <div className="flex flex-col gap-2.5">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton className="h-[72px] rounded-2xl" key={i} style={{ backgroundColor: "var(--mist)" }} />
+          <div className="grid gap-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton className="h-[78px] rounded-[24px] bg-white/70" key={index} />
             ))}
           </div>
         ) : filteredApplications.length === 0 ? (
-          <div className="card-vellum px-8 py-16 text-center">
-            <p className="font-serif text-xl tracking-tight text-foreground">Nothing matches your filters</p>
-            <p className="mt-2 text-sm text-muted-foreground">Reset the filters above to see the full queue.</p>
+          <div className="rounded-[30px] border border-white/70 bg-white/78 px-8 py-16 text-center shadow-[0_18px_48px_rgba(15,35,70,0.08)]">
+            <p className="text-xl font-semibold tracking-[-0.02em] text-[#10203B]">
+              Nothing matches your filters
+            </p>
+            <p className="mt-2 text-sm text-[#6B7C93]">
+              Reset the filters above to see the full queue.
+            </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <div className="grid gap-3">
             {filteredApplications.map((record, index) => (
               <ApplicationListRow
                 index={index}
@@ -484,22 +558,53 @@ export function AdminApplicationsPage() {
       </AdminPageShell>
 
       <AdminSheet
-        onOpenChange={(next) => (next ? null : closeSheet())}
-        open={sheetOpen}
-        eyebrow={
-          selectedApplication
-            ? selectedApplication.kind === "member"
-              ? "Atelier · Member intake"
-              : "Atelier · Partner intake"
-            : undefined
-        }
-        title={selectedApplication?.applicantName ?? "Application"}
         description={
           selectedApplication
             ? `${selectedApplication.applicantEmail} · ${selectedApplication.membershipPackage}`
             : undefined
         }
+        eyebrow={
+          selectedApplication
+            ? selectedApplication.kind === "member"
+              ? "Member application"
+              : "Partner application"
+            : undefined
+        }
+        leftRail={
+          selectedApplication?.kind === "member" ? (
+            <ApplicationMediaRail
+              additionalFiles={additionalFiles}
+              isLoadingFiles={isLoadingFiles}
+              memberApplication={memberDetail}
+              onDeleteAdditionalFile={handleDeleteAdditionalFile}
+              onUploadAdditionalFile={handleUploadAdditionalFile}
+            />
+          ) : null
+        }
+        onOpenChange={(next) => (next ? null : closeSheet())}
+        open={sheetOpen}
+        rightRail={
+          selectedApplication ? (
+            <ApplicationReviewRail
+              busyAction={busyAction}
+              memberApplication={memberDetail}
+              onApprove={handleApprove}
+              onDelete={handleDelete}
+              onMembershipCategoryChange={setSelectedMembershipCategory}
+              onPartnerTierChange={setSelectedPartnerTier}
+              onReject={handleReject}
+              onResendPaymentLink={handleResendPaymentLink}
+              onReview={handleReview}
+              onSaveMembershipCategory={handleSaveMembershipCategory}
+              partnerApplication={partnerDetail}
+              record={selectedApplication}
+              selectedMembershipCategory={selectedMembershipCategory}
+              selectedPartnerTier={selectedPartnerTier}
+            />
+          ) : null
+        }
         size="xl"
+        title={selectedApplication?.applicantName ?? "Application"}
       >
         <ApplicationDetailsPanel
           additionalFiles={additionalFiles}
