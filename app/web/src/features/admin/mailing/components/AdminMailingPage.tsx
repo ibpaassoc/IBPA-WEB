@@ -298,7 +298,6 @@ export function AdminMailingPage() {
           </>
         }
         eyebrow="Admin workspace"
-        subtitle="Send and review every IBPA campaign. Open a card to inspect a sent campaign. Compose a new one from the top right."
         title="Mailing"
       >
         <div className="grid gap-4 sm:grid-cols-3">

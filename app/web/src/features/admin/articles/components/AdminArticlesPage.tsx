@@ -166,7 +166,6 @@ export function AdminArticlesPage() {
           </>
         }
         eyebrow="Admin workspace"
-        subtitle="Draft, edit, and publish every article that goes out under IBPA. One canvas, three steps: write, preview, publish."
         title="Articles"
       >
         <section className="rounded-[28px] border border-[#D7E5F4] bg-white p-4 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">

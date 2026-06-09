@@ -361,7 +361,6 @@ export function AdminApplicationsPage() {
           </Button>
         }
         eyebrow="Admin workspace"
-        subtitle="Review member and partner applications in one focused workspace."
         title="Applications"
       >
         <div className="grid gap-4 sm:grid-cols-3">
