@@ -185,7 +185,12 @@ export function AdminMembersPage() {
   return (
     <AdminPageShell
       actions={
-        <Button onClick={() => void loadMembers()} type="button" variant="outline">
+        <Button
+          className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={() => void loadMembers()}
+          type="button"
+          variant="outline"
+        >
           <RefreshCw data-icon="inline-start" />
           Refresh
         </Button>
@@ -202,7 +207,7 @@ export function AdminMembersPage() {
           onValueChange={(value) => setFilter("membership", value)}
           value={filters.membership}
         >
-          <SelectTrigger className="w-full lg:w-52">
+          <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B] lg:w-52">
             <SelectValue placeholder="Membership" />
           </SelectTrigger>
           <SelectContent>
@@ -220,7 +225,7 @@ export function AdminMembersPage() {
           }
           value={filters.certificate}
         >
-          <SelectTrigger className="w-full lg:w-44">
+          <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B] lg:w-44">
             <SelectValue placeholder="Certificate" />
           </SelectTrigger>
           <SelectContent>
@@ -231,7 +236,12 @@ export function AdminMembersPage() {
             </SelectGroup>
           </SelectContent>
         </Select>
-        <Button onClick={resetFilters} type="button" variant="ghost">
+        <Button
+          className="h-10 rounded-2xl px-4 text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={resetFilters}
+          type="button"
+          variant="ghost"
+        >
           Reset
         </Button>
       </AdminFilters>
@@ -241,7 +251,7 @@ export function AdminMembersPage() {
           <div className="flex flex-col gap-0">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
-                className="flex items-center gap-3 border-b border-border px-4 py-3"
+                className="flex items-center gap-3 border-b border-[#E4EEF8] px-5 py-3"
                 key={i}
               >
                 <Skeleton className="size-9 rounded-full" />
@@ -254,19 +264,19 @@ export function AdminMembersPage() {
             ))}
           </div>
         ) : filteredMembers.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+          <div className="px-5 py-10 text-center text-sm text-[#6C7F95]">
             No members match the current filters.
           </div>
         ) : (
-          <div className="flex flex-col divide-y divide-border">
+          <div className="flex flex-col">
             {/* Column headers */}
-            <div className="flex items-center gap-4 px-5 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <span className="w-9 shrink-0" />
+            <div className="flex items-center gap-4 border-b border-[#D7E5F4] bg-[#F6FAFF] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6C7F95]">
+              <span className="w-10 shrink-0" />
               <span className="flex-1">Member</span>
-              <span className="hidden shrink-0 xl:block w-24">Certificate</span>
-              <span className="hidden shrink-0 lg:block w-28">Expiry</span>
-              <span className="hidden shrink-0 sm:block w-24">Membership</span>
-              <span className="w-4 shrink-0" />
+              <span className="hidden shrink-0 md:block w-[150px]">Certificate</span>
+              <span className="hidden shrink-0 md:block w-[110px]">Expiry</span>
+              <span className="hidden shrink-0 lg:block w-[150px]">Membership</span>
+              <span className="w-9 shrink-0" />
             </div>
 
             {filteredMembers.map((member) => {

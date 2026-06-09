@@ -112,7 +112,12 @@ export function AdminMembershipsPage() {
   return (
     <AdminPageShell
       actions={
-        <Button onClick={() => void loadMemberships()} type="button" variant="outline">
+        <Button
+          className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={() => void loadMemberships()}
+          type="button"
+          variant="outline"
+        >
           <RefreshCw data-icon="inline-start" />
           Refresh
         </Button>
@@ -137,7 +142,7 @@ export function AdminMembershipsPage() {
       <AdminFilters>
         <AdminSearch onChange={setSearch} placeholder="Search by name, email, or certificate" value={search} />
         <Select onValueChange={(value) => setFilter("category", value)} value={filters.category}>
-          <SelectTrigger className="w-full lg:w-52">
+          <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B] lg:w-52">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
@@ -155,7 +160,7 @@ export function AdminMembershipsPage() {
           onValueChange={(value) => setFilter("expiry", value as AdminMembershipFilters["expiry"])}
           value={filters.expiry}
         >
-          <SelectTrigger className="w-full lg:w-48">
+          <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B] lg:w-48">
             <SelectValue placeholder="Expiry" />
           </SelectTrigger>
           <SelectContent>
@@ -165,7 +170,12 @@ export function AdminMembershipsPage() {
             </SelectGroup>
           </SelectContent>
         </Select>
-        <Button onClick={resetFilters} type="button" variant="ghost">
+        <Button
+          className="h-10 rounded-2xl px-4 text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={resetFilters}
+          type="button"
+          variant="ghost"
+        >
           Reset
         </Button>
       </AdminFilters>

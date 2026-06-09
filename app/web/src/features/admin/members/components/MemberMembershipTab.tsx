@@ -3,11 +3,7 @@
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
   Select,
   SelectContent,
@@ -16,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { membershipConfigs } from "@/lib/membership";
 
 import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
@@ -52,8 +47,7 @@ export function MemberMembershipTab({
   selectedCategory,
 }: Props) {
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_220px]">
-      {/* Info */}
+    <div className="grid gap-6 lg:grid-cols-[1fr_240px]">
       <div className="flex flex-col gap-5">
         <div className="flex flex-wrap gap-2">
           <AdminStatusBadge tone="info">
@@ -68,28 +62,24 @@ export function MemberMembershipTab({
         <dl className="grid gap-3 sm:grid-cols-2">
           <InfoRow label="Member since" value={formatAdminDate(member.createdAt)} />
           <InfoRow label="Expires" value={formatAdminDate(member.expiresAt)} />
-          <InfoRow
-            label="Certificate"
-            value={member.certificateNumber || "Not issued"}
-          />
+          <InfoRow label="Certificate" value={member.certificateNumber || "Not issued"} />
           <InfoRow
             label="Dashboard access"
             value={member.hasDashboardAccess ? "Enabled" : "Not linked"}
           />
         </dl>
 
-        <Separator />
-
-        <section className="flex flex-col gap-3">
-          <h4 className="text-sm font-medium text-foreground">Change membership category</h4>
+        <section className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+            Change membership category
+          </p>
           <FieldGroup>
             <Field>
-              <FieldLabel>Membership package</FieldLabel>
-              <Select
-                onValueChange={onCategoryChange}
-                value={selectedCategory || undefined}
-              >
-                <SelectTrigger className="w-full">
+              <FieldLabel className="text-xs font-medium text-[#55708D]">
+                Membership package
+              </FieldLabel>
+              <Select onValueChange={onCategoryChange} value={selectedCategory || undefined}>
+                <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-white text-[#10203B]">
                   <SelectValue placeholder="Select package" />
                 </SelectTrigger>
                 <SelectContent>
@@ -105,9 +95,9 @@ export function MemberMembershipTab({
             </Field>
           </FieldGroup>
           <Button
+            className="mt-3 h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
             disabled={busyAction === "membership"}
             onClick={onSaveCategory}
-            size="sm"
             type="button"
             variant="outline"
           >
@@ -119,15 +109,16 @@ export function MemberMembershipTab({
         </section>
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-col gap-3 border-t border-border pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-        <p className="text-xs font-semibold text-muted-foreground">Membership actions</p>
+      <div className="flex flex-col gap-3 rounded-[22px] border border-[#F2C7C7] bg-[#FFF5F5] p-4">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#B42318]">
+          Danger zone
+        </p>
         <Button
+          className="h-10 rounded-2xl"
           disabled={busyAction === "delete_membership"}
           onClick={onDeleteMembership}
-          size="sm"
           type="button"
-          variant="outline"
+          variant="destructive"
         >
           {busyAction === "delete_membership" ? (
             <Loader2 className="animate-spin" data-icon="inline-start" />

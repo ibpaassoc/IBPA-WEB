@@ -103,7 +103,12 @@ export function AdminUsersPage() {
   return (
     <AdminPageShell
       actions={
-        <Button onClick={() => void loadUsers()} type="button" variant="outline">
+        <Button
+          className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={() => void loadUsers()}
+          type="button"
+          variant="outline"
+        >
           <RefreshCw data-icon="inline-start" />
           Refresh
         </Button>
@@ -128,7 +133,7 @@ export function AdminUsersPage() {
       <AdminFilters>
         <AdminSearch onChange={setSearch} placeholder="Search by name, email, or membership" value={search} />
         <Select onValueChange={(value) => setFilter("membership", value)} value={filters.membership}>
-          <SelectTrigger className="w-full lg:w-52">
+          <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B] lg:w-52">
             <SelectValue placeholder="Membership" />
           </SelectTrigger>
           <SelectContent>
@@ -146,7 +151,7 @@ export function AdminUsersPage() {
           onValueChange={(value) => setFilter("access", value as AdminUserFilters["access"])}
           value={filters.access}
         >
-          <SelectTrigger className="w-full lg:w-48">
+          <SelectTrigger className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-[#F8FBFF] text-[#10203B] lg:w-48">
             <SelectValue placeholder="Dashboard access" />
           </SelectTrigger>
           <SelectContent>
@@ -157,7 +162,12 @@ export function AdminUsersPage() {
             </SelectGroup>
           </SelectContent>
         </Select>
-        <Button onClick={resetFilters} type="button" variant="ghost">
+        <Button
+          className="h-10 rounded-2xl px-4 text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          onClick={resetFilters}
+          type="button"
+          variant="ghost"
+        >
           Reset
         </Button>
       </AdminFilters>

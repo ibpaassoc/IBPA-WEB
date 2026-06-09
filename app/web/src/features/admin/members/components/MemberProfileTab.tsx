@@ -1,15 +1,13 @@
 "use client";
 
-import { ExternalLink, Globe, Instagram, MapPin } from "lucide-react";
+import { ExternalLink, Globe, Instagram } from "lucide-react";
 import Link from "next/link";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 
 import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
-import { formatNullableText } from "../../shared/utils/admin-formatters";
-import { initialsFromName } from "../../shared/utils/admin-formatters";
+import { formatNullableText, initialsFromName } from "../../shared/utils/admin-formatters";
 import type { AdminMemberRecord } from "../types/members-admin.types";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -31,19 +29,18 @@ export function MemberProfileTab({ member }: Props) {
   const location = [member.city, member.state, member.country].filter(Boolean).join(", ");
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_220px]">
-      {/* Info */}
+    <div className="grid gap-6 lg:grid-cols-[1fr_240px]">
       <div className="flex flex-col gap-5">
         <div className="flex items-center gap-4">
-          <Avatar className="size-14">
+          <Avatar className="size-14 border border-[#D7E5F4]">
             <AvatarImage src={member.avatarUrl || undefined} />
-            <AvatarFallback className="text-base font-semibold">
+            <AvatarFallback className="bg-[#EEF6FF] text-base font-semibold text-[#1F5D8F]">
               {initialsFromName(member.userName)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold text-foreground">{member.userName}</h3>
-            <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+            <h3 className="truncate text-base font-semibold text-[#10203B]">{member.userName}</h3>
+            <p className="truncate text-sm text-[#6C7F95]">{member.email}</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               <AdminStatusBadge tone="info">
                 {member.cardName || member.membershipCategory || "Member"}
@@ -56,89 +53,99 @@ export function MemberProfileTab({ member }: Props) {
         </div>
 
         {member.bio ? (
-          <p className="text-sm leading-6 text-muted-foreground">{member.bio}</p>
+          <p className="text-sm leading-6 text-[#55708D]">{member.bio}</p>
         ) : null}
 
         <dl className="grid gap-3 sm:grid-cols-2">
           <InfoRow label="Specialization" value={formatNullableText(member.specialization)} />
-          <InfoRow label="Experience" value={formatNullableText(member.experienceYears ? `${member.experienceYears} years` : null)} />
+          <InfoRow
+            label="Experience"
+            value={formatNullableText(member.experienceYears ? `${member.experienceYears} years` : null)}
+          />
           <InfoRow label="Education" value={formatNullableText(member.education)} />
           {location ? <InfoRow label="Location" value={location} /> : null}
         </dl>
 
-        {(member.websiteUrl || member.instagramUrl) ? (
-          <>
-            <Separator />
-            <div className="flex flex-wrap gap-2">
-              {member.websiteUrl ? (
-                <a
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                  href={member.websiteUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <Globe className="size-3.5" />
-                  Website
-                </a>
-              ) : null}
-              {member.instagramUrl ? (
-                <a
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                  href={member.instagramUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <Instagram className="size-3.5" />
-                  Instagram
-                </a>
-              ) : null}
-            </div>
-          </>
+        {member.websiteUrl || member.instagramUrl ? (
+          <div className="flex flex-wrap gap-2">
+            {member.websiteUrl ? (
+              <a
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#D7E5F4] bg-white px-3 py-1.5 text-xs font-medium text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                href={member.websiteUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <Globe className="size-3.5" />
+                Website
+              </a>
+            ) : null}
+            {member.instagramUrl ? (
+              <a
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#D7E5F4] bg-white px-3 py-1.5 text-xs font-medium text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                href={member.instagramUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <Instagram className="size-3.5" />
+                Instagram
+              </a>
+            ) : null}
+          </div>
         ) : null}
 
         {member.services && member.services.length > 0 ? (
-          <>
-            <Separator />
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-medium text-muted-foreground">Services</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {member.services.slice(0, 4).map((service) => (
-                  <div
-                    className="rounded-lg border border-border bg-muted/20 p-2.5"
-                    key={service.id}
-                  >
-                    <p className="truncate text-xs font-medium text-foreground">{service.title}</p>
-                    {service.price ? (
-                      <p className="mt-0.5 text-xs text-muted-foreground">{service.price}</p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
+          <div className="flex flex-col gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">Services</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {member.services.slice(0, 4).map((service) => (
+                <div
+                  className="rounded-2xl border border-[#DCE7F5] bg-[#F8FBFF] p-3"
+                  key={service.id}
+                >
+                  <p className="truncate text-sm font-medium text-[#10203B]">{service.title}</p>
+                  {service.price ? (
+                    <p className="mt-0.5 text-xs text-[#6C7F95]">{service.price}</p>
+                  ) : null}
+                </div>
+              ))}
             </div>
-          </>
+          </div>
         ) : null}
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-col gap-3 border-t border-border pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-        <p className="text-xs font-semibold text-muted-foreground">Profile actions</p>
-        <Button asChild size="sm" type="button" variant="outline">
+      <div className="flex flex-col gap-3 rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+          Profile actions
+        </p>
+        <Button
+          asChild
+          className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+          type="button"
+          variant="outline"
+        >
           <Link href={`/admin/profiles?q=${encodeURIComponent(member.email)}`}>
             <ExternalLink data-icon="inline-start" />
             Open in profiles
           </Link>
         </Button>
+
         {member.portfolioImages && member.portfolioImages.length > 0 ? (
-          <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
-            <p className="text-xs font-medium text-muted-foreground">
+          <div className="flex flex-col gap-2 rounded-2xl border border-[#D7E5F4] bg-white p-3">
+            <p className="text-xs font-medium text-[#6C7F95]">
               Portfolio ({member.portfolioImages.length} images)
             </p>
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-3 gap-1.5">
               {member.portfolioImages.slice(0, 6).map((src) => (
-                <a href={src} key={src} rel="noreferrer" target="_blank">
+                <a
+                  className="overflow-hidden rounded-lg border border-[#D7E5F4]"
+                  href={src}
+                  key={src}
+                  rel="noreferrer"
+                  target="_blank"
+                >
                   <img
                     alt="Portfolio"
-                    className="aspect-square rounded object-cover"
+                    className="aspect-square h-full w-full object-cover"
                     src={src}
                   />
                 </a>
@@ -146,10 +153,11 @@ export function MemberProfileTab({ member }: Props) {
             </div>
           </div>
         ) : null}
+
         {member.specializations && member.specializations.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Specializations</p>
-            <div className="flex flex-wrap gap-1">
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-medium text-[#6C7F95]">Specializations</p>
+            <div className="flex flex-wrap gap-1.5">
               {member.specializations.map((s) => (
                 <AdminStatusBadge key={s} tone="neutral">{s}</AdminStatusBadge>
               ))}
