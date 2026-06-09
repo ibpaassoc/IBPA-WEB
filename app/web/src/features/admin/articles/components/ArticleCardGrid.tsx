@@ -16,9 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import { AdminEmptyState } from "../../shared/components/AdminEmptyState";
-import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
 import { formatAdminDate } from "../../shared/utils/admin-formatters";
-import { getArticleVisibility } from "../server/article-admin.service";
 import type { AdminArticle } from "../types/article-admin.types";
 
 type ArticleCardGridProps = {
@@ -64,6 +62,42 @@ function ArticleThumbnail({ article }: { article: AdminArticle }) {
   );
 }
 
+/** Icon-only publish target indicators: active = solid blue chip, inactive = muted. */
+function PublishIcons({
+  publishToSite,
+  publishToDashboard,
+}: {
+  publishToSite: boolean;
+  publishToDashboard: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        className={cn(
+          "flex size-5 items-center justify-center rounded-full transition-colors",
+          publishToSite ? "bg-[#1F5D8F] text-white" : "bg-[#EEF6FF] text-[#BFD3EA]",
+        )}
+        title={publishToSite ? "Visible on the public site" : "Not on the public site"}
+      >
+        <Globe className="size-2.5" />
+      </span>
+      <span
+        className={cn(
+          "flex size-5 items-center justify-center rounded-full transition-colors",
+          publishToDashboard ? "bg-[#1F5D8F] text-white" : "bg-[#EEF6FF] text-[#BFD3EA]",
+        )}
+        title={
+          publishToDashboard
+            ? "Visible in the member dashboard"
+            : "Not in the member dashboard"
+        }
+      >
+        <LayoutDashboard className="size-2.5" />
+      </span>
+    </div>
+  );
+}
+
 export function ArticleCardGrid({
   articles,
   isLoading,
@@ -94,7 +128,6 @@ export function ArticleCardGrid({
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {articles.map((article) => {
         const isSelected = article.id === selectedId;
-        const visibility = getArticleVisibility(article);
         const hasCta = Boolean(article.ctaUrl);
 
         return (
@@ -139,28 +172,11 @@ export function ArticleCardGrid({
                   <span className="tabular-nums">{formatAdminDate(article.updatedAt)}</span>
                 </div>
 
-                <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <AdminStatusBadge tone={visibility === "Published" ? "success" : "neutral"}>
-                    {visibility}
-                  </AdminStatusBadge>
-                  {article.publishToSite ? (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full border border-[#D7E5F4] bg-[#F6FAFF] px-2 py-0.5 text-[10px] font-semibold text-[#55708D]"
-                      title="Visible on the public site"
-                    >
-                      <Globe className="size-2.5" />
-                      Site
-                    </span>
-                  ) : null}
-                  {article.publishToDashboard ? (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full border border-[#D7E5F4] bg-[#F6FAFF] px-2 py-0.5 text-[10px] font-semibold text-[#55708D]"
-                      title="Visible in the member dashboard"
-                    >
-                      <LayoutDashboard className="size-2.5" />
-                      Dashboard
-                    </span>
-                  ) : null}
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <PublishIcons
+                    publishToDashboard={article.publishToDashboard}
+                    publishToSite={article.publishToSite}
+                  />
                   {hasCta ? (
                     <span
                       className="inline-flex items-center gap-1 rounded-full border border-[#D7E5F4] bg-[#F6FAFF] px-2 py-0.5 text-[10px] font-semibold text-[#55708D]"
@@ -179,19 +195,26 @@ export function ArticleCardGrid({
               onClick={(e) => e.stopPropagation()}
             >
               <Button
-                className="h-8 gap-1.5 rounded-full px-3 text-xs text-[#1F5D8F] hover:bg-[#EEF6FF]"
-                onClick={() => onEdit(article)}
+                aria-label="Edit article"
+                className="size-8 rounded-full text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(article);
+                }}
+                size="icon"
                 type="button"
                 variant="ghost"
               >
-                <Pencil className="size-3" />
-                Edit
+                <Pencil className="size-3.5" />
               </Button>
               <div className="flex-1" />
               <Button
                 aria-label="Delete article"
                 className="size-8 rounded-full text-[#55708D] hover:bg-[#FFF5F5] hover:text-[#B42318]"
-                onClick={() => onDelete(article)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(article);
+                }}
                 size="icon"
                 type="button"
                 variant="ghost"
