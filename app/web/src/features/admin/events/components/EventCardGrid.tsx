@@ -36,8 +36,8 @@ type EventCardGridProps = {
 };
 
 /** Always returns a displayable price label — "Free" when no price is set. */
-function formatEventPrice(price?: string | null): string {
-  const value = price?.trim();
+function formatEventPrice(price?: string | number | null): string {
+  const value = price != null ? String(price).trim() : "";
   return value ? value : "Free";
 }
 

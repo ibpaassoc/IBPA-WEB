@@ -30,7 +30,7 @@ function toInputDate(value?: string | Date | null) {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 16);
 }
 
-export function normalizeEvent(item: AdminContentItem & { price?: string | null }): AdminEvent {
+export function normalizeEvent(item: AdminContentItem & { price?: unknown }): AdminEvent {
   return {
     ...item,
     body: item.body ?? "",
@@ -43,7 +43,8 @@ export function normalizeEvent(item: AdminContentItem & { price?: string | null 
     eventDate: item.eventDate ?? "",
     eventEndDate: item.eventEndDate ?? "",
     isPinned: Boolean(item.isPinned),
-    price: item.price ?? "",
+    // Coerce to string — the backend may return numbers or other scalars
+    price: item.price != null ? String(item.price) : "",
     publishToDashboard: Boolean(item.publishToDashboard),
     publishToSite: Boolean(item.publishToSite),
     title: item.title ?? "",
