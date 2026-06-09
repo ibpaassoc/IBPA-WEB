@@ -65,6 +65,24 @@ export function PaymentsTable({ isLoading, payments }: PaymentsTableProps) {
           ),
         },
         {
+          key: "amount",
+          label: "Amount",
+          className: "text-right",
+          render: (payment) =>
+            payment.amountLabel ? (
+              <span className="text-sm font-semibold tabular-nums text-[#10203B]">
+                {payment.amountLabel}
+              </span>
+            ) : (
+              <span
+                className="text-xs italic text-[#8AA2BD]"
+                title="No price recorded for this membership or tier"
+              >
+                Amount unavailable
+              </span>
+            ),
+        },
+        {
           key: "status",
           label: "Payment status",
           render: (payment) => (

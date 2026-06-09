@@ -1,11 +1,32 @@
+import { getMembershipCategory, membershipConfigById } from "@/lib/membership";
+
 import type { AdminOrder, AdminPartnerApplication, AdminStatusTone } from "../../shared/types/admin.types";
-import { formatAdminDate } from "../../shared/utils/admin-formatters";
+import { formatAdminDate, formatAdminUsd } from "../../shared/utils/admin-formatters";
 import type {
   AdminPaymentFilters,
   AdminPaymentRecord,
   AdminPaymentStats,
   AdminPaymentStatus,
 } from "../types/payment-admin.types";
+
+const PARTNER_TIER_PRICES: Record<string, string> = {
+  Associate: "$500",
+  Community: "$1,500",
+  Premier: "$3,000",
+};
+
+function memberAmountLabel(order: AdminOrder): string | null {
+  const category = getMembershipCategory(order.membershipCategory);
+  if (!category) return null;
+  return formatAdminUsd(membershipConfigById[category]?.price ?? null);
+}
+
+function partnerAmountLabel(application: AdminPartnerApplication): string | null {
+  const tier = application.requestedTier?.trim();
+  if (!tier) return null;
+  const price = PARTNER_TIER_PRICES[tier];
+  return price ? formatAdminUsd(price) : null;
+}
 
 function toTimestamp(value?: string | null) {
   if (!value) return 0;
@@ -46,6 +67,7 @@ function toMemberRecord(order: AdminOrder): AdminPaymentRecord {
   const timestamp = toTimestamp(order.createdAt);
 
   return {
+    amountLabel: memberAmountLabel(order),
     dateLabel: formatAdminDate(order.createdAt),
     href: "/admin/applications",
     id: `member:${order.id}`,
@@ -68,6 +90,7 @@ function toPartnerRecord(application: AdminPartnerApplication): AdminPaymentReco
   const timestamp = toTimestamp(application.paidAt ?? application.updatedAt ?? application.createdAt);
 
   return {
+    amountLabel: partnerAmountLabel(application),
     dateLabel: formatAdminDate(application.paidAt ?? application.updatedAt ?? application.createdAt),
     href: "/admin/applications?applicantType=partner",
     id: `partner:${application.id}`,

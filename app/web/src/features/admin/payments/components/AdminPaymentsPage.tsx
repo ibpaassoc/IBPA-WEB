@@ -129,7 +129,6 @@ export function AdminPaymentsPage() {
           Refresh
         </Button>
       }
-      description="A unified ledger of member and partner payments, sourced from applications and partnerships."
       lastSyncedAt={lastSyncedAt}
       title="Payments"
     >

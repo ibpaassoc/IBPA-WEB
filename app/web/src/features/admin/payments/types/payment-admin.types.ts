@@ -10,6 +10,8 @@ export type AdminPaymentFilters = {
 };
 
 export type AdminPaymentRecord = {
+  /** Pre-formatted USD amount string (e.g. "$199"), or null when no price is known. */
+  amountLabel: string | null;
   dateLabel: string;
   href: string;
   id: string;
