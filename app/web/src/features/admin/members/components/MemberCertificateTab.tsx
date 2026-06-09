@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import { Button } from "@/components/ui/button";
 
-import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
 import { formatAdminDate } from "../../shared/utils/admin-formatters";
 import type { AdminMemberRecord } from "../types/members-admin.types";
 
@@ -37,7 +36,8 @@ export function MemberCertificateTab({
   onResendCertificate,
 }: Props) {
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_240px]">
+    <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+      {/* Left: read-only info */}
       <div className="flex flex-col gap-5">
         <div className="flex items-center gap-3 rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
           <span
@@ -83,57 +83,50 @@ export function MemberCertificateTab({
             View certificate PDF
           </a>
         ) : null}
-
-        <section className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
-            {member.hasCertificate ? "Replace certificate" : "Issue certificate"}
-          </p>
-          <AdminUploadZone
-            accept=".pdf,application/pdf"
-            buttonText="Choose PDF"
-            endpoint="certificateUploader"
-            helperText="Upload a signed PDF certificate."
-            label="Certificate file"
-            onError={(message) => toast.error(message)}
-            onUploaded={(url, metadata) => {
-              onIssueCertificate(url, metadata);
-            }}
-          />
-        </section>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-2 rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+      {/* Right: action rail */}
+      <aside className="flex flex-col gap-3">
+        <section className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
             Certificate actions
           </p>
-          {member.hasCertificate ? (
-            <Button
-              className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
-              disabled={busyAction === "resend"}
-              onClick={onResendCertificate}
-              type="button"
-              variant="outline"
-            >
-              {busyAction === "resend" ? (
-                <Loader2 className="animate-spin" data-icon="inline-start" />
-              ) : null}
-              Resend certificate email
-            </Button>
-          ) : (
-            <AdminStatusBadge tone="neutral">
-              Upload a PDF to issue a certificate
-            </AdminStatusBadge>
-          )}
-        </div>
+          <div className="mt-3 flex flex-col gap-3">
+            <AdminUploadZone
+              accept=".pdf,application/pdf"
+              buttonText={member.hasCertificate ? "Replace PDF" : "Upload PDF"}
+              endpoint="certificateUploader"
+              helperText="Signed PDF only."
+              label={member.hasCertificate ? "Replace certificate" : "Issue certificate"}
+              onError={(message) => toast.error(message)}
+              onUploaded={(url, metadata) => {
+                onIssueCertificate(url, metadata);
+              }}
+            />
+            {member.hasCertificate ? (
+              <Button
+                className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                disabled={busyAction === "resend"}
+                onClick={onResendCertificate}
+                type="button"
+                variant="outline"
+              >
+                {busyAction === "resend" ? (
+                  <Loader2 className="animate-spin" data-icon="inline-start" />
+                ) : null}
+                Resend certificate email
+              </Button>
+            ) : null}
+          </div>
+        </section>
 
         {member.hasCertificate ? (
-          <div className="flex flex-col gap-2 rounded-[22px] border border-[#F2C7C7] bg-[#FFF5F5] p-4">
+          <section className="rounded-[22px] border border-[#F2C7C7] bg-[#FFF5F5] p-4">
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#B42318]">
               Danger zone
             </p>
             <Button
-              className="h-10 rounded-2xl"
+              className="mt-3 h-10 w-full rounded-2xl"
               disabled={busyAction === "remove_cert"}
               onClick={onRemoveCertificate}
               type="button"
@@ -144,9 +137,9 @@ export function MemberCertificateTab({
               ) : null}
               Remove certificate
             </Button>
-          </div>
+          </section>
         ) : null}
-      </div>
+      </aside>
     </div>
   );
 }

@@ -47,7 +47,8 @@ export function MemberMembershipTab({
   selectedCategory,
 }: Props) {
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_240px]">
+    <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+      {/* Left: read-only info */}
       <div className="flex flex-col gap-5">
         <div className="flex flex-wrap gap-2">
           <AdminStatusBadge tone="info">
@@ -68,12 +69,15 @@ export function MemberMembershipTab({
             value={member.hasDashboardAccess ? "Enabled" : "Not linked"}
           />
         </dl>
+      </div>
 
+      {/* Right: action rail */}
+      <aside className="flex flex-col gap-3">
         <section className="rounded-[22px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
-            Change membership category
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
+            Membership actions
           </p>
-          <FieldGroup>
+          <FieldGroup className="mt-3">
             <Field>
               <FieldLabel className="text-xs font-medium text-[#55708D]">
                 Membership package
@@ -95,11 +99,10 @@ export function MemberMembershipTab({
             </Field>
           </FieldGroup>
           <Button
-            className="mt-3 h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+            className="mt-3 h-10 w-full rounded-2xl bg-[#1F5D8F] text-white hover:bg-[#10203B]"
             disabled={busyAction === "membership"}
             onClick={onSaveCategory}
             type="button"
-            variant="outline"
           >
             {busyAction === "membership" ? (
               <Loader2 className="animate-spin" data-icon="inline-start" />
@@ -107,25 +110,25 @@ export function MemberMembershipTab({
             Save category
           </Button>
         </section>
-      </div>
 
-      <div className="flex flex-col gap-3 rounded-[22px] border border-[#F2C7C7] bg-[#FFF5F5] p-4">
-        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#B42318]">
-          Danger zone
-        </p>
-        <Button
-          className="h-10 rounded-2xl"
-          disabled={busyAction === "delete_membership"}
-          onClick={onDeleteMembership}
-          type="button"
-          variant="destructive"
-        >
-          {busyAction === "delete_membership" ? (
-            <Loader2 className="animate-spin" data-icon="inline-start" />
-          ) : null}
-          Delete membership
-        </Button>
-      </div>
+        <section className="rounded-[22px] border border-[#F2C7C7] bg-[#FFF5F5] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#B42318]">
+            Danger zone
+          </p>
+          <Button
+            className="mt-3 h-10 w-full rounded-2xl"
+            disabled={busyAction === "delete_membership"}
+            onClick={onDeleteMembership}
+            type="button"
+            variant="destructive"
+          >
+            {busyAction === "delete_membership" ? (
+              <Loader2 className="animate-spin" data-icon="inline-start" />
+            ) : null}
+            Delete membership
+          </Button>
+        </section>
+      </aside>
     </div>
   );
 }
