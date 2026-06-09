@@ -99,25 +99,76 @@ function FieldList({ sections }: { sections: ApplicationFieldSection[] }) {
   );
 }
 
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|avif|heic|bmp)(\?|#|$)/i;
+
+function isImageFile(url: string) {
+  return IMAGE_EXTENSIONS.test(url);
+}
+
+function fileNameOf(url: string) {
+  try {
+    const decoded = decodeURIComponent(url.split("/").pop() ?? url);
+    return decoded.split("?")[0] || url;
+  } catch {
+    return url.split("/").pop() ?? url;
+  }
+}
+
 function FileLinks({ files }: { files: string[] }) {
   if (files.length === 0) {
     return <p className="text-sm text-muted-foreground">No files submitted.</p>;
   }
 
+  const images = files.filter(isImageFile);
+  const documents = files.filter((file) => !isImageFile(file));
+
   return (
-    <div className="flex flex-col gap-2">
-      {files.map((file) => (
-        <a
-          className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted"
-          href={file}
-          key={file}
-          rel="noreferrer"
-          target="_blank"
-        >
-          <FileText data-icon="inline-start" />
-          <span className="truncate">{file.split("/").pop() || file}</span>
-        </a>
-      ))}
+    <div className="flex flex-col gap-3">
+      {images.length > 0 ? (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+          {images.map((file) => (
+            <a
+              className="group relative block aspect-square overflow-hidden rounded-xl border border-[var(--hairline)] bg-[var(--mist)] transition-all hover:border-[var(--hairline-strong)] hover:shadow-[var(--shadow-soft)]"
+              href={file}
+              key={file}
+              rel="noreferrer"
+              target="_blank"
+              title={fileNameOf(file)}
+            >
+              <img
+                alt={fileNameOf(file)}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                loading="lazy"
+                src={file}
+              />
+              <span
+                aria-hidden
+                className="absolute inset-x-0 bottom-0 flex h-8 items-end bg-gradient-to-t from-[rgba(20,14,8,0.65)] to-transparent px-2 pb-1 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                <span className="truncate">{fileNameOf(file)}</span>
+              </span>
+            </a>
+          ))}
+        </div>
+      ) : null}
+      {documents.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {documents.map((file) => (
+            <a
+              className="flex items-center gap-3 rounded-xl border border-[var(--hairline)] bg-white px-3.5 py-2.5 text-sm text-foreground transition-all hover:border-[var(--hairline-strong)] hover:bg-[var(--vellum)]"
+              href={file}
+              key={file}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--mist)] text-foreground">
+                <FileText className="size-3.5" />
+              </span>
+              <span className="truncate">{fileNameOf(file)}</span>
+            </a>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -146,21 +197,46 @@ function AdditionalFiles({
 
   return (
     <div className="flex flex-col gap-2">
-      {files.map((file) => (
-        <div className="flex items-center gap-2 rounded-lg border border-border p-2" key={file.id}>
-          <a
-            className="min-w-0 flex-1 truncate text-sm font-medium text-foreground hover:underline"
-            href={file.fileUrl}
-            rel="noreferrer"
-            target="_blank"
+      {files.map((file) => {
+        const showThumb = isImageFile(file.fileUrl);
+        return (
+          <div
+            className="flex items-center gap-3 rounded-xl border border-[var(--hairline)] bg-white p-2 pr-3 transition-all hover:border-[var(--hairline-strong)]"
+            key={file.id}
           >
-            {file.fileName}
-          </a>
-          <Button onClick={() => onDelete(file.id)} size="sm" type="button" variant="ghost">
-            Delete
-          </Button>
-        </div>
-      ))}
+            <a
+              className="block size-12 shrink-0 overflow-hidden rounded-lg border border-[var(--hairline)] bg-[var(--mist)]"
+              href={file.fileUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {showThumb ? (
+                <img
+                  alt={file.fileName}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  src={file.fileUrl}
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-foreground">
+                  <FileText className="size-4" />
+                </span>
+              )}
+            </a>
+            <a
+              className="min-w-0 flex-1 truncate text-sm font-medium text-foreground hover:underline"
+              href={file.fileUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {file.fileName}
+            </a>
+            <Button onClick={() => onDelete(file.id)} size="sm" type="button" variant="ghost">
+              Delete
+            </Button>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -5,7 +5,13 @@ export type AdminSearchResultItem = {
   href: string;
 };
 
-export type AdminSearchGroupKey = "users" | "profiles" | "applications" | "events" | "certificates";
+export type AdminSearchGroupKey =
+  | "users"
+  | "profiles"
+  | "memberships"
+  | "applications"
+  | "events"
+  | "certificates";
 
 export type AdminSearchGroup = {
   key: AdminSearchGroupKey;

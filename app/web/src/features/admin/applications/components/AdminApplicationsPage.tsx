@@ -18,10 +18,9 @@ import {
 } from "@/components/ui/select";
 import { getMembershipCategory } from "@/lib/membership";
 
-import { AdminFilters } from "../../shared/components/AdminFilters";
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
-import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
+import { AdminSheet } from "../../shared/components/AdminSheet";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import {
@@ -53,7 +52,8 @@ import type {
   MemberApplicationDetail,
   PartnerApplicationDetail,
 } from "../types/application-admin.types";
-import { ApplicationExpandableRow } from "./ApplicationExpandableRow";
+import { ApplicationDetailsPanel } from "./ApplicationDetailsPanel";
+import { ApplicationListRow } from "./ApplicationListRow";
 
 const baseFilters: AdminApplicationFilters = {
   applicantType: "all",
@@ -92,7 +92,6 @@ export function AdminApplicationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [selectedApplication, setSelectedApplication] = useState<AdminApplicationRecord | null>(null);
   const [memberDetail, setMemberDetail] = useState<MemberApplicationDetail | null>(null);
   const [partnerDetail, setPartnerDetail] = useState<PartnerApplicationDetail | null>(null);
@@ -100,18 +99,16 @@ export function AdminApplicationsPage() {
   const [selectedMembershipCategory, setSelectedMembershipCategory] = useState("");
   const [selectedPartnerTier, setSelectedPartnerTier] = useState("Associate");
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const loadApplications = async ({ silent = false }: { silent?: boolean } = {}) => {
-    if (!silent) {
-      setIsLoading(true);
-    }
+    if (!silent) setIsLoading(true);
 
     try {
       const queue = await listApplicationQueue({ q: deferredSearch });
       setApplications(queue.records);
       setMemberTotal(queue.memberTotal);
       setPartnerTotal(queue.partnerTotal);
-      setLastSyncedAt(new Date().toISOString());
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load applications.");
       if (!silent) {
@@ -126,7 +123,6 @@ export function AdminApplicationsPage() {
 
   useEffect(() => {
     void loadApplications();
-    // loadApplications is intentionally scoped to the latest deferred search.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deferredSearch]);
 
@@ -136,15 +132,12 @@ export function AdminApplicationsPage() {
   );
 
   const openApplication = async (record: AdminApplicationRecord) => {
-    if (selectedApplication && selectedKey(selectedApplication) === selectedKey(record)) {
-      setSelectedApplication(null);
-      return;
-    }
     setSelectedApplication(record);
     setMemberDetail(null);
     setPartnerDetail(null);
     setAdditionalFiles([]);
     setIsLoadingDetail(true);
+    setSheetOpen(true);
 
     try {
       if (record.kind === "member") {
@@ -167,6 +160,10 @@ export function AdminApplicationsPage() {
       setIsLoadingDetail(false);
       setIsLoadingFiles(false);
     }
+  };
+
+  const closeSheet = () => {
+    setSheetOpen(false);
   };
 
   const refreshSelectedApplication = async () => {
@@ -288,6 +285,7 @@ export function AdminApplicationsPage() {
       setMemberDetail(null);
       setPartnerDetail(null);
       setAdditionalFiles([]);
+      closeSheet();
       toast.success("Application deleted.");
       await loadApplications({ silent: true });
     });
@@ -326,151 +324,206 @@ export function AdminApplicationsPage() {
     });
   };
 
-  const totalsLabel = `${formatAdminCount(memberTotal, "member application")} · ${formatAdminCount(
-    partnerTotal,
-    "partner application",
-  )}`;
+  const activeKey = selectedKey(selectedApplication);
 
   return (
-    <AdminPageShell
-      actions={
-        <Button onClick={() => void loadApplications()} type="button" variant="outline">
-          <RefreshCw data-icon="inline-start" />
-          Refresh
-        </Button>
-      }
-      description="Review member and partner applications without mixing in profile-management workflows."
-      lastSyncedAt={lastSyncedAt}
-      title="Applications"
-    >
-      <AdminFilters>
-        <AdminSearch
-          onChange={setSearch}
-          placeholder="Search by applicant, email, package, or type"
-          value={search}
-        />
-        <Select
-          onValueChange={(value) => setFilter("applicantType", value as AdminApplicationFilters["applicantType"])}
-          value={filters.applicantType}
-        >
-          <SelectTrigger className="w-full lg:w-44">
-            <SelectValue placeholder="Applicant type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="all">All applicants</SelectItem>
-              <SelectItem value="member">Members</SelectItem>
-              <SelectItem value="partner">Partners</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Select
-          onValueChange={(value) => setFilter("status", value as AdminApplicationFilters["status"])}
-          value={filters.status}
-        >
-          <SelectTrigger className="w-full lg:w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="review">Additional review</SelectItem>
-              <SelectItem value="submitted">Submitted</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Select
-          onValueChange={(value) => setFilter("paymentStatus", value as AdminApplicationFilters["paymentStatus"])}
-          value={filters.paymentStatus}
-        >
-          <SelectTrigger className="w-full lg:w-48">
-            <SelectValue placeholder="Payment" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="all">All payments</SelectItem>
-              <SelectItem value="not_requested">Not requested</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Button onClick={resetFilters} type="button" variant="ghost">
-          Reset
-        </Button>
-      </AdminFilters>
-
-      <AdminSectionCard
-        description={`${totalsLabel}${isPending ? " · filtering" : ""}`}
-        noPadding
-        title="Application queue"
+    <>
+      <AdminPageShell
+        actions={
+          <Button
+            className="size-10 rounded-full"
+            onClick={() => void loadApplications()}
+            size="icon"
+            type="button"
+            variant="outline"
+            aria-label="Refresh applications"
+          >
+            <RefreshCw className="size-3.5" />
+          </Button>
+        }
+        eyebrow="Atelier intake"
+        subtitle="Every application lands here — member and partner. Click a card to review submitted details, files, and act on them in one focused view."
+        title="Applications"
       >
+        {/* Totals strip */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="card-vellum flex items-end justify-between gap-3 px-5 py-4">
+            <div className="flex flex-col gap-1">
+              <span className="editorial-eyebrow text-[11px]">Members in queue</span>
+              <span className="font-serif text-3xl font-medium tabular-nums tracking-tight text-foreground">
+                {memberTotal.toLocaleString("en-US")}
+              </span>
+            </div>
+            <span className="h-1.5 w-16 rounded-full" style={{ backgroundColor: "var(--accent-copper)" }} />
+          </div>
+          <div className="card-vellum flex items-end justify-between gap-3 px-5 py-4">
+            <div className="flex flex-col gap-1">
+              <span className="editorial-eyebrow text-[11px]">Partners in queue</span>
+              <span className="font-serif text-3xl font-medium tabular-nums tracking-tight text-foreground">
+                {partnerTotal.toLocaleString("en-US")}
+              </span>
+            </div>
+            <span className="h-1.5 w-16 rounded-full bg-foreground/30" />
+          </div>
+          <div className="card-vellum flex items-end justify-between gap-3 px-5 py-4">
+            <div className="flex flex-col gap-1">
+              <span className="editorial-eyebrow text-[11px]">Filtered view</span>
+              <span className="font-serif text-3xl font-medium tabular-nums tracking-tight text-foreground">
+                {filteredApplications.length.toLocaleString("en-US")}
+              </span>
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              {isPending ? "Filtering…" : formatAdminCount(filteredApplications.length, "match")}
+            </span>
+          </div>
+        </div>
+
+        {/* Toolbar */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
+          <div className="lg:flex-1">
+            <AdminSearch
+              onChange={setSearch}
+              placeholder="Search by name, email, package, or type"
+              value={search}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              onValueChange={(value) =>
+                setFilter("applicantType", value as AdminApplicationFilters["applicantType"])
+              }
+              value={filters.applicantType}
+            >
+              <SelectTrigger className="h-10 w-40 rounded-full">
+                <SelectValue placeholder="Applicant" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="all">All applicants</SelectItem>
+                  <SelectItem value="member">Members</SelectItem>
+                  <SelectItem value="partner">Partners</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Select
+              onValueChange={(value) =>
+                setFilter("status", value as AdminApplicationFilters["status"])
+              }
+              value={filters.status}
+            >
+              <SelectTrigger className="h-10 w-44 rounded-full">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="review">Additional review</SelectItem>
+                  <SelectItem value="submitted">Submitted</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Select
+              onValueChange={(value) =>
+                setFilter("paymentStatus", value as AdminApplicationFilters["paymentStatus"])
+              }
+              value={filters.paymentStatus}
+            >
+              <SelectTrigger className="h-10 w-40 rounded-full">
+                <SelectValue placeholder="Payment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="all">All payments</SelectItem>
+                  <SelectItem value="not_requested">Not requested</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Button
+              className="h-10 rounded-full px-4"
+              onClick={resetFilters}
+              type="button"
+              variant="ghost"
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+
+        {/* The queue */}
         {isLoading ? (
-          <div className="flex flex-col gap-0">
+          <div className="flex flex-col gap-2.5">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div className="flex items-center gap-3 border-b border-border px-4 py-3" key={i}>
-                <Skeleton className="size-8 rounded-full" />
-                <div className="flex flex-1 flex-col gap-1.5">
-                  <Skeleton className="h-3.5 w-32" />
-                  <Skeleton className="h-3 w-48" />
-                </div>
-                <Skeleton className="h-5 w-16 rounded-full" />
-              </div>
+              <Skeleton className="h-[72px] rounded-2xl" key={i} style={{ backgroundColor: "var(--mist)" }} />
             ))}
           </div>
         ) : filteredApplications.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-            No applications match the current filters.
+          <div className="card-vellum px-8 py-16 text-center">
+            <p className="font-serif text-xl tracking-tight text-foreground">Nothing matches your filters</p>
+            <p className="mt-2 text-sm text-muted-foreground">Reset the filters above to see the full queue.</p>
           </div>
         ) : (
-          <div className="flex flex-col divide-y divide-border">
-            {/* Column headers */}
-            <div className="flex items-center gap-4 px-5 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <span className="w-8 shrink-0" />
-              <span className="flex-1">Applicant</span>
-              <span className="hidden w-28 shrink-0 sm:block">Type</span>
-              <span className="hidden w-20 shrink-0 sm:block">Status</span>
-              <span className="hidden w-24 shrink-0 text-right lg:block">Submitted</span>
-              <span className="w-4 shrink-0" />
-            </div>
-            {filteredApplications.map((record) => {
-              const key = selectedKey(record);
-              const isOpen = key === selectedKey(selectedApplication);
-              return (
-                <ApplicationExpandableRow
-                  additionalFiles={additionalFiles}
-                  busyAction={busyAction}
-                  isLoadingDetail={isLoadingDetail}
-                  isLoadingFiles={isLoadingFiles}
-                  isOpen={isOpen}
-                  key={key}
-                  memberDetail={memberDetail}
-                  onApprove={handleApprove}
-                  onDelete={handleDelete}
-                  onDeleteAdditionalFile={handleDeleteAdditionalFile}
-                  onMembershipCategoryChange={setSelectedMembershipCategory}
-                  onPartnerTierChange={setSelectedPartnerTier}
-                  onReject={handleReject}
-                  onResendPaymentLink={handleResendPaymentLink}
-                  onReview={handleReview}
-                  onSaveMembershipCategory={handleSaveMembershipCategory}
-                  onToggle={openApplication}
-                  onUploadAdditionalFile={handleUploadAdditionalFile}
-                  partnerDetail={partnerDetail}
-                  record={record}
-                  selectedMembershipCategory={selectedMembershipCategory}
-                  selectedPartnerTier={selectedPartnerTier}
-                />
-              );
-            })}
+          <div className="flex flex-col gap-2.5">
+            {filteredApplications.map((record, index) => (
+              <ApplicationListRow
+                index={index}
+                isActive={selectedKey(record) === activeKey && sheetOpen}
+                key={selectedKey(record) ?? `${record.kind}:${record.id}`}
+                onOpen={openApplication}
+                record={record}
+              />
+            ))}
           </div>
         )}
-      </AdminSectionCard>
-    </AdminPageShell>
+      </AdminPageShell>
+
+      <AdminSheet
+        onOpenChange={(next) => (next ? null : closeSheet())}
+        open={sheetOpen}
+        eyebrow={
+          selectedApplication
+            ? selectedApplication.kind === "member"
+              ? "Atelier · Member intake"
+              : "Atelier · Partner intake"
+            : undefined
+        }
+        title={selectedApplication?.applicantName ?? "Application"}
+        description={
+          selectedApplication
+            ? `${selectedApplication.applicantEmail} · ${selectedApplication.membershipPackage}`
+            : undefined
+        }
+        size="xl"
+      >
+        <ApplicationDetailsPanel
+          additionalFiles={additionalFiles}
+          busyAction={busyAction}
+          isLoading={isLoadingDetail}
+          isLoadingFiles={isLoadingFiles}
+          layout="inline"
+          memberApplication={memberDetail}
+          onApprove={handleApprove}
+          onDelete={handleDelete}
+          onDeleteAdditionalFile={handleDeleteAdditionalFile}
+          onMembershipCategoryChange={setSelectedMembershipCategory}
+          onPartnerTierChange={setSelectedPartnerTier}
+          onReject={handleReject}
+          onResendPaymentLink={handleResendPaymentLink}
+          onReview={handleReview}
+          onSaveMembershipCategory={handleSaveMembershipCategory}
+          onUploadAdditionalFile={handleUploadAdditionalFile}
+          partnerApplication={partnerDetail}
+          record={selectedApplication}
+          selectedMembershipCategory={selectedMembershipCategory}
+          selectedPartnerTier={selectedPartnerTier}
+        />
+      </AdminSheet>
+    </>
   );
 }

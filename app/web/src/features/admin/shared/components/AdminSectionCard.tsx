@@ -5,11 +5,14 @@ import { cn } from "@/lib/utils";
 type AdminSectionCardProps = {
   title?: string;
   description?: string;
+  eyebrow?: string;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
   contentClassName?: string;
   noPadding?: boolean;
+  /** Use the warmer vellum surface for nested cards. */
+  variant?: "paper" | "vellum";
 };
 
 export function AdminSectionCard({
@@ -18,32 +21,42 @@ export function AdminSectionCard({
   className,
   contentClassName,
   description,
+  eyebrow,
   noPadding,
   title,
+  variant = "paper",
 }: AdminSectionCardProps) {
-  const hasHeader = title || description || actions;
+  const hasHeader = title || description || actions || eyebrow;
 
   return (
-    <div
+    <section
       className={cn(
-        "rounded-2xl bg-card",
-        "border border-border",
-        "[box-shadow:var(--card-shadow)] transition-shadow duration-200 hover:[box-shadow:var(--card-shadow-hover)]",
+        variant === "paper" ? "card-premium" : "card-vellum",
+        "relative overflow-hidden",
         className,
       )}
     >
       {hasHeader ? (
-        <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            {title ? <h2 className="text-sm font-semibold text-foreground">{title}</h2> : null}
+        <header className="flex items-start justify-between gap-6 border-b border-[var(--hairline)] px-7 py-5">
+          <div className="flex min-w-0 flex-col gap-1">
+            {eyebrow ? (
+              <span className="editorial-eyebrow text-xs">{eyebrow}</span>
+            ) : null}
+            {title ? (
+              <h2 className="font-serif text-xl font-medium leading-tight tracking-tight text-foreground">
+                {title}
+              </h2>
+            ) : null}
             {description ? (
-              <p className="text-xs text-muted-foreground">{description}</p>
+              <p className="text-sm text-muted-foreground">{description}</p>
             ) : null}
           </div>
-          {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-        </div>
+          {actions ? (
+            <div className="flex shrink-0 items-center gap-2">{actions}</div>
+          ) : null}
+        </header>
       ) : null}
-      <div className={cn(!noPadding && "p-6", contentClassName)}>{children}</div>
-    </div>
+      <div className={cn(!noPadding && "p-7", contentClassName)}>{children}</div>
+    </section>
   );
 }

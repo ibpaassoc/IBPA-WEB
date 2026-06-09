@@ -16,35 +16,46 @@ export function AdminShell({ children }: AdminShellProps) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   return (
-    <div className="admin-theme flex min-h-dvh bg-background">
+    <div className="admin-theme relative isolate flex min-h-dvh bg-background text-foreground">
+      {/* Ambient warm aurora */}
+      <div aria-hidden className="admin-aurora" />
+
       <AdminSidebar />
       <AdminMobileNav onClose={() => setIsMobileNavOpen(false)} open={isMobileNavOpen} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-white/80 px-4 backdrop-blur-xl lg:px-5">
+      <div className="relative z-[1] flex min-w-0 flex-1 flex-col">
+        <header
+          className="glass sticky top-0 z-30 flex h-16 shrink-0 items-center gap-4 border-x-0 border-t-0 px-5 lg:px-10"
+        >
           <button
             aria-label="Open navigation menu"
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:hidden"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--hairline)] bg-white/70 text-muted-foreground transition-all hover:border-[var(--hairline-strong)] hover:text-foreground lg:hidden"
             onClick={() => setIsMobileNavOpen(true)}
             type="button"
           >
             <Menu className="size-4" />
           </button>
 
-          <div className="min-w-0 max-w-sm flex-1">
+          <div className="min-w-0 max-w-md flex-1">
             <AdminGlobalSearch />
           </div>
 
-          <div className="ml-auto shrink-0">
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <span className="hidden text-xs italic tracking-tight text-muted-foreground lg:inline">
+              <span className="editorial-eyebrow">IBPA</span> &nbsp;· Editorial workspace
+            </span>
+            <span className="hidden h-6 w-px bg-[var(--hairline)] lg:inline-block" />
             <UserButton
               appearance={{
-                elements: { userButtonAvatarBox: "size-8" },
+                elements: {
+                  userButtonAvatarBox: "size-9 ring-1 ring-[var(--hairline)]",
+                },
               }}
             />
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main className="relative flex-1">{children}</main>
       </div>
     </div>
   );

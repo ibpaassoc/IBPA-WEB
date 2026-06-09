@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { Download, RefreshCw } from "lucide-react";
+import { Download, Plus, RefreshCw } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -15,11 +15,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
-import { AdminFilters } from "../../shared/components/AdminFilters";
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
+import { AdminSheet } from "../../shared/components/AdminSheet";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import {
@@ -57,6 +63,8 @@ const emptyCounts: EventRegistrationCounts = {
   waitlisted: 0,
 };
 
+type SheetMode = "closed" | "edit" | "create";
+
 export function AdminEventsPage() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") ?? "";
@@ -73,12 +81,10 @@ export function AdminEventsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [sheetMode, setSheetMode] = useState<SheetMode>("closed");
 
   const loadEvents = async ({ silent = false }: { silent?: boolean } = {}) => {
-    if (!silent) {
-      setIsLoading(true);
-    }
+    if (!silent) setIsLoading(true);
 
     try {
       const data = await listContentItems();
@@ -86,12 +92,9 @@ export function AdminEventsPage() {
         ? data.items.filter((item) => item.type === "events").map(normalizeEvent)
         : [];
       setEvents(nextEvents);
-      setLastSyncedAt(new Date().toISOString());
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load events.");
-      if (!silent) {
-        setEvents([]);
-      }
+      if (!silent) setEvents([]);
     } finally {
       setIsLoading(false);
     }
@@ -129,14 +132,20 @@ export function AdminEventsPage() {
   const openEvent = (event: AdminEvent) => {
     setSelectedEvent(event);
     setForm(toEventEditorState(event));
+    setSheetMode("edit");
     void loadRegistrations(event);
   };
 
-  const resetForm = () => {
-    setForm({ ...emptyEventEditorState });
+  const openCreate = () => {
     setSelectedEvent(null);
+    setForm({ ...emptyEventEditorState });
     setRegistrations([]);
     setRegistrationCounts(emptyCounts);
+    setSheetMode("create");
+  };
+
+  const closeSheet = () => {
+    setSheetMode("closed");
   };
 
   const handleSave = async () => {
@@ -158,6 +167,7 @@ export function AdminEventsPage() {
         });
         setSelectedEvent(saved);
         setForm(toEventEditorState(saved));
+        setSheetMode("edit");
         await loadRegistrations(saved);
       } else {
         await loadEvents({ silent: true });
@@ -176,9 +186,7 @@ export function AdminEventsPage() {
     try {
       await deleteEvent(event.id);
       setEvents((current) => current.filter((item) => item.id !== event.id));
-      if (selectedEvent?.id === event.id) {
-        resetForm();
-      }
+      if (selectedEvent?.id === event.id) closeSheet();
       toast.success("Event deleted.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete event.");
@@ -200,119 +208,178 @@ export function AdminEventsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const sheetOpen = sheetMode !== "closed";
+  const sheetTitle = sheetMode === "create" ? "New event" : selectedEvent?.title || "Edit event";
+  const sheetEyebrow = sheetMode === "create" ? "Atelier · Compose" : "Atelier · Edit";
+
   return (
-    <AdminPageShell
-      actions={
-        <Button onClick={() => void loadEvents()} type="button" variant="outline">
-          <RefreshCw data-icon="inline-start" />
-          Refresh
-        </Button>
-      }
-      description="Manage event content separately from registration review and attendee export."
-      lastSyncedAt={lastSyncedAt}
-      title="Events"
-    >
-      <AdminFilters>
-        <AdminSearch
-          onChange={setSearch}
-          placeholder="Search event title, location, or details"
-          value={search}
-        />
-        <Select
-          onValueChange={(value) => setFilter("visibility", value as EventVisibilityFilter)}
-          value={filters.visibility}
-        >
-          <SelectTrigger className="w-full lg:w-48">
-            <SelectValue placeholder="Visibility" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="all">All events</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="draft">Drafts</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Button onClick={resetFilters} type="button" variant="ghost">
-          Reset
-        </Button>
-      </AdminFilters>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(440px,0.9fr)]">
-        <div className="flex flex-col gap-6">
-          <AdminSectionCard
-            description={formatAdminCount(visibleEvents.length, "event")}
-            title="Event management"
-          >
-            <EventCardGrid
-              events={visibleEvents}
-              isLoading={isLoading}
-              onDelete={handleDelete}
-              onDuplicate={(event) => {
-                setForm(duplicateEventState(event));
-                setSelectedEvent(null);
-              }}
-              onOpen={openEvent}
-              selectedId={selectedEvent?.id ?? null}
+    <>
+      <AdminPageShell
+        actions={
+          <>
+            <Button
+              className="size-10 rounded-full"
+              onClick={() => void loadEvents()}
+              size="icon"
+              type="button"
+              variant="outline"
+              aria-label="Refresh events"
+            >
+              <RefreshCw className="size-3.5" />
+            </Button>
+            <Button
+              className="group h-10 gap-2 rounded-full px-5 text-sm shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-px hover:shadow-[var(--shadow-lift)]"
+              onClick={openCreate}
+              type="button"
+            >
+              <Plus className="size-4 transition-transform duration-300 group-hover:rotate-90" />
+              Add event
+            </Button>
+          </>
+        }
+        eyebrow="Editorial calendar"
+        subtitle="A curated grid of every IBPA gathering. Click any card to edit details, registrations, and publishing in one focused sheet."
+        title="Events"
+      >
+        {/* Inline toolbar (no big card) */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+          <div className="lg:flex-1">
+            <AdminSearch
+              onChange={setSearch}
+              placeholder="Search by title, location, or detail"
+              value={search}
             />
-          </AdminSectionCard>
-
-          <EventDetailsView counts={registrationCounts} event={selectedEvent} />
-
-          <AdminSectionCard
-            actions={
-              <Button onClick={exportRegistrations} type="button" variant="outline">
-                <Download data-icon="inline-start" />
-                Export
-              </Button>
-            }
-            description="Registration management is intentionally separate from event editing."
-            title="Registrations"
-          >
-            <AdminFilters>
-              <AdminSearch
-                onChange={setRegistrationSearch}
-                placeholder="Search registrants"
-                value={registrationSearch}
-              />
-              <Select
-                onValueChange={(value) => setRegistrationStatus(value as "all" | EventRegistrationStatus)}
-                value={registrationStatus}
-              >
-                <SelectTrigger className="w-full lg:w-44">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="all">All statuses</SelectItem>
-                    <SelectItem value="REGISTERED">Registered</SelectItem>
-                    <SelectItem value="WAITLISTED">Waitlisted</SelectItem>
-                    <SelectItem value="ATTENDED">Attended</SelectItem>
-                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </AdminFilters>
-            <EventRegistrationsTable
-              isLoading={isLoadingRegistrations}
-              registrations={visibleRegistrations}
-            />
-          </AdminSectionCard>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              onValueChange={(value) => setFilter("visibility", value as EventVisibilityFilter)}
+              value={filters.visibility}
+            >
+              <SelectTrigger className="h-10 w-44 rounded-full">
+                <SelectValue placeholder="Visibility" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="all">All events</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="draft">Drafts</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Button
+              className="h-10 rounded-full px-4"
+              onClick={resetFilters}
+              type="button"
+              variant="ghost"
+            >
+              Reset
+            </Button>
+          </div>
+          <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
+            {formatAdminCount(visibleEvents.length, "event")}
+          </span>
         </div>
 
-        <AdminSectionCard
-          description="Create, edit, duplicate, publish, unpublish, and preview event details."
-          title={form.id ? "Edit event" : "Add event"}
-        >
-          <EventEditorForm
-            form={form}
-            isSaving={isSaving}
-            onChange={setForm}
-            onReset={resetForm}
-            onSave={handleSave}
-          />
-        </AdminSectionCard>
-      </div>
-    </AdminPageShell>
+        {/* The grid */}
+        <EventCardGrid
+          events={visibleEvents}
+          isLoading={isLoading}
+          onDelete={handleDelete}
+          onDuplicate={(event) => {
+            setForm(duplicateEventState(event));
+            setSelectedEvent(null);
+            setSheetMode("create");
+          }}
+          onOpen={openEvent}
+          selectedId={selectedEvent?.id ?? null}
+        />
+      </AdminPageShell>
+
+      <AdminSheet
+        onOpenChange={(next) => (next ? null : closeSheet())}
+        open={sheetOpen}
+        eyebrow={sheetEyebrow}
+        title={sheetTitle}
+        description={sheetMode === "create"
+          ? "Set the date, location, and copy. You can publish or save as draft."
+          : "Update the event and review registrations from one place."}
+        size="xl"
+      >
+        <Tabs defaultValue="editor" className="flex flex-col gap-6">
+          <TabsList className="self-start">
+            <TabsTrigger value="editor">Editor</TabsTrigger>
+            <TabsTrigger value="details" disabled={sheetMode === "create"}>
+              Details
+            </TabsTrigger>
+            <TabsTrigger value="registrations" disabled={sheetMode === "create"}>
+              Registrations
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="editor" className="m-0">
+            <EventEditorForm
+              form={form}
+              isSaving={isSaving}
+              onChange={setForm}
+              onReset={() => setForm({ ...emptyEventEditorState })}
+              onSave={handleSave}
+            />
+          </TabsContent>
+
+          <TabsContent value="details" className="m-0">
+            <EventDetailsView counts={registrationCounts} event={selectedEvent} />
+          </TabsContent>
+
+          <TabsContent value="registrations" className="m-0">
+            <AdminSectionCard
+              variant="vellum"
+              eyebrow="Atelier · Attendees"
+              title="Registrations"
+              actions={
+                <Button onClick={exportRegistrations} type="button" variant="outline">
+                  <Download data-icon="inline-start" />
+                  Export
+                </Button>
+              }
+            >
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                  <div className="flex-1">
+                    <AdminSearch
+                      onChange={setRegistrationSearch}
+                      placeholder="Search registrants"
+                      value={registrationSearch}
+                    />
+                  </div>
+                  <Select
+                    onValueChange={(value) =>
+                      setRegistrationStatus(value as "all" | EventRegistrationStatus)
+                    }
+                    value={registrationStatus}
+                  >
+                    <SelectTrigger className="h-10 w-full rounded-full lg:w-48">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="all">All statuses</SelectItem>
+                        <SelectItem value="REGISTERED">Registered</SelectItem>
+                        <SelectItem value="WAITLISTED">Waitlisted</SelectItem>
+                        <SelectItem value="ATTENDED">Attended</SelectItem>
+                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <EventRegistrationsTable
+                  isLoading={isLoadingRegistrations}
+                  registrations={visibleRegistrations}
+                />
+              </div>
+            </AdminSectionCard>
+          </TabsContent>
+        </Tabs>
+      </AdminSheet>
+    </>
   );
 }

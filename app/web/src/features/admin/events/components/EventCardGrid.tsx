@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarDays, Copy, MapPin, Pencil, Pin, Trash2 } from "lucide-react";
+import { motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,12 +22,17 @@ type EventCardGridProps = {
   onDelete: (event: AdminEvent) => void;
 };
 
-function EventCardSkeleton() {
+function EventCardSkeleton({ feature }: { feature?: boolean }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card [box-shadow:var(--card-shadow)]">
-      <Skeleton className="aspect-video w-full rounded-none" />
-      <div className="flex flex-col gap-2 p-4">
-        <Skeleton className="h-4 w-3/4" />
+    <div
+      className={cn(
+        "card-vellum flex flex-col overflow-hidden",
+        feature ? "md:col-span-2 md:row-span-2" : "",
+      )}
+    >
+      <Skeleton className="aspect-[16/10] w-full rounded-none" />
+      <div className="flex flex-col gap-2 p-6">
+        <Skeleton className="h-5 w-3/4" />
         <Skeleton className="h-3 w-1/2" />
         <Skeleton className="h-3 w-2/3" />
       </div>
@@ -44,7 +50,8 @@ export function EventCardGrid({
 }: EventCardGridProps) {
   if (isLoading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid auto-rows-[1fr] gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <EventCardSkeleton feature />
         {Array.from({ length: 6 }).map((_, i) => (
           <EventCardSkeleton key={i} />
         ))}
@@ -62,109 +69,163 @@ export function EventCardGrid({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {events.map((event) => {
+    <div className="grid auto-rows-[1fr] gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {events.map((event, index) => {
         const isSelected = event.id === selectedId;
         const visibility = getEventVisibility(event);
+        const isFeature = index === 0;
 
         return (
-          <div
-            className={cn(
-              "group flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-card transition-all duration-200",
-              "[box-shadow:var(--card-shadow)] hover:[box-shadow:var(--card-shadow-hover)]",
-              isSelected ? "border-primary/40 ring-2 ring-primary/20" : "border-border",
-            )}
+          <motion.article
             key={event.id}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              delay: Math.min(0.04 + index * 0.045, 0.5),
+              duration: 0.5,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            className={cn(
+              "group card-premium relative flex cursor-pointer flex-col overflow-hidden",
+              isSelected && "ring-2 ring-[var(--accent-copper)]",
+              isFeature && "md:col-span-2 md:row-span-2",
+            )}
             onClick={() => onOpen(event)}
           >
-            {/* Cover image */}
-            <div className="relative aspect-video overflow-hidden bg-muted">
+            {/* Cover */}
+            <div
+              className={cn(
+                "relative overflow-hidden bg-[var(--mist)]",
+                isFeature ? "aspect-[16/10]" : "aspect-[16/11]",
+              )}
+            >
               {event.coverImage ? (
-                <img
-                  alt={event.title}
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                  loading="lazy"
-                  src={event.coverImage}
-                />
+                <>
+                  <img
+                    alt={event.title}
+                    className="h-full w-full object-cover transition-transform duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
+                    loading="lazy"
+                    src={event.coverImage}
+                  />
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 bg-gradient-to-t from-[rgba(20,14,8,0.45)] via-transparent to-transparent opacity-90"
+                  />
+                </>
               ) : (
-                <div className="flex h-full items-center justify-center">
-                  <CalendarDays className="size-8 text-muted-foreground/30" />
+                <div
+                  className="flex h-full w-full items-center justify-center"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(80% 60% at 50% 40%, rgba(185,122,62,0.10), transparent 70%)",
+                  }}
+                >
+                  <CalendarDays className="size-10 text-foreground/20" strokeWidth={1} />
                 </div>
               )}
-              {/* Overlay badges */}
-              <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                <AdminStatusBadge
-                  className="backdrop-blur-sm"
-                  tone={visibility === "Published" ? "success" : "neutral"}
+
+              {/* Glass badges */}
+              <div className="absolute left-4 top-4 flex flex-wrap gap-1.5">
+                <span
+                  className={cn(
+                    "glass inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-medium tracking-tight",
+                    visibility === "Published"
+                      ? "text-foreground"
+                      : "text-muted-foreground",
+                  )}
                 >
+                  <span
+                    className="size-1.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        visibility === "Published" ? "var(--tone-success)" : "var(--muted-foreground)",
+                    }}
+                  />
                   {visibility}
-                </AdminStatusBadge>
+                </span>
                 {event.isPinned ? (
-                  <AdminStatusBadge className="backdrop-blur-sm" tone="accent">
+                  <span className="glass inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-medium text-foreground">
                     <Pin className="size-2.5" />
                     Pinned
-                  </AdminStatusBadge>
+                  </span>
                 ) : null}
               </div>
+
+              {/* Date pill bottom-left for visual interest on feature */}
+              {isFeature && event.eventDate ? (
+                <div className="absolute bottom-4 left-4 flex flex-col gap-0.5">
+                  <span className="editorial-eyebrow text-[11px] text-white/85">Save the date</span>
+                  <span className="font-serif text-xl font-medium text-white drop-shadow-sm">
+                    {formatAdminDate(event.eventDate)}
+                  </span>
+                </div>
+              ) : null}
             </div>
 
             {/* Content */}
-            <div className="flex flex-1 flex-col gap-2 p-4">
-              <h3 className="line-clamp-2 font-serif text-base font-medium leading-snug text-foreground">
+            <div className="flex flex-1 flex-col gap-3 p-6">
+              <h3
+                className={cn(
+                  "line-clamp-2 font-serif font-medium leading-snug text-foreground",
+                  isFeature ? "text-2xl tracking-tight" : "text-lg",
+                )}
+                style={{ textWrap: "balance" }}
+              >
                 {event.title}
               </h3>
 
-              <div className="flex flex-col gap-1">
-                {event.eventDate ? (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <CalendarDays className="size-3 shrink-0" />
-                    <span>{formatAdminDate(event.eventDate)}</span>
+              <div className="flex flex-col gap-1.5">
+                {!isFeature && event.eventDate ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <CalendarDays className="size-3.5 shrink-0" />
+                    <span className="tabular-nums">{formatAdminDate(event.eventDate)}</span>
                   </div>
                 ) : null}
                 {event.eventAddress ? (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MapPin className="size-3 shrink-0" />
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <MapPin className="size-3.5 shrink-0" />
                     <span className="truncate">{event.eventAddress}</span>
                   </div>
                 ) : null}
               </div>
-            </div>
 
-            {/* Actions */}
-            <div
-              className="flex items-center gap-1 border-t border-border px-3 py-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Button
-                className="h-7 gap-1.5 px-2.5 text-xs"
-                onClick={() => onOpen(event)}
-                type="button"
-                variant="ghost"
-              >
-                <Pencil className="size-3" />
-                Edit
-              </Button>
-              <Button
-                className="h-7 gap-1.5 px-2.5 text-xs"
-                onClick={() => onDuplicate(event)}
-                type="button"
-                variant="ghost"
-              >
-                <Copy className="size-3" />
-                Duplicate
-              </Button>
               <div className="flex-1" />
-              <Button
-                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(event)}
-                size="icon"
-                type="button"
-                variant="ghost"
+
+              <div
+                className="-mb-1 flex items-center gap-1 border-t border-[var(--hairline)] pt-3"
+                onClick={(e) => e.stopPropagation()}
               >
-                <Trash2 className="size-3.5" />
-              </Button>
+                <Button
+                  className="h-8 gap-1.5 rounded-full px-2.5 text-xs"
+                  onClick={() => onOpen(event)}
+                  type="button"
+                  variant="ghost"
+                >
+                  <Pencil className="size-3" />
+                  Edit
+                </Button>
+                <Button
+                  className="h-8 gap-1.5 rounded-full px-2.5 text-xs"
+                  onClick={() => onDuplicate(event)}
+                  type="button"
+                  variant="ghost"
+                >
+                  <Copy className="size-3" />
+                  Duplicate
+                </Button>
+                <div className="flex-1" />
+                <Button
+                  className="size-8 rounded-full text-muted-foreground hover:bg-[var(--tone-warning-tint)] hover:text-destructive"
+                  onClick={() => onDelete(event)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
             </div>
-          </div>
+          </motion.article>
         );
       })}
     </div>

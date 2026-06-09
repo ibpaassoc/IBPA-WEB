@@ -38,3 +38,156 @@
     transform: none !important;
   }
 }
+
+/* --- Admin premium primitives ----------------------------------------- */
+
+/* Ambient warm aurora behind the workspace — extremely subtle */
+.admin-aurora {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60vw 50vh at 8% 4%, rgba(185, 122, 62, 0.10), transparent 60%),
+    radial-gradient(50vw 40vh at 92% 10%, rgba(208, 188, 154, 0.12), transparent 65%),
+    radial-gradient(70vw 60vh at 50% 100%, rgba(20, 14, 8, 0.06), transparent 70%);
+}
+
+.admin-aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(20, 14, 8, 0.05) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+}
+
+/* Frosted surface for sticky bars, sheets, hover overlays */
+.glass {
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-stroke);
+}
+
+.glass-dark {
+  background: rgba(16, 14, 13, 0.62);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Premium card surface */
+.card-premium {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-soft);
+  border-radius: 1rem;
+  transition:
+    box-shadow 320ms var(--ease-out-quart),
+    transform 320ms var(--ease-out-quart),
+    border-color 220ms var(--ease-out-quart);
+}
+
+.card-premium:hover {
+  box-shadow: var(--shadow-lift);
+  border-color: var(--hairline-strong);
+  transform: translateY(-2px);
+}
+
+.card-vellum {
+  background: var(--vellum);
+  border: 1px solid var(--hairline);
+  border-radius: 1rem;
+}
+
+/* Hairline that animates in on hover */
+.hairline-grow {
+  position: relative;
+}
+.hairline-grow::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 1px;
+  width: 0;
+  background: var(--accent-copper);
+  transition: width 420ms var(--ease-out-quart);
+}
+.hairline-grow:hover::after,
+.hairline-grow[data-active="true"]::after {
+  width: 100%;
+}
+
+/* Subtle eyebrow used sparingly — small caps tracking for "EDITORIAL ATELIER" badge only */
+.editorial-eyebrow {
+  font-family: var(--font-editorial), Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--accent-copper);
+}
+
+/* Fade + rise on mount, respects reduced motion */
+@keyframes admin-rise {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.admin-rise {
+  animation: admin-rise 520ms var(--ease-out-quart) both;
+}
+
+.admin-rise-stagger > * {
+  animation: admin-rise 560ms var(--ease-out-quart) both;
+}
+.admin-rise-stagger > *:nth-child(1) { animation-delay: 40ms; }
+.admin-rise-stagger > *:nth-child(2) { animation-delay: 80ms; }
+.admin-rise-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.admin-rise-stagger > *:nth-child(4) { animation-delay: 160ms; }
+.admin-rise-stagger > *:nth-child(5) { animation-delay: 200ms; }
+.admin-rise-stagger > *:nth-child(6) { animation-delay: 240ms; }
+.admin-rise-stagger > *:nth-child(7) { animation-delay: 280ms; }
+.admin-rise-stagger > *:nth-child(8) { animation-delay: 320ms; }
+.admin-rise-stagger > *:nth-child(9) { animation-delay: 360ms; }
+.admin-rise-stagger > *:nth-child(n+10) { animation-delay: 400ms; }
+
+@keyframes sheen-pan {
+  from { transform: translateX(-120%); }
+  to   { transform: translateX(220%); }
+}
+
+.sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 70%
+  );
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.sheen:hover::before {
+  animation: sheen-pan 900ms var(--ease-out-quart);
+}
+
+/* Numeric tabular figures on data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-rise,
+  .admin-rise-stagger > *,
+  .sheen::before {
+    animation: none !important;
+  }
+  .card-premium { transition: none; }
+  .card-premium:hover { transform: none; }
+}

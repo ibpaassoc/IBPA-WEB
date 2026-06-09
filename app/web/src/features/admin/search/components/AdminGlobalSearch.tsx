@@ -93,7 +93,7 @@ export function AdminGlobalSearch({ className }: AdminGlobalSearchProps) {
         <DialogContent className="top-[12%] max-w-xl translate-y-0 gap-0 overflow-hidden rounded-xl p-0 sm:max-w-xl">
           <DialogTitle className="sr-only">Search the admin workspace</DialogTitle>
           <DialogDescription className="sr-only">
-            Search across users, profiles, applications, events, and certificates.
+            Search across users, profiles, memberships, applications, events, and certificates.
           </DialogDescription>
 
           <div className="flex items-center gap-2.5 border-b border-border py-3 pl-4 pr-14">
@@ -102,7 +102,7 @@ export function AdminGlobalSearch({ className }: AdminGlobalSearchProps) {
               autoFocus
               className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search users, profiles, applications, events, certificates…"
+              placeholder="Search users, profiles, memberships, applications, events, certificates…"
               value={query}
             />
             {isLoading ? <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" /> : null}

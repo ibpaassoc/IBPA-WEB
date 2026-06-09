@@ -38,6 +38,17 @@ export async function searchAdmin(query: string): Promise<AdminSearchGroup[]> {
       label: "Profiles",
     });
 
+    groups.push({
+      items: profiles.slice(0, RESULTS_PER_GROUP).map((profile) => ({
+        href: toSection("/admin/memberships", trimmed),
+        id: `membership:${profile.id}`,
+        subtitle: profile.expiresAt ? `Expires ${formatAdminDate(profile.expiresAt)}` : profile.email,
+        title: `${profile.userName || profile.email} · ${profile.membershipCategory || "Member"}`,
+      })),
+      key: "memberships",
+      label: "Memberships",
+    });
+
     const userProfiles = profiles.filter((profile) => Boolean(profile.userId));
     groups.push({
       items: userProfiles.slice(0, RESULTS_PER_GROUP).map((profile) => ({
