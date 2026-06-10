@@ -41,6 +41,109 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/**
+ * IBPA Admin — "Editorial Atelier" premium theme.
+ * Warm bone canvas, deep ink ground, copper editorial accent.
+ * Surfaces are layered (paper → mist → vellum), depth comes from soft multi-layer shadows
+ * and 1px hairlines. Frosted glass is reserved for sticky bars, sheets, and overlays.
+ */
+.admin-theme {
+  /* Canvas — warm bone, almost paper, with a hint of ink */
+  --background: #f4f1ec;
+  --canvas-tint-1: oklch(0.93 0.012 70);
+  --canvas-tint-2: oklch(0.96 0.008 50);
+  --canvas-tint-3: oklch(0.91 0.014 35);
+  --foreground: #1a1715;
+  --ink-strong: #0c0a09;
+  --ink-soft: #57514c;
+
+  /* Surfaces */
+  --card: #ffffff;
+  --card-foreground: #1a1715;
+  --popover: #ffffff;
+  --popover-foreground: #1a1715;
+  --vellum: #fbf8f3;       /* nested surface, slightly warmer than paper */
+  --mist:   #efeae1;       /* tertiary surface */
+  --hairline: rgba(20, 14, 8, 0.08);
+  --hairline-strong: rgba(20, 14, 8, 0.14);
+
+  /* Primary — kept ink-near-black; loud action sits on rare amber */
+  --primary: #1a1715;
+  --primary-foreground: #fbf8f3;
+  --secondary: #efeae1;
+  --secondary-foreground: #1a1715;
+  --muted: #ebe5da;
+  --muted-foreground: #6a635c;
+  --accent: #f3ede1;
+  --accent-foreground: #1a1715;
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+  --border: rgba(20, 14, 8, 0.08);
+  --input: transparent;
+  --input-background: #ffffff;
+  --switch-background: #d4ccc0;
+  --ring: #1a1715;
+
+  /* Editorial accent — copper / aged-brass; used sparingly */
+  --accent-copper: #b97a3e;
+  --accent-copper-soft: #d99c5e;
+  --accent-copper-tint: rgba(185, 122, 62, 0.10);
+  --accent-amber: #e0a85f;
+
+  /* Status tones — softer than the SaaS defaults */
+  --tone-success: #4a7a47;
+  --tone-success-tint: rgba(74, 122, 71, 0.10);
+  --tone-warning: #b97a3e;
+  --tone-warning-tint: rgba(185, 122, 62, 0.10);
+  --tone-info: #3b5a78;
+  --tone-info-tint: rgba(59, 90, 120, 0.10);
+
+  /* Depth — layered shadows, never blurry "elevation" */
+  --shadow-flat:
+    0 1px 0 rgba(20, 14, 8, 0.04),
+    0 1px 2px rgba(20, 14, 8, 0.04);
+  --shadow-soft:
+    0 1px 0 rgba(20, 14, 8, 0.04),
+    0 4px 14px -2px rgba(20, 14, 8, 0.08);
+  --shadow-lift:
+    0 1px 0 rgba(20, 14, 8, 0.04),
+    0 10px 30px -8px rgba(20, 14, 8, 0.16),
+    0 4px 10px -4px rgba(20, 14, 8, 0.08);
+  --shadow-deep:
+    0 1px 0 rgba(20, 14, 8, 0.04),
+    0 28px 60px -16px rgba(20, 14, 8, 0.30),
+    0 12px 24px -10px rgba(20, 14, 8, 0.18);
+  --card-shadow: var(--shadow-soft);
+  --card-shadow-hover: var(--shadow-lift);
+
+  /* Glass — used sparingly: sticky topbar, sheets, badges over imagery */
+  --glass-surface: rgba(251, 248, 243, 0.72);
+  --glass-stroke: rgba(20, 14, 8, 0.10);
+  --glass-blur: saturate(160%) blur(20px);
+
+  /* Sidebar — own surface, slightly cooler than canvas, no border separation */
+  --sidebar: #100e0d;
+  --sidebar-foreground: #f0ebe2;
+  --sidebar-primary: #f0ebe2;
+  --sidebar-primary-foreground: #100e0d;
+  --sidebar-accent: rgba(255, 255, 255, 0.06);
+  --sidebar-accent-foreground: #f0ebe2;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: var(--accent-copper-soft);
+  --sidebar-muted: rgba(240, 235, 226, 0.55);
+
+  /* Motion */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Raleway body font scoped to admin workspace */
+.admin-theme {
+  font-family: var(--font-raleway), var(--font-sans), sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

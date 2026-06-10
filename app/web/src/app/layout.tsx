@@ -4,13 +4,14 @@ import Script from "next/script";
 import { cyrillicDisplay, cyrillicEditorial } from "@/lib/cyrillic-fonts";
 import { getLandingOrigin } from "@/lib/public-urls";
 import "../styles/index.css";
-import { Inter } from "next/font/google";
+import { Inter, Raleway } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-sans" });
+const raleway = Raleway({ subsets: ["latin"], weight: ["300", "400", "500", "600"], variable: "--font-raleway" });
 
 export const metadata: Metadata = {
   title: "IBPA - International Beauty Professionals Association",
@@ -52,7 +53,7 @@ export default async function RootLayout({
       signUpForceRedirectUrl="/dashboard"
       signUpFallbackRedirectUrl="/dashboard"
     >
-      <html lang="en" className={cn("font-sans", inter.variable, cyrillicDisplay.variable, cyrillicEditorial.variable)}>
+      <html lang="en" className={cn("font-sans", inter.variable, cyrillicDisplay.variable, cyrillicEditorial.variable, raleway.variable)}>
         <head>
           <Script
             src="https://www.googletagmanager.com/gtag/js?id=G-LZH8FD9QR6"

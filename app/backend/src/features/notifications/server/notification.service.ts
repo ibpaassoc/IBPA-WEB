@@ -39,6 +39,8 @@ export async function sendEmailCampaign(db: DbClient, input: {
     metadata: {
       delivery: "email_campaign",
       deliveryStatus: "sent",
+      sender: "IBPA Support",
+      sentAt: new Date().toISOString(),
     },
   });
 
@@ -78,11 +80,22 @@ export async function listEmailLogs(db: DbClient) {
   const logs = await listCanonicalNotifications(db, { type: "EMAIL", limit: 50 });
   return logs.map((record: any) => ({
     id: record.id,
+    recipients: Array.isArray((record.recipients as Record<string, unknown>)?.emails)
+      ? ((record.recipients as Record<string, unknown>).emails as unknown[]).map(String)
+      : [],
     to: Array.isArray((record.recipients as Record<string, unknown>)?.emails)
-      ? String(((record.recipients as Record<string, unknown>).emails as unknown[])[0] ?? "")
+      ? ((record.recipients as Record<string, unknown>).emails as unknown[]).map(String).join(", ")
       : "",
+    recipientCount: Array.isArray((record.recipients as Record<string, unknown>)?.emails)
+      ? ((record.recipients as Record<string, unknown>).emails as unknown[]).length
+      : 0,
     subject: record.title,
+    content: record.message,
+    status: String((record.metadata as Record<string, unknown>)?.deliveryStatus || "sent"),
+    sender: String((record.metadata as Record<string, unknown>)?.sender || "IBPA Support"),
     createdAt: record.createdAt,
+    sentAt: (record.metadata as Record<string, unknown>)?.sentAt || record.createdAt,
+    relatedCampaign: record.id,
   }));
 }
 

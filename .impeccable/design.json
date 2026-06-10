@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-07T00:00:00.000Z",
+  "title": "Design System: IBPA Web",
+  "extensions": {
+    "colorMeta": {
+      "ink": { "role": "neutral", "displayName": "Deep Ink", "canonical": "oklch(0.145 0 0)", "tonalRamp": ["oklch(0.10 0 0)", "oklch(0.145 0 0)", "oklch(0.27 0 0)", "oklch(0.40 0 0)", "oklch(0.55 0 0)", "oklch(0.70 0 0)", "oklch(0.85 0 0)", "oklch(0.95 0 0)"] },
+      "paper": { "role": "neutral", "displayName": "Paper", "canonical": "#ffffff", "tonalRamp": ["#e5e5e5", "#ececec", "#f3f3f3", "#f7f7f7", "#fafafa", "#fcfcfc", "#fefefe", "#ffffff"] },
+      "primary": { "role": "primary", "displayName": "Ink Black", "canonical": "#030213", "tonalRamp": ["#020110", "#030213", "#0c0a23", "#1f1d35", "#3a3850", "#5c5a70", "#88869a", "#c2c1cc"] },
+      "primary-foreground": { "role": "primary", "displayName": "Primary Foreground", "canonical": "oklch(1 0 0)" },
+      "secondary": { "role": "neutral", "displayName": "Quiet Slate", "canonical": "oklch(0.95 0.0058 264.53)", "tonalRamp": ["oklch(0.30 0.006 264)", "oklch(0.45 0.006 264)", "oklch(0.60 0.006 264)", "oklch(0.75 0.006 264)", "oklch(0.85 0.006 264)", "oklch(0.90 0.006 264)", "oklch(0.93 0.006 264)", "oklch(0.95 0.0058 264.53)"] },
+      "muted-surface": { "role": "neutral", "displayName": "Mist Gray", "canonical": "#ececf0" },
+      "muted-ink": { "role": "neutral", "displayName": "Mist Ink", "canonical": "#717182" },
+      "accent-surface": { "role": "neutral", "displayName": "Fog Surface", "canonical": "#e9ebef" },
+      "border": { "role": "neutral", "displayName": "Hairline Border", "canonical": "rgba(0, 0, 0, 0.1)" },
+      "field-surface": { "role": "neutral", "displayName": "Field Gray", "canonical": "#f3f3f5" },
+      "destructive": { "role": "error", "displayName": "Signal Red", "canonical": "#d4183d", "tonalRamp": ["#3d050f", "#5e0817", "#8c0d23", "#b8132f", "#d4183d", "#e15470", "#ee93a4", "#f8d2da"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines and section openers on the public site only." },
+      "editorial": { "displayName": "Editorial Accent", "purpose": "Named, memorable moments — pull quotes, member spotlights, campaign headlines. Cormorant Garamond never appears in UI chrome." },
+      "headline": { "displayName": "Headline", "purpose": "Section and card headings across both the public site and admin tools." },
+      "body": { "displayName": "Body", "purpose": "Long-form reading copy, capped at 65–75ch on public pages." },
+      "label": { "displayName": "Label", "purpose": "Form labels, buttons, navigation — sentence case, never tracked wide or uppercase." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default easing for hover, focus, and state transitions across both registers." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The system's single committed accent in motion — used for the one primary action on a screen.",
+      "html": "<button class=\"ds-btn-primary\">Apply for membership</button>",
+      "css": ".ds-btn-primary { background: #030213; color: #ffffff; padding: 8px 16px; border: 1px solid transparent; border-radius: 0.625rem; font-family: Inter, sans-serif; font-size: 0.875rem; font-weight: 500; line-height: 1.5; transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; } .ds-btn-primary:hover { background: rgba(3, 2, 19, 0.8); } .ds-btn-primary:focus-visible { outline: none; border-color: oklch(0.708 0 0); box-shadow: 0 0 0 3px rgba(112, 112, 112, 0.25); } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Second-priority action beside a primary button — tonal, not competing for attention.",
+      "html": "<button class=\"ds-btn-secondary\">View criteria</button>",
+      "css": ".ds-btn-secondary { background: oklch(0.95 0.0058 264.53); color: #030213; padding: 8px 16px; border: 1px solid transparent; border-radius: 0.625rem; font-family: Inter, sans-serif; font-size: 0.875rem; font-weight: 500; line-height: 1.5; transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; } .ds-btn-secondary:hover { background: color-mix(in oklch, oklch(0.95 0.0058 264.53), #030213 5%); } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(112, 112, 112, 0.25); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Tertiary actions and toolbar buttons in the admin views — quiet until interacted with.",
+      "html": "<button class=\"ds-btn-outline\">Export list</button>",
+      "css": ".ds-btn-outline { background: #ffffff; color: oklch(0.145 0 0); padding: 8px 16px; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 0.625rem; font-family: Inter, sans-serif; font-size: 0.875rem; font-weight: 500; line-height: 1.5; transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; } .ds-btn-outline:hover { background: #ececf0; } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(112, 112, 112, 0.25); }"
+    },
+    {
+      "name": "Content Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The base content container — separation through a hairline border and tonal contrast, never a shadow.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Member spotlight</h3><p class=\"ds-card-body\">A quarterly feature on members shaping the standards of the beauty industry.</p></div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 0.625rem; padding: 1.5rem; } .ds-card-title { font-family: Inter, sans-serif; font-size: 1.125rem; font-weight: 500; line-height: 1.5; color: oklch(0.145 0 0); margin: 0 0 0.5rem; } .ds-card-body { font-family: Inter, sans-serif; font-size: 1rem; font-weight: 400; line-height: 1.5; color: #717182; margin: 0; max-width: 65ch; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Form fields read as 'places to type' — distinct fill, soft focus ring, no glow.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Email address</span><input class=\"ds-field-input\" type=\"email\" placeholder=\"you@example.com\" /></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 0.375rem; font-family: Inter, sans-serif; } .ds-field-label { font-size: 1rem; font-weight: 500; line-height: 1.5; color: oklch(0.145 0 0); } .ds-field-input { background: #f3f3f5; border: 1px solid transparent; border-radius: 0.625rem; padding: 8px 12px; font-size: 1rem; font-weight: 400; line-height: 1.5; color: oklch(0.145 0 0); transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1); } .ds-field-input::placeholder { color: #717182; } .ds-field-input:focus { outline: none; border-color: oklch(0.708 0 0); box-shadow: 0 0 0 3px rgba(112, 112, 112, 0.25); }"
+    },
+    {
+      "name": "Editorial Pull Quote",
+      "kind": "custom",
+      "refersTo": "editorial",
+      "description": "A named, memorable moment where the brand's editorial register shows through — the only place Cormorant Garamond appears.",
+      "html": "<blockquote class=\"ds-pull-quote\">“Standards are not a constraint on the craft. They're what makes the craft worth protecting.”<cite class=\"ds-pull-quote-cite\">IBPA Standards Committee</cite></blockquote>",
+      "css": ".ds-pull-quote { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 500; font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.2; color: oklch(0.145 0 0); margin: 0; padding-left: 1.5rem; border-left: 1px solid rgba(0, 0, 0, 0.1); max-width: 60ch; } .ds-pull-quote-cite { display: block; margin-top: 0.75rem; font-family: Inter, sans-serif; font-style: normal; font-size: 0.875rem; font-weight: 500; color: #717182; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Editorial Briefing",
+    "overview": "IBPA Web reads like a well-prepared briefing from a credible institution: confident in its facts, restrained in its delivery, and typeset with care. The pairing of a quiet sans-serif workhorse (Inter) with an editorial serif accent (Cormorant Garamond) gives the system a publication's poise without tipping into decoration; the serif appears where the brand wants to be felt (headlines, pull quotes, named moments), while Inter carries the actual work of reading and doing across both the public site and the admin tools. This is \"professional and trustworthy\" translated into typography and restraint rather than into crests, navy-and-gold palettes, or stock-photo gravitas — the system explicitly rejects the dated, bureaucratic, form-heavy look that association and membership sites default to. Across both registers — the public marketing surfaces and the internal admin/dashboard — the same quiet system holds. The public side leans on the editorial serif and generous rhythm to build credibility and ease visitors toward membership and event actions; the admin side strips back to the sans-serif workhorse and tight, predictable patterns so staff can move through daily tasks without friction. One voice, two tempos.",
+    "keyCharacteristics": [
+      "Near-monochrome palette (ink, paper, tonal grays) with a single near-black primary; color is structural, not decorative",
+      "Inter for everything that needs to be read and used; Cormorant Garamond reserved for moments that need to be felt",
+      "Flat-by-default surfaces — depth comes from tonal layering and 1px borders, never shadows",
+      "Warm, approachable component shapes: soft consistent radii (~0.5–0.625rem), generous click targets, no sharp institutional edges",
+      "Restrained color use: the near-black primary and the single destructive red are the only saturated notes in the system"
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Ink Black is the only color permitted to carry weight or call attention. Everything else in the palette is tonal gray. If a screen needs a second accent color to feel complete, the hierarchy is wrong — fix it with type weight, spacing, or borders before reaching for color.", "section": "colors" },
+      { "name": "The Two-Voice Rule", "body": "Inter speaks for the system everywhere work happens — navigation, forms, tables, body copy, admin tools. Cormorant Garamond speaks only for moments the brand wants remembered. If the serif starts appearing in tables, buttons, or UI chrome, it has wandered out of its register.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces sit directly on one another, separated by a tonal step or a 1px hairline border — never a shadow. If two surfaces need to be told apart and a border or tonal shift can't do it, the layout has too many surfaces, not too little elevation.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Ink Black (#030213) as the system's only committed accent — let tonal grays and spacing carry the rest of the hierarchy.",
+      "Do reserve Cormorant Garamond for named, memorable moments (editorial headlines, pull quotes, spotlights) and keep Inter everywhere work gets done.",
+      "Do build depth with tonal layering and the single hairline border token (rgba(0,0,0,0.1)) — paper on Mist Gray on Fog Surface.",
+      "Do keep button and card radii in the soft 0.5–0.625rem range; it's what makes the system read as warm and approachable rather than institutional.",
+      "Do keep the admin/dashboard surfaces dense, predictable, and quiet — staff move through these daily and the interface should disappear into the task."
+    ],
+    "donts": [
+      "Don't introduce shadows, glows, or drop-shadow \"elevation\" anywhere — the system is flat by name and by rule (see The Flat-By-Default Rule). It is the fastest way to make this look like a 2014 SaaS dashboard.",
+      "Don't let the system look dated or bureaucratic — no crests, no navy-and-gold institutional palettes, no dense form-heavy layouts that feel like a government portal. \"Professional and trustworthy\" is carried by typography and restraint, not by association-site cliches.",
+      "Don't use uppercase, wide-tracked labels or eyebrows above sections — Label type stays sentence case at normal tracking; the system has no kicker convention and shouldn't invent one.",
+      "Don't add a second saturated accent color anywhere. If a screen feels like it needs one, the actual problem is weak hierarchy — fix it with weight, spacing, or the existing tonal scale first.",
+      "Don't let Cormorant Garamond migrate into UI chrome — tables, buttons, nav, form labels stay in Inter. The serif is a guest, not a resident."
+    ]
+  }
+}

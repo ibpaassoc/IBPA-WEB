@@ -2,6 +2,16 @@
 @import './tailwind.css';
 @import './theme.css';
 
+@keyframes collapsible-down {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+
+@keyframes collapsible-up {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+
 @keyframes ibpa-marquee {
   from {
     transform: translate3d(0, 0, 0);
@@ -27,4 +37,63 @@
     opacity: 1 !important;
     transform: none !important;
   }
+}
+
+/* --- Admin workspace ------------------------------------------------- */
+
+/* Ambient cool aurora behind the workspace — extremely subtle */
+.admin-aurora {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60vw 50vh at 8% 4%, rgba(31, 93, 143, 0.08), transparent 60%),
+    radial-gradient(50vw 40vh at 92% 10%, rgba(138, 162, 189, 0.10), transparent 65%),
+    radial-gradient(70vw 60vh at 50% 100%, rgba(15, 46, 83, 0.05), transparent 70%);
+}
+
+.admin-aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(15, 46, 83, 0.04) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.3;
+  mix-blend-mode: multiply;
+}
+
+/* Sheet inner panels: subtle one-shot fade-in, used by AdminSheet rails / main */
+@keyframes adminSheetIn {
+  from { opacity: 0; transform: translate3d(8px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.admin-sheet-rail {
+  animation: adminSheetIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.admin-sheet-main {
+  animation: adminSheetIn 280ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-sheet-rail,
+  .admin-sheet-main {
+    animation: none !important;
+  }
+}
+
+/* Numeric tabular figures on data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

@@ -9,6 +9,7 @@ import {
   findEventRegistrationByEventAndUser,
   listCanonicalEvents,
   listDashboardEvents,
+  listEventRegistrationsByEventId,
   listEventRegistrationsByUserId,
   upsertCanonicalEvent,
   upsertEventRegistration,
@@ -21,6 +22,7 @@ type EventPayload = {
   id?: string;
   title: string;
   body: string;
+  price?: string | null;
   coverImage?: string | null;
   coverAspect?: number | null;
   eventAddress?: string | null;
@@ -64,6 +66,7 @@ function toCompatibilityShape(item: {
   eventAllDay?: boolean;
   startDate?: Date | null;
   endDate?: Date | null;
+  price?: string | null;
   eventLink?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;
@@ -79,6 +82,7 @@ function toCompatibilityShape(item: {
     type: "events",
     title: item.title,
     body: item.description,
+    price: item.price ?? null,
     coverImage: item.coverImageUrl ?? null,
     coverAspect,
     cover_aspect: coverAspect,
@@ -101,6 +105,7 @@ function mapCanonicalEvent(item: Awaited<ReturnType<typeof listCanonicalEvents>>
     id: item.id,
     title: item.title,
     description: item.description,
+    price: item.price ?? null,
     coverImageUrl: item.coverImage?.url ?? null,
     coverAspect: item.coverImage?.aspect ?? null,
     location: item.location,
@@ -123,6 +128,7 @@ function normalizeEventPayload(payload: EventPayload): EventPersistenceInput {
     id,
     title: payload.title.trim(),
     description: payload.body,
+    price: payload.price?.trim() || null,
     coverImageUrl: payload.coverImage ?? null,
     coverAspect: payload.coverAspect ?? null,
     location: payload.eventAddress ?? null,
@@ -143,6 +149,27 @@ export async function listPublicEvents(db: DbClient, target: "site" | "dashboard
   const canonicalItems = await listAdminEvents(db);
 
   return canonicalItems.filter((item: any) => (target === "dashboard" ? item.publishToDashboard : item.publishToSite));
+}
+
+export async function listAdminEventRegistrations(db: DbClient, eventId: string) {
+  const rows = await listEventRegistrationsByEventId(db, eventId);
+
+  return rows.map((row: Awaited<ReturnType<typeof listEventRegistrationsByEventId>>[number]) => {
+    const profileName = [row.profile?.firstName, row.profile?.lastName].filter(Boolean).join(" ");
+
+    return {
+      id: row.registration.id,
+      eventId: row.registration.eventId,
+      userId: row.registration.userId,
+      email: row.registration.email || row.user?.email || "",
+      name: profileName || row.user?.email || "Registered user",
+      status: row.registration.status,
+      source: row.registration.source,
+      registeredAt: row.registration.registeredAt,
+      cancelledAt: row.registration.cancelledAt,
+      profileId: row.profile?.id ?? null,
+    };
+  });
 }
 
 function isActiveRegistration(registration: {

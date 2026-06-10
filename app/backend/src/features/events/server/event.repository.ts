@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
-import { coreEventRegistrations, coreEvents } from "@/lib/schema";
+import { coreEventRegistrations, coreEvents, coreProfiles, coreUsers } from "@/lib/schema";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -8,11 +8,11 @@ export type EventPersistenceInput = {
   id: string;
   title: string;
   description: string;
+  price?: string | null;
   coverImageUrl?: string | null;
   coverAspect?: number | null;
   location?: string | null;
   visibility: string;
-  price?: number;
   capacity?: number | null;
   eventLink?: string | null;
   eventAllDay?: boolean;
@@ -47,6 +47,20 @@ export async function listEventRegistrationsByUserId(db: DbClient, userId: strin
     .select()
     .from(coreEventRegistrations)
     .where(eq(coreEventRegistrations.userId, userId))
+    .orderBy(desc(coreEventRegistrations.registeredAt), desc(coreEventRegistrations.createdAt));
+}
+
+export async function listEventRegistrationsByEventId(db: DbClient, eventId: string) {
+  return db
+    .select({
+      registration: coreEventRegistrations,
+      user: coreUsers,
+      profile: coreProfiles,
+    })
+    .from(coreEventRegistrations)
+    .leftJoin(coreUsers, eq(coreUsers.id, coreEventRegistrations.userId))
+    .leftJoin(coreProfiles, eq(coreProfiles.userId, coreEventRegistrations.userId))
+    .where(eq(coreEventRegistrations.eventId, eventId))
     .orderBy(desc(coreEventRegistrations.registeredAt), desc(coreEventRegistrations.createdAt));
 }
 
@@ -166,7 +180,7 @@ export async function upsertCanonicalEvent(db: DbClient, input: EventPersistence
         location: input.location ?? null,
         visibility: input.visibility,
         price: input.price ?? existing.price,
-        capacity: input.capacity ?? existing.capacity,
+        capacity: input.capacity ?? null,
         eventLink: input.eventLink ?? null,
         eventAllDay: Boolean(input.eventAllDay),
         ctaLabel: input.ctaLabel ?? null,

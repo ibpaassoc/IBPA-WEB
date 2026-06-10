@@ -125,6 +125,7 @@ export type DashboardContentItem = {
   eventDate?: string | null;
   eventEndDate?: string | null;
   eventAddress?: string | null;
+  price?: string | number | null;
   isRegistered?: boolean;
   registrationStatus?: string | null;
   registrationId?: string | null;
