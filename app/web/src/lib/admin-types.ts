@@ -95,6 +95,7 @@ export type AdminContentItem = {
   type: "news" | "events" | "partners";
   title: string;
   body: string;
+  price?: string | null;
   coverImage?: string | null;
   coverAspect?: number | null;
   cover_aspect?: number | null;

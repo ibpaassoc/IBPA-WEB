@@ -22,6 +22,7 @@ type EventPayload = {
   id?: string;
   title: string;
   body: string;
+  price?: string | null;
   coverImage?: string | null;
   coverAspect?: number | null;
   eventAddress?: string | null;
@@ -65,6 +66,7 @@ function toCompatibilityShape(item: {
   eventAllDay?: boolean;
   startDate?: Date | null;
   endDate?: Date | null;
+  price?: string | null;
   eventLink?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;
@@ -80,6 +82,7 @@ function toCompatibilityShape(item: {
     type: "events",
     title: item.title,
     body: item.description,
+    price: item.price ?? null,
     coverImage: item.coverImageUrl ?? null,
     coverAspect,
     cover_aspect: coverAspect,
@@ -102,6 +105,7 @@ function mapCanonicalEvent(item: Awaited<ReturnType<typeof listCanonicalEvents>>
     id: item.id,
     title: item.title,
     description: item.description,
+    price: item.price ?? null,
     coverImageUrl: item.coverImage?.url ?? null,
     coverAspect: item.coverImage?.aspect ?? null,
     location: item.location,
@@ -124,6 +128,7 @@ function normalizeEventPayload(payload: EventPayload): EventPersistenceInput {
     id,
     title: payload.title.trim(),
     description: payload.body,
+    price: payload.price?.trim() || null,
     coverImageUrl: payload.coverImage ?? null,
     coverAspect: payload.coverAspect ?? null,
     location: payload.eventAddress ?? null,

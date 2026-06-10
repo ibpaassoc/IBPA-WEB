@@ -127,7 +127,7 @@ export const coreEvents = ibpa.table("events", {
   coverImage: jsonb("cover_image").$type<{ url: string | null; aspect?: number | null } | null>(),
   location: text("location"),
   visibility: varchar("visibility", { length: 40 }).notNull().default("PRIVATE"),
-  price: integer("price").notNull().default(0),
+  price: text("price"),
   capacity: integer("capacity"),
   eventLink: text("event_link"),
   eventAllDay: boolean("event_all_day").notNull().default(false),

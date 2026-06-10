@@ -71,6 +71,15 @@ export function EventsTable({
           ),
         },
         {
+          key: "price",
+          label: "Price",
+          render: (event) => (
+            <span className="text-xs font-semibold text-[#10203B]">
+              {event.price?.trim() || "Free / not set"}
+            </span>
+          ),
+        },
+        {
           key: "status",
           label: "Status",
           render: (event) => (

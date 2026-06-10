@@ -8,11 +8,11 @@ export type EventPersistenceInput = {
   id: string;
   title: string;
   description: string;
+  price?: string | null;
   coverImageUrl?: string | null;
   coverAspect?: number | null;
   location?: string | null;
   visibility: string;
-  price?: number;
   capacity?: number | null;
   eventLink?: string | null;
   eventAllDay?: boolean;
@@ -180,7 +180,7 @@ export async function upsertCanonicalEvent(db: DbClient, input: EventPersistence
         location: input.location ?? null,
         visibility: input.visibility,
         price: input.price ?? existing.price,
-        capacity: input.capacity ?? existing.capacity,
+        capacity: input.capacity ?? null,
         eventLink: input.eventLink ?? null,
         eventAllDay: Boolean(input.eventAllDay),
         ctaLabel: input.ctaLabel ?? null,
