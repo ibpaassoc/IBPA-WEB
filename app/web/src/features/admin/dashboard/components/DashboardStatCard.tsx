@@ -68,7 +68,7 @@ export function DashboardStatCard({ index, stat }: DashboardStatCardProps) {
             isAccent ? "text-white" : "text-[#10203B]",
           )}
         >
-          {stat.value.toLocaleString("en-US")}
+          {stat.valueLabel ?? stat.value.toLocaleString("en-US")}
         </span>
 
         <div className="mb-1 flex flex-col items-end gap-2">

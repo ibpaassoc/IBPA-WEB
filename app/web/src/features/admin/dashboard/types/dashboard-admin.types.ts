@@ -3,7 +3,14 @@ import type { AdminStatusTone } from "../../shared/types/admin.types";
 export type AdminOverviewStat = {
   key: string;
   label: string;
+  /** Raw numeric value (used for comparisons / change calculations). */
   value: number;
+  /**
+   * Optional pre-formatted display string.
+   * When set, DashboardStatCard shows this instead of value.toLocaleString().
+   * Use for currency: "$1,248" rather than the raw number 1248.
+   */
+  valueLabel?: string;
   href: string;
   change?: { value: number; label: string } | null;
 };

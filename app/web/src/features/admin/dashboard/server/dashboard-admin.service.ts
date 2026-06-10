@@ -1,3 +1,5 @@
+import { getMembershipCategory, membershipConfigById } from "@/lib/membership";
+
 import { listMemberApplications, listPartnerApplications } from "../../applications/server/application-admin.repository";
 import { listContentItems } from "../../events/server/event-admin.repository";
 import { listProfiles } from "../../profiles/server/profile-admin.repository";
@@ -14,6 +16,37 @@ import type {
 const RECENT_LIMIT = 6;
 const UPCOMING_EVENTS_LIMIT = 5;
 
+// ── Revenue helpers ──────────────────────────────────────────────────────────
+
+/** Parse "$49" or "$1,299" price strings to a plain number. */
+function parsePriceString(price: string): number {
+  const num = Number(price.replace(/[$,]/g, "").trim());
+  return Number.isFinite(num) ? num : 0;
+}
+
+/** Known partner tier amounts (mirrors payment-admin.service). */
+const PARTNER_TIER_AMOUNTS: Record<string, number> = {
+  Associate: 500,
+  Community: 1500,
+  Premier: 3000,
+};
+
+function memberOrderAmount(order: AdminOrder): number {
+  const category = getMembershipCategory(order.membershipCategory);
+  if (!category) return 0;
+  return parsePriceString(membershipConfigById[category]?.price ?? "");
+}
+
+function partnerOrderAmount(application: AdminPartnerApplication): number {
+  const tier = application.requestedTier?.trim() ?? "";
+  return PARTNER_TIER_AMOUNTS[tier] ?? 0;
+}
+
+/** Format a dollar amount as "$1,248" (no cents). */
+function formatRevenue(amount: number): string {
+  return `$${amount.toLocaleString("en-US")}`;
+}
+
 function toTimestamp(value?: string | null) {
   if (!value) return 0;
   const time = new Date(value).getTime();
@@ -24,7 +57,7 @@ function buildStats(
   memberTotal: number,
   upcomingEventsCount: number,
   publishedArticlesCount: number,
-  paidThisMonth: number,
+  revenueThisMonth: number,
 ): AdminOverviewStat[] {
   return [
     {
@@ -42,7 +75,8 @@ function buildStats(
     {
       key: "revenue",
       label: "Revenue this month",
-      value: paidThisMonth,
+      value: revenueThisMonth,
+      valueLabel: formatRevenue(revenueThisMonth),
       href: "/admin/payments",
     },
     {
@@ -217,15 +251,20 @@ export async function getAdminOverview(): Promise<AdminOverviewData> {
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const paidThisMonth = memberOrders.filter(
-    (o) => o.status === "paid" && new Date(o.createdAt ?? "") >= startOfMonth,
-  ).length;
+
+  const revenueThisMonth =
+    memberOrders
+      .filter((o) => o.status === "paid" && new Date(o.createdAt ?? "") >= startOfMonth)
+      .reduce((sum, o) => sum + memberOrderAmount(o), 0) +
+    partnerApplications
+      .filter((a) => a.paymentStatus === "PAID" && new Date(a.paidAt ?? "") >= startOfMonth)
+      .reduce((sum, a) => sum + partnerOrderAmount(a), 0);
 
   const publishedArticlesCount =
     contentItems.items?.filter((i) => i.type === "news" && (i.publishToSite || i.publishToDashboard)).length ?? 0;
 
   return {
-    stats: buildStats(memberTotal, upcomingEvents.length, publishedArticlesCount, paidThisMonth),
+    stats: buildStats(memberTotal, upcomingEvents.length, publishedArticlesCount, revenueThisMonth),
     upcomingEvents,
     recentPayments: buildRecentPayments(memberOrders, partnerApplications),
     recentActivity: buildRecentActivity(memberOrders, partnerApplications, contentItems),
