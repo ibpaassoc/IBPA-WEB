@@ -107,7 +107,7 @@ export function buildSystemNotifications(params: {
     {
       id: "profile-access",
       title: "Profile Access Ready",
-      description: "You can update your public profile details and account information in Settings.",
+      description: "You can update your public profile details and account information from your dashboard profile.",
       timestamp: userCreatedAt || new Date().toISOString(),
       unread: false,
       category: "system",

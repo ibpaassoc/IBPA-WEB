@@ -72,6 +72,24 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ metadata, file }) => {
       return { uploadedBy: metadata.uploadedBy, url: file.url };
     }),
+  externalCertificateUploader: f({
+    image: { maxFileSize: "16MB", maxFileCount: 1 },
+    pdf: { maxFileSize: "8MB", maxFileCount: 1 },
+    "application/msword": { maxFileSize: "8MB", maxFileCount: 1 },
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { maxFileSize: "8MB", maxFileCount: 1 },
+  })
+    .middleware(async () => {
+      const { userId } = await auth();
+
+      if (!userId) {
+        throw new Error("Unauthorized");
+      }
+
+      return { uploadedBy: userId };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      return { uploadedBy: metadata.uploadedBy, url: file.url };
+    }),
   certificateUploader: f({ pdf: { maxFileSize: "8MB", maxFileCount: 1 } })
     .middleware(requireAdminUpload)
     .onUploadComplete(async ({ file }) => {

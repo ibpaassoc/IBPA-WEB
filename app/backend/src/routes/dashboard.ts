@@ -23,11 +23,26 @@ import {
   getPrimaryEmailFromClerkUser,
 } from "../services/clerk";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
-import { saveDashboardProfile } from "../features/profiles/server/profile.service";
+import {
+  createExternalCertificate,
+  deleteExternalCertificate,
+  listExternalCertificates,
+} from "../features/files/server/file.service";
+import {
+  ensureOwnedProfileRecord,
+  normalizeProfileServices,
+  saveOwnedProfileRecord,
+  saveProfileServices,
+} from "../features/profiles/server/profile.service";
 import { markNotificationsRead } from "../features/notifications/server/notification.service";
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
 import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
 import { findCanonicalTeam, upsertCanonicalTeam, upsertCanonicalTeamMember } from "../features/teams/server/team.repository";
+import {
+  listDashboardEventsForUser,
+  registerDashboardEvent,
+  unregisterDashboardEvent,
+} from "../features/events/server/event.service";
 
 export const dashboardRouter = Router();
 export const cardsRouter = Router();
@@ -143,6 +158,17 @@ function stringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
+function commaSeparatedArray(value: unknown): string[] {
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function mapApplicationStatusToLegacy(status: string | null | undefined) {
   switch ((status || "").toUpperCase()) {
     case "UNDER_REVIEW":
@@ -199,40 +225,46 @@ function buildOwnerDashboardProfile(params: {
   partnerTeamSummary?: Record<string, unknown> | null;
 }) {
   const { user, profile, application, membership, payment, certificate, accessType, partnerTeamSummary } = params;
-  const payload = getApplicationData(application);
+  const accountType =
+    application?.type
+      ? mapApplicationTypeToAccountType(application.type)
+      : accessType === "partner_owner"
+        ? "partner"
+        : "member";
   const fullName = [
     firstText(profile?.firstName),
     firstText(profile?.lastName),
-  ].filter(Boolean).join(" ") || firstText(application?.fullName) || user.email;
-  const specializations = uniqueStrings([
-    ...stringArray(payload.specialization),
-    firstText(profile?.specializations),
-    firstText(profile?.services),
-  ]).filter(Boolean);
+  ].filter(Boolean).join(" ") || "IBPA Member";
+  const specializations = uniqueStrings(stringArray(profile?.specializations)).filter(Boolean);
+  const services = normalizeProfileServices(profile?.services);
 
   return {
     id: user.id,
-    firstName: firstText(profile?.firstName, payload.firstName, fullName.split(" ")[0]),
-    lastName: firstText(profile?.lastName, payload.lastName),
+    firstName: profile?.firstName ?? null,
+    lastName: profile?.lastName ?? null,
     fullName,
     email: user.email,
-    phone: firstText(application?.phone, payload.phone),
+    phone: profile?.phone ?? null,
     imageUrl: profile?.avatarUrl ?? null,
     bio: profile?.bio ?? null,
+    achievements: profile?.achievements ?? null,
+    industryContribution: profile?.industryContribution ?? null,
+    websiteUrl: profile?.website ?? null,
     specialization: specializations.join(", ") || null,
-    experienceYears: profile?.yearsExperience != null ? String(profile.yearsExperience) : firstText(payload.yearsExperience),
-    education: firstText(profile?.credentials, payload.educationDesc, payload.studentSchool),
-    instagramUrl: firstText(profile?.instagram, payload.instagramLink) || null,
-    country: firstText(profile?.country, payload.country) || null,
-    city: firstText(profile?.city, payload.city) || null,
-    state: firstText(profile?.state, payload.state) || null,
-    achievements: firstText(payload.achievementsDesc, payload.contributionDesc) || null,
-    certificatesSummary: firstText(payload.licenseNumber, payload.trainerCertificateFiles) || null,
-    applicationPayload: payload,
-    type: mapApplicationTypeToAccountType(application?.type),
-    accountType: mapApplicationTypeToAccountType(application?.type),
-    applicationType: application?.type || null,
-    orderType: mapApplicationTypeToAccountType(application?.type),
+    specializations,
+    experienceYears: profile?.yearsExperience != null ? String(profile.yearsExperience) : null,
+    education: profile?.credentials ?? null,
+    instagramUrl: profile?.instagram ?? null,
+    country: profile?.country ?? null,
+    city: profile?.city ?? null,
+    state: profile?.state ?? null,
+    portfolioImages: profile?.workGalleryPhotos ?? [],
+    certificatesSummary: null,
+    services,
+    type: accountType,
+    accountType,
+    applicationType: application?.type || (accessType === "partner_owner" ? "PARTNER" : "MEMBER"),
+    orderType: accountType,
     membershipStatus: membership?.status?.toLowerCase() || "pending",
     paymentStatus: mapPaymentStatusToLegacy(payment?.status),
     certificateStatus: certificate?.certificateNumber ? "issued" : "pending",
@@ -316,6 +348,17 @@ async function findLatestApplicationByUser(db: ReturnType<typeof requireDb>, use
   return byEmail[0] ?? null;
 }
 
+async function listPaymentsByUserId(
+  db: ReturnType<typeof requireDb>,
+  userId: string,
+) {
+  return db
+    .select()
+    .from(corePayments)
+    .where(eq(corePayments.userId, userId))
+    .orderBy(desc(corePayments.paidAt), desc(corePayments.createdAt));
+}
+
 async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unknown): Promise<DashboardAccessContext | null> {
   const session = await ensureSessionUser(clerkUserId, sessionClaims);
   const { db, canonicalUser, candidateEmails, primaryEmail, clerkUser } = session;
@@ -378,7 +421,7 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
     return null;
   }
 
-  const [ownerUser, membership, application, payment, certificate] = await Promise.all([
+  const [ownerUser, membership] = await Promise.all([
     db.select().from(coreUsers).where(eq(coreUsers.id, team.ownerUserId)).limit(1).then((rows: typeof coreUsers.$inferSelect[]) => rows[0] ?? null),
     db
       .select()
@@ -387,16 +430,17 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
       .orderBy(desc(coreMemberships.startedAt))
       .limit(1)
       .then((rows: typeof coreMemberships.$inferSelect[]) => rows[0] ?? null),
-    coreApplications
-      ? db.select().from(coreApplications).where(eq(coreApplications.id, team.id)).limit(1).then((rows: typeof coreApplications.$inferSelect[]) => rows[0] ?? null)
-      : Promise.resolve(null),
-    db.select().from(corePayments).where(eq(corePayments.id, team.id)).limit(1).then((rows: typeof corePayments.$inferSelect[]) => rows[0] ?? null),
-    db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, team.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
   ]);
 
   if (!ownerUser || !membership) {
     return null;
   }
+
+  const [application, payment, certificate] = await Promise.all([
+    findLatestApplicationByUser(db, ownerUser.id, ownerUser.email),
+    db.select().from(corePayments).where(eq(corePayments.id, membership.id)).limit(1).then((rows: typeof corePayments.$inferSelect[]) => rows[0] ?? null),
+    db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, membership.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
+  ]);
 
   return {
     db,
@@ -544,6 +588,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
       return res.json({
         certificates: [],
+        externalCertificates: [],
         accountType: "partner",
         applicationType: "TEAM_MEMBER",
         orderType: "partner",
@@ -587,6 +632,16 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       firstText(access.profile?.firstName),
       firstText(access.profile?.lastName),
     ].filter(Boolean).join(" ") || firstText(application?.fullName) || canonicalUser?.email || "";
+    let externalCertificates: Awaited<ReturnType<typeof listExternalCertificates>> = [];
+    try {
+      externalCertificates = await listExternalCertificates({ clerkUserId });
+    } catch (error) {
+      console.error("[Dashboard /me] Failed to load external certificates:", error);
+    }
+
+    const paymentHistory = canonicalUser
+      ? await listPaymentsByUserId(db, canonicalUser.id)
+      : [];
 
     const certificatePayload = certificate
       ? [{
@@ -607,6 +662,15 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
 
     return res.json({
       certificates: certificatePayload,
+      externalCertificates,
+      paymentHistory: paymentHistory.map((entry: typeof corePayments.$inferSelect) => ({
+        id: entry.id,
+        type: entry.type,
+        amount: entry.amount,
+        status: entry.status.toLowerCase(),
+        createdAt: entry.createdAt,
+        paidAt: entry.paidAt,
+      })),
       accountType: mapApplicationTypeToAccountType(application?.type),
       applicationType: application?.type || canonicalUser?.role || null,
       orderType: mapApplicationTypeToAccountType(application?.type),
@@ -640,7 +704,7 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, accessType, canonicalUser, membership, application, payment, certificate, profile, team, teamMember, ownerUser } = access;
+    const { db, primaryEmail, accessType, canonicalUser, membership, application, payment, certificate, profile, team, teamMember, ownerUser } = access;
     if (!membership) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
@@ -649,7 +713,6 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
       return res.json({
         profile: {
-          applicationPayload: {},
           type: "partner",
           accountType: "partner",
           applicationType: "TEAM_MEMBER",
@@ -681,13 +744,19 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
+    const ensuredProfile = await ensureOwnedProfileRecord(db, {
+      clerkUserId,
+      email: primaryEmail || canonicalUser.email,
+      currentRole: canonicalUser.role,
+    });
+
     const partnerTeamSnapshot = accessType === "partner_owner" && team
       ? await getPartnerTeamSnapshot(db, team)
       : null;
 
     const mappedProfile = buildOwnerDashboardProfile({
       user: canonicalUser,
-      profile,
+      profile: ensuredProfile,
       application,
       membership,
       payment,
@@ -714,6 +783,120 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
   } catch (error) {
     console.error("[Dashboard /profile GET] Error:", error);
     return res.status(500).json({ error: "Failed to fetch profile" });
+  }
+});
+
+dashboardRouter.get("/events", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const items = await listDashboardEventsForUser(access.db, {
+      userId: access.canonicalUser?.id ?? null,
+    });
+
+    return res.json({ items });
+  } catch (error) {
+    console.error("[Dashboard /events GET] Error:", error);
+    return res.status(500).json({ error: "Failed to fetch dashboard events" });
+  }
+});
+
+dashboardRouter.post("/events/:id/register", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  const eventId = trimValue(req.params.id, 80);
+  if (!eventId) {
+    return res.status(400).json({ error: "Invalid event id." });
+  }
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    if (!access.canonicalUser) {
+      return res.status(400).json({ error: "User record is not ready for event registration." });
+    }
+
+    const registration = await registerDashboardEvent(access.db, {
+      eventId,
+      userId: access.canonicalUser.id,
+      email:
+        access.primaryEmail ||
+        access.canonicalUser.email ||
+        access.teamMember?.email ||
+        "",
+      source: "dashboard",
+    });
+
+    return res.status(registration.alreadyRegistered ? 200 : 201).json({
+      success: true,
+      alreadyRegistered: registration.alreadyRegistered,
+      item: registration.event,
+    });
+  } catch (error) {
+    console.error("[Dashboard /events/register POST] Error:", error);
+    return res.status(
+      error instanceof Error && error.message === "Event not found." ? 404 : 500,
+    ).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to register for the event",
+    });
+  }
+});
+
+dashboardRouter.delete("/events/:id/register", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  const eventId = trimValue(req.params.id, 80);
+  if (!eventId) {
+    return res.status(400).json({ error: "Invalid event id." });
+  }
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    if (!access.canonicalUser) {
+      return res.status(400).json({ error: "User record is not ready for event registration." });
+    }
+
+    const registration = await unregisterDashboardEvent(access.db, {
+      eventId,
+      userId: access.canonicalUser.id,
+    });
+
+    return res.json({
+      success: true,
+      removed: registration.removed,
+      item: registration.event,
+    });
+  } catch (error) {
+    console.error("[Dashboard /events/register DELETE] Error:", error);
+    return res.status(
+      error instanceof Error && error.message === "Event not found." ? 404 : 500,
+    ).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to unregister from the event",
+    });
   }
 });
 
@@ -822,6 +1005,10 @@ dashboardRouter.get("/team-members", clerkMiddleware(clerkOptions), async (req, 
         fullName: item.fullName,
         email: item.email,
         role: item.role,
+        avatarUrl: item.avatarUrl,
+        bio: item.bio,
+        location: item.location,
+        joinedAt: item.joinedAt,
         portfolioLink: item.portfolioLink,
         licenseNumber: item.license,
         status: item.status,
@@ -1024,7 +1211,7 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    const { db, clerkUser, primaryEmail, accessType, application, canonicalUser, membership, team } = access;
+    const { db, primaryEmail, accessType, canonicalUser } = access;
     if (accessType === "partner_team_member") {
       return res.status(403).json({
         error: "Team member profiles are managed by the partner owner.",
@@ -1037,71 +1224,166 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
     }
 
     const {
+      firstName,
+      lastName,
+      phone,
       imageUrl,
       bio,
-      specialization,
+      specializations,
+      achievements,
+      industryContribution,
       experienceYears,
       education,
       instagramUrl,
+      websiteUrl,
       country,
+      state,
       city,
-      applicationPayload,
+      portfolioImages,
     } = req.body;
 
-    const existingPayload = getApplicationData(application);
-    const nextApplicationPayload = {
-      ...existingPayload,
-      ...(applicationPayload && typeof applicationPayload === "object" ? applicationPayload as Record<string, unknown> : {}),
-    };
-
-    await saveDashboardProfile(db, {
+    const { profile } = await saveOwnedProfileRecord(db, {
       clerkUserId,
       email: primaryEmail || canonicalUser.email,
       currentRole: canonicalUser.role,
-      firstName: clerkUser?.firstName || access.profile?.firstName || "",
-      lastName: clerkUser?.lastName || access.profile?.lastName || "",
+      firstName,
+      lastName,
+      phone,
       imageUrl,
       bio,
-      specialization,
+      specializations: Array.isArray(specializations)
+        ? specializations.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
+        : undefined,
+      achievements,
+      industryContribution,
       experienceYears,
       education,
       instagramUrl,
+      websiteUrl,
       country,
+      state,
       city,
-      applicationPayload: nextApplicationPayload,
+      portfolioImages: Array.isArray(portfolioImages)
+        ? portfolioImages.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
+        : undefined,
     });
 
-    if (application) {
-      await db
-        .update(coreApplications)
-        .set({
-          phone: typeof nextApplicationPayload.phone === "string" ? nextApplicationPayload.phone : application.phone,
-          applicationData: nextApplicationPayload,
-        })
-        .where(eq(coreApplications.id, application.id));
-    } else if (membership) {
-      const fullName = [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ").trim() || canonicalUser.email;
-      await db.insert(coreApplications).values({
-        id: membership.id,
-        userId: canonicalUser.id,
-        type: team ? "PARTNER" : "MEMBER",
-        packageName: membership.type,
-        status: "PAID",
-        fullName,
-        email: canonicalUser.email,
-        phone: typeof nextApplicationPayload.phone === "string" ? nextApplicationPayload.phone : null,
-        paymentLink: null,
-        applicationData: nextApplicationPayload,
-        applicationFiles: [],
-        approvedAt: membership.startedAt ?? new Date(),
-        createdAt: membership.startedAt ?? new Date(),
-      }).onConflictDoNothing();
-    }
-
-    return res.json({ success: true, applicationPayload: nextApplicationPayload });
+    return res.json({ success: true, profile });
   } catch (error) {
     console.error("[Dashboard /profile PATCH] Error:", error);
     return res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+dashboardRouter.patch("/profile/services", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    if (access.accessType === "partner_team_member") {
+      return res.status(403).json({
+        error: "Team member profiles are managed by the partner owner.",
+        code: "TEAM_MEMBER_EDIT_DISABLED",
+      });
+    }
+
+    const services = Array.isArray(req.body?.services) ? req.body.services : [];
+    const result = await saveProfileServices({
+      clerkUserId,
+      services,
+    });
+
+    return res.json({
+      success: true,
+      services: result.services,
+    });
+  } catch (error) {
+    console.error("[Dashboard /profile/services PATCH] Error:", error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to update services",
+    });
+  }
+});
+
+dashboardRouter.get("/certificates/external", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access || access.accessType === "partner_team_member") {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const items = await listExternalCertificates({ clerkUserId });
+    return res.json({ items });
+  } catch (error) {
+    console.error("[Dashboard /certificates/external GET] Error:", error);
+    return res.status(500).json({ error: "Failed to fetch uploaded certificates" });
+  }
+});
+
+dashboardRouter.post("/certificates/external", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access || access.accessType === "partner_team_member") {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const created = await createExternalCertificate({
+      clerkUserId,
+      title: req.body?.title,
+      fileUrl: req.body?.fileUrl,
+    });
+
+    return res.status(201).json({ success: true, item: created });
+  } catch (error) {
+    console.error("[Dashboard /certificates/external POST] Error:", error);
+    return res.status(500).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to save uploaded certificate",
+    });
+  }
+});
+
+dashboardRouter.delete("/certificates/external/:id", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access || access.accessType === "partner_team_member") {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const deleted = await deleteExternalCertificate({
+      clerkUserId,
+      fileId: typeof req.params.id === "string" ? req.params.id : "",
+    });
+
+    return res.json({ success: true, id: deleted.id });
+  } catch (error) {
+    console.error("[Dashboard /certificates/external DELETE] Error:", error);
+    return res.status(500).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to remove uploaded certificate",
+    });
   }
 });
 

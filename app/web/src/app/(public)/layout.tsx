@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { CookieConsentBanner } from "@/components/layout/CookieConsentBanner";
-import { I18nProvider, type Locale } from "@/lib/i18n";
+import { I18nProvider } from "@/lib/i18n";
+import { resolveLocale } from "@/lib/locale";
 
 export default async function PublicLayout({
   children,
@@ -15,10 +16,7 @@ export default async function PublicLayout({
 
   const localeCookie = cookieStore.get("ibpa-locale")?.value;
 
-  const initialLocale: Locale =
-    localeCookie === "ru" || localeCookie === "uk"
-      ? localeCookie
-      : "en";
+  const initialLocale = resolveLocale(localeCookie);
 
   const dashboardHref = "/dashboard";
 

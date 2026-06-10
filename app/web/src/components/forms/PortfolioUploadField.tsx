@@ -4,9 +4,10 @@ import React from "react";
 import { Loader2, Trash2, UploadCloud } from "lucide-react";
 import { genUploader } from "uploadthing/client";
 import { toast } from "sonner";
+
+import type { OurFileRouter } from "@/app/api/uploadthing/core";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { isImageLikeFile, prepareUploadFiles } from "@/lib/heic-upload";
-import type { OurFileRouter } from "@/app/api/uploadthing/core";
 
 const { uploadFiles } = genUploader<OurFileRouter>({
   url: "/api/uploadthing",
@@ -19,6 +20,7 @@ type PortfolioUploadFieldProps = {
   value: string[];
   onChange: (urls: string[]) => void;
   error?: React.ReactNode;
+  hideRequirementsText?: boolean;
 };
 
 const MIN_FILES = 5;
@@ -31,15 +33,14 @@ export function PortfolioUploadField({
   value,
   onChange,
   error,
+  hideRequirementsText = false,
 }: PortfolioUploadFieldProps) {
+  void isRu;
+  void isUk;
+
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
-
-  const t = React.useCallback(
-    (en: string, _ru: string, _uk: string) => en,
-    [],
-  );
 
   const handleFiles = React.useCallback(
     async (fileList?: FileList | File[] | null) => {
@@ -55,16 +56,24 @@ export function PortfolioUploadField({
 
       setIsUploading(true);
       try {
-        const preparedFiles = await prepareUploadFiles(filesToUpload, { maxImageBytes: MAX_IMAGE_BYTES });
-        const result = await uploadFiles("portfolioUploader", { files: preparedFiles });
+        const preparedFiles = await prepareUploadFiles(filesToUpload, {
+          maxImageBytes: MAX_IMAGE_BYTES,
+        });
+        const result = await uploadFiles("portfolioUploader", {
+          files: preparedFiles,
+        });
         const uploadedUrls = result
           .map((item) => item.serverData?.url || item.ufsUrl || item.url)
           .filter((item): item is string => Boolean(item));
 
         onChange([...value, ...uploadedUrls].slice(0, MAX_FILES));
-      } catch (error) {
-        console.error("Failed to upload portfolio images", error);
-        toast.error(error instanceof Error ? error.message : "Failed to upload portfolio images.");
+      } catch (uploadError) {
+        console.error("Failed to upload portfolio images", uploadError);
+        toast.error(
+          uploadError instanceof Error
+            ? uploadError.message
+            : "Failed to upload portfolio images.",
+        );
       } finally {
         setIsUploading(false);
       }
@@ -79,21 +88,13 @@ export function PortfolioUploadField({
   return (
     <div className="space-y-4 md:col-span-2">
       <div className="space-y-2">
-        <label className="field-label">
-          {t(
-            "Portfolio / example work images",
-            "Фото примеров и работ",
-            "Фото прикладів і робіт",
-          )}{" "}
-          *
-        </label>
-        <p className="text-sm text-slate-500">
-          {t(
-            "Upload at least 5 and up to 10 images that show the quality and style of your work.",
-            "Загрузите минимум 5 и максимум 10 изображений, которые показывают качество и стиль вашей работы.",
-            "Завантажте щонайменше 5 і максимум 10 зображень, які показують якість і стиль вашої роботи.",
-          )}
-        </p>
+        <label className="field-label">Portfolio / example work images *</label>
+        {!hideRequirementsText ? (
+          <p className="text-sm text-slate-500">
+            Upload at least 5 and up to 10 images that show the quality and
+            style of your work.
+          </p>
+        ) : null}
       </div>
 
       <div
@@ -132,18 +133,10 @@ export function PortfolioUploadField({
 
           <div className="space-y-1">
             <p className="text-sm font-semibold text-slate-700">
-              {t(
-                "Drag images here or choose files",
-                "Перетащите изображения сюда или выберите файлы",
-                "Перетягніть зображення сюди або виберіть файли",
-              )}
+              Drag images here or choose files
             </p>
             <p className="text-xs text-slate-400">
-              {t(
-                "JPG, PNG, WEBP. Up to 10 files, max 16MB each.",
-                "JPG, PNG, WEBP. Всего до 10 файлов.",
-                "JPG, PNG, WEBP. Усього до 10 файлів.",
-              )}
+              JPG, PNG, WEBP. Up to 10 files, max 16MB each.
             </p>
           </div>
 
@@ -153,27 +146,34 @@ export function PortfolioUploadField({
             disabled={isUploading || value.length >= MAX_FILES}
             className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-black transition-all hover:bg-slate-50 disabled:opacity-50"
           >
-            {value.length >= MAX_FILES
-              ? t("Limit reached", "Лимит достигнут", "Ліміт досягнуто")
-              : t("Choose images", "Выбрать изображения", "Обрати зображення")}
+            {value.length >= MAX_FILES ? "Limit reached" : "Choose images"}
           </button>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-3 rounded-[20px] bg-slate-50 px-4 py-3 text-xs text-slate-500">
         <span>
-          {t("Uploaded", "Загружено", "Завантажено")}: {value.length}/{MAX_FILES}
+          Uploaded: {value.length}/{MAX_FILES}
         </span>
-        <span>
-          {t("Minimum", "Минимум", "Мінімум")}: {MIN_FILES}
-        </span>
+        {!hideRequirementsText ? (
+          <span>
+            Minimum: {MIN_FILES}
+          </span>
+        ) : null}
       </div>
 
-      {value.length > 0 && (
+      {value.length > 0 ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {value.map((url, index) => (
-            <div key={`${url}-${index}`} className="group relative overflow-hidden rounded-[22px] border border-slate-200 bg-white">
-              <ImageWithFallback src={url} alt={`Portfolio image ${index + 1}`} className="aspect-square h-full w-full object-cover" />
+            <div
+              key={`${url}-${index}`}
+              className="group relative overflow-hidden rounded-[22px] border border-slate-200 bg-white"
+            >
+              <ImageWithFallback
+                src={url}
+                alt={`Portfolio image ${index + 1}`}
+                className="aspect-square h-full w-full object-cover"
+              />
               <button
                 type="button"
                 onClick={() => removeImage(url)}
@@ -184,7 +184,7 @@ export function PortfolioUploadField({
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       {error}
     </div>

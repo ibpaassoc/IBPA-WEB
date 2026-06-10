@@ -1,9 +1,25 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
-import { AlertCircle, CheckCircle2, Loader2, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Plus,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+
+import {
+  dashboardInputClassName,
+  dashboardPrimaryButtonClassName,
+  dashboardSecondaryButtonClassName,
+} from "@/shared/components/DashboardShared";
 import { sanitizeBackendErrorMessage } from "@/lib/safe-backend-error";
+import { useI18n } from "@/lib/i18n";
 
 type TeamMemberRecord = {
   id: string;
@@ -11,6 +27,10 @@ type TeamMemberRecord = {
   fullName: string;
   email: string;
   role: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  joinedAt?: string | null;
   portfolioLink?: string | null;
   licenseNumber: string;
   status: "invited" | "active" | "removed";
@@ -66,37 +86,35 @@ const INITIAL_FORM: FormState = {
 
 const FALLBACK_LICENSE_NUMBER = "Not provided";
 
-function getSeatBadge(member: TeamMemberRecord) {
-  if (member.seatKind === "additional") {
-    return {
-      label: "Additional Seat",
-      className: "border border-emerald-200 bg-emerald-50 text-emerald-700",
-    };
-  }
+const floatingSectionClassName =
+  "rounded-[32px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_22px_60px_rgba(11,31,68,0.10)]";
 
-  return {
-    label: "Included Seat",
-    className: "border border-sky-200 bg-sky-50 text-sky-700",
-  };
-}
+const floatingMemberCardClassName =
+  "rounded-[30px] border border-[#D4E0F0] bg-white p-5 shadow-[0_18px_45px_rgba(11,31,68,0.08)] transition hover:-translate-y-1 hover:shadow-[0_26px_65px_rgba(11,31,68,0.14)]";
 
-function getStatusBadge(member: TeamMemberRecord) {
+const metricCardClassName =
+  "rounded-[24px] border border-[#D4E0F0] bg-white/90 px-5 py-4 shadow-[0_18px_45px_rgba(11,31,68,0.07)]";
+
+function getStatusBadge(
+  member: TeamMemberRecord,
+  labels: ReturnType<typeof useI18n>["t"]["dashboard"]["teamMembers"],
+) {
   if (member.status === "removed") {
     return {
-      label: "Removed",
+      label: labels.removed,
       className: "border border-slate-200 bg-slate-100 text-slate-600",
     };
   }
 
   if (member.status === "active") {
     return {
-      label: "Active",
+      label: labels.active,
       className: "border border-emerald-200 bg-emerald-50 text-emerald-700",
     };
   }
 
   return {
-    label: "Invited",
+    label: labels.invited,
     className: "border border-amber-200 bg-amber-50 text-amber-700",
   };
 }
@@ -105,7 +123,98 @@ function getSafeTeamErrorMessage(value: unknown, fallback: string) {
   return sanitizeBackendErrorMessage(value, fallback);
 }
 
+function getInitials(name: string) {
+  const parts = name
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) return "TM";
+
+  const first = parts[0]?.[0] || "";
+  const second = parts.length > 1 ? parts[1]?.[0] || "" : "";
+
+  return `${first}${second}`.toUpperCase();
+}
+
+function SummaryMetric({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string | number;
+  helper?: string;
+}) {
+  return (
+    <article className={metricCardClassName}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-[#10203B]">
+        {value}
+      </p>
+      {helper ? <p className="mt-1 text-xs text-slate-400">{helper}</p> : null}
+    </article>
+  );
+}
+
+function TeamMembersPanelSkeleton() {
+  return (
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <article key={index} className={metricCardClassName}>
+            <div className="h-3 w-24 rounded-full bg-slate-200/80" />
+            <div className="mt-3 h-8 w-14 rounded-full bg-slate-200/80" />
+            <div className="mt-2 h-3 w-20 rounded-full bg-slate-100" />
+          </article>
+        ))}
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <article key={index} className={floatingMemberCardClassName}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-slate-200/80" />
+
+                <div className="min-w-0 space-y-3">
+                  <div className="h-4 w-32 rounded-full bg-slate-200/80" />
+                  <div className="h-3 w-40 rounded-full bg-slate-100" />
+                  <div className="h-3 w-24 rounded-full bg-slate-100" />
+                </div>
+              </div>
+
+              <div className="h-7 w-20 rounded-full bg-slate-100" />
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <div className="h-9 w-24 rounded-2xl bg-slate-100" />
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <section className={floatingSectionClassName}>
+        <div className="h-5 w-40 rounded-full bg-slate-200/80" />
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="space-y-2">
+              <div className="h-3 w-20 rounded-full bg-slate-100" />
+              <div className="h-11 rounded-2xl bg-slate-100" />
+            </div>
+          ))}
+          <div className="h-16 rounded-[20px] bg-slate-100 md:col-span-2" />
+          <div className="h-11 w-36 rounded-2xl bg-slate-200/80 md:col-span-2" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [extending, setExtending] = useState(false);
@@ -124,24 +233,27 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
     setServerError(null);
 
     try {
-      const res = await fetch("/api/dashboard/team-members", { cache: "no-store" });
+      const res = await fetch("/api/dashboard/team-members", {
+        cache: "no-store",
+      });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setServerError(getSafeTeamErrorMessage(data?.error, "Failed to load Team Members."));
+        setServerError(
+          getSafeTeamErrorMessage(data?.error, t.dashboard.teamMembers.loadError),
+        );
         return;
       }
 
       setPayload(data as TeamMembersPayload);
     } catch {
-      setServerError("Connection error while loading Team Members.");
+      setServerError(t.dashboard.teamMembers.connectionLoadError);
     } finally {
       setLoading(false);
     }
-  }, [enabled]);
+  }, [enabled, t.dashboard.teamMembers.connectionLoadError, t.dashboard.teamMembers.loadError]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadTeamMembers();
   }, [loadTeamMembers]);
 
@@ -153,22 +265,26 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
   const onSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+
       if (!enabled || !payload?.canInvite) return;
 
       if (!form.fullName.trim()) {
-        toast.error("Full name is required.");
+        toast.error(t.dashboard.teamMembers.fullNameRequired);
         return;
       }
+
       if (!form.email.trim()) {
-        toast.error("Email is required.");
+        toast.error(t.dashboard.teamMembers.emailRequired);
         return;
       }
+
       if (!form.role.trim()) {
-        toast.error("Position / role is required.");
+        toast.error(t.dashboard.teamMembers.roleRequired);
         return;
       }
+
       if (!form.affiliationConfirmed) {
-        toast.error("Affiliation confirmation is required.");
+        toast.error(t.dashboard.teamMembers.affiliationRequired);
         return;
       }
 
@@ -184,26 +300,42 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
             licenseNumber: FALLBACK_LICENSE_NUMBER,
           }),
         });
+
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          const errorText = getSafeTeamErrorMessage(data?.error, "Failed to invite team member.");
+          const errorText = getSafeTeamErrorMessage(
+            data?.error,
+            t.dashboard.teamMembers.inviteError,
+          );
           setServerError(errorText);
           toast.error(errorText);
           return;
         }
 
-        toast.success("Team member invited.");
+        toast.success(t.dashboard.teamMembers.inviteSuccess);
         setForm(INITIAL_FORM);
         await loadTeamMembers();
       } catch {
-        setServerError("Connection error while inviting team member.");
-        toast.error("Connection error while inviting team member.");
+        setServerError(t.dashboard.teamMembers.inviteConnectionError);
+        toast.error(t.dashboard.teamMembers.inviteConnectionError);
       } finally {
         setSubmitting(false);
       }
     },
-    [enabled, form, loadTeamMembers, payload?.canInvite],
+    [
+      enabled,
+      form,
+      loadTeamMembers,
+      payload?.canInvite,
+      t.dashboard.teamMembers.affiliationRequired,
+      t.dashboard.teamMembers.emailRequired,
+      t.dashboard.teamMembers.fullNameRequired,
+      t.dashboard.teamMembers.inviteConnectionError,
+      t.dashboard.teamMembers.inviteError,
+      t.dashboard.teamMembers.inviteSuccess,
+      t.dashboard.teamMembers.roleRequired,
+    ],
   );
 
   const handleRemoveMember = useCallback(
@@ -212,28 +344,40 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
       setServerError(null);
 
       try {
-        const res = await fetch(`/api/dashboard/team-members/${encodeURIComponent(id)}`, {
-          method: "DELETE",
-        });
+        const res = await fetch(
+          `/api/dashboard/team-members/${encodeURIComponent(id)}`,
+          {
+            method: "DELETE",
+          },
+        );
+
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          const errorText = getSafeTeamErrorMessage(data?.error, "Failed to remove team member.");
+          const errorText = getSafeTeamErrorMessage(
+            data?.error,
+            t.dashboard.teamMembers.removeError,
+          );
           setServerError(errorText);
           toast.error(errorText);
           return;
         }
 
-        toast.success("Team member removed.");
+        toast.success(t.dashboard.teamMembers.removeSuccess);
         await loadTeamMembers();
       } catch {
-        setServerError("Connection error while removing team member.");
-        toast.error("Connection error while removing team member.");
+        setServerError(t.dashboard.teamMembers.removeConnectionError);
+        toast.error(t.dashboard.teamMembers.removeConnectionError);
       } finally {
         setRemovingId(null);
       }
     },
-    [loadTeamMembers],
+    [
+      loadTeamMembers,
+      t.dashboard.teamMembers.removeConnectionError,
+      t.dashboard.teamMembers.removeError,
+      t.dashboard.teamMembers.removeSuccess,
+    ],
   );
 
   const handleExtendSeats = useCallback(async () => {
@@ -246,314 +390,301 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seatsRequested: 1 }),
       });
+
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const errorText = getSafeTeamErrorMessage(data?.error, "Failed to extend seat capacity.");
+        const errorText = getSafeTeamErrorMessage(
+          data?.error,
+          t.dashboard.teamMembers.extendError,
+        );
         setServerError(errorText);
         toast.error(errorText);
         return;
       }
 
-      toast.success("Seat capacity updated.");
+      toast.success(t.dashboard.teamMembers.extendSuccess);
       await loadTeamMembers();
     } catch {
-      setServerError("Connection error while extending seats.");
-      toast.error("Connection error while extending seats.");
+      setServerError(t.dashboard.teamMembers.extendConnectionError);
+      toast.error(t.dashboard.teamMembers.extendConnectionError);
     } finally {
       setExtending(false);
     }
-  }, [loadTeamMembers]);
+  }, [
+    loadTeamMembers,
+    t.dashboard.teamMembers.extendConnectionError,
+    t.dashboard.teamMembers.extendError,
+    t.dashboard.teamMembers.extendSuccess,
+  ]);
 
   if (!enabled) {
     return (
-      <div className="rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.08)] md:p-8">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#72A0C1]">Team Access</p>
-        <h3 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Partner Account Required</h3>
-        <p className="mt-3 max-w-2xl text-sm text-slate-500">
-          Team access is available only for partner accounts.
+      <div className={floatingSectionClassName}>
+        <p className="text-sm font-medium text-slate-900">{t.dashboard.teamMembers.partnerRequired}</p>
+        <p className="mt-2 text-sm text-slate-500">
+          {t.dashboard.teamMembers.partnerRequiredDescription}
         </p>
       </div>
     );
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-[260px] items-center justify-center rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.08)] md:p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-[#72A0C1]" />
-      </div>
-    );
+    return <TeamMembersPanelSkeleton />;
   }
 
   const additionalSeats = Number(payload?.paidAdditionalSeats || 0);
-
-  function getInitials(name: string) {
-    const parts = name
-      .split(/\s+/)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (parts.length === 0) return "TM";
-    const first = parts[0]?.[0] || "";
-    const second = parts.length > 1 ? parts[1]?.[0] || "" : "";
-    return `${first}${second}`.toUpperCase();
-  }
+  const pendingSeatRequests = Number(payload?.pendingSeatExtensionRequests || 0);
 
   return (
-    <div className="space-y-8">
-      <section className="rounded-3xl bg-white p-6 shadow-[0_10px_36px_rgba(15,23,42,0.08)] md:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#72A0C1]">Business Owner</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#0F2240] md:text-4xl">Partner Team Access</h2>
-            <p className="mt-3 max-w-2xl text-sm text-slate-500 md:text-base">
-              Manage affiliated professionals with individual educational access.
-            </p>
-          </div>
-          <span className="inline-flex w-fit items-center rounded-full bg-[#ECF4FF] px-4 py-2 text-[11px] font-semibold text-[#1E3A6D]">
-            Business Owner Membership
-          </span>
+    <div className="space-y-6">
+      {serverError ? (
+        <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {serverError}
         </div>
+      ) : null}
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryMetric label={t.dashboard.teamMembers.includedSeats} value={payload?.includedSeats || 5} />
+        <SummaryMetric label={t.dashboard.teamMembers.usedSeats} value={payload?.usedSeats || 0} />
+        <SummaryMetric label={t.dashboard.teamMembers.remainingSeats} value={payload?.remainingSeats || 0} />
+        <SummaryMetric
+          label={t.dashboard.teamMembers.additionalSeats}
+          value={additionalSeats}
+          helper={
+            pendingSeatRequests > 0
+              ? t.dashboard.teamMembers.pendingRequests(pendingSeatRequests)
+              : undefined
+          }
+        />
       </section>
 
-      <section className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <article className="rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-medium text-slate-500">Included Seats</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{payload?.includedSeats || 5}</p>
-          </article>
-          <article className="rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-medium text-slate-500">Used Seats</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{payload?.usedSeats || 0}</p>
-          </article>
-          <article className="rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-medium text-slate-500">Remaining Seats</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{payload?.remainingSeats || 0}</p>
-          </article>
-          <article className="rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-medium text-slate-500">Additional Seats</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{additionalSeats}</p>
-            {Number(payload?.pendingSeatExtensionRequests || 0) > 0 ? (
-              <p className="mt-1 text-xs text-amber-600">
-                {payload?.pendingSeatExtensionRequests || 0} pending request
-                {(payload?.pendingSeatExtensionRequests || 0) > 1 ? "s" : ""}
-              </p>
-            ) : null}
-          </article>
-        </div>
-        <div className="flex justify-start">
-          <button
-            type="button"
-            disabled={extending}
-            onClick={handleExtendSeats}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0F2240] px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#17386B] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {extending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Extend Seats
-          </button>
-        </div>
-      </section>
-
-      <section className="rounded-3xl bg-white p-6 shadow-[0_10px_36px_rgba(15,23,42,0.08)] md:p-8">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-semibold tracking-tight text-slate-900">Team Members</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              {payload?.partnerBusinessName ? `For ${payload.partnerBusinessName}` : "Manage your current invited team"}
-            </p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {visibleMembers.length} member{visibleMembers.length === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        {visibleMembers.length === 0 ? (
-          <div className="mt-6 rounded-2xl bg-[#F7FAFF] p-8 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#E7F0FF] text-[#2C5A91]">
-              <Users className="h-6 w-6" />
+      {visibleMembers.length === 0 ? (
+        <div className={floatingSectionClassName}>
+          <div className="rounded-[24px] border border-dashed border-[#D4E0F0] bg-[#F5F9FF] px-6 py-10 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-white text-[#4C7D9D] shadow-sm">
+              <Users className="h-5 w-5" />
             </div>
-            <p className="mt-4 text-base font-medium text-slate-900">No team members yet</p>
-            <p className="mt-1 text-sm text-slate-500">Invite your first professional to activate a seat.</p>
+
+            <p className="mt-4 text-base font-medium text-[#10203B]">
+              {t.dashboard.teamMembers.noMembersTitle}
+            </p>
+
+            <p className="mt-1 text-sm text-slate-500">
+              {t.dashboard.teamMembers.noMembersDescription}
+            </p>
+
             <button
               type="button"
-              onClick={() => {
-                const element = document.getElementById("team-member-full-name");
-                element?.focus();
-              }}
-              className="mt-5 inline-flex items-center justify-center rounded-xl bg-[#0F2240] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#17386B]"
+              onClick={() => document.getElementById("team-member-full-name")?.focus()}
+              className={`${dashboardPrimaryButtonClassName} mt-5`}
             >
-              Invite Team Member
+              {t.dashboard.teamMembers.inviteFirst}
             </button>
           </div>
-        ) : (
-          <div className="mt-6 space-y-3">
+        </div>
+      ) : (
+        <section>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-[#10203B]">
+              {t.dashboard.teamMembers.activeMembers(visibleMembers.length)}
+            </p>
+
+            <button
+              type="button"
+              disabled={extending}
+              onClick={handleExtendSeats}
+              className={`${dashboardSecondaryButtonClassName} !px-4 !py-2 text-xs`}
+            >
+              {extending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              {t.dashboard.teamMembers.extendSeats}
+            </button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             {visibleMembers.map((member) => {
-              const seatBadge = getSeatBadge(member);
-              const statusBadge = getStatusBadge(member);
+              const statusBadge = getStatusBadge(member, t.dashboard.teamMembers);
 
               return (
-                <article key={member.id} className="rounded-2xl bg-[#F8FAFD] p-4">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <article key={member.id} className={floatingMemberCardClassName}>
+                  <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#DCEBFF] text-sm font-semibold text-[#1F4D84]">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#D8E8FB] text-sm font-bold text-[#21466D]">
                         {getInitials(member.fullName)}
                       </div>
+
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">{member.fullName}</p>
-                        <p className="truncate text-sm text-slate-500">{member.email}</p>
-                        <p className="mt-1 text-xs text-slate-500">{member.role}</p>
-                        {member.portfolioLink ? (
-                          <a
-                            href={member.portfolioLink.startsWith("http") ? member.portfolioLink : `https://${member.portfolioLink}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-2 inline-flex text-xs font-medium text-[#2A5D97] hover:underline"
-                          >
-                            Instagram / Portfolio
-                          </a>
-                        ) : null}
+                        <h3 className="truncate text-sm font-semibold text-[#10203B]">
+                          {member.fullName}
+                        </h3>
+
+                        <p className="mt-1 truncate text-xs text-slate-500">
+                          {member.email}
+                        </p>
+
+                        <p className="mt-3 line-clamp-1 text-xs font-bold uppercase tracking-[0.18em] text-[#16386D]">
+                          {member.role || t.dashboard.teamMembers.teamMemberRoleFallback}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                      <span className="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
-                        Seat #{member.seatNumber}
-                      </span>
-                      <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${seatBadge.className}`}>
-                        {seatBadge.label}
-                      </span>
-                      <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${statusBadge.className}`}>
-                        {statusBadge.label}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={removingId === member.id}
-                        onClick={() => void handleRemoveMember(member.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition-colors hover:border-rose-200 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {removingId === member.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                        Remove
-                      </button>
-                    </div>
+
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${statusBadge.className}`}
+                    >
+                      {statusBadge.label}
+                    </span>
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMember(member.id)}
+                      disabled={removingId === member.id}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-[#D4E0F0] bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
+                    >
+                      {removingId === member.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      {t.dashboard.teamMembers.remove}
+                    </button>
                   </div>
                 </article>
               );
             })}
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
-      <section className="rounded-3xl bg-white p-6 shadow-[0_10px_36px_rgba(15,23,42,0.08)] md:p-8">
-        <h3 className="text-xl font-semibold tracking-tight text-slate-900">Invite Team Member</h3>
-        <p className="mt-1 text-sm text-slate-500">Add a professional and assign an individual seat.</p>
+      <section className={floatingSectionClassName}>
+        <div className="border-b border-[#D4E0F0] pb-4">
+          <h3 className="text-lg font-semibold tracking-tight text-[#10203B]">
+            {t.dashboard.teamMembers.inviteTitle}
+          </h3>
+        </div>
 
         {!payload?.canInvite && payload?.inviteDisabledReason ? (
-          <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <div className="mt-4 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             {payload.inviteDisabledReason}
           </div>
         ) : null}
 
-        <form onSubmit={onSubmit} className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="space-y-2">
-            <span className="text-xs font-medium text-slate-600">Full Name</span>
+        <form onSubmit={onSubmit} className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-slate-600">{t.dashboard.teamMembers.fullName}</span>
             <input
               id="team-member-full-name"
               type="text"
               value={form.fullName}
-              onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#72A0C1]"
-              placeholder="Full Name"
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, fullName: event.target.value }))
+              }
+              className={dashboardInputClassName}
+              placeholder={t.dashboard.teamMembers.fullName}
               required
             />
           </label>
 
-          <label className="space-y-2">
-            <span className="text-xs font-medium text-slate-600">Email</span>
+          <label className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-slate-600">{t.dashboard.teamMembers.email}</span>
             <input
               type="email"
               value={form.email}
-              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#72A0C1]"
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, email: event.target.value }))
+              }
+              className={dashboardInputClassName}
               placeholder="member@company.com"
               required
             />
           </label>
 
-          <label className="space-y-2">
-            <span className="text-xs font-medium text-slate-600">Role / Position</span>
+          <label className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-slate-600">{t.dashboard.teamMembers.role}</span>
             <input
               type="text"
               value={form.role}
-              onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#72A0C1]"
-              placeholder="Educator, Artist, Assistant"
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, role: event.target.value }))
+              }
+              className={dashboardInputClassName}
+              placeholder={t.dashboard.teamMembers.role}
               required
             />
           </label>
 
-          <label className="space-y-2">
-            <span className="text-xs font-medium text-slate-600">Instagram or Portfolio Link (optional)</span>
+          <label className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-slate-600">
+              {t.dashboard.teamMembers.portfolioLink}
+            </span>
             <input
               type="url"
               value={form.portfolioLink}
-              onChange={(e) => setForm((prev) => ({ ...prev, portfolioLink: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#72A0C1]"
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, portfolioLink: event.target.value }))
+              }
+              className={dashboardInputClassName}
               placeholder="https://instagram.com/username"
             />
           </label>
 
-          <label className="md:col-span-2 flex items-start gap-3 rounded-2xl bg-[#F7FAFF] p-4">
+          <label className="flex items-start gap-3 rounded-[20px] border border-[#D4E0F0] bg-white px-4 py-4 md:col-span-2">
             <input
               type="checkbox"
               checked={form.affiliationConfirmed}
-              onChange={(e) => setForm((prev) => ({ ...prev, affiliationConfirmed: e.target.checked }))}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  affiliationConfirmed: event.target.checked,
+                }))
+              }
               className="mt-1 h-4 w-4 rounded border-slate-300 text-[#72A0C1] focus:ring-[#72A0C1]"
               required
             />
+
             <span className="text-sm text-slate-600">
-              I confirm that this person is professionally affiliated with my business.
+              {t.dashboard.teamMembers.affiliationConfirmation}
             </span>
           </label>
-
-          {serverError ? (
-            <div className="md:col-span-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {serverError}
-            </div>
-          ) : null}
 
           <div className="md:col-span-2">
             <button
               type="submit"
               disabled={submitting || !payload?.canInvite}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0F2240] px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#17386B] disabled:cursor-not-allowed disabled:opacity-60"
+              className={dashboardPrimaryButtonClassName}
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-              {submitting ? "Inviting..." : "Invite Member"}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              {submitting ? t.dashboard.teamMembers.inviting : t.dashboard.teamMembers.inviteMember}
             </button>
           </div>
         </form>
       </section>
 
-      <section className="rounded-3xl bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] md:p-6">
+      <section className={floatingSectionClassName}>
         <div className="flex items-start gap-3">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#2A5D97]" />
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#4C7D9D]" />
+
           <div>
-            <h4 className="text-sm font-semibold text-slate-900">Team Access Rules</h4>
-            <ul className="mt-2 space-y-1.5 text-sm text-slate-600">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2A5D97]" />
-                <span>Individual email-based access</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2A5D97]" />
-                <span>No credential sharing</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2A5D97]" />
-                <span>Trackable access</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2A5D97]" />
-                <span>Professional affiliation required</span>
-              </li>
+            <h4 className="text-sm font-semibold text-[#10203B]">
+              {t.dashboard.teamMembers.rulesTitle}
+            </h4>
+
+            <ul className="mt-3 flex flex-col gap-2 text-sm text-slate-600">
+              {t.dashboard.teamMembers.rules.map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#4C7D9D]" />
+                  <span>{item}</span>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

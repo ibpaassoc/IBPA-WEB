@@ -1,112 +1,168 @@
 "use client";
 
 import Link from "next/link";
-import { genUploader } from "uploadthing/client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Save, Trash2, UploadCloud } from "lucide-react";
+import { genUploader } from "uploadthing/client";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Loader2,
+  Save,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
 import { toast } from "sonner";
-import { buildEditablePayload, getApplicationPayload, getEditableFields, type CombinedProfileData } from "@/lib/application-profile";
-import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+
 import type { OurFileRouter } from "@/app/api/uploadthing/core";
+import type { DashboardProfileData } from "@/components/dashboard/dashboard-types";
+import { ServicesSection } from "@/components/dashboard/profile/ServicesSection";
+import { PortfolioUploadField } from "@/components/forms/PortfolioUploadField";
+import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { countryOptions } from "@/constants/countries";
+import { useOwnedDashboardProfile } from "@/hooks/dashboard/useOwnedDashboardProfile";
+import { useI18n } from "@/lib/i18n";
+import { getPublicProfilePreviewHref } from "@/lib/member-identity";
+import {
+  SectionCard,
+  dashboardInputClassName,
+  dashboardPrimaryButtonClassName,
+  dashboardSecondaryButtonClassName,
+  dashboardStandalonePageContainerClassName,
+  dashboardTextareaClassName,
+} from "@/shared/components/DashboardShared";
 
 const { uploadFiles } = genUploader<OurFileRouter>({
   url: "/api/uploadthing",
   package: "@uploadthing/react",
 });
 
-export default function EditApplicationPage() {
+type ProfileFormState = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  imageUrl: string | null;
+  bio: string;
+  achievements: string;
+  industryContribution: string;
+  education: string;
+  instagramUrl: string;
+  websiteUrl: string;
+  country: string;
+  state: string;
+  city: string;
+  yearsExperience: string;
+  specializationInput: string;
+  portfolioImages: string[];
+};
+
+function normalizeString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function splitCommaValues(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function buildProfileForm(profile: DashboardProfileData): ProfileFormState {
+  return {
+    firstName: normalizeString(profile.firstName),
+    lastName: normalizeString(profile.lastName),
+    phone: normalizeString(profile.phone),
+    imageUrl: typeof profile.imageUrl === "string" ? profile.imageUrl : null,
+    bio: normalizeString(profile.bio),
+    achievements: normalizeString(profile.achievements),
+    industryContribution: normalizeString(profile.industryContribution),
+    education: normalizeString(profile.education),
+    instagramUrl: normalizeString(profile.instagramUrl),
+    websiteUrl: normalizeString(profile.websiteUrl),
+    country: normalizeString(profile.country),
+    state: normalizeString(profile.state),
+    city: normalizeString(profile.city),
+    yearsExperience: normalizeString(profile.experienceYears),
+    specializationInput: Array.isArray(profile.specializations)
+      ? profile.specializations.join(", ")
+      : normalizeString(profile.specialization),
+    portfolioImages: Array.isArray(profile.portfolioImages)
+      ? profile.portfolioImages.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0,
+        )
+      : [],
+  };
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+      {children}
+    </span>
+  );
+}
+
+export default function EditProfilePage() {
   const router = useRouter();
-  const [profile, setProfile] = useState<CombinedProfileData | null>(null);
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [accessBlocked, setAccessBlocked] = useState(false);
-  const [accessBlockedMessage, setAccessBlockedMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { locale, t } = useI18n();
+  const isRu = locale === "ru";
+  const isUk = locale === "uk";
+
+  const [form, setForm] = useState<ProfileFormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const {
+    profile,
+    accessBlocked,
+    accessBlockedMessage,
+    loading,
+    loadProfile,
+  } = useOwnedDashboardProfile();
 
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const res = await fetch("/api/dashboard/profile", { cache: "no-store" });
-        const data = await res.json();
-
-        if (res.status === 403) {
-          setAccessBlocked(true);
-          setAccessBlockedMessage("Profile editing is not available for this account.");
-          return;
-        }
-
-        if (!res.ok) {
-          throw new Error(data?.error || "Failed to load application data");
-        }
-
-        const nextProfile = (data.profile || {}) as CombinedProfileData & { dashboardAccessType?: string | null };
-        if (nextProfile.dashboardAccessType === "partner_team_member") {
-          setAccessBlocked(true);
-          setAccessBlockedMessage("Team member profiles are managed by the partner owner.");
-          return;
-        }
-        const payload = getApplicationPayload(nextProfile);
-        const nextForm: Record<string, string> = {};
-
-        for (const [key, value] of Object.entries(payload)) {
-          nextForm[key] = Array.isArray(value) ? value.join(", ") : typeof value === "string" ? value : value == null ? "" : String(value);
-        }
-
-        setProfile(nextProfile);
-        setForm(nextForm);
-      } catch (error: any) {
-        toast.error(error?.message || "Failed to load profile");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProfile();
-  }, []);
-
-  const editableFields = useMemo(
-    () => getEditableFields(profile?.membershipCategory),
-    [profile?.membershipCategory],
-  );
-
-  const immutableInfo = useMemo(() => {
-    const payload = getApplicationPayload(profile || {});
-    return [
-      { label: "Full Name", value: [payload.firstName, payload.lastName].filter(Boolean).join(" ") || "Not provided" },
-      { label: "Email", value: typeof payload.email === "string" ? payload.email : "Not provided" },
-      { label: "Membership", value: profile?.membershipCategory || "Pending" },
-      { label: "Applicant Type", value: profile?.applicantType || "Pending" },
-    ];
+    if (profile) {
+      // The form mirrors freshly loaded profile data before local editing begins.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm(buildProfileForm(profile));
+    }
   }, [profile]);
 
   const handleAvatarUpload = async (file?: File | null) => {
-    if (!file) return;
+    if (!file || !form) return;
 
     setUploadingAvatar(true);
     try {
       const result = await uploadFiles("avatarUploader", { files: [file] });
-      const uploaded = result?.[0] as
-        | { ufsUrl?: string; url?: string; serverData?: { url?: string } }
-        | undefined;
-      const imageUrl = uploaded?.serverData?.url || uploaded?.ufsUrl || uploaded?.url;
+      const uploaded = result?.[0];
+      const imageUrl =
+        uploaded?.serverData?.url || uploaded?.ufsUrl || uploaded?.url;
 
       if (!imageUrl) {
-        throw new Error("Upload completed, but no image URL was returned.");
+        throw new Error(t.dashboard.editProfile.photoUploadMissingUrl);
       }
 
-      setProfile((prev) => (prev ? { ...prev, imageUrl } : prev));
-      toast.success("Profile photo updated");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to upload profile photo");
+      setForm((prev) => (prev ? { ...prev, imageUrl } : prev));
+      toast.success(t.dashboard.editProfile.photoUpdated);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t.dashboard.editProfile.photoUploadError,
+      );
     } finally {
       setUploadingAvatar(false);
     }
   };
 
   const handleSave = async () => {
-    if (!profile) return;
+    if (!profile || !form) return;
+
+    const specializations = splitCommaValues(form.specializationInput);
 
     setSaving(true);
     try {
@@ -115,229 +171,471 @@ export default function EditApplicationPage() {
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageUrl: profile.imageUrl || null,
-          bio: profile.bio || null,
-          specialization: form.specialization || profile.specialization || null,
-          experienceYears: form.yearsExperience || profile.experienceYears || null,
-          education: form.educationDesc || profile.education || null,
-          instagramUrl: form.instagramLink || profile.instagramUrl || null,
-          country: form.country || profile.country || null,
-          city: form.city || profile.city || null,
-          applicationPayload: buildEditablePayload(form, profile.membershipCategory),
+          firstName: form.firstName || null,
+          lastName: form.lastName || null,
+          phone: form.phone || null,
+          imageUrl: form.imageUrl,
+          bio: form.bio || null,
+          achievements: form.achievements || null,
+          industryContribution: form.industryContribution || null,
+          education: form.education || null,
+          instagramUrl: form.instagramUrl || null,
+          websiteUrl: form.websiteUrl || null,
+          country: form.country || null,
+          state: form.state || null,
+          city: form.city || null,
+          experienceYears: form.yearsExperience || null,
+          specializations,
+          portfolioImages: form.portfolioImages,
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || "Failed to save profile");
+        throw new Error(
+          typeof data?.error === "string"
+            ? data.error
+            : t.dashboard.editProfile.saveError,
+        );
       }
 
-      toast.success("Application information updated");
-      router.push("/");
+      toast.success(t.dashboard.editProfile.saveSuccess);
+      await loadProfile();
       router.refresh();
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to save changes");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t.dashboard.editProfile.saveError,
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#72A0C1]" />
-      </div>
-    );
-  }
-
   if (accessBlocked) {
     return (
-      <main className="min-h-screen bg-[#F8FAFC] px-4 py-8 md:px-6 md:py-12">
-        <div className="mx-auto max-w-4xl">
-          <div className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
-            <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">Application Editor</p>
-            <h1 className="mt-4 text-3xl font-black uppercase tracking-tight text-slate-900 md:text-5xl">
-              Membership Activation Required
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-500 md:text-base">
-              {accessBlockedMessage ||
-                "Profile editing is available only for paid IBPA members. If your membership payment was completed, sign in with the same email used for your application and payment."}
+      <main className={dashboardStandalonePageContainerClassName}>
+        <SectionCard className="max-w-4xl">
+          <div className="space-y-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#4C7D9D]">
+              {t.dashboard.editProfile.pageEyebrow}
             </p>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center rounded-[20px] bg-black px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1] hover:text-black"
-              >
-                Back to Dashboard
-              </Link>
-              <Link
-                href="https://ibpassociations.org/contact"
-                className="inline-flex items-center justify-center rounded-[20px] border border-slate-200 bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]"
-              >
-                Contact Support
-              </Link>
-            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-[#10203B]">
+              {t.dashboard.editProfile.accessBlockedTitle}
+            </h1>
+            <p className="text-sm leading-6 text-slate-500">
+              {accessBlockedMessage ||
+                t.dashboard.editProfile.accessBlockedDescription}
+            </p>
           </div>
-        </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/dashboard" className={dashboardPrimaryButtonClassName}>
+              {t.dashboard.editProfile.backToDashboard}
+            </Link>
+          </div>
+        </SectionCard>
       </main>
     );
   }
 
+  if (loading || !form) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F4F7FB]">
+        <Loader2 className="h-10 w-10 animate-spin text-[#4C7D9D]" />
+      </div>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-8 md:px-6 md:py-12">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
+    <main className={dashboardStandalonePageContainerClassName}>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 transition-colors hover:text-[#72A0C1]"
+            href="/dashboard"
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-[#10203B]"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            {t.dashboard.editProfile.backToDashboard}
           </Link>
-          <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.35em] text-[#72A0C1]">Application Editor</p>
-          <h1 className="mt-3 text-3xl font-black uppercase tracking-tight text-slate-900 md:text-5xl">
-            Update Your Submitted Information
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-500 md:text-base">
-            You can update contact details, professional information, and category-specific application fields. Your legal name,
-            email, membership type, and submitted identity data stay locked for review integrity.
-          </p>
+
+          {profile?.id ? (
+            <Link
+              href={getPublicProfilePreviewHref(profile.id) ?? "#"}
+              className={dashboardSecondaryButtonClassName}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Preview Profile
+            </Link>
+          ) : null}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm md:p-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-slate-400">Locked Information</p>
-            <div className="mt-5 rounded-[24px] border border-slate-100 bg-[#F8FAFC] p-4">
-              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">Profile Photo</p>
-              <div className="mt-4 flex flex-col items-center gap-4 text-center">
-                <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-slate-200 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
-                  {profile?.imageUrl ? (
-                    <ImageWithFallback
-                      src={profile.imageUrl}
-                      alt="Profile photo"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[#72A0C1]/20 text-2xl font-black text-slate-700">
-                      {(immutableInfo[0]?.value || "IBPA")
-                        .split(" ")
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .map((part) => part[0])
-                        .join("")
-                        .toUpperCase()}
+        <SectionCard className="overflow-hidden rounded-[32px] p-0">
+          <div className="h-28 bg-[radial-gradient(circle_at_20%_15%,rgba(43,92,153,0.42),transparent_32%),radial-gradient(circle_at_72%_18%,rgba(96,165,250,0.34),transparent_36%),linear-gradient(135deg,#E7F0FC_0%,#D6E7FB_45%,#C3DBF8_100%)]" />
+
+          <div className="px-5 pb-5 md:px-6 md:pb-6">
+            <div className="-mt-14 grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+              <div className="space-y-5">
+                <section className="rounded-[28px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_14px_35px_rgba(11,31,68,0.08)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#4C7D9D]">
+                    {t.dashboard.editProfile.profilePhoto}
+                  </p>
+
+                  <div className="mt-5 flex flex-col items-center gap-4">
+                    <div className="relative flex size-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#D8E8FB] text-3xl font-semibold text-[#10203B] shadow-[0_18px_35px_rgba(11,31,68,0.18)]">
+                      {form.imageUrl ? (
+                        <ImageWithFallback
+                          src={form.imageUrl}
+                          alt={t.dashboard.editProfile.profilePhoto}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        `${(form.firstName[0] || "").toUpperCase()}${(form.lastName[0] || "").toUpperCase()}` ||
+                        "IB"
+                      )}
+
+                      {uploadingAvatar ? (
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/30">
+                          <Loader2 className="h-7 w-7 animate-spin text-white" />
+                        </div>
+                      ) : null}
                     </div>
-                  )}
-                  {uploadingAvatar && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/35">
-                      <Loader2 className="h-8 w-8 animate-spin text-white" />
+
+                    <div className="flex w-full flex-col gap-3">
+                      <label
+                        className={`${dashboardSecondaryButtonClassName} cursor-pointer`}
+                      >
+                        <UploadCloud className="h-4 w-4" />
+                        {uploadingAvatar
+                          ? t.dashboard.editProfile.uploading
+                          : t.dashboard.editProfile.uploadNewPhoto}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingAvatar}
+                          onChange={async (event) => {
+                            await handleAvatarUpload(
+                              event.target.files?.[0] ?? null,
+                            );
+                            event.target.value = "";
+                          }}
+                        />
+                      </label>
+
+                      {form.imageUrl ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((prev) =>
+                              prev ? { ...prev, imageUrl: null } : prev,
+                            )
+                          }
+                          className={dashboardSecondaryButtonClassName}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {t.dashboard.editProfile.removePhoto}
+                        </button>
+                      ) : null}
                     </div>
-                  )}
-                </div>
+                  </div>
+                </section>
 
-                <div className="flex w-full flex-col gap-3">
-                  <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[20px] border border-slate-200 bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-700 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]">
-                    <UploadCloud className="h-4 w-4" />
-                    {uploadingAvatar ? "Uploading..." : "Upload New Photo"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={uploadingAvatar}
-                      onChange={async (event) => {
-                        const file = event.target.files?.[0];
-                        await handleAvatarUpload(file);
-                        event.target.value = "";
-                      }}
-                    />
-                  </label>
+                <section className="rounded-[28px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_14px_35px_rgba(11,31,68,0.08)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#4C7D9D]">
+                    Recognition & links
+                  </p>
 
-                  {profile?.imageUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setProfile((prev) => (prev ? { ...prev, imageUrl: null } : prev))}
-                      className="inline-flex items-center justify-center gap-2 rounded-[20px] border border-slate-200 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-red-200 hover:text-red-500"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Remove Photo
-                    </button>
-                  )}
-                </div>
+                  <div className="mt-5 grid gap-4">
+                    <label className="grid gap-2">
+                      <FieldLabel>Phone</FieldLabel>
+                      <input
+                        value={form.phone}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev ? { ...prev, phone: event.target.value } : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                        placeholder="Phone number"
+                      />
+                    </label>
 
-                <p className="text-xs leading-relaxed text-slate-400">
-                  This photo will be used in your dashboard profile and public member directory.
-                </p>
+                    <label className="grid gap-2">
+                      <FieldLabel>Instagram</FieldLabel>
+                      <input
+                        value={form.instagramUrl}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev
+                              ? { ...prev, instagramUrl: event.target.value }
+                              : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                        placeholder="https://instagram.com/..."
+                      />
+                    </label>
+
+                    <label className="grid gap-2">
+                      <FieldLabel>Website</FieldLabel>
+                      <input
+                        value={form.websiteUrl}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev
+                              ? { ...prev, websiteUrl: event.target.value }
+                              : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                        placeholder="https://..."
+                      />
+                    </label>
+                  </div>
+                </section>
+              </div>
+
+              <div className="space-y-5">
+                <section className="rounded-[28px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_14px_35px_rgba(11,31,68,0.08)]">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px]">
+                    <label className="grid gap-2">
+                      <FieldLabel>First name</FieldLabel>
+                      <input
+                        value={form.firstName}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev ? { ...prev, firstName: event.target.value } : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                        placeholder="First name"
+                      />
+                    </label>
+
+                    <label className="grid gap-2">
+                      <FieldLabel>Last name</FieldLabel>
+                      <input
+                        value={form.lastName}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev ? { ...prev, lastName: event.target.value } : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                        placeholder="Last name"
+                      />
+                    </label>
+
+                    <label className="grid gap-2">
+                      <FieldLabel>Experience</FieldLabel>
+                      <input
+                        type="number"
+                        min="0"
+                        max="80"
+                        value={form.yearsExperience}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev
+                              ? { ...prev, yearsExperience: event.target.value }
+                              : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                        placeholder="0"
+                      />
+                    </label>
+
+                    <label className="grid gap-2 md:col-span-2">
+                      <FieldLabel>Specializations</FieldLabel>
+                      <input
+                        value={form.specializationInput}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  specializationInput: event.target.value,
+                                }
+                              : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                        placeholder="Brows, lashes, esthetics"
+                      />
+                    </label>
+
+                    <label className="grid gap-2">
+                      <FieldLabel>City</FieldLabel>
+                      <input
+                        value={form.city}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev ? { ...prev, city: event.target.value } : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                        placeholder="City"
+                      />
+                    </label>
+
+                    <label className="grid gap-2">
+                      <FieldLabel>State / region</FieldLabel>
+                      <input
+                        value={form.state}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev ? { ...prev, state: event.target.value } : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                        placeholder="State, region, or province"
+                      />
+                    </label>
+
+                    <label className="grid gap-2">
+                      <FieldLabel>Country</FieldLabel>
+                      <select
+                        value={form.country}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev
+                              ? { ...prev, country: event.target.value }
+                              : prev,
+                          )
+                        }
+                        className={dashboardInputClassName}
+                      >
+                        <option value="">Select a country</option>
+                        {countryOptions.map((country) => (
+                          <option key={country} value={country}>
+                            {country}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </section>
+
+                <section className="rounded-[28px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_14px_35px_rgba(11,31,68,0.08)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#4C7D9D]">
+                    Professional biography
+                  </p>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <label className="grid gap-2 md:col-span-2">
+                      <FieldLabel>Biography</FieldLabel>
+                      <textarea
+                        value={form.bio}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev ? { ...prev, bio: event.target.value } : prev,
+                          )
+                        }
+                        className={dashboardTextareaClassName}
+                        placeholder="Introduce your work and professional focus."
+                      />
+                    </label>
+
+                    <label className="grid gap-2">
+                      <FieldLabel>Achievements</FieldLabel>
+                      <textarea
+                        value={form.achievements}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev
+                              ? { ...prev, achievements: event.target.value }
+                              : prev,
+                          )
+                        }
+                        className={dashboardTextareaClassName}
+                        placeholder="Awards, milestones, speaking engagements, or media features."
+                      />
+                    </label>
+
+                    <label className="grid gap-2">
+                      <FieldLabel>Industry contribution</FieldLabel>
+                      <textarea
+                        value={form.industryContribution}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  industryContribution: event.target.value,
+                                }
+                              : prev,
+                          )
+                        }
+                        className={dashboardTextareaClassName}
+                        placeholder="How you contribute to the beauty industry and community."
+                      />
+                    </label>
+
+                    <label className="grid gap-2 md:col-span-2">
+                      <FieldLabel>Education</FieldLabel>
+                      <textarea
+                        value={form.education}
+                        onChange={(event) =>
+                          setForm((prev) =>
+                            prev
+                              ? { ...prev, education: event.target.value }
+                              : prev,
+                          )
+                        }
+                        className={dashboardTextareaClassName}
+                        placeholder="Credentials, certifications, and education."
+                      />
+                    </label>
+                  </div>
+                </section>
               </div>
             </div>
-            <div className="mt-5 space-y-4">
-              {immutableInfo.map((item) => (
-                <div key={item.label} className="rounded-[20px] border border-slate-100 bg-[#F8FAFC] p-4">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-900">{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </aside>
+          </div>
+        </SectionCard>
 
-          <section className="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm md:p-6">
-            <div className="grid gap-5 md:grid-cols-2">
-              {editableFields.map((field) => (
-                <div key={field.key} className={field.type === "textarea" ? "md:col-span-2" : ""}>
-                  <label className="block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                    {field.label}
-                  </label>
-                  {field.type === "textarea" ? (
-                    <textarea
-                      value={form[field.key] || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="mt-2 min-h-[120px] w-full rounded-[20px] border border-slate-200 bg-[#F8FAFC] px-4 py-3 text-sm text-slate-900 outline-none transition-colors focus:border-[#72A0C1]"
-                      placeholder={field.placeholder}
-                    />
-                  ) : field.type === "select" && field.options ? (
-                    <select
-                      value={form[field.key] || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="mt-2 w-full rounded-[20px] border border-slate-200 bg-[#F8FAFC] px-4 py-3 text-sm text-slate-900 outline-none transition-colors focus:border-[#72A0C1]"
-                    >
-                      <option value="">{field.placeholder || "Select an option"}</option>
-                      {field.options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={field.type || "text"}
-                      value={form[field.key] || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="mt-2 w-full rounded-[20px] border border-slate-200 bg-[#F8FAFC] px-4 py-3 text-sm text-slate-900 outline-none transition-colors focus:border-[#72A0C1]"
-                      placeholder={field.placeholder}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <SectionCard className="p-5">
+            <ServicesSection initialServices={profile?.services} />
+          </SectionCard>
 
-            <div className="mt-8 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center rounded-[20px] border border-slate-200 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-[#72A0C1] hover:text-[#72A0C1]"
-              >
-                Cancel
-              </Link>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="inline-flex items-center justify-center gap-2 rounded-[20px] bg-black px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#72A0C1] hover:text-black disabled:opacity-60"
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save Changes
-              </button>
+          <SectionCard className="p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#4C7D9D]">
+              Work gallery
+            </p>
+
+            <div className="mt-5">
+              <PortfolioUploadField
+                isRu={isRu}
+                isUk={isUk}
+                value={form.portfolioImages}
+                onChange={(urls) =>
+                  setForm((prev) =>
+                    prev ? { ...prev, portfolioImages: urls } : prev,
+                  )
+                }
+                hideRequirementsText
+              />
             </div>
-          </section>
+          </SectionCard>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <Link href="/dashboard" className={dashboardSecondaryButtonClassName}>
+            Cancel
+          </Link>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className={dashboardPrimaryButtonClassName}
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {t.dashboard.editProfile.saveChanges}
+          </button>
         </div>
       </div>
     </main>

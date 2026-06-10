@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgEnum, pgSchema, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import type { ProfileService } from "@/features/profiles/server/profile.types";
 
 const ibpa = pgSchema("ibpa");
 
@@ -16,7 +17,7 @@ export const applicationStatusEnum = pgEnum("ibpa_application_status", [
 export const membershipStatusEnum = pgEnum("ibpa_membership_status", ["ACTIVE", "EXPIRED", "CANCELLED"]);
 export const paymentStatusEnum = pgEnum("ibpa_payment_status", ["PENDING", "PAID", "FAILED", "REFUNDED"]);
 export const eventRegistrationStatusEnum = pgEnum("ibpa_event_registration_status", ["REGISTERED", "WAITLISTED", "CANCELLED", "ATTENDED"]);
-export const fileTypeEnum = pgEnum("ibpa_file_type", ["PROFILE", "APPLICATION", "EVENT"]);
+export const fileTypeEnum = pgEnum("ibpa_file_type", ["PROFILE", "APPLICATION", "EVENT", "certificate", "external_certificate"]);
 
 export const coreUsers = ibpa.table("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -36,10 +37,13 @@ export const coreProfiles = ibpa.table("profiles", {
   userId: uuid("user_id").references(() => coreUsers.id, { onDelete: "cascade" }).notNull(),
   firstName: varchar("first_name", { length: 255 }),
   lastName: varchar("last_name", { length: 255 }),
+  phone: varchar("phone", { length: 80 }),
   avatarUrl: text("avatar_url"),
   bio: text("bio"),
   credentials: text("credentials"),
-  services: text("services"),
+  achievements: text("achievements"),
+  industryContribution: text("industry_contribution"),
+  services: jsonb("services").$type<ProfileService[]>().notNull().default(sql`'[]'::jsonb`),
   workGalleryPhotos: jsonb("work_gallery_photos").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   specializations: jsonb("specializations").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   city: varchar("city", { length: 120 }),
@@ -145,8 +149,13 @@ export const coreEventRegistrations = ibpa.table("event_registrations", {
   id: uuid("id").primaryKey().defaultRandom(),
   eventId: uuid("event_id").references(() => coreEvents.id, { onDelete: "cascade" }).notNull(),
   userId: uuid("user_id").references(() => coreUsers.id, { onDelete: "cascade" }).notNull(),
+  email: varchar("email", { length: 255 }).notNull().default(""),
   status: eventRegistrationStatusEnum("status").notNull().default("REGISTERED"),
+  source: varchar("source", { length: 80 }).notNull().default("dashboard"),
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
+  cancelledAt: timestamp("cancelled_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
   index("ibpa_event_registrations_event_id_idx").on(table.eventId),
   index("ibpa_event_registrations_user_id_idx").on(table.userId),
