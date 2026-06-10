@@ -48,7 +48,7 @@ export async function saveEvent(input: EventEditorState) {
   };
   const url = input.id ? `/api/admin/content/${encodeURIComponent(input.id)}` : "/api/admin/content";
 
-  return requestJson<{ item?: AdminContentItem }>(
+  const result = await requestJson<{ item?: AdminContentItem & { price?: unknown } }>(
     url,
     {
       body: JSON.stringify(payload),
@@ -57,6 +57,15 @@ export async function saveEvent(input: EventEditorState) {
     },
     "Could not save event.",
   );
+
+  // The backend may omit fields it does not recognise from its response
+  // (price is a custom extension). Echo back what we sent so the caller
+  // never loses client-side state the API silently drops.
+  if (result?.item != null && !("price" in result.item) && input.price) {
+    return { ...result, item: { ...result.item, price: input.price } };
+  }
+
+  return result;
 }
 
 export async function deleteEvent(id: string) {
