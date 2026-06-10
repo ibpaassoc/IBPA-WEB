@@ -78,6 +78,28 @@ function normalizeAccountTypeValue(value: unknown) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+/**
+ * Format the event `price` field from the database.
+ * Returns null when the field is absent/empty so the caller can fall through
+ * to text-extraction or a default label.
+ *
+ * - null / undefined / "" / "0" / 0  → null (no explicit price set)
+ * - 0 (intentionally free)           → "Free"  (use string "0" for intentional)
+ * - 50 / "50"                        → "$50"
+ * - "$50" / "Members: $10"           → as-is
+ */
+function formatDashboardEventPrice(price?: string | number | null): string | null {
+  if (price == null) return null;
+  if (typeof price === "number") {
+    return price === 0 ? "Free" : `$${price}`;
+  }
+  const trimmed = price.trim();
+  if (!trimmed) return null;
+  if (trimmed === "0") return "Free";
+  if (/^\d+(\.\d{1,2})?$/.test(trimmed)) return `$${trimmed}`;
+  return trimmed;
+}
+
 function normalizeExternalUrl(value?: string | null) {
   if (!value) return null;
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
@@ -316,8 +338,11 @@ export function useDashboardDerivedData({
         day: "numeric",
         year: "numeric",
       }),
+      // Prefer the explicit price field saved in the DB; fall back to
+      // scanning the body/ctaLabel for a dollar amount, then a locale default.
       price:
-        extractPriceFromText(item.body, item.ctaLabel) ||
+        formatDashboardEventPrice(item.price) ??
+        extractPriceFromText(item.body, item.ctaLabel) ??
         (audience === "members" ? dashboard.events.membersRate : "TBD"),
       discountLabel: buildEventDiscountLabel({
         isMembershipActive,
