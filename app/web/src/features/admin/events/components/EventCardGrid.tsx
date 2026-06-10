@@ -35,10 +35,27 @@ type EventCardGridProps = {
   onDelete: (event: AdminEvent) => void;
 };
 
-/** Always returns a displayable price label — "Free" when no price is set. */
+/**
+ * Always returns a displayable price label.
+ * - null / undefined / "" / "0" / 0  →  "Free"
+ * - 50 (number)                       →  "$50"
+ * - "50" (bare numeric string)        →  "$50"
+ * - "$50" / "Members: $10"            →  as-is
+ */
 function formatEventPrice(price?: string | number | null): string {
-  const value = price != null ? String(price).trim() : "";
-  return value ? value : "Free";
+  if (price == null) return "Free";
+
+  if (typeof price === "number") {
+    return price === 0 ? "Free" : `$${price}`;
+  }
+
+  const trimmed = price.trim();
+  if (!trimmed || trimmed === "0") return "Free";
+
+  // Plain integer/decimal without a currency symbol → prefix with $
+  if (/^\d+(\.\d{1,2})?$/.test(trimmed)) return `$${trimmed}`;
+
+  return trimmed;
 }
 
 function EventCardSkeleton() {
@@ -179,7 +196,7 @@ export function EventCardGrid({
 
   if (isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <EventCardSkeleton key={i} />
         ))}
@@ -197,7 +214,9 @@ export function EventCardGrid({
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    // items-start: each card is its own natural height — expanding one card
+    // does not stretch its siblings in the same grid row.
+    <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {events.map((event) => {
         const isSelected = event.id === selectedId;
         const isExpanded = event.id === expandedId;
@@ -205,14 +224,12 @@ export function EventCardGrid({
         const isFree = priceLabel === "Free";
 
         return (
-          // Flex column so the article fills the grid cell height and the panel
-          // attaches flush below it when expanded.
-          <Collapsible.Root key={event.id} open={isExpanded} className="flex flex-col">
+          <Collapsible.Root key={event.id} open={isExpanded}>
 
             {/* ── Card ─────────────────────────────────────────────────── */}
             <article
               className={cn(
-                "group flex flex-1 cursor-pointer flex-col border bg-white transition-all duration-200 ease-out",
+                "group flex cursor-pointer flex-col border bg-white transition-all duration-200 ease-out",
                 isExpanded
                   ? "rounded-t-[24px] rounded-b-none border-b-0 shadow-none"
                   : "rounded-[24px] shadow-[0_2px_12px_rgba(15,46,83,0.07)] hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(15,46,83,0.11)]",
@@ -222,8 +239,8 @@ export function EventCardGrid({
               )}
               onClick={() => toggleExpand(event.id)}
             >
-              {/* Top content — grows to push action row to bottom */}
-              <div className="flex flex-1 gap-3 p-4 pb-3">
+              {/* Top content */}
+              <div className="flex gap-3 p-4 pb-3">
                 <EventThumbnail event={event} />
 
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -268,16 +285,15 @@ export function EventCardGrid({
                       publishToDashboard={event.publishToDashboard}
                       publishToSite={event.publishToSite}
                     />
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums",
-                        isFree
-                          ? "border-[#E4EEF8] bg-[#F6FAFF] text-[#8AA2BD]"
-                          : "border-[#C5DAFA] bg-[#EEF6FF] text-[#1F5D8F]",
-                      )}
-                    >
-                      {priceLabel}
-                    </span>
+                    {isFree ? (
+                      <span className="inline-flex items-center rounded-full border border-[#E4EEF8] bg-[#F6FAFF] px-2 py-0.5 text-[10px] italic text-[#A0B4C8]">
+                        Free
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-[#1F5D8F] px-2.5 py-0.5 text-[10px] font-bold tabular-nums text-white">
+                        {priceLabel}
+                      </span>
+                    )}
                   </div>
 
                 </div>
