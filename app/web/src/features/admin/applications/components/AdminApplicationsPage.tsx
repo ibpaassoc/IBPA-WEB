@@ -344,6 +344,36 @@ export function AdminApplicationsPage() {
   };
 
   const activeKey = selectedKey(selectedApplication);
+  const renderMediaRail = () =>
+    selectedApplication?.kind === "member" ? (
+      <ApplicationMediaRail
+        additionalFiles={additionalFiles}
+        isLoadingFiles={isLoadingFiles}
+        memberApplication={memberDetail}
+        onDeleteAdditionalFile={handleDeleteAdditionalFile}
+        onUploadAdditionalFile={handleUploadAdditionalFile}
+      />
+    ) : null;
+
+  const renderReviewRail = () =>
+    selectedApplication ? (
+      <ApplicationReviewRail
+        busyAction={busyAction}
+        memberApplication={memberDetail}
+        onApprove={handleApprove}
+        onDelete={handleDelete}
+        onMembershipCategoryChange={setSelectedMembershipCategory}
+        onPartnerTierChange={setSelectedPartnerTier}
+        onReject={handleReject}
+        onResendPaymentLink={handleResendPaymentLink}
+        onReview={handleReview}
+        onSaveMembershipCategory={handleSaveMembershipCategory}
+        partnerApplication={partnerDetail}
+        record={selectedApplication}
+        selectedMembershipCategory={selectedMembershipCategory}
+        selectedPartnerTier={selectedPartnerTier}
+      />
+    ) : null;
 
   return (
     <>
@@ -367,7 +397,7 @@ export function AdminApplicationsPage() {
           <AdminMetricCard active label="Members in queue" value={memberTotal} />
           <AdminMetricCard label="Partners in queue" value={partnerTotal} />
           <AdminMetricCard
-            hint={isPending ? "Filtering…" : formatAdminCount(filteredApplications.length, "match")}
+            hint={isPending ? "Filtering..." : formatAdminCount(filteredApplications.length, "match")}
             label="Filtered view"
             value={filteredApplications.length}
           />
@@ -489,7 +519,7 @@ export function AdminApplicationsPage() {
       <AdminSheet
         description={
           selectedApplication
-            ? `${selectedApplication.applicantEmail} · ${selectedApplication.membershipPackage}`
+            ? `${selectedApplication.applicantEmail} - ${selectedApplication.membershipPackage}`
             : undefined
         }
         eyebrow={
@@ -499,64 +529,42 @@ export function AdminApplicationsPage() {
               : "Partner application"
             : undefined
         }
-        leftRail={
-          selectedApplication?.kind === "member" ? (
-            <ApplicationMediaRail
-              additionalFiles={additionalFiles}
-              isLoadingFiles={isLoadingFiles}
-              memberApplication={memberDetail}
-              onDeleteAdditionalFile={handleDeleteAdditionalFile}
-              onUploadAdditionalFile={handleUploadAdditionalFile}
-            />
-          ) : null
-        }
+        leftRail={renderMediaRail()}
         onOpenChange={(next) => (next ? null : closeSheet())}
         open={sheetOpen}
-        rightRail={
-          selectedApplication ? (
-            <ApplicationReviewRail
-              busyAction={busyAction}
-              memberApplication={memberDetail}
-              onApprove={handleApprove}
-              onDelete={handleDelete}
-              onMembershipCategoryChange={setSelectedMembershipCategory}
-              onPartnerTierChange={setSelectedPartnerTier}
-              onReject={handleReject}
-              onResendPaymentLink={handleResendPaymentLink}
-              onReview={handleReview}
-              onSaveMembershipCategory={handleSaveMembershipCategory}
-              partnerApplication={partnerDetail}
-              record={selectedApplication}
-              selectedMembershipCategory={selectedMembershipCategory}
-              selectedPartnerTier={selectedPartnerTier}
-            />
-          ) : null
-        }
+        rightRail={renderReviewRail()}
         size="xl"
         title={selectedApplication?.applicantName ?? "Application"}
       >
-        <ApplicationDetailsPanel
-          additionalFiles={additionalFiles}
-          busyAction={busyAction}
-          isLoading={isLoadingDetail}
-          isLoadingFiles={isLoadingFiles}
-          layout="inline"
-          memberApplication={memberDetail}
-          onApprove={handleApprove}
-          onDelete={handleDelete}
-          onDeleteAdditionalFile={handleDeleteAdditionalFile}
-          onMembershipCategoryChange={setSelectedMembershipCategory}
-          onPartnerTierChange={setSelectedPartnerTier}
-          onReject={handleReject}
-          onResendPaymentLink={handleResendPaymentLink}
-          onReview={handleReview}
-          onSaveMembershipCategory={handleSaveMembershipCategory}
-          onUploadAdditionalFile={handleUploadAdditionalFile}
-          partnerApplication={partnerDetail}
-          record={selectedApplication}
-          selectedMembershipCategory={selectedMembershipCategory}
-          selectedPartnerTier={selectedPartnerTier}
-        />
+        <div className="space-y-5">
+          <ApplicationDetailsPanel
+            additionalFiles={additionalFiles}
+            busyAction={busyAction}
+            isLoading={isLoadingDetail}
+            isLoadingFiles={isLoadingFiles}
+            layout="inline"
+            memberApplication={memberDetail}
+            onApprove={handleApprove}
+            onDelete={handleDelete}
+            onDeleteAdditionalFile={handleDeleteAdditionalFile}
+            onMembershipCategoryChange={setSelectedMembershipCategory}
+            onPartnerTierChange={setSelectedPartnerTier}
+            onReject={handleReject}
+            onResendPaymentLink={handleResendPaymentLink}
+            onReview={handleReview}
+            onSaveMembershipCategory={handleSaveMembershipCategory}
+            onUploadAdditionalFile={handleUploadAdditionalFile}
+            partnerApplication={partnerDetail}
+            record={selectedApplication}
+            selectedMembershipCategory={selectedMembershipCategory}
+            selectedPartnerTier={selectedPartnerTier}
+            showMembershipSummary="mobile"
+          />
+
+          {selectedApplication?.kind === "member" ? (
+            <div className="space-y-5 xl:hidden">{renderMediaRail()}</div>
+          ) : null}
+        </div>
       </AdminSheet>
     </>
   );
