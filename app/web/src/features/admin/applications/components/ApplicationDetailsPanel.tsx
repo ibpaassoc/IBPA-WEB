@@ -30,6 +30,7 @@ type ApplicationDetailsPanelProps = {
   selectedMembershipCategory: string;
   selectedPartnerTier: string;
   layout?: "card" | "inline";
+  showMembershipSummary?: boolean | "mobile";
   onApprove: () => void;
   onDelete: () => void;
   onDeleteAdditionalFile: (fileId: string) => void;
@@ -119,6 +120,7 @@ export function ApplicationDetailsPanel({
   memberApplication,
   partnerApplication,
   record,
+  showMembershipSummary = false,
 }: ApplicationDetailsPanelProps) {
   if (!record) {
     if (layout === "inline") return null;
@@ -178,6 +180,14 @@ export function ApplicationDetailsPanel({
   const memberContent =
     record.kind === "member" && memberApplication ? (
       <div className="space-y-5">
+        {showMembershipSummary && membershipSections.length ? (
+          <div className={showMembershipSummary === "mobile" ? "xl:hidden" : undefined}>
+            <PanelCard title="Membership">
+              <FieldList sections={membershipSections} />
+            </PanelCard>
+          </div>
+        ) : null}
+
         <PanelCard title="Personal information">
           <FieldList sections={personalSections} />
         </PanelCard>
