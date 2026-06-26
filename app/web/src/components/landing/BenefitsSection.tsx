@@ -133,6 +133,7 @@ export const BenefitsSection = ({ locale }: BenefitsSectionProps) => {
           src="/home/clients-33.webp"
           alt={copy.imageAlt}
           className="h-full w-full object-cover object-[24%_center]"
+          sizes="100vw"
         />
         <div className="absolute inset-0 bg-black/45" />
       </div>
@@ -141,6 +142,7 @@ export const BenefitsSection = ({ locale }: BenefitsSectionProps) => {
           src="/home/clients-33.webp"
           alt={copy.imageAlt}
           className="absolute inset-0 h-full w-full object-cover object-left"
+          sizes="(min-width: 1024px) 50vw, 100vw"
         />
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute inset-y-0 left-0 w-[42%] bg-[linear-gradient(90deg,#EFF3F7_0%,#EFF3F7_12%,rgba(239,243,247,0.98)_28%,rgba(239,243,247,0.82)_46%,rgba(239,243,247,0.48)_66%,rgba(239,243,247,0.16)_84%,rgba(239,243,247,0)_100%)]" />

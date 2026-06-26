@@ -74,6 +74,7 @@ export const SponsorsSection = async ({ locale }: SponsorsSectionProps) => {
                     width={160}
                     height={56}
                     className="h-full w-auto object-contain"
+                    sizes="160px"
                   />
                 </a>
               ) : (
@@ -83,6 +84,7 @@ export const SponsorsSection = async ({ locale }: SponsorsSectionProps) => {
                   width={160}
                   height={56}
                   className="h-full w-auto object-contain"
+                  sizes="160px"
                 />
               )}
             </div>

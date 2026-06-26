@@ -62,6 +62,7 @@ export const CommunitySection = ({ locale }: CommunitySectionProps) => {
           src="/home/website.webp"
           alt={copy.communityAlt}
           className="h-full w-full object-cover object-[72%_center]"
+          sizes="100vw"
         />
         <div className="absolute inset-0 bg-black/10" />
       </div>
@@ -70,6 +71,7 @@ export const CommunitySection = ({ locale }: CommunitySectionProps) => {
           src="/home/website.webp"
           alt={copy.communityAlt}
           className="h-full w-full object-cover object-[58%_center]"
+          sizes="(min-width: 1024px) 50vw, 100vw"
         />
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute inset-y-0 right-0 w-[48%] bg-[linear-gradient(90deg,rgba(239,243,247,0)_0%,rgba(239,243,247,0.16)_16%,rgba(239,243,247,0.42)_34%,rgba(239,243,247,0.7)_54%,rgba(239,243,247,0.92)_78%,#EFF3F7_100%)]" />

@@ -152,6 +152,7 @@ export const GovernancePreviewSection = ({ locale }: GovernancePreviewSectionPro
                     src={member.image}
                     alt={member.name}
                     className="h-full min-h-[88px] w-full object-cover object-top md:min-h-[104px]"
+                    sizes="104px"
                   />
                   <div className="absolute inset-0 bg-black/10" />
                 </div>
