@@ -503,9 +503,8 @@ export function AdminApplicationsPage() {
           </div>
         ) : (
           <div className="grid gap-3">
-            {filteredApplications.map((record, index) => (
+            {filteredApplications.map((record) => (
               <ApplicationListRow
-                index={index}
                 isActive={selectedKey(record) === activeKey && sheetOpen}
                 key={selectedKey(record) ?? `${record.kind}:${record.id}`}
                 onOpen={openApplication}

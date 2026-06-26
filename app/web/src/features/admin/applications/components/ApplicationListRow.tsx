@@ -11,7 +11,6 @@ import { ApplicationCombinedStatus } from "./ApplicationCombinedStatus";
 type ApplicationListRowProps = {
   record: AdminApplicationRecord;
   isActive?: boolean;
-  index: number;
   onOpen: (record: AdminApplicationRecord) => void;
 };
 
