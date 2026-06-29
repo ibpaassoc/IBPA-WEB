@@ -102,10 +102,11 @@ export const NewsSection = async ({ locale }: NewsSectionProps) => {
           {newsItems.map((news, i) => (
             <Link key={i} href="/news" className="group block space-y-6 cursor-pointer" aria-label={news.title}>
               <div className="overflow-hidden rounded-[40px] relative" style={{ aspectRatio: news.aspect }}>
-                <ImageWithFallback 
-                  src={news.img} 
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.05]" 
-                  alt={news.title} 
+                <ImageWithFallback
+                  src={news.img}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.05]"
+                  alt={news.title}
+                  sizes="(min-width: 768px) 600px, 100vw"
                 />
                 <div className="absolute inset-0 bg-black/10" />
                 <div className={`absolute bottom-6 left-6 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[10px] text-white uppercase tracking-[0.14em] ${uiClassName}`}>

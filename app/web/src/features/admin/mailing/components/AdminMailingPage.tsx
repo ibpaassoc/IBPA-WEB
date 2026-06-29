@@ -12,7 +12,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,7 @@ export function AdminMailingPage() {
   const [isSending, setIsSending] = useState(false);
   const [composeMode, setComposeMode] = useState<ComposeMode>("closed");
   const [detailMode, setDetailMode] = useState<DetailMode>("closed");
+  const audiencesRequested = useRef(false);
 
   const membershipTypes = useMemo(
     () =>
@@ -127,20 +128,17 @@ export function AdminMailingPage() {
     return resolvedAudienceEmails;
   }, [useMemberPicker, pickedMemberEmails, draft.customEmails, resolvedAudienceEmails]);
 
+  // Landing data only: the recipient picker + campaign history that the page actually
+  // renders. The status/event audience emails are computed lazily when the compose sheet
+  // opens (see loadAudiences) so first paint doesn't fan out into orders/partners/content
+  // + per-event registration requests.
   const loadMailing = async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setIsLoading(true);
 
     try {
-      const [
-        recipientResult,
-        historyResult,
-        applicationAudienceResult,
-        eventAudienceResult,
-      ] = await Promise.allSettled([
+      const [recipientResult, historyResult] = await Promise.allSettled([
         listMailingRecipients(),
         listEmailHistory(),
-        listApplicationAudienceEmails(),
-        listEventRegistrantAudienceEmails(),
       ] as const);
 
       if (recipientResult.status === "fulfilled") {
@@ -157,18 +155,6 @@ export function AdminMailingPage() {
         setHistory([]);
       }
 
-      if (applicationAudienceResult.status === "fulfilled") {
-        setApplicationStatusEmails(applicationAudienceResult.value);
-      } else {
-        setApplicationStatusEmails(emptyApplicationStatusEmails);
-      }
-
-      if (eventAudienceResult.status === "fulfilled") {
-        setEventRegistrantEmails(eventAudienceResult.value);
-      } else {
-        setEventRegistrantEmails([]);
-      }
-
       const failed = [recipientResult, historyResult].find((result) => result.status === "rejected");
       if (failed?.status === "rejected") throw failed.reason;
     } catch (error) {
@@ -180,6 +166,33 @@ export function AdminMailingPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadAudiences = async () => {
+    const [applicationAudienceResult, eventAudienceResult] = await Promise.allSettled([
+      listApplicationAudienceEmails(),
+      listEventRegistrantAudienceEmails(),
+    ] as const);
+
+    setApplicationStatusEmails(
+      applicationAudienceResult.status === "fulfilled"
+        ? applicationAudienceResult.value
+        : emptyApplicationStatusEmails,
+    );
+    setEventRegistrantEmails(
+      eventAudienceResult.status === "fulfilled" ? eventAudienceResult.value : [],
+    );
+  };
+
+  const ensureAudiences = () => {
+    if (audiencesRequested.current) return;
+    audiencesRequested.current = true;
+    void loadAudiences();
+  };
+
+  const refreshMailing = () => {
+    void loadMailing();
+    if (audiencesRequested.current) void loadAudiences();
   };
 
   useEffect(() => {
@@ -194,7 +207,10 @@ export function AdminMailingPage() {
     void loadMailing();
   }, []);
 
-  const openCompose = () => setComposeMode("compose");
+  const openCompose = () => {
+    ensureAudiences();
+    setComposeMode("compose");
+  };
   const closeCompose = () => setComposeMode("closed");
 
   const openDetail = (email: EmailLog) => {
@@ -280,7 +296,7 @@ export function AdminMailingPage() {
           <>
             <Button
               className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
-              onClick={() => void loadMailing()}
+              onClick={refreshMailing}
               type="button"
               variant="outline"
             >

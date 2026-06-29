@@ -526,12 +526,21 @@ async function markApplicationPaid(params: {
   };
 }
 
+// List/summary projection only. The heavy `applicationData` JSON payload (and the
+// derived payment token) are intentionally NOT selected here — the list view never reads
+// them, and full detail loads on demand via GET /api/orders/:id. Keeping the list lean
+// also keeps /admin/mailing's audience fetch (/api/orders?limit=500) cheap.
 async function buildAdminOrderRows(db: ReturnType<typeof requireDb>) {
   const rows = await db
     .select({
-      application: coreApplications,
-      payment: corePayments,
-      certificate: coreCertificates,
+      id: coreApplications.id,
+      email: coreApplications.email,
+      fullName: coreApplications.fullName,
+      packageName: coreApplications.packageName,
+      status: coreApplications.status,
+      createdAt: coreApplications.createdAt,
+      stripeSessionId: corePayments.stripeSessionId,
+      certificateNumber: coreCertificates.certificateNumber,
     })
     .from(coreApplications)
     .leftJoin(corePayments, eq(corePayments.id, coreApplications.id))
@@ -540,18 +549,16 @@ async function buildAdminOrderRows(db: ReturnType<typeof requireDb>) {
     .orderBy(desc(coreApplications.createdAt));
 
   return rows.map((row: any) => ({
-    id: row.application.id,
-    email: row.application.email,
-    name: row.application.fullName,
-    membershipCategory: row.application.packageName,
-    applicantType: MEMBERSHIP_APPLICANT_TYPES[(row.application.packageName || "Professional") as keyof typeof MEMBERSHIP_PRICE_KEYS] || "Individual",
-    applicationPayload: row.application.applicationData,
-    status: mapCanonicalStatusToLegacy(row.application.status),
-    stripeSessionId: row.payment?.stripeSessionId ?? null,
+    id: row.id,
+    email: row.email,
+    name: row.fullName,
+    membershipCategory: row.packageName,
+    applicantType: MEMBERSHIP_APPLICANT_TYPES[(row.packageName || "Professional") as keyof typeof MEMBERSHIP_PRICE_KEYS] || "Individual",
+    status: mapCanonicalStatusToLegacy(row.status),
+    stripeSessionId: row.stripeSessionId ?? null,
     checkoutUrl: null,
-    secureToken: getApplicationPaymentToken(row.application) || undefined,
-    createdAt: row.application.createdAt,
-    certificateNumber: row.certificate?.certificateNumber ?? getApplicationCertificateNumber(row.application),
+    createdAt: row.createdAt,
+    certificateNumber: row.certificateNumber ?? null,
   }));
 }
 

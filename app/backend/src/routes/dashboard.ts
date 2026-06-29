@@ -1446,6 +1446,42 @@ async function buildAdminClientRows(db: ReturnType<typeof requireDb>) {
   });
 }
 
+// Slim projection for the mailing recipient picker. It only needs identity + membership
+// label, so this skips the certificates join and the heavy applicationData / profile blobs
+// that buildAdminClientRows carries for the members directory.
+async function buildMailingRecipientRows(db: ReturnType<typeof requireDb>) {
+  const rows = await db
+    .select({
+      id: coreMemberships.id,
+      membershipType: coreMemberships.type,
+      email: coreUsers.email,
+      firstName: coreProfiles.firstName,
+      lastName: coreProfiles.lastName,
+      applicationFullName: coreApplications.fullName,
+    })
+    .from(coreMemberships)
+    .innerJoin(coreUsers, eq(coreMemberships.userId, coreUsers.id))
+    .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
+    .leftJoin(coreApplications, eq(coreApplications.id, coreMemberships.id))
+    .where(eq(coreMemberships.status, "ACTIVE"))
+    .orderBy(desc(coreMemberships.startedAt));
+
+  return rows.map((row: any) => {
+    const userName =
+      [firstText(row.firstName), firstText(row.lastName)].filter(Boolean).join(" ") ||
+      firstText(row.applicationFullName) ||
+      row.email;
+
+    return {
+      id: row.id,
+      userName,
+      email: row.email,
+      membershipCategory: row.membershipType,
+      cardName: row.membershipType || "Professional Membership",
+    };
+  });
+}
+
 async function listCards(req: any, res: any) {
   try {
     const db = requireDb();
@@ -1456,7 +1492,9 @@ async function listCards(req: any, res: any) {
       isMailingPurpose ? ADMIN_CARD_MAILING_MAX_LIMIT : ADMIN_CARD_LIST_MAX_LIMIT,
     );
     const queryText = trimValue(req.query?.q).toLowerCase();
-    const rows = await buildAdminClientRows(db);
+    const rows = isMailingPurpose
+      ? await buildMailingRecipientRows(db)
+      : await buildAdminClientRows(db);
     const filtered = queryText
       ? rows.filter((row: any) =>
           [row.userName, row.email, row.membershipCategory, row.certificateNumber]

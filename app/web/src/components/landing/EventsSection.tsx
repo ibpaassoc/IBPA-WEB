@@ -134,10 +134,11 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
             <div key={i} className="group overflow-hidden rounded-[44px] border border-white bg-[#F0F8FF]/30 transition-[background-color,box-shadow,border-color] duration-300 hover:bg-white hover:shadow-2xl">
               <div className="grid lg:grid-cols-[0.96fr_1.04fr]">
               <div className="relative overflow-hidden" style={{ aspectRatio: event.aspect }}>
-                <ImageWithFallback 
-                  src={event.img} 
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]" 
-                  alt={event.name} 
+                <ImageWithFallback
+                  src={event.img}
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                  alt={event.name}
+                  sizes="(min-width: 1024px) 620px, 100vw"
                 />
                 <div className="absolute inset-0 bg-black/10" />
                 <div className={`absolute top-6 right-6 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[10px] text-white uppercase tracking-[0.14em] ${uiClassName}`}>

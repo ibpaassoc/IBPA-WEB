@@ -126,10 +126,11 @@ export const AudienceSection: React.FC = () => {
               }}
               className="group relative h-[550px] md:h-[650px] w-[85vw] md:w-[450px] overflow-hidden rounded-[40px] md:rounded-[60px] snap-center shrink-0 bg-white shadow-xl"
              >
-              <ImageWithFallback 
-                src={item.img} 
+              <ImageWithFallback
+                src={item.img}
                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out md:group-hover:scale-[1.08]"
-                alt={item.title} 
+                alt={item.title}
+                sizes="(min-width: 768px) 480px, 90vw"
               />
               <div className="absolute inset-0 bg-black/30 opacity-100 transition-opacity duration-500 md:group-hover:opacity-0" />
               
