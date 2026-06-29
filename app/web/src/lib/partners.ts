@@ -23,7 +23,7 @@ const defaultPartnerCards: Record<Locale, PartnerCard[]> = {
     {
       id: "alismia",
       name: "Alismia",
-      logo: "/sponsors/partner-secondary.webp",
+      logo: "/sponsors/alismia.webp",
       link: "https://www.alismia.com/",
       description:
         "Alismia is an international company specializing in development and support for beauty professionals.",
@@ -49,7 +49,7 @@ const defaultPartnerCards: Record<Locale, PartnerCard[]> = {
     {
       id: "alismia",
       name: "Alismia",
-      logo: "/sponsors/partner-secondary.webp",
+      logo: "/sponsors/alismia.webp",
       link: "https://www.alismia.com/",
       description: "Alismia",
     },
@@ -74,7 +74,7 @@ const defaultPartnerCards: Record<Locale, PartnerCard[]> = {
     {
       id: "alismia",
       name: "Alismia",
-      logo: "/sponsors/partner-secondary.webp",
+      logo: "/sponsors/alismia.webp",
       link: "https://www.alismia.com/",
       description: "Alismia",
     },
