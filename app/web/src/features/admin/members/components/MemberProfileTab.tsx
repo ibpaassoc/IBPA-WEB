@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { thumbnailUrl } from "@/lib/optimized-image";
 
 import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
 import { formatNullableText, initialsFromName } from "../../shared/utils/admin-formatters";
@@ -148,7 +149,7 @@ export function MemberProfileTab({ member }: Props) {
                     className="h-full w-full object-cover"
                     decoding="async"
                     loading={index < 3 ? "eager" : "lazy"}
-                    src={src}
+                    src={thumbnailUrl(src, 256)}
                   />
                 </a>
               ))}
