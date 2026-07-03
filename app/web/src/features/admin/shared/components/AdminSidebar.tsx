@@ -20,6 +20,7 @@ export function AdminSidebar({ adminEmail, adminName }: AdminSidebarProps) {
         <section className="rounded-[28px] border border-[#D4E0F0] bg-white p-4 shadow-[0_24px_70px_rgba(15,35,70,0.10)]">
           <Link
             href="/admin"
+            prefetch={false}
             className="mb-4 block rounded-[24px] bg-[linear-gradient(135deg,#10203B_0%,#284872_100%)] p-4 text-white shadow-[0_18px_40px_rgba(16,32,59,0.22)]"
           >
             <p className="text-xs uppercase tracking-[0.2em] text-white/60">

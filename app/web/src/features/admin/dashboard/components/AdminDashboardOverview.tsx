@@ -15,14 +15,30 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import dynamic from "next/dynamic";
+
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
 import { getAdminOverview } from "../server/dashboard-admin.service";
 import type { AdminOverviewData } from "../types/dashboard-admin.types";
 import { DashboardActivityFeed } from "./DashboardActivityFeed";
-import { DashboardCharts } from "./DashboardCharts";
 import { DashboardEventsList } from "./DashboardEventsList";
 import { DashboardStatCard } from "./DashboardStatCard";
+
+// recharts is ~100 KB gzipped — load it after the page is interactive instead
+// of blocking the admin overview bundle on it.
+const DashboardCharts = dynamic(
+  () => import("./DashboardCharts").then((mod) => mod.DashboardCharts),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Skeleton className="h-80 rounded-[32px] bg-white/70" />
+        <Skeleton className="h-80 rounded-[32px] bg-white/70" />
+      </div>
+    ),
+  },
+);
 
 const emptyOverview: AdminOverviewData = {
   stats: [],
@@ -119,6 +135,7 @@ export function AdminDashboardOverview() {
                 <Link
                   className="text-xs font-semibold text-[#21466D] transition-colors hover:text-[#0B1F44]"
                   href="/admin/events"
+                  prefetch={false}
                 >
                   View all →
                 </Link>
@@ -142,6 +159,7 @@ export function AdminDashboardOverview() {
                 <Link
                   className="text-xs font-semibold text-[#21466D] transition-colors hover:text-[#0B1F44]"
                   href="/admin/applications"
+                  prefetch={false}
                 >
                   Open queue →
                 </Link>
@@ -174,6 +192,7 @@ export function AdminDashboardOverview() {
                   className="group flex items-center gap-3 rounded-2xl border border-[#D9E4F2] bg-white/72 p-3.5 text-sm font-semibold text-[#10203B] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#BDD0E8] hover:bg-white hover:shadow-[0_18px_40px_rgba(15,35,70,0.10)]"
                   href={action.href}
                   key={action.href}
+                  prefetch={false}
                 >
                   <span className="flex size-10 items-center justify-center rounded-2xl bg-[#EEF5FF] text-[#21466D] transition-colors group-hover:bg-[#E3EFFC]">
                     <action.icon className="size-4" />
