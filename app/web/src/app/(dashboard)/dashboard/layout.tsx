@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 
 import { AppClerkProvider } from "@/lib/clerk-provider";
-import { I18nProvider } from "@/lib/i18n";
+import { DashboardI18nProvider } from "@/lib/dashboard-i18n-provider";
 import { resolveLocale } from "@/lib/locale";
 
 export default async function DashboardLayout({
@@ -14,7 +14,9 @@ export default async function DashboardLayout({
 
   return (
     <AppClerkProvider>
-      <I18nProvider initialLocale={initialLocale}>{children}</I18nProvider>
+      <DashboardI18nProvider initialLocale={initialLocale}>
+        {children}
+      </DashboardI18nProvider>
     </AppClerkProvider>
   );
 }

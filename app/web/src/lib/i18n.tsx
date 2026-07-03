@@ -2,10 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  dashboardDictionaries,
-  type DashboardDictionary,
-} from "@/lib/dashboard-i18n";
+import type { DashboardDictionary } from "@/lib/dashboard-i18n";
 import {
   getLocaleCookieValue,
   getLocaleNumberFormat,
@@ -786,9 +783,16 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 export function I18nProvider({
   children,
   initialLocale,
+  dashboardDictionaries,
 }: {
   children: React.ReactNode;
   initialLocale: Locale;
+  /**
+   * The dashboard dictionary is ~100 KB of source and is only read by
+   * dashboard components. Public pages omit it so it never enters their
+   * bundle; the dashboard layout passes it in via DashboardI18nProvider.
+   */
+  dashboardDictionaries?: Record<Locale, DashboardDictionary>;
 }) {
   const router = useRouter();
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
@@ -817,12 +821,14 @@ export function I18nProvider({
     () => ({
       locale,
       setLocale,
+      // `dashboard` is only present under DashboardI18nProvider; public pages
+      // never read t.dashboard, so the cast keeps the shared Dictionary type.
       t: {
         ...dictionaries[locale],
-        dashboard: dashboardDictionaries[locale],
-      },
+        dashboard: dashboardDictionaries?.[locale],
+      } as Dictionary,
     }),
-    [locale, setLocale],
+    [locale, setLocale, dashboardDictionaries],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
