@@ -14,6 +14,8 @@ import { MemberExpandedPanel } from "./MemberExpandedPanel";
 
 type Props = {
   member: AdminMemberRecord;
+  /** Full record (bio, services, portfolio) fetched when the row is expanded. */
+  detail?: AdminMemberRecord | null;
   isOpen: boolean;
   isLoadingDetail: boolean;
   activeTab: MemberTab;
@@ -32,6 +34,7 @@ type Props = {
 export function MemberExpandableRow({
   activeTab,
   busyAction,
+  detail,
   isLoadingDetail,
   isOpen,
   member,
@@ -118,7 +121,7 @@ export function MemberExpandableRow({
             <MemberExpandedPanel
               activeTab={activeTab}
               busyAction={busyAction}
-              member={member}
+              member={detail ?? member}
               onCategoryChange={onCategoryChange}
               onDeleteMembership={onDeleteMembership}
               onIssueCertificate={onIssueCertificate}

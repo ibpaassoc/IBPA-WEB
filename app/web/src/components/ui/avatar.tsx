@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { thumbnailUrl } from '@/lib/optimized-image';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Avatar as AvatarPrimitive } from 'radix-ui';
 
@@ -29,8 +30,20 @@ function Avatar({ className, ...props }: React.ComponentProps<typeof AvatarPrimi
   );
 }
 
-function AvatarImage({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
-  return <AvatarPrimitive.Image data-slot="avatar-image" className={cn('aspect-square h-full w-full rounded-full object-cover', className)} {...props} />;
+function AvatarImage({ className, src, ...props }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+  // Avatars render at <=64px — serve an optimized 96px rendition instead of the
+  // original upload (member photos can be multi-MB originals on utfs.io).
+  const optimizedSrc = typeof src === 'string' ? thumbnailUrl(src, 96) : src;
+  return (
+    <AvatarPrimitive.Image
+      data-slot="avatar-image"
+      loading="lazy"
+      decoding="async"
+      className={cn('aspect-square h-full w-full rounded-full object-cover', className)}
+      src={optimizedSrc}
+      {...props}
+    />
+  );
 }
 
 function AvatarFallback({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {

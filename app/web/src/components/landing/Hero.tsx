@@ -77,6 +77,8 @@ export const Hero = ({ locale }: HeroProps) => {
           alt={copy.heroAlt}
           className="h-full w-full object-cover object-top blur-[1.6px]"
           priority
+          sizes="100vw"
+          quality={60}
         />
         <div className="absolute inset-0 bg-white/30" />
       </div>

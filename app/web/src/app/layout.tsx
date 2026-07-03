@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
-import Script from "next/script";
 import { cyrillicDisplay, cyrillicEditorial } from "@/lib/cyrillic-fonts";
 import { getLandingOrigin } from "@/lib/public-urls";
 import "../styles/index.css";
@@ -45,36 +43,17 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // ClerkProvider intentionally lives in the route groups that use Clerk on the
+  // client (dashboard, sign-in, checkout success) so public landing pages and the
+  // admin area never download clerk-js.
   return (
-    <ClerkProvider
-      signInUrl="/sign-in"
-      signInForceRedirectUrl="/dashboard"
-      signInFallbackRedirectUrl="/dashboard"
-      signUpForceRedirectUrl="/dashboard"
-      signUpFallbackRedirectUrl="/dashboard"
-    >
-      <html lang="en" className={cn("font-sans", inter.variable, cyrillicDisplay.variable, cyrillicEditorial.variable, raleway.variable)}>
-        <head>
-          <Script
-            src="https://www.googletagmanager.com/gtag/js?id=G-LZH8FD9QR6"
-            strategy="afterInteractive"
-          />
-          <Script id="google-analytics" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'G-LZH8FD9QR6');
-            `}
-          </Script>
-        </head>
-        <body className="min-h-screen bg-[#F8FAFC] text-slate-900 antialiased">
-          {children}
-          <Toaster richColors position="bottom-right" />
-          <SpeedInsights />
-          <Analytics />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en" className={cn("font-sans", inter.variable, cyrillicDisplay.variable, cyrillicEditorial.variable, raleway.variable)}>
+      <body className="min-h-screen bg-[#F8FAFC] text-slate-900 antialiased">
+        {children}
+        <Toaster richColors position="bottom-right" />
+        <SpeedInsights />
+        <Analytics />
+      </body>
+    </html>
   );
 }

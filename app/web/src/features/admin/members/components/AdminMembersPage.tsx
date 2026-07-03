@@ -3,7 +3,7 @@
 
 import { RefreshCw } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { listProfiles, saveProfileCertificate, removeProfileCertificate, resendProfileCertificate, deleteProfileMembership } from "../../profiles/server/profile-admin.repository";
+import { getProfile, listProfiles, saveProfileCertificate, removeProfileCertificate, resendProfileCertificate, deleteProfileMembership } from "../../profiles/server/profile-admin.repository";
 import { AdminFilters } from "../../shared/components/AdminFilters";
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
@@ -32,6 +32,10 @@ const baseFilters: AdminMemberFilters = {
   certificate: "all",
   membership: "all",
 };
+
+// Initial page size — further rows stream in via "Load more" so the first
+// paint of the directory stays small and fast.
+const PAGE_SIZE = 30;
 
 function readTabParam(value: string | null): MemberTab {
   if (value === "membership" || value === "certificate") return value;
@@ -53,30 +57,94 @@ export function AdminMembersPage() {
   const [members, setMembers] = useState<AdminMemberRecord[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
   const [selectedMember, setSelectedMember] = useState<AdminMemberRecord | null>(null);
+  const [detailedMember, setDetailedMember] = useState<AdminMemberRecord | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const openMemberIdRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<MemberTab>(initialTab);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
-  const loadMembers = async ({ silent = false }: { silent?: boolean } = {}) => {
+  const loadMembers = async ({
+    silent = false,
+    limit,
+  }: { silent?: boolean; limit?: number } = {}) => {
     if (!silent) setIsLoading(true);
 
     try {
-      const response = await listProfiles({ limit: 200, q: deferredSearch });
+      const response = await listProfiles({
+        limit: limit ?? PAGE_SIZE,
+        q: deferredSearch,
+      });
       const nextMembers = Array.isArray(response.items)
         ? response.items.map(toMemberRecord)
         : [];
       setMembers(nextMembers);
       setCategories(Array.isArray(response.categories) ? response.categories : []);
+      setTotal(typeof response.total === "number" ? response.total : nextMembers.length);
+      setHasMore(Boolean(response.hasMore));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load members.");
       if (!silent) {
         setMembers([]);
         setCategories([]);
+        setTotal(0);
+        setHasMore(false);
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadMore = async () => {
+    setIsLoadingMore(true);
+
+    try {
+      const response = await listProfiles({
+        limit: PAGE_SIZE,
+        offset: members.length,
+        q: deferredSearch,
+      });
+      const nextMembers = Array.isArray(response.items)
+        ? response.items.map(toMemberRecord)
+        : [];
+      setMembers((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        return [...prev, ...nextMembers.filter((m) => !seen.has(m.id))];
+      });
+      setTotal(typeof response.total === "number" ? response.total : total);
+      setHasMore(Boolean(response.hasMore));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load more members.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Silent refresh keeps the currently loaded window instead of collapsing
+  // back to the first page after an action.
+  const refreshLoaded = () =>
+    loadMembers({ silent: true, limit: Math.max(PAGE_SIZE, members.length) });
+
+  const loadMemberDetail = (id: string) => {
+    openMemberIdRef.current = id;
+    setDetailedMember(null);
+    setIsLoadingDetail(true);
+
+    getProfile(id)
+      .then((detail) => {
+        if (openMemberIdRef.current !== id) return;
+        setDetailedMember(toMemberRecord(detail));
+      })
+      .catch(() => {
+        // Fall back to the (slimmer) list record already on screen.
+      })
+      .finally(() => {
+        if (openMemberIdRef.current === id) setIsLoadingDetail(false);
+      });
   };
 
   useEffect(() => {
@@ -101,6 +169,8 @@ export function AdminMembersPage() {
     if (alreadyOpen && !tab) {
       // Toggle closed
       setSelectedMember(null);
+      openMemberIdRef.current = null;
+      setDetailedMember(null);
       return;
     }
 
@@ -108,6 +178,8 @@ export function AdminMembersPage() {
     if (tab) setActiveTab(tab);
     setSelectedMember(member);
     setSelectedCategory(member.membershipCategory ?? "");
+    // The list ships only slim rows — bio, services, and portfolio load here.
+    loadMemberDetail(member.id);
   };
 
   const runAction = async (action: string, callback: () => Promise<void>) => {
@@ -126,7 +198,7 @@ export function AdminMembersPage() {
 
     void runAction("membership", async () => {
       if (!selectedCategory) throw new Error("Select a membership package first.");
-      await loadMembers({ silent: true });
+      await refreshLoaded();
       toast.success("Membership category updated.");
     });
   };
@@ -138,8 +210,10 @@ export function AdminMembersPage() {
     void runAction("delete_membership", async () => {
       await deleteProfileMembership(selectedMember.id);
       setSelectedMember(null);
+      openMemberIdRef.current = null;
+      setDetailedMember(null);
       toast.success("Membership deleted.");
-      await loadMembers({ silent: true });
+      await refreshLoaded();
     });
   };
 
@@ -152,9 +226,8 @@ export function AdminMembersPage() {
     void runAction("issue_cert", async () => {
       await saveProfileCertificate(selectedMember.id, url);
       toast.success("Certificate saved.");
-      await loadMembers({ silent: true });
-      const refreshed = members.find((m) => m.id === selectedMember.id);
-      if (refreshed) setSelectedMember(toMemberRecord(refreshed));
+      await refreshLoaded();
+      loadMemberDetail(selectedMember.id);
     });
   };
 
@@ -174,13 +247,16 @@ export function AdminMembersPage() {
     void runAction("remove_cert", async () => {
       await removeProfileCertificate(selectedMember.id);
       toast.success("Certificate removed.");
-      await loadMembers({ silent: true });
-      const refreshed = members.find((m) => m.id === selectedMember.id);
-      if (refreshed) setSelectedMember(toMemberRecord(refreshed));
+      await refreshLoaded();
+      loadMemberDetail(selectedMember.id);
     });
   };
 
-  const totalLabel = `${formatAdminCount(filteredMembers.length, "member")}${isPending ? " · filtering" : ""}`;
+  const hasClientFilters =
+    filters.membership !== "all" || filters.certificate !== "all";
+  const totalLabel = hasClientFilters
+    ? `${formatAdminCount(filteredMembers.length, "member")} shown${isPending ? " · filtering" : ""}`
+    : `${formatAdminCount(total || filteredMembers.length, "member")}${isPending ? " · filtering" : ""}`;
 
   return (
     <AdminPageShell
@@ -285,7 +361,8 @@ export function AdminMembersPage() {
                 <MemberExpandableRow
                   activeTab={activeTab}
                   busyAction={busyAction}
-                  isLoadingDetail={false}
+                  detail={isOpen ? detailedMember : null}
+                  isLoadingDetail={isOpen && isLoadingDetail}
                   isOpen={isOpen}
                   key={member.id}
                   member={member}
@@ -301,6 +378,22 @@ export function AdminMembersPage() {
                 />
               );
             })}
+
+            {hasMore ? (
+              <div className="border-t border-[#E4EEF8] p-4">
+                <Button
+                  className="h-10 w-full rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                  disabled={isLoadingMore}
+                  onClick={() => void loadMore()}
+                  type="button"
+                  variant="outline"
+                >
+                  {isLoadingMore
+                    ? "Loading…"
+                    : `Load more (${members.length} of ${total})`}
+                </Button>
+              </div>
+            ) : null}
           </div>
         )}
       </AdminSectionCard>

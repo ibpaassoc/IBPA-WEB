@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Router } from "express";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { requireDb } from "../lib/db";
 import {
   coreApplications,
@@ -47,9 +47,11 @@ import {
 export const dashboardRouter = Router();
 export const cardsRouter = Router();
 
-const ADMIN_CARD_LIST_DEFAULT_LIMIT = 20;
+const ADMIN_CARD_LIST_DEFAULT_LIMIT = 30;
 const ADMIN_CARD_MAILING_DEFAULT_LIMIT = 100;
-const ADMIN_CARD_LIST_MAX_LIMIT = 50;
+// Rows are slim (no application/profile blobs), so a larger window is cheap;
+// the UI still starts at 30 and pages via offset.
+const ADMIN_CARD_LIST_MAX_LIMIT = 200;
 const ADMIN_CARD_MAILING_MAX_LIMIT = 200;
 const PARTNER_INCLUDED_TEAM_SEATS = 5;
 const ADDITIONAL_TEAM_SEAT_PRICE = 100;
@@ -1387,7 +1389,11 @@ dashboardRouter.delete("/certificates/external/:id", clerkMiddleware(clerkOption
   }
 });
 
-async function buildAdminClientRows(db: ReturnType<typeof requireDb>) {
+async function buildAdminClientRows(
+  db: ReturnType<typeof requireDb>,
+  membershipId?: string,
+) {
+  const activeCondition = eq(coreMemberships.status, "ACTIVE");
   const rows = await db
     .select({
       membership: coreMemberships,
@@ -1401,7 +1407,11 @@ async function buildAdminClientRows(db: ReturnType<typeof requireDb>) {
     .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
     .leftJoin(coreCertificates, eq(coreCertificates.membershipId, coreMemberships.id))
     .leftJoin(coreApplications, eq(coreApplications.id, coreMemberships.id))
-    .where(eq(coreMemberships.status, "ACTIVE"))
+    .where(
+      membershipId
+        ? and(activeCondition, eq(coreMemberships.id, membershipId))
+        : activeCondition,
+    )
     .orderBy(desc(coreMemberships.startedAt));
 
   return rows.map((row: any) => {
@@ -1444,6 +1454,116 @@ async function buildAdminClientRows(db: ReturnType<typeof requireDb>) {
       cardName: row.membership.type || "Professional Membership",
     };
   });
+}
+
+// Search condition shared by the members directory list. Matches the fields the
+// previous in-memory filter covered: name, email, membership label, certificate no.
+function buildCardSearchCondition(queryText: string) {
+  const pattern = `%${queryText}%`;
+  return or(
+    ilike(coreUsers.email, pattern),
+    ilike(coreProfiles.firstName, pattern),
+    ilike(coreProfiles.lastName, pattern),
+    ilike(coreApplications.fullName, pattern),
+    ilike(coreMemberships.type, pattern),
+    ilike(coreCertificates.certificateNumber, pattern),
+  );
+}
+
+// Slim projection for the members directory list. The table row only renders
+// identity, membership label, and certificate status — the heavy profile /
+// application payloads load on demand via GET /api/cards/:id when a row is
+// expanded. Search + pagination happen in SQL instead of fetching every row.
+async function buildAdminClientListPage(
+  db: ReturnType<typeof requireDb>,
+  { limit, offset, queryText }: { limit: number; offset: number; queryText: string },
+) {
+  const activeCondition = eq(coreMemberships.status, "ACTIVE");
+  const condition = queryText
+    ? and(activeCondition, buildCardSearchCondition(queryText))
+    : activeCondition;
+
+  const listQuery = db
+    .select({
+      id: coreMemberships.id,
+      membershipType: coreMemberships.type,
+      status: coreMemberships.status,
+      startedAt: coreMemberships.startedAt,
+      userId: coreUsers.id,
+      email: coreUsers.email,
+      clerkId: coreUsers.clerkId,
+      profileId: coreProfiles.id,
+      firstName: coreProfiles.firstName,
+      lastName: coreProfiles.lastName,
+      avatarUrl: coreProfiles.avatarUrl,
+      certificateNumber: coreCertificates.certificateNumber,
+      certificateUrl: coreCertificates.certificateUrl,
+      expiresAt: coreCertificates.expiresAt,
+      applicationFullName: coreApplications.fullName,
+      applicationPhone: coreApplications.phone,
+    })
+    .from(coreMemberships)
+    .innerJoin(coreUsers, eq(coreMemberships.userId, coreUsers.id))
+    .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
+    .leftJoin(coreCertificates, eq(coreCertificates.membershipId, coreMemberships.id))
+    .leftJoin(coreApplications, eq(coreApplications.id, coreMemberships.id))
+    .where(condition)
+    .orderBy(desc(coreMemberships.startedAt))
+    .limit(limit)
+    .offset(offset);
+
+  const countQuery = db
+    .select({ value: sql<number>`count(*)` })
+    .from(coreMemberships)
+    .innerJoin(coreUsers, eq(coreMemberships.userId, coreUsers.id))
+    .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
+    .leftJoin(coreCertificates, eq(coreCertificates.membershipId, coreMemberships.id))
+    .leftJoin(coreApplications, eq(coreApplications.id, coreMemberships.id))
+    .where(condition);
+
+  const categoriesQuery = db
+    .selectDistinct({ type: coreMemberships.type })
+    .from(coreMemberships)
+    .where(activeCondition);
+
+  const [rows, countRows, categoryRows] = await Promise.all([
+    listQuery,
+    countQuery,
+    categoriesQuery,
+  ]);
+
+  const items = rows.map((row: any) => {
+    const userName =
+      [firstText(row.firstName), firstText(row.lastName)].filter(Boolean).join(" ") ||
+      firstText(row.applicationFullName) ||
+      row.email;
+
+    return {
+      id: row.id,
+      userId: row.userId,
+      profileId: row.profileId ?? null,
+      userName,
+      email: row.email,
+      phone: firstText(row.applicationPhone) || null,
+      avatarUrl: row.avatarUrl ?? null,
+      membershipCategory: row.membershipType,
+      status: String(row.status || "").toLowerCase(),
+      certificateNumber: row.certificateNumber ?? null,
+      certificateUrl: row.certificateUrl ?? null,
+      expiresAt: row.expiresAt ?? null,
+      createdAt: row.startedAt ?? row.id,
+      hasDashboardAccess: Boolean(row.clerkId),
+      cardName: row.membershipType || "Professional Membership",
+    };
+  });
+
+  return {
+    items,
+    total: countToNumber(countRows[0]?.value),
+    categories: uniqueStrings(
+      categoryRows.map((row: any) => String(row.type || "")).filter(Boolean),
+    ),
+  };
 }
 
 // Slim projection for the mailing recipient picker. It only needs identity + membership
@@ -1492,12 +1612,28 @@ async function listCards(req: any, res: any) {
       isMailingPurpose ? ADMIN_CARD_MAILING_MAX_LIMIT : ADMIN_CARD_LIST_MAX_LIMIT,
     );
     const queryText = trimValue(req.query?.q).toLowerCase();
-    const rows = isMailingPurpose
-      ? await buildMailingRecipientRows(db)
-      : await buildAdminClientRows(db);
+
+    if (!isMailingPurpose) {
+      const { items, total, categories } = await buildAdminClientListPage(db, {
+        limit,
+        offset,
+        queryText,
+      });
+
+      return res.json({
+        items,
+        total,
+        limit,
+        offset,
+        hasMore: offset + items.length < total,
+        categories,
+      });
+    }
+
+    const rows = await buildMailingRecipientRows(db);
     const filtered = queryText
       ? rows.filter((row: any) =>
-          [row.userName, row.email, row.membershipCategory, row.certificateNumber]
+          [row.userName, row.email, row.membershipCategory]
             .some((value) => String(value || "").toLowerCase().includes(queryText)))
       : rows;
     const paged = filtered.slice(offset, offset + limit);
@@ -1527,8 +1663,8 @@ cardsRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, re
     }
 
     const db = requireDb();
-    const rows = await buildAdminClientRows(db);
-    const client = rows.find((row: any) => row.id === id);
+    const rows = await buildAdminClientRows(db, id);
+    const client = rows[0] ?? null;
 
     if (!client) {
       return res.status(404).json({ error: "Client not found" });

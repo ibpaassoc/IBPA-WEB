@@ -22,7 +22,7 @@ type ContentItem = {
 
 async function getNews() {
   const response = await fetch(getBackendUrl("/api/content/public?type=news&target=site"), {
-    cache: "no-store",
+    next: { revalidate: 300 },
   }).catch(() => null);
 
   if (!response?.ok) {

@@ -28,6 +28,20 @@ export default async function PublicLayout({
         content="1oij9v4q95qd0cudvfkr5tnmmgr2yw"
       />
 
+      {/* Google Analytics — public pages only, keeps admin/dashboard free of tracking JS */}
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-LZH8FD9QR6"
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-LZH8FD9QR6');
+        `}
+      </Script>
+
       {/* Meta Pixel */}
       <Script id="meta-pixel" strategy="afterInteractive">
         {`
