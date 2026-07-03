@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 import { ArrowRight, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { cyrillicDisplay, cyrillicEditorial } from "@/lib/cyrillic-fonts";
 import { homeTemplateAccent, homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { useI18n } from "@/lib/i18n";
@@ -46,22 +46,12 @@ export const AboutSection = () => {
   const playerRef = React.useRef<VimeoPlayerLike | null>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isMuted, setIsMuted] = React.useState(true);
+  // Click-to-play facade: no Vimeo asset (iframe, player.js, media) is fetched
+  // until the visitor explicitly presses play.
   const [hasStarted, setHasStarted] = React.useState(false);
-  const [canMountVideo, setCanMountVideo] = React.useState(false);
 
   React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mediaQuery = window.matchMedia("(min-width: 768px)");
-    const updateViewportState = () => setCanMountVideo(mediaQuery.matches);
-
-    updateViewportState();
-    mediaQuery.addEventListener("change", updateViewportState);
-
-    return () => mediaQuery.removeEventListener("change", updateViewportState);
-  }, []);
-
-  React.useEffect(() => {
-    if (!canMountVideo || !iframeRef.current || playerRef.current) return;
+    if (!hasStarted || !iframeRef.current || playerRef.current) return;
 
     let isCancelled = false;
     let cleanup: (() => void) | undefined;
@@ -76,7 +66,6 @@ export const AboutSection = () => {
 
       const handlePlay = () => {
         setIsPlaying(true);
-        setHasStarted(true);
       };
       const handlePause = () => setIsPlaying(false);
       const handleVolume = (...args: unknown[]) => {
@@ -110,19 +99,19 @@ export const AboutSection = () => {
       isCancelled = true;
       cleanup?.();
     };
-  }, [canMountVideo]);
+  }, [hasStarted]);
 
   React.useEffect(() => {
-    if (!videoWrapperRef.current || !playerRef.current) return;
+    // Pause automatically when the video scrolls out of view (only relevant
+    // once the visitor has started playback).
+    if (!hasStarted || !videoWrapperRef.current) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         const player = playerRef.current;
         if (!player) return;
 
-        if (entry.isIntersecting) {
-          void player.play().catch(() => undefined);
-        } else {
+        if (!entry.isIntersecting) {
           void player.pause().catch(() => undefined);
         }
       },
@@ -131,9 +120,17 @@ export const AboutSection = () => {
 
     observer.observe(videoWrapperRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [hasStarted]);
 
   const togglePlayback = async () => {
+    if (!hasStarted) {
+      // Mounting the iframe with autoplay=1 starts playback as soon as the
+      // player is ready — nothing from Vimeo has been downloaded before this.
+      setHasStarted(true);
+      setIsPlaying(true);
+      return;
+    }
+
     const player = playerRef.current;
     if (!player) return;
     if (isPlaying) {
@@ -159,7 +156,7 @@ export const AboutSection = () => {
             ref={videoWrapperRef}
             className="relative aspect-[9/16] overflow-hidden rounded-[40px] bg-[#EEF5F9] shadow-[0_24px_80px_rgba(39,54,72,0.14)] md:rounded-[56px]"
           >
-            {canMountVideo ? (
+            {hasStarted ? (
               <iframe
                 ref={iframeRef}
                 src="https://player.vimeo.com/video/1175624606?app_id=122963&autoplay=1&muted=1&background=1&controls=0&title=0&byline=0&portrait=0&playsinline=1"
@@ -168,18 +165,21 @@ export const AboutSection = () => {
                 referrerPolicy="strict-origin-when-cross-origin"
                 title={missionVideoTitle}
               />
-            ) : null}
-            {!hasStarted ? (
+            ) : (
               <button
                 type="button"
                 onClick={togglePlayback}
                 aria-label={startVideoLabel}
                 className="absolute inset-0 z-10 block"
               >
-                <ImageWithFallback
-                  src="https://i.vimeocdn.com/video/2136510606-dc277ff305a50d246bc8394eab61d6b81695414fd357ddfb8f4a10ffcf53526d-d_200x150?region=us"
+                <Image
+                  src="https://i.vimeocdn.com/video/2136510606-dc277ff305a50d246bc8394eab61d6b81695414fd357ddfb8f4a10ffcf53526d-d_540x960?region=us"
                   alt={videoPosterAlt}
                   className="h-full w-full object-cover"
+                  width={540}
+                  height={960}
+                  sizes="(min-width: 768px) 416px, 90vw"
+                  quality={70}
                 />
                 <div className="absolute inset-0 bg-black/10" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-black/8 to-transparent" />
@@ -189,26 +189,28 @@ export const AboutSection = () => {
                   </span>
                 </div>
               </button>
-            ) : null}
+            )}
             <div className="pointer-events-none absolute inset-0 bg-black/10" />
-            <div className="absolute right-4 top-4 z-10 flex gap-3 md:right-5 md:top-5">
-              <button
-                type="button"
-                onClick={togglePlayback}
-                aria-label={isPlaying ? pauseLabel : playLabel}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition-all hover:bg-black/50 md:h-12 md:w-12"
-              >
-                {isPlaying ? <Pause size={18} /> : <Play size={18} className="translate-x-[1px]" />}
-              </button>
-              <button
-                type="button"
-                onClick={toggleMute}
-                aria-label={isMuted ? unmuteLabel : muteLabel}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition-all hover:bg-black/50 md:h-12 md:w-12"
-              >
-                {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-              </button>
-            </div>
+            {hasStarted ? (
+              <div className="absolute right-4 top-4 z-10 flex gap-3 md:right-5 md:top-5">
+                <button
+                  type="button"
+                  onClick={togglePlayback}
+                  aria-label={isPlaying ? pauseLabel : playLabel}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition-all hover:bg-black/50 md:h-12 md:w-12"
+                >
+                  {isPlaying ? <Pause size={18} /> : <Play size={18} className="translate-x-[1px]" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  aria-label={isMuted ? unmuteLabel : muteLabel}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition-all hover:bg-black/50 md:h-12 md:w-12"
+                >
+                  {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
