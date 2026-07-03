@@ -29,5 +29,9 @@ export default async function AdminLayout({
     redirect("/dashboard");
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  return (
+    <AdminShell adminEmail={primaryEmail} adminName={user?.fullName ?? null}>
+      {children}
+    </AdminShell>
+  );
 }

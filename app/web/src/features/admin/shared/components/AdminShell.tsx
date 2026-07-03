@@ -8,9 +8,11 @@ import { AdminSidebar } from "./AdminSidebar";
 
 type AdminShellProps = {
   children: ReactNode;
+  adminName?: string | null;
+  adminEmail?: string | null;
 };
 
-export function AdminShell({ children }: AdminShellProps) {
+export function AdminShell({ adminEmail, adminName, children }: AdminShellProps) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   return (
@@ -35,7 +37,7 @@ export function AdminShell({ children }: AdminShellProps) {
       </button>
 
       <main className="mx-auto flex w-full max-w-[1600px] gap-6 px-5 py-6 lg:px-8">
-        <AdminSidebar />
+        <AdminSidebar adminEmail={adminEmail} adminName={adminName} />
 
         <section className="min-w-0 flex-1 space-y-6">{children}</section>
       </main>
