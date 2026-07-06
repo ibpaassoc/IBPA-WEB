@@ -50,7 +50,14 @@ export type PublicProfilePreview = {
 type Locale = "en" | "ru" | "uk";
 
 function getBackendUrl() {
-  return process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || "";
+  const base =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    process.env.BACKEND_URL ||
+    "";
+  // Trim any trailing slash so callers can safely append "/api/..." without
+  // producing a double slash (which the backend rejects as 404).
+  return base.replace(/\/+$/, "");
 }
 
 export async function getPublicMembers(locale: Locale = "en"): Promise<PublicMember[]> {
