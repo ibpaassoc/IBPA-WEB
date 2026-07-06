@@ -26,6 +26,7 @@ import { upsertCanonicalPayment, upsertCanonicalStripeWebhookEvent } from "../fe
 import { upsertCanonicalMembership } from "../features/memberships/server/membership.repository";
 import { upsertCanonicalCertificate } from "../features/certificates/server/certificate.repository";
 import { upsertCanonicalProfile } from "../features/profiles/server/profile.repository";
+import { syncProfileFromApplication } from "../features/profiles/server/application-profile-sync";
 import { upsertCanonicalTeam } from "../features/teams/server/team.repository";
 
 export const webhooksRouter = Router();
@@ -212,6 +213,20 @@ async function ensurePaidApplication(applicationId: string, stripeSessionId: str
     status: "ACTIVE",
     startedAt: new Date(),
     expiresAt,
+  });
+
+  // Populate the member/partner profile from the application payload so the
+  // dashboard and public directory show real data instead of an empty profile.
+  await syncProfileFromApplication(db, {
+    userId: userResult.record.id,
+    application: {
+      id: application.id,
+      type: application.type,
+      fullName: application.fullName,
+      phone: application.phone,
+      packageName: application.packageName,
+      applicationData: payload,
+    },
   });
 
   await upsertCanonicalCertificate(db, {

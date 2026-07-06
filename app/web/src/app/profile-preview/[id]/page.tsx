@@ -174,7 +174,12 @@ export default async function PublicProfilePreviewPage({
                   </p>
                 </ProfilePanel>
 
-                <ProfileServicesDisplay services={profile.services} />
+                <ProfileServicesDisplay
+                  services={profile.services}
+                  title="Services"
+                  emptyLabel="Services have not been added to this preview yet."
+                  detailsPlaceholder="No description added yet."
+                />
               </div>
             </div>
           </section>

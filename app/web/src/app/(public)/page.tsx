@@ -7,6 +7,7 @@ import { BenefitsSection } from "@/components/landing/BenefitsSection";
 import { EventsSection } from "@/components/landing/EventsSection";
 import { NewsSection } from "@/components/landing/NewsSection";
 import { CommunitySection } from "@/components/landing/CommunitySection";
+import { MembersPreviewSection } from "@/features/members/components/MembersPreviewSection";
 import { GovernancePreviewSection } from "@/components/landing/GovernancePreviewSection";
 import { SponsorsSection } from "@/components/landing/SponsorsSection";
 import { CTASection } from "@/components/landing/CTASection";
@@ -30,7 +31,9 @@ export default async function Home() {
       <EventsSection locale={locale} />
       
       <NewsSection locale={locale} />
-      
+
+      <MembersPreviewSection locale={locale} />
+
       <CommunitySection locale={locale} />
 
       <GovernancePreviewSection locale={locale} />

@@ -27,6 +27,7 @@ import { upsertCanonicalApplication, findCanonicalApplicationById, upsertCanonic
 import { upsertCanonicalPayment } from "../features/payments/server/payment.repository";
 import { upsertCanonicalMembership } from "../features/memberships/server/membership.repository";
 import { upsertCanonicalCertificate } from "../features/certificates/server/certificate.repository";
+import { syncProfileFromApplication } from "../features/profiles/server/application-profile-sync";
 
 export const ordersRouter = Router();
 
@@ -517,6 +518,23 @@ async function markApplicationPaid(params: {
     certificateNumber,
     issuedAt: new Date(),
     expiresAt,
+  });
+
+  // Populate the member profile from the application payload (verify/:token
+  // reconciliation path, mirrors the Stripe webhook handler).
+  await syncProfileFromApplication(db, {
+    userId: userResult.record.id,
+    application: {
+      id: params.application.id,
+      type: params.application.type,
+      fullName: params.application.fullName,
+      phone: params.application.phone,
+      packageName: params.application.packageName,
+      applicationData: {
+        ...asRecord(params.application.applicationData),
+        certificateNumber,
+      },
+    },
   });
 
   return {

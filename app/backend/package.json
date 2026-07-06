@@ -15,7 +15,9 @@
     "db:studio": "drizzle-kit studio",
     "migrate:public-data": "tsx scripts/import-public-data-to-ibpa.ts",
     "db:verify:cutover": "tsx scripts/verify-cutover.ts",
-    "repair:payments": "tsx scripts/repair-application-payment-state.ts"
+    "repair:payments": "tsx scripts/repair-application-payment-state.ts",
+    "backfill:profiles": "tsx scripts/backfill-paid-application-profiles.ts",
+    "test:profile-sync": "tsx scripts/test-application-profile-sync.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.0.4",
