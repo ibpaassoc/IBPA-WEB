@@ -59,9 +59,6 @@ export default async function MembersPage() {
           >
             {copy.title}
           </h1>
-          <p className="mt-5 text-[1.05rem] leading-relaxed text-slate-600 md:text-[1.2rem]">
-            {copy.description}
-          </p>
         </header>
 
         <div className="mt-12">

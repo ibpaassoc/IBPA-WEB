@@ -72,9 +72,6 @@ export async function MembersPreviewSection({ locale }: MembersPreviewSectionPro
             >
               {copy.title}
             </h2>
-            <p className={`text-[1.05rem] leading-relaxed text-slate-600 md:text-[1.25rem] ${bodyClassName}`}>
-              {copy.description}
-            </p>
           </div>
 
           <Link
