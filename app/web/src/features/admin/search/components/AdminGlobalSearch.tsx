@@ -56,14 +56,27 @@ export function AdminGlobalSearch({ className }: AdminGlobalSearchProps) {
 
     setIsLoading(true);
 
+    // The timeout debounces typing; `cancelled` also drops the in-flight
+    // response once the query changes or the dialog closes, so a slow older
+    // search can never overwrite newer results.
+    let cancelled = false;
     const timeout = setTimeout(() => {
       searchAdmin(trimmed)
-        .then((result) => setGroups(result))
-        .catch(() => setGroups([]))
-        .finally(() => setIsLoading(false));
+        .then((result) => {
+          if (!cancelled) setGroups(result);
+        })
+        .catch(() => {
+          if (!cancelled) setGroups([]);
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoading(false);
+        });
     }, 250);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [query]);
 
   const handleSelect = (href: string) => {
