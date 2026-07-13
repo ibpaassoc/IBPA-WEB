@@ -6,28 +6,32 @@ import type {
 } from "../../shared/types/admin.types";
 import type { ApplicationAudienceStatus, EmailLog } from "../types/mailing.types";
 
-async function parseJson<T>(response: Response): Promise<T | null> {
-  const raw = await response.text();
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
+function readError(data: unknown, fallback: string) {
+  if (data && typeof data === "object") {
+    const { error } = data as { error?: unknown };
+    if (typeof error === "string" && error.trim()) return error;
   }
+  return fallback;
 }
 
-async function readError(response: Response, fallback: string) {
-  const data = await parseJson<{ error?: string }>(response.clone());
-  return data?.error || fallback;
-}
-
+// The response body can only be read once: parse it a single time and reuse the
+// parsed value for both the success payload and the error message. Never call
+// response.clone() after the body has been consumed.
 async function requestJson<T>(url: string, init?: RequestInit, fallback = "Request failed.") {
   const response = await fetch(url, init);
-  const data = await parseJson<T>(response);
+
+  let data: T | null = null;
+  const raw = await response.text();
+  if (raw) {
+    try {
+      data = JSON.parse(raw) as T;
+    } catch {
+      data = null;
+    }
+  }
 
   if (!response.ok) {
-    throw new Error(await readError(response, fallback));
+    throw new Error(readError(data, fallback));
   }
 
   return data as T;
