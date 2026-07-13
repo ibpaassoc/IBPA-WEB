@@ -3,7 +3,7 @@
 
 import { RefreshCw } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
+import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import {
   deleteProfileMembership,
@@ -67,14 +68,19 @@ export function AdminProfilesPage() {
   const [pendingCertificateUrl, setPendingCertificateUrl] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const listRequestRef = useRef(0);
+  const openProfileIdRef = useRef<string | null>(null);
+  const searchTerm = useDebouncedValue(deferredSearch);
 
   const loadProfiles = async ({ silent = false }: { silent?: boolean } = {}) => {
+    const requestId = ++listRequestRef.current;
     if (!silent) {
       setIsLoading(true);
     }
 
     try {
-      const response = await listProfiles({ q: deferredSearch });
+      const response = await listProfiles({ q: searchTerm });
+      if (requestId !== listRequestRef.current) return;
       const nextProfiles = Array.isArray(response.items)
         ? response.items.map(toProfileRecord)
         : [];
@@ -83,6 +89,7 @@ export function AdminProfilesPage() {
       setTotalProfiles(Number(response.total) || 0);
       setLastSyncedAt(new Date().toISOString());
     } catch (error) {
+      if (requestId !== listRequestRef.current) return;
       toast.error(error instanceof Error ? error.message : "Failed to load profiles.");
       if (!silent) {
         setProfiles([]);
@@ -90,14 +97,14 @@ export function AdminProfilesPage() {
         setTotalProfiles(0);
       }
     } finally {
-      setIsLoading(false);
+      if (requestId === listRequestRef.current) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     void loadProfiles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredSearch]);
+  }, [searchTerm]);
 
   const filteredProfiles = useMemo(
     () => filterProfileRecords(profiles, filters),
@@ -105,24 +112,30 @@ export function AdminProfilesPage() {
   );
 
   const openProfile = async (profile: AdminProfileRecord) => {
+    openProfileIdRef.current = profile.id;
     setSelectedProfile(profile);
     setPendingCertificateUrl(null);
     setIsLoadingDetail(true);
 
     try {
       const detail = await getProfile(profile.id);
+      // Ignore responses for a row the admin has since navigated away from.
+      if (openProfileIdRef.current !== profile.id) return;
       setSelectedProfile(toProfileRecord(detail));
     } catch (error) {
+      if (openProfileIdRef.current !== profile.id) return;
       toast.error(error instanceof Error ? error.message : "Failed to load profile.");
     } finally {
-      setIsLoadingDetail(false);
+      if (openProfileIdRef.current === profile.id) setIsLoadingDetail(false);
     }
   };
 
   const refreshSelected = async () => {
     if (!selectedProfile) return;
-    await openProfile(selectedProfile);
-    await loadProfiles({ silent: true });
+    await Promise.all([
+      openProfile(selectedProfile),
+      loadProfiles({ silent: true }),
+    ]);
   };
 
   const runAction = async (action: string, callback: () => Promise<void>) => {
@@ -173,6 +186,7 @@ export function AdminProfilesPage() {
 
     void runAction("delete", async () => {
       await deleteProfileMembership(selectedProfile.id);
+      openProfileIdRef.current = null;
       setSelectedProfile(null);
       toast.success("Profile membership deleted.");
       await loadProfiles({ silent: true });
