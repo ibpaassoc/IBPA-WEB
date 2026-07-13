@@ -4,38 +4,8 @@ import type {
   AdminOrdersResponse,
   AdminPartnerApplicationsResponse,
 } from "../../shared/types/admin.types";
+import { requestJson } from "../../shared/utils/admin-request";
 import type { ApplicationAudienceStatus, EmailLog } from "../types/mailing.types";
-
-function readError(data: unknown, fallback: string) {
-  if (data && typeof data === "object") {
-    const { error } = data as { error?: unknown };
-    if (typeof error === "string" && error.trim()) return error;
-  }
-  return fallback;
-}
-
-// The response body can only be read once: parse it a single time and reuse the
-// parsed value for both the success payload and the error message. Never call
-// response.clone() after the body has been consumed.
-async function requestJson<T>(url: string, init?: RequestInit, fallback = "Request failed.") {
-  const response = await fetch(url, init);
-
-  let data: T | null = null;
-  const raw = await response.text();
-  if (raw) {
-    try {
-      data = JSON.parse(raw) as T;
-    } catch {
-      data = null;
-    }
-  }
-
-  if (!response.ok) {
-    throw new Error(readError(data, fallback));
-  }
-
-  return data as T;
-}
 
 export async function listMailingRecipients() {
   return requestJson<AdminCardsResponse>(

@@ -1,36 +1,10 @@
 import type { AdminContentItem } from "../../shared/types/admin.types";
+import { requestJson } from "../../shared/utils/admin-request";
 import type {
   AdminEventRegistration,
   EventEditorState,
   EventRegistrationCounts,
 } from "../types/event-admin.types";
-
-async function parseJson<T>(response: Response): Promise<T | null> {
-  const raw = await response.text();
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
-async function readError(response: Response, fallback: string) {
-  const data = await parseJson<{ error?: string }>(response.clone());
-  return data?.error || fallback;
-}
-
-async function requestJson<T>(url: string, init?: RequestInit, fallback = "Request failed.") {
-  const response = await fetch(url, init);
-  const data = await parseJson<T>(response);
-
-  if (!response.ok) {
-    throw new Error(await readError(response, fallback));
-  }
-
-  return data as T;
-}
 
 export async function listContentItems() {
   return requestJson<{ items?: AdminContentItem[] }>(
