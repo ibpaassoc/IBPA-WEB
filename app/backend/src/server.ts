@@ -56,6 +56,35 @@ app.use("/api/contact", contactRouter);
 app.use("/api/members", membersRouter);
 app.use("/api/partner-applications", partnerApplicationsRouter);
 
+// JSON error handler. Without this, an error thrown by middleware (Clerk auth
+// failures, body-parser rejects, unexpected route throws) falls through to
+// Express's default handler, which responds with an HTML error page — API
+// clients expect JSON and previously surfaced these as misleading parse
+// failures. Client-caused errors keep their status and message; everything
+// else is a generic 500 with the details kept in the server log.
+const apiErrorHandler: express.ErrorRequestHandler = (err, _req, res, _next) => {
+  console.error("[API Error]", err);
+
+  if (res.headersSent) {
+    return;
+  }
+
+  const statusCandidate = Number(
+    (err as { status?: number; statusCode?: number })?.status ??
+      (err as { status?: number; statusCode?: number })?.statusCode,
+  );
+  const status = Number.isInteger(statusCandidate) && statusCandidate >= 400 && statusCandidate < 600
+    ? statusCandidate
+    : 500;
+  const message = status < 500 && err instanceof Error && err.message
+    ? err.message
+    : "Internal server error";
+
+  res.status(status).json({ error: message });
+};
+
+app.use(apiErrorHandler);
+
 async function startServer() {
   app.listen(port, () => {
     console.log(`Backend listening at port ${port}`);
