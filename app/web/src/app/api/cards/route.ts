@@ -1,4 +1,5 @@
 import { getAdminProxyContext } from "@/lib/admin-proxy";
+import { readBackendResponse } from "@/lib/read-backend-response";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -12,21 +13,16 @@ export async function GET(req: Request) {
       cache: "no-store",
     });
 
+    const { data, text } = await readBackendResponse(res);
+
     if (res.ok) {
-      const data = await res.json();
       return NextResponse.json(data);
-    } else {
-      try {
-        const data = await res.json();
-        return NextResponse.json(
-          { error: data?.error || "Backend Error" },
-          { status: res.status },
-        );
-      } catch {
-        const text = await res.text();
-        return NextResponse.json({ error: text || "Backend Error" }, { status: res.status });
-      }
     }
+
+    return NextResponse.json(
+      { error: data?.error || text || "Backend Error" },
+      { status: res.status },
+    );
   } catch (error: any) {
     console.error("[Admin API] Failed to reach backend cards API GET:", error);
     return NextResponse.json({ error: `Failed to reach backend cards API: ${error?.message || "Unknown error"}` }, { status: 500 });

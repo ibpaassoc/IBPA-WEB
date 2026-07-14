@@ -1,4 +1,5 @@
 import { getAdminProxyContext } from "@/lib/admin-proxy";
+import { readBackendResponse } from "@/lib/read-backend-response";
 import { NextRequest, NextResponse } from "next/server";
 
 function normalizeContentBody(body: Record<string, any>) {
@@ -21,8 +22,16 @@ export async function GET(req: Request) {
 
   try {
     const res = await fetch(`${backendUrl}/api/content/admin`, { cache: "no-store", headers: authHeaders });
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    const { data, text } = await readBackendResponse(res);
+
+    if (res.ok) {
+      return NextResponse.json(data, { status: res.status });
+    }
+
+    return NextResponse.json(
+      { error: data?.error || text || "Backend Error" },
+      { status: res.status },
+    );
   } catch (error: any) {
     console.error("[Admin content GET] Error:", error);
     return NextResponse.json({ error: "Failed to reach backend content API." }, { status: 500 });
@@ -40,8 +49,16 @@ export async function POST(req: NextRequest) {
       headers: { ...authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    const { data, text } = await readBackendResponse(res);
+
+    if (res.ok) {
+      return NextResponse.json(data, { status: res.status });
+    }
+
+    return NextResponse.json(
+      { error: data?.error || text || "Backend Error" },
+      { status: res.status },
+    );
   } catch (error: any) {
     console.error("[Admin content POST] Error:", error);
     return NextResponse.json({ error: "Failed to reach backend content API." }, { status: 500 });

@@ -2,6 +2,7 @@ import type {
   AdminCardsResponse,
   AdminClient,
 } from "../../shared/types/admin.types";
+import { requestJson } from "../../shared/utils/admin-request";
 import type { ProfileCertificateActionResult } from "../types/profile-admin.types";
 
 type ListProfilesParams = {
@@ -9,33 +10,6 @@ type ListProfilesParams = {
   offset?: number;
   q?: string;
 };
-
-async function parseJson<T>(response: Response): Promise<T | null> {
-  const raw = await response.text();
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
-async function readError(response: Response, fallback: string) {
-  const data = await parseJson<{ error?: string; details?: string }>(response.clone());
-  return data?.error || data?.details || fallback;
-}
-
-async function requestJson<T>(url: string, init?: RequestInit, fallback = "Request failed.") {
-  const response = await fetch(url, init);
-  const data = await parseJson<T>(response);
-
-  if (!response.ok) {
-    throw new Error(await readError(response, fallback));
-  }
-
-  return data as T;
-}
 
 function buildQuery(params: ListProfilesParams) {
   const query = new URLSearchParams({

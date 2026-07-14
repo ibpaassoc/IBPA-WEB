@@ -23,6 +23,7 @@ import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
+import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import { filterMemberRecords, toMemberRecord } from "../server/members-admin.service";
 import type { AdminMemberFilters, AdminMemberRecord, MemberTab } from "../types/members-admin.types";
@@ -64,21 +65,25 @@ export function AdminMembersPage() {
   const [detailedMember, setDetailedMember] = useState<AdminMemberRecord | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const openMemberIdRef = useRef<string | null>(null);
+  const listRequestRef = useRef(0);
   const [activeTab, setActiveTab] = useState<MemberTab>(initialTab);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const searchTerm = useDebouncedValue(deferredSearch);
 
   const loadMembers = async ({
     silent = false,
     limit,
   }: { silent?: boolean; limit?: number } = {}) => {
+    const requestId = ++listRequestRef.current;
     if (!silent) setIsLoading(true);
 
     try {
       const response = await listProfiles({
         limit: limit ?? PAGE_SIZE,
-        q: deferredSearch,
+        q: searchTerm,
       });
+      if (requestId !== listRequestRef.current) return;
       const nextMembers = Array.isArray(response.items)
         ? response.items.map(toMemberRecord)
         : [];
@@ -87,6 +92,7 @@ export function AdminMembersPage() {
       setTotal(typeof response.total === "number" ? response.total : nextMembers.length);
       setHasMore(Boolean(response.hasMore));
     } catch (error) {
+      if (requestId !== listRequestRef.current) return;
       toast.error(error instanceof Error ? error.message : "Failed to load members.");
       if (!silent) {
         setMembers([]);
@@ -95,19 +101,21 @@ export function AdminMembersPage() {
         setHasMore(false);
       }
     } finally {
-      setIsLoading(false);
+      if (requestId === listRequestRef.current) setIsLoading(false);
     }
   };
 
   const loadMore = async () => {
+    const requestId = ++listRequestRef.current;
     setIsLoadingMore(true);
 
     try {
       const response = await listProfiles({
         limit: PAGE_SIZE,
         offset: members.length,
-        q: deferredSearch,
+        q: searchTerm,
       });
+      if (requestId !== listRequestRef.current) return;
       const nextMembers = Array.isArray(response.items)
         ? response.items.map(toMemberRecord)
         : [];
@@ -118,6 +126,7 @@ export function AdminMembersPage() {
       setTotal(typeof response.total === "number" ? response.total : total);
       setHasMore(Boolean(response.hasMore));
     } catch (error) {
+      if (requestId !== listRequestRef.current) return;
       toast.error(error instanceof Error ? error.message : "Failed to load more members.");
     } finally {
       setIsLoadingMore(false);
@@ -150,7 +159,7 @@ export function AdminMembersPage() {
   useEffect(() => {
     void loadMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredSearch]);
+  }, [searchTerm]);
 
   const filteredMembers = useMemo(
     () => filterMemberRecords(members, filters),

@@ -3,7 +3,7 @@
 
 import { Award, CircleSlash, RefreshCw, ShieldCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
+import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import {
   getProfile,
   listProfiles,
@@ -61,33 +62,39 @@ export function AdminCertificatesPage() {
   const [pendingCertificateUrl, setPendingCertificateUrl] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const listRequestRef = useRef(0);
+  const openCertificateIdRef = useRef<string | null>(null);
+  const searchTerm = useDebouncedValue(deferredSearch);
 
   const loadCertificates = async ({ silent = false }: { silent?: boolean } = {}) => {
+    const requestId = ++listRequestRef.current;
     if (!silent) {
       setIsLoading(true);
     }
 
     try {
-      const response = await listProfiles({ limit: 200, q: deferredSearch });
+      const response = await listProfiles({ limit: 200, q: searchTerm });
+      if (requestId !== listRequestRef.current) return;
       const nextCertificates = Array.isArray(response.items) ? response.items.map(toCertificateRecord) : [];
       setCertificates(nextCertificates);
       setCategories(Array.isArray(response.categories) ? response.categories : []);
       setLastSyncedAt(new Date().toISOString());
     } catch (error) {
+      if (requestId !== listRequestRef.current) return;
       toast.error(error instanceof Error ? error.message : "Failed to load certificates.");
       if (!silent) {
         setCertificates([]);
         setCategories([]);
       }
     } finally {
-      setIsLoading(false);
+      if (requestId === listRequestRef.current) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     void loadCertificates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredSearch]);
+  }, [searchTerm]);
 
   const stats = useMemo(() => buildCertificateStats(certificates), [certificates]);
   const filteredCertificates = useMemo(
@@ -120,24 +127,30 @@ export function AdminCertificatesPage() {
   ];
 
   const openCertificate = async (certificate: AdminCertificateRecord) => {
+    openCertificateIdRef.current = certificate.id;
     setSelected(certificate);
     setPendingCertificateUrl(null);
     setIsLoadingDetail(true);
 
     try {
       const detail = await getProfile(certificate.id);
+      // Ignore responses for a row the admin has since navigated away from.
+      if (openCertificateIdRef.current !== certificate.id) return;
       setSelected(toCertificateRecord(detail));
     } catch (error) {
+      if (openCertificateIdRef.current !== certificate.id) return;
       toast.error(error instanceof Error ? error.message : "Failed to load certificate record.");
     } finally {
-      setIsLoadingDetail(false);
+      if (openCertificateIdRef.current === certificate.id) setIsLoadingDetail(false);
     }
   };
 
   const refreshSelected = async () => {
     if (!selected) return;
-    await openCertificate(selected);
-    await loadCertificates({ silent: true });
+    await Promise.all([
+      openCertificate(selected),
+      loadCertificates({ silent: true }),
+    ]);
   };
 
   const runAction = async (action: string, callback: () => Promise<void>) => {

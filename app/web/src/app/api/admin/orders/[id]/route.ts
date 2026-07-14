@@ -84,15 +84,15 @@ export async function DELETE(
       headers: authHeaders,
     });
 
+    const { data, text } = await readBackendResponse(resp);
+
     if (!resp.ok) {
-      const errorData = await resp.json();
       return NextResponse.json(
-        { error: errorData.error || "Failed to delete order" },
+        { error: data?.error || text || "Failed to delete order" },
         { status: resp.status }
       );
     }
 
-    const data = await resp.json();
     return NextResponse.json(data);
   } catch (err: any) {
     console.error("[Admin API] Failed to delete order DELETE:", err);

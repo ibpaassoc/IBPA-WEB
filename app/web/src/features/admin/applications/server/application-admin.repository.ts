@@ -7,42 +7,13 @@ import type {
   OrderStatus,
 } from "../types/application-admin.types";
 
+import { requestJson } from "../../shared/utils/admin-request";
+
 type ListParams = {
   limit?: number;
   offset?: number;
   q?: string;
 };
-
-async function parseJson<T>(response: Response): Promise<T | null> {
-  const raw = await response.text();
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
-async function readErrorMessage(response: Response, fallback: string) {
-  const data = await parseJson<{ error?: string; details?: string }>(response.clone());
-  if (data?.error) return data.error;
-  if (data?.details) return data.details;
-
-  const text = await response.clone().text().catch(() => "");
-  return text.trim() || fallback;
-}
-
-async function requestJson<T>(url: string, init?: RequestInit, fallback = "Request failed.") {
-  const response = await fetch(url, init);
-  const data = await parseJson<T | { error?: string; details?: string }>(response);
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, fallback));
-  }
-
-  return data as T;
-}
 
 function buildListQuery(params: ListParams) {
   const query = new URLSearchParams({

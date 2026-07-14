@@ -3,7 +3,7 @@
 
 import { BadgeCheck, Layers, RefreshCw, TimerReset } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
+import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { listProfiles } from "../../profiles/server/profile-admin.repository";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import {
@@ -51,31 +52,36 @@ export function AdminMembershipsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState<AdminMembershipRecord | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const listRequestRef = useRef(0);
+  const searchTerm = useDebouncedValue(deferredSearch);
 
   const loadMemberships = async ({ silent = false }: { silent?: boolean } = {}) => {
+    const requestId = ++listRequestRef.current;
     if (!silent) {
       setIsLoading(true);
     }
 
     try {
-      const response = await listProfiles({ limit: 200, q: deferredSearch });
+      const response = await listProfiles({ limit: 200, q: searchTerm });
+      if (requestId !== listRequestRef.current) return;
       const nextMemberships = Array.isArray(response.items) ? response.items.map(toMembershipRecord) : [];
       setMemberships(nextMemberships);
       setLastSyncedAt(new Date().toISOString());
     } catch (error) {
+      if (requestId !== listRequestRef.current) return;
       toast.error(error instanceof Error ? error.message : "Failed to load memberships.");
       if (!silent) {
         setMemberships([]);
       }
     } finally {
-      setIsLoading(false);
+      if (requestId === listRequestRef.current) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     void loadMemberships();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredSearch]);
+  }, [searchTerm]);
 
   const stats = useMemo(() => buildMembershipStats(memberships), [memberships]);
   const filteredMemberships = useMemo(

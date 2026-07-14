@@ -1,4 +1,5 @@
 import { getAdminProxyContext } from "@/lib/admin-proxy";
+import { readBackendResponse } from "@/lib/read-backend-response";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -11,15 +12,15 @@ export async function GET(req: NextRequest) {
       cache: "no-store",
     });
 
+    const { data, text } = await readBackendResponse(resp);
+
     if (!resp.ok) {
-      const errorData = await resp.json().catch(() => ({}));
       return NextResponse.json(
-        { error: errorData.error || "Failed to load email logs" },
+        { error: data?.error || text || "Failed to load email logs" },
         { status: resp.status },
       );
     }
 
-    const data = await resp.json();
     return NextResponse.json(data);
   } catch (err: any) {
     console.error("Proxy Email Logs Error:", err);
@@ -45,15 +46,15 @@ export async function DELETE(req: NextRequest) {
       headers: authHeaders,
     });
 
+    const { data, text } = await readBackendResponse(resp);
+
     if (!resp.ok) {
-      const errorData = await resp.json().catch(() => ({}));
       return NextResponse.json(
-        { error: errorData.error || "Failed to delete email log" },
+        { error: data?.error || text || "Failed to delete email log" },
         { status: resp.status },
       );
     }
 
-    const data = await resp.json();
     return NextResponse.json(data);
   } catch (err: any) {
     console.error("Proxy Delete Email Log Error:", err);

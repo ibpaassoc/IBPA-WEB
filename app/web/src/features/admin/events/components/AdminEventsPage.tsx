@@ -3,7 +3,7 @@
 
 import { Download, Plus, RefreshCw } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,9 @@ export function AdminEventsPage() {
   const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [sheetMode, setSheetMode] = useState<SheetMode>("closed");
+  // Tracks which event's registrations were requested last, so a slow
+  // response can't fill the table of a different (or closed) event sheet.
+  const registrationsEventIdRef = useRef<string | null>(null);
 
   const loadEvents = async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setIsLoading(true);
@@ -115,17 +118,20 @@ export function AdminEventsPage() {
   );
 
   const loadRegistrations = async (event: AdminEvent) => {
+    registrationsEventIdRef.current = event.id;
     setIsLoadingRegistrations(true);
     try {
       const response = await listEventRegistrations(event.id);
+      if (registrationsEventIdRef.current !== event.id) return;
       setRegistrations(Array.isArray(response.items) ? response.items : []);
       setRegistrationCounts(response.counts ?? emptyCounts);
     } catch (error) {
+      if (registrationsEventIdRef.current !== event.id) return;
       toast.error(error instanceof Error ? error.message : "Failed to load registrations.");
       setRegistrations([]);
       setRegistrationCounts(emptyCounts);
     } finally {
-      setIsLoadingRegistrations(false);
+      if (registrationsEventIdRef.current === event.id) setIsLoadingRegistrations(false);
     }
   };
 
@@ -137,6 +143,7 @@ export function AdminEventsPage() {
   };
 
   const openCreate = () => {
+    registrationsEventIdRef.current = null;
     setSelectedEvent(null);
     setForm({ ...emptyEventEditorState });
     setRegistrations([]);
@@ -145,6 +152,7 @@ export function AdminEventsPage() {
   };
 
   const closeSheet = () => {
+    registrationsEventIdRef.current = null;
     setSheetMode("closed");
   };
 

@@ -3,7 +3,7 @@
 
 import { RefreshCw } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSheet } from "../../shared/components/AdminSheet";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
+import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import {
   addMemberApplicationFiles,
@@ -105,16 +106,24 @@ export function AdminApplicationsPage() {
   const [selectedPartnerTier, setSelectedPartnerTier] = useState("Associate");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Monotonic tokens so a slow response can never overwrite the state a newer
+  // request (different search term, different selected row) already produced.
+  const listRequestRef = useRef(0);
+  const detailRequestRef = useRef(0);
+  const searchTerm = useDebouncedValue(deferredSearch);
 
   const loadApplications = async ({ silent = false }: { silent?: boolean } = {}) => {
+    const requestId = ++listRequestRef.current;
     if (!silent) setIsLoading(true);
 
     try {
-      const queue = await listApplicationQueue({ q: deferredSearch });
+      const queue = await listApplicationQueue({ q: searchTerm });
+      if (requestId !== listRequestRef.current) return;
       setApplications(queue.records);
       setMemberTotal(queue.memberTotal);
       setPartnerTotal(queue.partnerTotal);
     } catch (error) {
+      if (requestId !== listRequestRef.current) return;
       toast.error(error instanceof Error ? error.message : "Failed to load applications.");
       if (!silent) {
         setApplications([]);
@@ -122,14 +131,14 @@ export function AdminApplicationsPage() {
         setPartnerTotal(0);
       }
     } finally {
-      setIsLoading(false);
+      if (requestId === listRequestRef.current) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     void loadApplications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredSearch]);
+  }, [searchTerm]);
 
   const filteredApplications = useMemo(
     () => filterApplicationRecords(applications, filters),
@@ -137,6 +146,7 @@ export function AdminApplicationsPage() {
   );
 
   const openApplication = async (record: AdminApplicationRecord) => {
+    const requestId = ++detailRequestRef.current;
     setSelectedApplication(record);
     setMemberDetail(null);
     setPartnerDetail(null);
@@ -148,6 +158,7 @@ export function AdminApplicationsPage() {
     try {
       if (record.kind === "member") {
         const detail = await getMemberApplication(record.id);
+        if (requestId !== detailRequestRef.current) return;
 
         setMemberDetail(detail);
         setSelectedApplication(toMemberApplicationRecord(detail));
@@ -157,9 +168,11 @@ export function AdminApplicationsPage() {
         setIsLoadingFiles(true);
 
         const fileResponse = await listMemberApplicationFiles(record.id);
+        if (requestId !== detailRequestRef.current) return;
         setAdditionalFiles(Array.isArray(fileResponse.files) ? fileResponse.files : []);
       } else {
         const detail = await getPartnerApplication(record.id);
+        if (requestId !== detailRequestRef.current) return;
 
         setPartnerDetail(detail);
         setSelectedApplication(toPartnerApplicationRecord(detail));
@@ -167,23 +180,29 @@ export function AdminApplicationsPage() {
         setIsLoadingDetail(false);
       }
     } catch (error) {
+      if (requestId !== detailRequestRef.current) return;
       toast.error(
         error instanceof Error ? error.message : "Failed to load application details.",
       );
       setIsLoadingDetail(false);
     } finally {
-      setIsLoadingFiles(false);
+      if (requestId === detailRequestRef.current) setIsLoadingFiles(false);
     }
   };
 
   const closeSheet = () => {
+    // Invalidate any in-flight detail request so it cannot repopulate the
+    // panel after the admin has closed it.
+    detailRequestRef.current += 1;
     setSheetOpen(false);
   };
 
   const refreshSelectedApplication = async () => {
     if (!selectedApplication) return;
-    await openApplication(selectedApplication);
-    await loadApplications({ silent: true });
+    await Promise.all([
+      openApplication(selectedApplication),
+      loadApplications({ silent: true }),
+    ]);
   };
 
   const runAction = async (action: string, callback: () => Promise<void>) => {
