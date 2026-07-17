@@ -1,7 +1,7 @@
 import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
 import Link from "next/link";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { PreservedText } from "@/components/content/PreservedText";
-import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { SectionPattern } from "@/components/landing/SectionPattern";
 import { cyrillicDisplay } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
@@ -134,11 +134,13 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
           {events.map((event, i) => (
             <div key={i} className="group overflow-hidden rounded-[44px] border border-white bg-[#F0F8FF]/30 transition-[background-color,box-shadow,border-color] duration-300 hover:bg-white hover:shadow-2xl">
               <div className="grid lg:grid-cols-[0.96fr_1.04fr]">
-              <div className="relative overflow-hidden" style={{ aspectRatio: event.aspect }}>
-                <ImageWithFallback
-                  src={event.img}
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+              <div className="relative overflow-hidden">
+                <InteractiveContentImage
                   alt={event.name}
+                  caption={event.description}
+                  imageClassName="transition-transform duration-700 group-hover:scale-[1.03]"
+                  legacyAspect={event.aspect}
+                  legacyUrl={event.img}
                   sizes="(min-width: 1024px) 620px, 100vw"
                 />
                 <div className="absolute inset-0 bg-black/10" />

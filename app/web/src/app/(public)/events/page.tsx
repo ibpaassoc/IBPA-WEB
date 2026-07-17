@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { PreservedText } from "@/components/content/PreservedText";
 import { cyrillicDisplay } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
@@ -89,13 +90,15 @@ export default function EventsPage() {
 
         <div className="overflow-hidden rounded-[40px] border border-slate-200/70 bg-white shadow-[0_18px_54px_rgba(15,23,42,0.06)]">
           <div className="grid lg:grid-cols-[0.94fr_1.06fr]">
-            <div className="relative overflow-hidden" style={{ aspectRatio: renderedEvent.aspect }}>
-              <img
-                src={renderedEvent.image}
-                alt={renderedEvent.title}
-                className="h-full w-full object-cover"
-              />
-            </div>
+            <InteractiveContentImage
+              alt={renderedEvent.title}
+              caption={renderedEvent.description}
+              className="rounded-none"
+              legacyAspect={renderedEvent.aspect}
+              legacyUrl={renderedEvent.image}
+              priority
+              sizes="(min-width: 1024px) 520px, 100vw"
+            />
             <div className="space-y-6 px-8 py-8 md:px-10 md:py-10 lg:px-12 lg:py-12">
               <p className={`text-[10px] uppercase tracking-[0.24em] text-[#708090] ${uiClassName}`}>{renderedEvent.date}</p>
               {renderedEvent.isPinned ? (

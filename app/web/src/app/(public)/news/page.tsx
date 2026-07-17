@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { PreservedText } from "@/components/content/PreservedText";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { useI18n } from "@/lib/i18n";
@@ -113,9 +114,14 @@ export default function NewsPage() {
                   key={item.id}
                   className="overflow-hidden rounded-[40px] border border-slate-200/80 bg-white shadow-[0_18px_54px_rgba(15,23,42,0.06)]"
                 >
-                  <div className="overflow-hidden rounded-[40px]" style={{ aspectRatio: item.aspect }}>
-                    <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
-                  </div>
+                  <InteractiveContentImage
+                    alt={item.title}
+                    caption={item.summary}
+                    className="rounded-[40px]"
+                    legacyAspect={item.aspect}
+                    legacyUrl={item.image}
+                    sizes="(min-width: 768px) 560px, 100vw"
+                  />
 
                   <div className="p-8">
                     <p className={`text-[10px] uppercase tracking-[0.24em] text-[#708090] ${uiClassName}`}>

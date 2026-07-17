@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { PreservedText } from "@/components/content/PreservedText";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -51,13 +52,14 @@ function ArticleThumbnail({ article }: { article: AdminArticle }) {
   }
 
   return (
-    <div className="relative aspect-square size-24 shrink-0 overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-28">
-      <img
-        alt=""
-        className="h-full w-full object-cover"
-        decoding="async"
-        loading="lazy"
-        src={article.coverImage}
+    <div className="relative size-24 shrink-0 overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-28">
+      <InteractiveContentImage
+        alt={article.title}
+        caption={article.body}
+        className="h-full rounded-2xl"
+        legacyAspect={article.coverAspect ?? article.cover_aspect}
+        legacyUrl={article.coverImage}
+        sizes="112px"
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { PreservedText } from "@/components/content/PreservedText";
 
 import { AdminEmptyState } from "../../shared/components/AdminEmptyState";
@@ -43,6 +44,16 @@ export function EventDetailsView({ counts, event }: EventDetailsViewProps) {
   return (
     <AdminSectionCard title="Event details">
       <div className="flex flex-col gap-5">
+        {event.coverImage ? (
+          <InteractiveContentImage
+            alt={event.title}
+            caption={event.body}
+            className="rounded-[20px]"
+            legacyAspect={event.coverAspect ?? event.cover_aspect}
+            legacyUrl={event.coverImage}
+            sizes="(min-width: 768px) 720px, 100vw"
+          />
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <AdminStatusBadge
             tone={getEventVisibility(event) === "Published" ? "success" : "neutral"}

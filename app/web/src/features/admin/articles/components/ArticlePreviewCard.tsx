@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { PreservedText } from "@/components/content/PreservedText";
 
 import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
@@ -19,6 +20,8 @@ export function ArticlePreviewCard({ article, draft }: ArticlePreviewCardProps) 
   const ctaUrl = draft?.ctaUrl || article?.ctaUrl;
   const ctaLabel = draft?.ctaLabel || article?.ctaLabel || "Read more";
   const publishedLabel = article ? getArticleVisibility(article) : "Draft preview";
+  const coverImage = draft?.coverImage || article?.coverImage;
+  const coverAspect = draft?.coverAspect ?? article?.coverAspect ?? article?.cover_aspect;
 
   return (
     <div className="flex flex-col gap-5 rounded-[24px] border border-[#D7E5F4] bg-white p-6 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
@@ -30,6 +33,16 @@ export function ArticlePreviewCard({ article, draft }: ArticlePreviewCardProps) 
           <span className="text-xs text-[#6C7F95]">{formatAdminDate(article.updatedAt)}</span>
         ) : null}
       </div>
+      {coverImage ? (
+        <InteractiveContentImage
+          alt={title}
+          caption={body}
+          className="rounded-[20px]"
+          legacyAspect={coverAspect}
+          legacyUrl={coverImage}
+          sizes="(min-width: 768px) 720px, 100vw"
+        />
+      ) : null}
       <div className="flex flex-col gap-3">
         <h3
           className="text-2xl font-semibold tracking-[-0.02em] text-[#10203B]"

@@ -4,9 +4,9 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { PreservedText } from "@/components/content/PreservedText";
 import type { DashboardContentItem } from "@/components/dashboard/dashboard-types";
-import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import {
   dashboardPrimaryButtonClassName,
   getDashboardFilterButtonClassName,
@@ -137,10 +137,12 @@ export function DashboardEvents({
               <article key={item.id} className={eventCardClassName}>
                 {item.coverImage ? (
                   <div className="overflow-hidden border-b border-[#D4E0F0] bg-slate-100">
-                    <ImageWithFallback
-                      src={item.coverImage}
+                    <InteractiveContentImage
                       alt={item.title}
-                      className="aspect-[16/7] w-full object-cover"
+                      caption={item.body}
+                      legacyAspect={item.coverAspect}
+                      legacyUrl={item.coverImage}
+                      sizes="(min-width: 1280px) 560px, 100vw"
                     />
                   </div>
                 ) : null}

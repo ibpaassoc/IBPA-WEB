@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -92,13 +93,13 @@ function EventThumbnail({ event }: { event: AdminEvent }) {
 
   return (
     <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-24">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        alt=""
-        className="h-full w-full object-cover"
-        decoding="async"
-        loading="lazy"
-        src={event.coverImage}
+      <InteractiveContentImage
+        alt={event.title}
+        caption={event.body}
+        className="h-full rounded-2xl"
+        legacyAspect={event.coverAspect ?? event.cover_aspect}
+        legacyUrl={event.coverImage}
+        sizes="96px"
       />
     </div>
   );
