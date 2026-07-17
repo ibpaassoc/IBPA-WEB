@@ -27,6 +27,10 @@ type ApplicationFileUploadFieldProps = {
   maxFiles?: number;
   imageOnly?: boolean;
   error?: React.ReactNode;
+  dropLabel?: string;
+  uploadedLabel?: string;
+  minimumLabel?: string;
+  limitReachedLabel?: string;
 };
 
 export function ApplicationFileUploadField({
@@ -42,6 +46,10 @@ export function ApplicationFileUploadField({
   maxFiles = 1,
   imageOnly = false,
   error,
+  dropLabel = "Drag files here or choose files",
+  uploadedLabel = "Uploaded",
+  minimumLabel = "Minimum",
+  limitReachedLabel = "Limit reached",
 }: ApplicationFileUploadFieldProps) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -128,9 +136,9 @@ export function ApplicationFileUploadField({
           )}
 
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-700">Drag files here or choose files</p>
+            <p className="text-sm font-semibold text-slate-700">{dropLabel}</p>
             <p className="text-xs text-slate-400">
-              Uploaded: {value.length}/{maxFiles}. Minimum: {minFiles}.
+              {uploadedLabel}: {value.length}/{maxFiles}. {minimumLabel}: {minFiles}.
             </p>
           </div>
 
@@ -140,7 +148,7 @@ export function ApplicationFileUploadField({
             disabled={isUploading || limitReached}
             className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-black transition-all hover:bg-slate-50 disabled:opacity-50"
           >
-            {limitReached ? "Limit reached" : chooseLabel}
+            {limitReached ? limitReachedLabel : chooseLabel}
           </button>
         </div>
       </div>

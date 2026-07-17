@@ -248,6 +248,55 @@ test("trainer/school fields map correctly (educatorYears fallback)", () => {
   assert.equal(c.bio, "Runs a beauty school.");
 });
 
+test("organization applications map their new fields into member profiles", () => {
+  const business = mapApplicationPayloadToProfile({
+    fullName: "Jane Owner",
+    packageName: "Business",
+    applicationData: {
+      firstName: "Jane",
+      lastName: "Owner",
+      businessDescription: "Owner of a multi-service beauty studio.",
+      professionalEducation: "Licensed cosmetologist.",
+      businessAchievements: "Local business award.",
+      businessIndustryContribution: "Creates jobs and mentors new specialists.",
+      businessPortfolioImages: ["https://example.com/work-1.jpg"],
+      bizType: "Studio",
+      businessCity: "Seattle",
+      businessCountry: "United States",
+      businessWebsite: "example.com",
+      businessInstagram: "@example_studio",
+      yearsExperience: "10+",
+    },
+  });
+  assert.equal(business.bio, "Owner of a multi-service beauty studio.");
+  assert.equal(business.credentials, "Licensed cosmetologist.");
+  assert.equal(business.achievements, "Local business award.");
+  assert.equal(business.city, "Seattle");
+  assert.deepEqual(business.workGalleryPhotos, ["https://example.com/work-1.jpg"]);
+
+  const brand = mapApplicationPayloadToProfile({
+    fullName: "Alex Contact",
+    packageName: "Brand",
+    applicationData: {
+      brandDescription: "Professional skincare brand.",
+      brandAchievements: "International exhibition award.",
+      brandIndustryContribution: "Supports product research.",
+      brandProductCategories: ["Skincare"],
+      brandCertifications: ["ISO", "Vegan"],
+      brandCity: "Toronto",
+      brandRegistrationCountry: "Canada",
+      brandWebsite: "brand.example",
+      brandInstagram: "@brand_example",
+      brandContactPhone: "+1 555 0100",
+    },
+  });
+  assert.equal(brand.bio, "Professional skincare brand.");
+  assert.equal(brand.achievements, "International exhibition award.");
+  assert.equal(brand.credentials, "ISO, Vegan");
+  assert.deepEqual(brand.specializations, ["Skincare"]);
+  assert.equal(brand.country, "Canada");
+});
+
 test("idempotency: second fill over a populated profile is a no-op", () => {
   const c = mapApplicationPayloadToProfile(annaApplication);
   const firstPass = computeProfileFill(null, c);

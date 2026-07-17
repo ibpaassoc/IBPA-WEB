@@ -185,6 +185,67 @@ export function filterApplicationRecords(
 
 export function buildMemberApplicationSections(application: MemberApplicationDetail) {
   const payload = payloadOf(application);
+  const membershipCategory = typeof payload.membershipCategory === "string"
+    ? payload.membershipCategory
+    : application.membershipCategory;
+
+  if (membershipCategory === "Business") {
+    return buildSections(payload, [
+      { title: applicationSectionTitles.summary, fields: ["membershipCategory", "applicantType", "businessCurrentPosition", "yearsExperience"] },
+      { title: "Applicant information", fields: ["firstName", "lastName", "preferredName", "dateOfBirth", "email", "phone", "country", "city"] },
+      { title: "Professional information", fields: ["professionalBiography", "professionalExperience", "professionalEducation", "professionalAchievements"] },
+      {
+        title: "Business information",
+        fields: [
+          "bizName", "bizType", "bizTypeOther", "bizYear", "businessCountry", "businessCity", "businessAddress",
+          "businessWebsite", "businessInstagram", "businessFacebook", "businessTikTok", "businessLinkedIn", "businessYouTube",
+          "businessOtherSocial", "bizTeamSize", "businessDescription", "bizServices", "businessAchievements", "businessMission",
+          "businessIndustryContribution",
+        ],
+      },
+      {
+        title: "Public presence",
+        fields: [
+          "businessMediaFeatured", "businessMediaDescription", "businessPublications", "businessSpeakingExperience",
+          "businessJudgingExperience", "businessProfessionalMemberships",
+        ],
+      },
+      { title: "Motivation", fields: ["whyJoin", "contributionDesc"] },
+      { title: applicationSectionTitles.legal, fields: ["certifyTrue", "additionalDocumentationConsent", "agreeStandards", "understandReview", "privacyConsent"] },
+    ]);
+  }
+
+  if (membershipCategory === "Brand") {
+    return buildSections(payload, [
+      { title: applicationSectionTitles.summary, fields: ["membershipCategory", "applicantType", "brandName", "brandType"] },
+      {
+        title: "Company information",
+        fields: [
+          "brandName", "brandType", "brandTypeOther", "brandYear", "brandRegistrationCountry", "brandCity", "brandAddress",
+          "brandWebsite", "brandInstagram", "brandFacebook", "brandSocialWebsite", "brandTikTok", "brandLinkedIn", "brandYouTube",
+          "brandPinterest", "brandOtherSocial", "brandPrimaryContact", "brandContactPosition", "brandContactPositionOther",
+          "brandContactEmail", "brandContactPhone",
+        ],
+      },
+      {
+        title: "About the company",
+        fields: [
+          "brandDescription", "brandMission", "brandValues", "brandProductsServices", "brandProductCategories",
+          "brandProductCategoryOther", "brandCatalogLinks", "brandOperatingCountries", "brandEmployeeCount",
+        ],
+      },
+      {
+        title: "Brand achievements",
+        fields: [
+          "brandAchievements", "brandCertifications", "brandCertificationOther", "brandPublicationsYesNo",
+          "brandPublicationsDetails", "brandExhibitionsYesNo", "brandExhibitionsDetails", "brandIndustryContribution",
+        ],
+      },
+      { title: "Cooperation with IBPA", fields: ["whyJoin", "brandCooperationMethods", "brandCooperationOther", "brandMemberBenefits", "brandMemberBenefitOther"] },
+      { title: "Additional links", fields: ["brandAdditionalLinks"] },
+      { title: applicationSectionTitles.legal, fields: ["certifyTrue", "additionalDocumentationConsent", "agreeStandards", "understandReview", "privacyConsent"] },
+    ]);
+  }
 
   const sections = [
     {
@@ -255,6 +316,23 @@ export function buildMemberApplicationSections(application: MemberApplicationDet
     .filter((section) => section.items.length > 0);
 }
 
+function buildSections(
+  payload: Record<string, unknown>,
+  sections: Array<{ title: string; fields: string[] }>,
+) {
+  return sections
+    .map<ApplicationFieldSection>((section) => ({
+      items: section.fields
+        .map((field) => ({
+          label: getApplicationFieldLabel(field),
+          value: formatApplicationValue(field, payload[field]),
+        }))
+        .filter((item) => item.value),
+      title: section.title,
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
 function fileListFromPayload(payload: Record<string, unknown>, key: string) {
   const value = payload[key];
   return Array.isArray(value)
@@ -263,7 +341,12 @@ function fileListFromPayload(payload: Record<string, unknown>, key: string) {
 }
 
 export function getPortfolioImages(application: MemberApplicationDetail) {
-  return fileListFromPayload(payloadOf(application), "portfolioImages");
+  const payload = payloadOf(application);
+  return [
+    ...fileListFromPayload(payload, "portfolioImages"),
+    ...fileListFromPayload(payload, "businessProfilePhotoFiles"),
+    ...fileListFromPayload(payload, "businessPortfolioImages"),
+  ];
 }
 
 export function getTrainerFileGroups(application: MemberApplicationDetail): ApplicationFileGroup[] {
@@ -282,5 +365,17 @@ export function getTrainerFileGroups(application: MemberApplicationDetail): Appl
       files: fileListFromPayload(payload, "trainerExperienceProofFiles"),
       title: getApplicationFieldLabel("trainerExperienceProofFiles"),
     },
+    ...[
+      "businessProfessionalCertificationFiles",
+      "businessSupportingDocumentFiles",
+      "businessClientTestimonialFiles",
+      "brandReviewFiles",
+      "brandProductFiles",
+      "brandAchievementDocumentFiles",
+      "brandSupportingDocumentFiles",
+    ].map((key) => ({
+      files: fileListFromPayload(payload, key),
+      title: getApplicationFieldLabel(key),
+    })),
   ].filter((group) => group.files.length > 0);
 }

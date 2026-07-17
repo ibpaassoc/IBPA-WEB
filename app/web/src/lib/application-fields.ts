@@ -1,4 +1,5 @@
 import { getMembershipCategory, membershipConfigById } from "@/lib/membership";
+import { organizationApplicationLabels } from "@/lib/organization-application";
 
 export const applicationFieldLabels = {
   portfolioImages: "Portfolio images",
@@ -155,7 +156,7 @@ export const applicationSectionTitles = {
 } as const;
 
 export function getApplicationFieldLabel(key: string) {
-  return applicationFieldLabels[key as ApplicationFieldKey] ?? humanizeKey(key);
+  return applicationFieldLabels[key as ApplicationFieldKey] ?? organizationApplicationLabels[key]?.en ?? humanizeKey(key);
 }
 
 export function formatApplicationValue(key: string, value: unknown): string {
