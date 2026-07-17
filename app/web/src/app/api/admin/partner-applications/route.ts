@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { getAdminProxyContext } from "@/lib/admin-proxy";
+import { requireAdminApi } from "@/lib/admin-api-auth";
 import { readBackendResponse } from "@/lib/read-backend-response";
 
 export async function GET(request: Request) {
-  const { backendUrl, authHeaders, error } = await getAdminProxyContext(request.url);
-  if (error || !authHeaders) return error!;
+  const adminAuth = await requireAdminApi(request);
+  if (!adminAuth.ok) return adminAuth.response;
+  const { backendUrl, authHeaders } = adminAuth;
 
   try {
     const sourceUrl = new URL(request.url);

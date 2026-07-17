@@ -1,4 +1,4 @@
-import { getAdminProxyContext } from "@/lib/admin-proxy";
+import { requireAdminApi } from "@/lib/admin-api-auth";
 import { readBackendResponse } from "@/lib/read-backend-response";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -17,8 +17,9 @@ function normalizeContentBody(body: Record<string, any>) {
 }
 
 export async function GET(req: Request) {
-  const { backendUrl, authHeaders, error } = await getAdminProxyContext(req.url);
-  if (error || !authHeaders) return error!;
+  const adminAuth = await requireAdminApi(req);
+  if (!adminAuth.ok) return adminAuth.response;
+  const { backendUrl, authHeaders } = adminAuth;
 
   try {
     const res = await fetch(`${backendUrl}/api/content/admin`, { cache: "no-store", headers: authHeaders });
@@ -39,8 +40,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: NextRequest) {
-  const { backendUrl, authHeaders, error } = await getAdminProxyContext(req.url);
-  if (error || !authHeaders) return error!;
+  const adminAuth = await requireAdminApi(req);
+  if (!adminAuth.ok) return adminAuth.response;
+  const { backendUrl, authHeaders } = adminAuth;
 
   try {
     const body = normalizeContentBody(await req.json());
