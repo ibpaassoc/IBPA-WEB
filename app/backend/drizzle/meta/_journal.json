@@ -92,6 +92,13 @@
       "when": 1781366400000,
       "tag": "0012_expand_profiles_for_dashboard_ownership",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784319600000,
+      "tag": "0013_change_event_price_to_text",
+      "breakpoints": true
     }
   ]
 }
