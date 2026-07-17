@@ -209,8 +209,10 @@ export function AdminApplicationsPage() {
     setBusyAction(action);
     try {
       await callback();
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Action failed.");
+      return false;
     } finally {
       setBusyAction(null);
     }
@@ -259,14 +261,25 @@ export function AdminApplicationsPage() {
     });
   };
 
-  const handleReview = () => {
-    if (!selectedApplication || selectedApplication.kind !== "member") return;
+  const handleReview = async (requestedChanges: string) => {
+    if (!selectedApplication || selectedApplication.kind !== "member") return false;
 
-    void runAction("review", async () => {
-      await moveMemberApplicationToReview(selectedApplication.id);
-      toast.success("Application moved to additional review.");
-      await refreshSelectedApplication();
-    });
+    setBusyAction("review");
+    try {
+      await moveMemberApplicationToReview(selectedApplication.id, requestedChanges);
+      toast.success("Edit request sent to the applicant.");
+      // Allow the dialog to close before the detail refresh temporarily clears
+      // the member record, which would otherwise remount the dialog as open.
+      window.setTimeout(() => {
+        void refreshSelectedApplication();
+      }, 0);
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Action failed.");
+      return false;
+    } finally {
+      setBusyAction(null);
+    }
   };
 
   const handleSaveMembershipCategory = () => {

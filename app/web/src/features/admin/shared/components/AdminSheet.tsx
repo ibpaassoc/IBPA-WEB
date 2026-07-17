@@ -69,8 +69,8 @@ export function AdminSheet({
             className,
           )}
         >
-          <div className="flex shrink-0 flex-col gap-4 border-b border-[#D9E4F2] bg-white/90 px-5 py-5 sm:px-7">
-            <div className="min-w-0">
+          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#D9E4F2] bg-white/90 px-5 py-5 sm:px-7">
+            <div className="min-w-0 flex-1">
               {eyebrow ? (
                 <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#8AA2BD]">
                   {eyebrow}
@@ -90,23 +90,21 @@ export function AdminSheet({
               ) : null}
             </div>
 
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
-              <div className="flex items-center gap-2">
-                {rightRail ? (
-                  <button
-                    aria-controls="admin-sheet-mobile-sidebar"
-                    aria-expanded={isMobileRightRailOpen}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D9E4F2] bg-white px-4 text-sm font-medium text-[#1F5D8F] shadow-sm transition-all hover:border-[#BDD0E8] hover:bg-[#EEF6FF] hover:text-[#10203B] xl:hidden"
-                    onClick={() => setIsMobileRightRailOpen(true)}
-                    type="button"
-                  >
-                    <PanelRightOpen className="size-4" />
-                    Actions
-                  </button>
-                ) : null}
+            <div className="flex shrink-0 items-center gap-2">
+              {rightRail ? (
+                <button
+                  aria-controls="admin-sheet-mobile-sidebar"
+                  aria-expanded={isMobileRightRailOpen}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#D9E4F2] bg-white px-4 text-sm font-medium text-[#1F5D8F] shadow-sm transition-all hover:border-[#BDD0E8] hover:bg-[#EEF6FF] hover:text-[#10203B] xl:hidden"
+                  onClick={() => setIsMobileRightRailOpen(true)}
+                  type="button"
+                >
+                  <PanelRightOpen className="size-4" />
+                  Actions
+                </button>
+              ) : null}
 
-                {actions}
-              </div>
+              {actions}
 
               <DialogPrimitive.Close
                 aria-label="Close"

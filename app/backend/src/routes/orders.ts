@@ -319,13 +319,27 @@ async function sendAdminPaymentLinkSentEmail(params: { email: string; name: stri
   });
 }
 
-async function sendReviewEmail(params: { email: string; name: string; }) {
+async function sendReviewEmail(params: { email: string; name: string; requestedChanges: string; editToken: string; }) {
+  const frontendUrl = getFrontendBaseUrl();
+  if (!frontendUrl) {
+    throw new Error("FRONTEND_URL is not configured");
+  }
+  const editUrl = `${frontendUrl}/application/edit?token=${encodeURIComponent(params.editToken)}`;
+
   return sendEmail({
     from: APPLICATIONS_SENDER,
     to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
     subject: "Your IBPA application requires additional review",
-    html: `<div style="font-family: Arial, sans-serif; padding: 20px;"><p>Hello ${escapeHtml(params.name || "there")},</p><p>Your application is currently under additional review. We will follow up with you soon.</p></div>`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 20px; color: #0f172a;">
+        <p>Hello ${escapeHtml(params.name || "there")},</p>
+        <p>Our review team needs a few updates to your IBPA application before we can continue.</p>
+        <p style="white-space: pre-wrap; padding: 16px; background: #f8fafc; border-radius: 12px;"><strong>Requested changes:</strong><br>${escapeHtml(params.requestedChanges)}</p>
+        <p>Please use the button below to edit your full application and upload any updated files. When you submit it, your application will return to the review queue.</p>
+        <p style="margin: 28px 0;"><a href="${escapeHtml(editUrl)}" style="display: inline-block; background: #1F5D8F; color: #fff; padding: 14px 22px; border-radius: 10px; text-decoration: none; font-weight: bold;">Edit application</a></p>
+      </div>
+    `,
   });
 }
 
@@ -620,6 +634,111 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
     }
     console.error("Failed to fetch orders:", error);
     return res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+
+function getAdditionalReviewDetails(application: typeof coreApplications.$inferSelect) {
+  const review = asRecord(asRecord(application.applicationData).additionalReview);
+  return {
+    editToken: textValue(review.editToken),
+    requestedChanges: textValue(review.requestedChanges),
+  };
+}
+
+async function findApplicationForReviewEditToken(db: ReturnType<typeof requireDb>, token: string) {
+  const applications = await db
+    .select()
+    .from(coreApplications)
+    .where(and(eq(coreApplications.type, "MEMBER"), eq(coreApplications.status, "UNDER_REVIEW")));
+
+  return applications.find((application: typeof coreApplications.$inferSelect) => getAdditionalReviewDetails(application).editToken === token) ?? null;
+}
+
+ordersRouter.get("/review-edit", async (req, res) => {
+  const token = getSingleValue(req.query?.token)?.trim() || "";
+  if (!token) {
+    return res.status(400).json({ error: "Invalid application edit link." });
+  }
+
+  try {
+    const application = await findApplicationForReviewEditToken(requireDb(), token);
+    if (!application) {
+      return res.status(404).json({ error: "This application edit link is invalid or has already been used." });
+    }
+
+    const review = getAdditionalReviewDetails(application);
+    return res.json({
+      application: application.applicationData,
+      requestedChanges: review.requestedChanges,
+    });
+  } catch (error) {
+    console.error("Failed to load application for additional review edit", error);
+    return res.status(500).json({ error: "Could not load this application." });
+  }
+});
+
+ordersRouter.patch("/review-edit", async (req, res) => {
+  const token = getSingleValue(req.body?.token)?.trim() || "";
+  const applicationData = req.body?.application;
+  const membershipPackage = normalizeMembershipPackage(req.body?.package);
+  const safeEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const safeName = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+
+  if (!token || !applicationData || typeof applicationData !== "object" || Array.isArray(applicationData)) {
+    return res.status(400).json({ error: "Invalid application update." });
+  }
+  if (!isValidEmail(safeEmail) || safeName.length < 2 || safeName.length > 120) {
+    return res.status(400).json({ error: "Please provide a valid name and email address." });
+  }
+  if (!membershipPackage || !ALLOWED_MEMBERSHIP_PACKAGES.has(membershipPackage)) {
+    return res.status(400).json({ error: "Unsupported membership package." });
+  }
+
+  try {
+    const db = requireDb();
+    const existing = await findApplicationForReviewEditToken(db, token);
+    if (!existing) {
+      return res.status(404).json({ error: "This application edit link is invalid or has already been used." });
+    }
+
+    const userResult = await ensureCanonicalUser(db, {
+      email: safeEmail,
+      clerkId: null,
+      role: "MEMBER",
+      status: "ACTIVE",
+    });
+
+    const existingPayload = asRecord(existing.applicationData);
+    const normalizedApplication = {
+      ...(applicationData as Record<string, unknown>),
+      membershipCategory: membershipPackage,
+      accountType: "member",
+      applicantType: MEMBERSHIP_APPLICANT_TYPES[membershipPackage],
+      additionalReview: {
+        ...asRecord(existingPayload.additionalReview),
+        editToken: null,
+        resubmittedAt: new Date().toISOString(),
+      },
+    };
+    const applicantPhone = textValue((applicationData as Record<string, unknown>).phone).slice(0, 50) || null;
+
+    await db
+      .update(coreApplications)
+      .set({
+        fullName: safeName,
+        email: safeEmail,
+        userId: userResult.record.id,
+        packageName: membershipPackage,
+        phone: applicantPhone,
+        applicationData: normalizedApplication,
+        status: "SUBMITTED",
+      })
+      .where(eq(coreApplications.id, existing.id));
+
+    return res.json({ success: true, status: "pending" });
+  } catch (error) {
+    console.error("Failed to save additional review application update", error);
+    return res.status(500).json({ error: "Could not save your application changes." });
   }
 });
 
@@ -1074,8 +1193,12 @@ ordersRouter.post("/payment-link", async (req, res) => {
 
 ordersRouter.post("/admin/review", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
   const orderId = getSingleValue(req.body?.orderId);
+  const requestedChanges = textValue(req.body?.requestedChanges);
   if (!orderId) {
     return res.status(400).json({ error: "Invalid order id" });
+  }
+  if (requestedChanges.length < 3 || requestedChanges.length > 5000) {
+    return res.status(400).json({ error: "Describe the requested changes in 3 to 5,000 characters." });
   }
 
   try {
@@ -1085,11 +1208,40 @@ ordersRouter.post("/admin/review", adminClerkMiddleware, requireAdminAccess, asy
       return res.status(404).json({ error: "Order not found" });
     }
 
-    await db.update(coreApplications).set({ status: "UNDER_REVIEW" }).where(eq(coreApplications.id, orderId));
+    if (application.type !== "MEMBER") {
+      return res.status(400).json({ error: "Additional review is only available for member applications." });
+    }
+
+    const editToken = crypto.randomUUID();
+    const nextApplicationData = {
+      ...asRecord(application.applicationData),
+      additionalReview: {
+        requestedChanges,
+        editToken,
+        requestedAt: new Date().toISOString(),
+      },
+    };
+    await db
+      .update(coreApplications)
+      .set({
+        status: "UNDER_REVIEW",
+        applicationData: nextApplicationData,
+      })
+      .where(eq(coreApplications.id, orderId));
     try {
-      await sendReviewEmail({ email: application.email, name: application.fullName });
+      await sendReviewEmail({
+        email: application.email,
+        name: application.fullName,
+        requestedChanges,
+        editToken,
+      });
     } catch (emailError) {
       console.error("Additional review email failed", emailError);
+      await db
+        .update(coreApplications)
+        .set({ status: application.status, applicationData: application.applicationData })
+        .where(eq(coreApplications.id, orderId));
+      return res.status(502).json({ error: "The edit request email could not be sent. The application was left unchanged." });
     }
 
     return res.json({ success: true, status: "review" });

@@ -347,6 +347,15 @@ function getStepFields(step: number, category: MembershipCategory): (keyof FormD
   }
 }
 
+function getReviewEditToken() {
+  const params = new URLSearchParams(window.location.search);
+  return (params.get("token") || params.get("review") || "").trim();
+}
+
+function isDedicatedApplicationEditRoute() {
+  return window.location.pathname === "/application/edit";
+}
+
 export default function ApplyPage() {
   const { locale } = useI18n();
   const isRu = locale === "ru";
@@ -361,6 +370,11 @@ export default function ApplyPage() {
   const [submitted, setSubmitted] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [honeypot, setHoneypot] = React.useState("");
+  const [reviewToken, setReviewToken] = React.useState("");
+  const [isReviewEdit, setIsReviewEdit] = React.useState(false);
+  const [isReviewLoading, setIsReviewLoading] = React.useState(false);
+  const [reviewLoadError, setReviewLoadError] = React.useState("");
+  const [requestedChanges, setRequestedChanges] = React.useState("");
   const isFinalStep = currentStep === STEPS.length - 1;
 
   const {
@@ -401,6 +415,10 @@ export default function ApplyPage() {
       return;
     }
 
+    if (getReviewEditToken() || isDedicatedApplicationEditRoute()) {
+      return;
+    }
+
     const savedDraft = window.localStorage.getItem(APPLY_DRAFT_KEY);
     if (!savedDraft) {
       return;
@@ -429,6 +447,55 @@ export default function ApplyPage() {
   }, [reset]);
 
   React.useEffect(() => {
+    const token = getReviewEditToken();
+    if (!token) {
+      if (isDedicatedApplicationEditRoute()) {
+        setReviewLoadError("This application edit link is invalid or incomplete.");
+      }
+      return;
+    }
+
+    setReviewToken(token);
+    setIsReviewLoading(true);
+    setReviewLoadError("");
+
+    void fetch(`/api/application-review?token=${encodeURIComponent(token)}`, { cache: "no-store" })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(typeof payload.error === "string" ? payload.error : "Could not load this application.");
+        }
+        if (!payload.application || typeof payload.application !== "object" || Array.isArray(payload.application)) {
+          throw new Error("Could not load this application.");
+        }
+
+        const savedApplication = payload.application as Partial<FormData>;
+        const savedCategory = getMembershipCategory(savedApplication.membershipCategory);
+        reset(
+          {
+            applicantType: membershipConfigById.Specialist.applicantType,
+            portfolioImages: [],
+            trainerEducationPlanFiles: [],
+            trainerCertificateFiles: [],
+            trainerExperienceProofFiles: [],
+            specialization: [],
+            hasLicense: "Yes",
+            ...savedApplication,
+            membershipCategory: savedCategory || "Specialist",
+          },
+          { keepDefaultValues: true },
+        );
+        setRequestedChanges(typeof payload.requestedChanges === "string" ? payload.requestedChanges : "");
+        setIsReviewEdit(true);
+      })
+      .catch((error) => {
+        setReviewLoadError(error instanceof Error ? error.message : "Could not load this application.");
+      })
+      .finally(() => setIsReviewLoading(false));
+  }, [reset]);
+
+  React.useEffect(() => {
+    if (reviewToken) return;
     const params = new URLSearchParams(window.location.search);
     const category = getMembershipCategory(params.get("category"));
     if (!category) {
@@ -436,7 +503,7 @@ export default function ApplyPage() {
     }
 
     setValue("membershipCategory", category, { shouldDirty: false, shouldTouch: false });
-  }, [setValue]);
+  }, [reviewToken, setValue]);
 
   React.useEffect(() => {
     setValue("applicantType", (membershipConfigById[selectedCategory] || membershipConfigById.Specialist).applicantType, {
@@ -468,7 +535,7 @@ export default function ApplyPage() {
 
   React.useEffect(() => {
     const subscription = watch((value) => {
-      if (typeof window === "undefined" || submitted) {
+      if (typeof window === "undefined" || submitted || reviewToken) {
         return;
       }
 
@@ -476,7 +543,7 @@ export default function ApplyPage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [submitted, watch]);
+  }, [reviewToken, submitted, watch]);
 
   const portfolioImages = watch("portfolioImages") || [];
   const trainerEducationPlanFiles = watch("trainerEducationPlanFiles") || [];
@@ -601,8 +668,9 @@ export default function ApplyPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/orders", {
-        method: "POST",
+      const isResubmission = Boolean(reviewToken && isReviewEdit);
+      const response = await fetch(isResubmission ? "/api/application-review" : "/api/orders", {
+        method: isResubmission ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -612,7 +680,7 @@ export default function ApplyPage() {
           package: data.membershipCategory,
           applicantType: data.applicantType,
           application: data,
-          honeypot,
+          ...(isResubmission ? { token: reviewToken } : { honeypot }),
         }),
       });
 
@@ -672,6 +740,25 @@ export default function ApplyPage() {
     );
   }
 
+  if (isReviewLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center bg-white px-6 text-center text-slate-600">
+        Loading your application…
+      </div>
+    );
+  }
+
+  if (reviewLoadError) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center bg-white px-6 text-center">
+        <div className="max-w-lg rounded-[28px] border border-red-100 bg-red-50 p-8 text-red-900">
+          <h1 className="text-2xl font-semibold">Application edit link unavailable</h1>
+          <p className="mt-3 text-sm leading-6">{reviewLoadError}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white min-h-screen selection:bg-[#B9D9EB] selection:text-black pb-24">
       <section className="relative min-h-[44vh] flex items-center justify-center overflow-hidden bg-[#F1F3F5]">
@@ -685,7 +772,7 @@ export default function ApplyPage() {
         <div className="relative z-10 max-w-6xl mx-auto px-6 pt-20 pb-16 text-center space-y-6">
           <p className="text-[10px] uppercase tracking-[0.5em] text-[#708090]">{isRu ? "Заявка в сообщество" : isUk ? "Заявка до спільноти" : "Membership application"}</p>
           <h1 className={`text-6xl sm:text-7xl md:text-9xl uppercase leading-[0.92] text-slate-900 ${headlineClassName}`}>
-            {isRu ? <>Подать заявку в <span className="text-[#72A0C1]">IBPA</span></> : isUk ? <>Подати заявку до <span className="text-[#72A0C1]">IBPA</span></> : <>Apply for <span className="text-[#72A0C1]">IBPA</span></>}
+            {isReviewEdit ? <>Update <span className="text-[#72A0C1]">application</span></> : isRu ? <>Подать заявку в <span className="text-[#72A0C1]">IBPA</span></> : isUk ? <>Подати заявку до <span className="text-[#72A0C1]">IBPA</span></> : <>Apply for <span className="text-[#72A0C1]">IBPA</span></>}
           </h1>
           <p className="max-w-3xl mx-auto text-lg md:text-xl text-slate-600 font-light leading-relaxed">
             {isRu
@@ -698,6 +785,13 @@ export default function ApplyPage() {
       </section>
 
       <div className="max-w-6xl mx-auto px-6 -mt-12 relative z-20">
+        {isReviewEdit ? (
+          <div className="mb-6 rounded-[28px] border border-[#B9D9EB] bg-[#F0F8FF] p-6 text-slate-800 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1F5D8F]">Requested changes</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{requestedChanges}</p>
+            <p className="mt-3 text-sm text-slate-600">Update any part of your application, including files, then submit it for another review.</p>
+          </div>
+        ) : null}
         <div className="bg-white/90 backdrop-blur-xl border border-slate-100 rounded-[40px] shadow-2xl p-4 md:p-8 flex justify-between gap-3 overflow-x-auto no-scrollbar">
           {STEPS.map((step, index) => (
             <div key={step.id} className="flex flex-col items-center gap-2 min-w-20">
@@ -1189,7 +1283,7 @@ export default function ApplyPage() {
                 }}
                 className="ml-auto px-12 py-6 bg-[#B9D9EB] text-black rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-4 hover:scale-105 transition-all shadow-2xl disabled:opacity-60"
               >
-                {isSubmitting ? (isRu ? "Отправка..." : isUk ? "Надсилання..." : "Submitting...") : (isRu ? "Отправить заявку" : isUk ? "Надіслати заявку" : "Submit Application")} <Send size={18} />
+                {isSubmitting ? (isRu ? "Отправка..." : isUk ? "Надсилання..." : "Submitting...") : (isReviewEdit ? "Resubmit Application" : isRu ? "Отправить заявку" : isUk ? "Надіслати заявку" : "Submit Application")} <Send size={18} />
               </button>
             )}
           </div>

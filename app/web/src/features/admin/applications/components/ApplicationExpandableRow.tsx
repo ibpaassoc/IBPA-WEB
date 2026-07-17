@@ -35,7 +35,7 @@ type ApplicationExpandableRowProps = {
   onPartnerTierChange: (value: string) => void;
   onReject: () => void;
   onResendPaymentLink: () => void;
-  onReview: () => void;
+  onReview: (requestedChanges: string) => Promise<boolean>;
   onSaveMembershipCategory: () => void;
   onUploadAdditionalFile: (
     url: string,
