@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import type { ArticleEditorState } from "../types/article-admin.types";
+import { ArticlePreviewCard } from "./ArticlePreviewCard";
 
 type ArticleEditorFormProps = {
   form: ArticleEditorState;
@@ -119,6 +120,9 @@ export function ArticleEditorForm({
         }
         onDirtyChange={setHasPendingImageChanges}
         onError={(message) => toast.error(message)}
+        renderCardPreview={(imageMetadata) => (
+          <ArticlePreviewCard draft={{ ...form, imageMetadata }} />
+        )}
         value={form.imageMetadata}
       />
 

@@ -2,6 +2,7 @@
 
 import { ImagePlus, Loader2, Minus, RotateCcw, Trash2, ZoomIn } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Cropper, { type Area, type MediaSize } from "react-easy-crop";
 
 import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
@@ -87,6 +88,7 @@ type ContentImageEditorProps = {
   onDirtyChange?: (dirty: boolean) => void;
   onError?: (message: string) => void;
   className?: string;
+  renderCardPreview?: (metadata: ContentImageMetadata) => ReactNode;
 };
 
 function percentCropToNormalized(area: Area): NormalizedImageCrop {
@@ -125,6 +127,7 @@ export function ContentImageEditor({
   onDirtyChange,
   onError,
   className,
+  renderCardPreview,
 }: ContentImageEditorProps) {
   const resolved = useMemo(
     () => resolveContentImage({ metadata: value, legacyUrl, legacyAspect, alt }),
@@ -473,16 +476,20 @@ export function ContentImageEditor({
               <div className="grid items-start gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <p className="text-xs text-[#6C7F95]">{labels.cardPreview}</p>
-                  <InteractiveContentImage
-                    alt={alt}
-                    className="rounded-[18px]"
-                    closeLabel={labels.closeViewer}
-                    errorLabel={labels.imageLoadFailed}
-                    loadingLabel={labels.loadingImage}
-                    metadata={draftMetadata}
-                    openLabel={labels.openFullImage}
-                    sizes="(min-width: 768px) 340px, 100vw"
-                  />
+                  {renderCardPreview ? (
+                    renderCardPreview(draftMetadata)
+                  ) : (
+                    <InteractiveContentImage
+                      alt={alt}
+                      className="rounded-[18px]"
+                      closeLabel={labels.closeViewer}
+                      errorLabel={labels.imageLoadFailed}
+                      loadingLabel={labels.loadingImage}
+                      metadata={draftMetadata}
+                      openLabel={labels.openFullImage}
+                      sizes="(min-width: 768px) 340px, 100vw"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <p className="text-xs text-[#6C7F95]">{labels.viewerPreview}</p>

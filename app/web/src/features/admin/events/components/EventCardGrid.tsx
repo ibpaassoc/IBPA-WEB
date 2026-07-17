@@ -2,22 +2,19 @@
 
 import * as Collapsible from "@radix-ui/react-collapsible";
 import {
-  CalendarDays,
   ChevronDown,
   Copy,
   Globe,
   LayoutDashboard,
-  MapPin,
   Pencil,
-  Pin,
   Trash2,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { EventCard } from "@/components/content/EventCard";
 import { Button } from "@/components/ui/button";
-import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -78,30 +75,6 @@ function EventCardSkeleton() {
         <Skeleton className="h-7 w-24 rounded-full" />
         <Skeleton className="size-7 rounded-full" />
       </div>
-    </div>
-  );
-}
-
-function EventThumbnail({ event }: { event: AdminEvent }) {
-  if (!event.coverImage) {
-    return (
-      <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-24">
-        <CalendarDays className="size-6 text-[#BFD3EA]" strokeWidth={1.25} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-24">
-      <InteractiveContentImage
-        alt={event.title}
-        caption={event.body}
-        className="h-full rounded-2xl"
-        legacyAspect={event.coverAspect ?? event.cover_aspect}
-        legacyUrl={event.coverImage}
-        metadata={event.imageMetadata}
-        sizes="96px"
-      />
     </div>
   );
 }
@@ -227,62 +200,37 @@ export function EventCardGrid({
 
         return (
           <Collapsible.Root key={event.id} open={isExpanded}>
-
-            {/* ── Card ─────────────────────────────────────────────────── */}
-            <article
+            <EventCard
               className={cn(
-                "group flex cursor-pointer flex-col border bg-white transition-all duration-200 ease-out",
-                isExpanded
-                  ? "rounded-t-[24px] rounded-b-none border-b-0 shadow-none"
-                  : "rounded-[24px] shadow-[0_2px_12px_rgba(15,46,83,0.07)] hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(15,46,83,0.11)]",
+                "transition-all duration-200 ease-out",
+                isExpanded ? "rounded-b-none border-b-0 shadow-none" : "hover:-translate-y-0.5",
                 isSelected
                   ? "border-[#1F5D8F] ring-2 ring-[#1F5D8F]/15"
                   : "border-[#D7E5F4]",
               )}
-              onClick={() => toggleExpand(event.id)}
-            >
-              {/* Top content */}
-              <div className="flex gap-3 p-4 pb-3">
-                <EventThumbnail event={event} />
-
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-
-                  {/* Title + pin */}
-                  <div className="flex items-start gap-1.5">
-                    <h3 className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-snug text-[#10203B]">
-                      {event.title}
-                    </h3>
-                    {event.isPinned ? (
-                      <Pin
-                        aria-label="Pinned"
-                        className="mt-0.5 size-3 shrink-0 text-[#1F5D8F]"
-                      />
-                    ) : null}
-                  </div>
-
-                  {/* Date + location meta */}
-                  <dl className="flex flex-col gap-1">
-                    {event.eventDate ? (
-                      <div className="flex items-center gap-1.5 text-[11px] text-[#6C7F95]">
-                        <CalendarDays className="size-3 shrink-0 text-[#8AA2BD]" />
-                        <span className="truncate tabular-nums">
-                          {formatAdminDate(event.eventDate)}
-                          {event.eventEndDate
-                            ? ` → ${formatAdminDate(event.eventEndDate)}`
-                            : ""}
-                        </span>
-                      </div>
-                    ) : null}
-                    {event.eventAddress ? (
-                      <div className="flex items-center gap-1.5 text-[11px] text-[#6C7F95]">
-                        <MapPin className="size-3 shrink-0 text-[#8AA2BD]" />
-                        <span className="truncate">{event.eventAddress}</span>
-                      </div>
-                    ) : null}
-                  </dl>
-
-                  {/* Publish icons + price pill */}
-                  <div className="mt-auto flex items-center gap-2 pt-1">
+              event={{
+                title: event.title,
+                coverImage: event.coverImage,
+                coverAspect: event.coverAspect ?? event.cover_aspect,
+                imageMetadata: event.imageMetadata,
+                eyebrow: event.isPinned ? "Pinned" : null,
+              }}
+              imageSizes="112px"
+              meta={[
+                ...(event.eventDate
+                  ? [{
+                      kind: "date" as const,
+                      value: `${formatAdminDate(event.eventDate)}${
+                        event.eventEndDate ? ` → ${formatAdminDate(event.eventEndDate)}` : ""
+                      }`,
+                    }]
+                  : []),
+                ...(event.eventAddress
+                  ? [{ kind: "location" as const, value: event.eventAddress }]
+                  : []),
+              ]}
+              badges={
+                <div className="flex flex-wrap items-center gap-2">
                     <PublishIcons
                       publishToDashboard={event.publishToDashboard}
                       publishToSite={event.publishToSite}
@@ -296,21 +244,14 @@ export function EventCardGrid({
                         {priceLabel}
                       </span>
                     )}
-                  </div>
-
                 </div>
-              </div>
-
-              {/* ── Action row ─────────────────────────────────────────── */}
-              <div
-                className="flex items-center gap-0.5 border-t border-[#E4EEF8] px-3 py-2"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Edit */}
+              }
+              footer={
+                <div className="flex items-center gap-0.5">
                 <Button
                   aria-label="Edit event"
                   className="size-8 rounded-full text-[#55708D] hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
-                  onClick={(e) => { e.stopPropagation(); onEdit(event); }}
+                  onClick={() => onEdit(event)}
                   size="icon"
                   type="button"
                   variant="ghost"
@@ -318,11 +259,10 @@ export function EventCardGrid({
                   <Pencil className="size-3.5" />
                 </Button>
 
-                {/* Duplicate */}
                 <Button
                   aria-label="Duplicate event"
                   className="size-8 rounded-full text-[#55708D] hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
-                  onClick={(e) => { e.stopPropagation(); onDuplicate(event); }}
+                  onClick={() => onDuplicate(event)}
                   size="icon"
                   type="button"
                   variant="ghost"
@@ -332,12 +272,11 @@ export function EventCardGrid({
 
                 <div className="flex-1" />
 
-                {/* Registrations toggle */}
                 <button
                   aria-expanded={isExpanded}
                   aria-label={isExpanded ? "Collapse registrations" : "Show registrations"}
                   className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium text-[#8AA2BD] transition-colors hover:bg-[#EEF6FF] hover:text-[#1F5D8F]"
-                  onClick={(e) => { e.stopPropagation(); toggleExpand(event.id); }}
+                  onClick={() => toggleExpand(event.id)}
                   type="button"
                 >
                   <Users className="size-3" />
@@ -350,27 +289,26 @@ export function EventCardGrid({
                   />
                 </button>
 
-                {/* Delete */}
                 <Button
                   aria-label="Delete event"
                   className="size-8 rounded-full text-[#55708D] hover:bg-[#FFF3F3] hover:text-[#B42318]"
-                  onClick={(e) => { e.stopPropagation(); onDelete(event); }}
+                  onClick={() => onDelete(event)}
                   size="icon"
                   type="button"
                   variant="ghost"
                 >
                   <Trash2 className="size-3.5" />
                 </Button>
-              </div>
-            </article>
+                </div>
+              }
+              variant="compact"
+            />
 
-            {/* ── Registrations panel ───────────────────────────────────── */}
             <Collapsible.Content className="overflow-hidden rounded-b-[24px] border border-t-0 border-[#D7E5F4] bg-white data-[state=closed]:animate-[collapsible-up_200ms_ease] data-[state=open]:animate-[collapsible-down_220ms_ease]">
               <div className="p-4 pt-3">
                 <EventRegistrationsPanel eventId={event.id} skip={!isExpanded} />
               </div>
             </Collapsible.Content>
-
           </Collapsible.Root>
         );
       })}

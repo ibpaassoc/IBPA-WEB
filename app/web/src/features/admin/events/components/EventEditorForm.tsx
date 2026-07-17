@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { ContentImageEditor } from "@/components/content/ContentImageEditor";
+import { EventCard } from "@/components/content/EventCard";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -171,6 +172,24 @@ export function EventEditorForm({
         }
         onDirtyChange={setHasPendingImageChanges}
         onError={(message) => toast.error(message)}
+        renderCardPreview={(imageMetadata) => (
+          <EventCard
+            event={{
+              title: form.title || "Event title",
+              description: form.body || "Event details",
+              coverImage: imageMetadata.url,
+              coverAspect: form.coverAspect,
+              imageMetadata,
+              eyebrow: "Admin preview",
+            }}
+            meta={[
+              ...(form.eventDate ? [{ kind: "date" as const, value: form.eventDate }] : []),
+              ...(form.eventAddress ? [{ kind: "location" as const, value: form.eventAddress }] : []),
+              ...(form.price ? [{ kind: "price" as const, value: form.price }] : []),
+            ]}
+            variant="admin"
+          />
+        )}
         value={form.imageMetadata}
       />
 
