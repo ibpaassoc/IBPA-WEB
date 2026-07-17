@@ -47,6 +47,13 @@ const aspectValues: Record<Exclude<ContentImageAspect, "original">, number> = {
   "3:4": 3 / 4,
 };
 
+export function getContentImageAspectValue(
+  aspect: ContentImageAspect,
+  originalAspect = 16 / 9,
+) {
+  return aspect === "original" ? originalAspect : aspectValues[aspect];
+}
+
 function finitePositive(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value

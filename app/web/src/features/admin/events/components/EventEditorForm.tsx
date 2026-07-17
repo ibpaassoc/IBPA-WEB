@@ -1,9 +1,10 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
-import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
+import { ContentImageEditor } from "@/components/content/ContentImageEditor";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -34,6 +35,7 @@ export function EventEditorForm({
   onReset,
   onSave,
 }: EventEditorFormProps) {
+  const [hasPendingImageChanges, setHasPendingImageChanges] = useState(false);
   const patch = (next: Partial<EventEditorState>) => onChange({ ...form, ...next });
 
   return (
@@ -41,6 +43,10 @@ export function EventEditorForm({
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
+        if (hasPendingImageChanges) {
+          toast.error("Apply or cancel the current image adjustments first.");
+          return;
+        }
         onSave();
       }}
     >
@@ -144,21 +150,28 @@ export function EventEditorForm({
           <FieldLabel htmlFor="event-cover">Cover image URL</FieldLabel>
           <Input
             id="event-cover"
-            onChange={(event) => patch({ coverImage: event.target.value })}
+            onChange={(event) => patch({ coverImage: event.target.value, imageMetadata: null })}
             placeholder="https://..."
             value={form.coverImage}
           />
         </Field>
       </FieldGroup>
 
-      <AdminUploadZone
-        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-        buttonText="Choose image"
-        endpoint="contentImageUploader"
-        helperText="JPG, PNG, WEBP up to 16 MB."
-        label="Upload event cover"
+      <ContentImageEditor
+        key={`${form.id || "new-event"}:${form.coverImage}`}
+        alt={form.title || "Event cover"}
+        legacyAspect={form.coverAspect}
+        legacyUrl={form.coverImage}
+        onChange={(imageMetadata, coverAspect) =>
+          patch({
+            coverAspect,
+            coverImage: imageMetadata?.url || "",
+            imageMetadata,
+          })
+        }
+        onDirtyChange={setHasPendingImageChanges}
         onError={(message) => toast.error(message)}
-        onUploaded={(url, metadata) => patch({ coverAspect: metadata?.aspect ?? form.coverAspect, coverImage: url })}
+        value={form.imageMetadata}
       />
 
       <FieldGroup>

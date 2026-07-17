@@ -59,6 +59,7 @@ function ArticleThumbnail({ article }: { article: AdminArticle }) {
         className="h-full rounded-2xl"
         legacyAspect={article.coverAspect ?? article.cover_aspect}
         legacyUrl={article.coverImage}
+        metadata={article.imageMetadata}
         sizes="112px"
       />
     </div>

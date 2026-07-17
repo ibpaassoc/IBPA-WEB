@@ -95,7 +95,7 @@ function ContentImageAsset({
   const aspect = getContentImageAspect(image);
   const cropStyle = getCroppedImageStyle(image);
   const isRemote = /^https?:\/\//i.test(image.url);
-  const useNextImage = !isRemote || isOptimizableRemoteUrl(image.url);
+  const useNextImage = image.url.startsWith("/") || (isRemote && isOptimizableRemoteUrl(image.url));
   const baseImageClassName = cn(
     cropStyle ? "object-fill" : "h-full w-full object-cover",
     "transition-opacity duration-200",

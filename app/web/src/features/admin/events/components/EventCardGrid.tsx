@@ -99,6 +99,7 @@ function EventThumbnail({ event }: { event: AdminEvent }) {
         className="h-full rounded-2xl"
         legacyAspect={event.coverAspect ?? event.cover_aspect}
         legacyUrl={event.coverImage}
+        metadata={event.imageMetadata}
         sizes="96px"
       />
     </div>

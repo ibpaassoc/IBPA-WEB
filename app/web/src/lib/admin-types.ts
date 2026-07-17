@@ -1,3 +1,5 @@
+import type { ContentImageMetadata } from "@/lib/content-image";
+
 export type OrderStatus = "pending" | "review" | "rejected" | "approved" | "paid";
 
 export type ApplicationPayload = Record<string, unknown> | null;
@@ -99,6 +101,7 @@ export type AdminContentItem = {
   coverImage?: string | null;
   coverAspect?: number | null;
   cover_aspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   eventAddress?: string | null;
   eventAllDay?: boolean;
   eventDate?: string | null;

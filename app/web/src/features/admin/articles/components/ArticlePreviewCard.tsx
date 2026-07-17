@@ -22,6 +22,7 @@ export function ArticlePreviewCard({ article, draft }: ArticlePreviewCardProps) 
   const publishedLabel = article ? getArticleVisibility(article) : "Draft preview";
   const coverImage = draft?.coverImage || article?.coverImage;
   const coverAspect = draft?.coverAspect ?? article?.coverAspect ?? article?.cover_aspect;
+  const imageMetadata = draft?.imageMetadata ?? article?.imageMetadata;
 
   return (
     <div className="flex flex-col gap-5 rounded-[24px] border border-[#D7E5F4] bg-white p-6 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
@@ -40,6 +41,7 @@ export function ArticlePreviewCard({ article, draft }: ArticlePreviewCardProps) 
           className="rounded-[20px]"
           legacyAspect={coverAspect}
           legacyUrl={coverImage}
+          metadata={imageMetadata}
           sizes="(min-width: 768px) 720px, 100vw"
         />
       ) : null}

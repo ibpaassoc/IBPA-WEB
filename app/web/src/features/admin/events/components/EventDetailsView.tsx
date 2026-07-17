@@ -51,6 +51,7 @@ export function EventDetailsView({ counts, event }: EventDetailsViewProps) {
             className="rounded-[20px]"
             legacyAspect={event.coverAspect ?? event.cover_aspect}
             legacyUrl={event.coverImage}
+            metadata={event.imageMetadata}
             sizes="(min-width: 768px) 720px, 100vw"
           />
         ) : null}
