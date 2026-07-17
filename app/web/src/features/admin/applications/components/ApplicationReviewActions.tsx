@@ -9,8 +9,16 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 import type {
   AdminApplicationRecord,
@@ -25,7 +33,7 @@ type ApplicationReviewActionsProps = {
   busyAction: string | null;
   onApprove: () => void;
   onReject: () => void;
-  onReview?: () => void;
+  onReview?: (requestedChanges: string) => Promise<boolean>;
   onResendPaymentLink?: () => void;
   onDelete: () => void;
 };
@@ -41,9 +49,12 @@ export function ApplicationReviewActions({
   partnerApplication,
   record,
 }: ApplicationReviewActionsProps) {
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [requestedChanges, setRequestedChanges] = useState("");
   const isBusy = Boolean(busyAction);
   const memberStatus = memberApplication?.status;
-  const canReview = record.kind === "member" && memberStatus === "pending";
+  const canReview = record.kind === "member" && (memberStatus === "pending" || memberStatus === "review");
+  const isAlreadyInReview = memberStatus === "review";
   const canApprove =
     record.kind === "partner" || memberStatus === "pending" || memberStatus === "review";
   const canResend = record.kind === "member" && memberStatus === "approved";
@@ -85,20 +96,66 @@ export function ApplicationReviewActions({
 
         <div className="grid gap-2">
           {canReview && onReview ? (
-            <Button
-              className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
-              disabled={isBusy}
-              onClick={onReview}
-              type="button"
-              variant="outline"
-            >
-              {busyAction === "review" ? (
-                <Loader2 className="animate-spin" data-icon="inline-start" />
-              ) : (
+            <>
+              <Button
+                className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
+                disabled={isBusy}
+                onClick={() => setIsReviewDialogOpen(true)}
+                type="button"
+                variant="outline"
+              >
                 <ShieldAlert data-icon="inline-start" />
-              )}
-              Send to additional review
-            </Button>
+                {isAlreadyInReview ? "Send updated edit request" : "Send to additional review"}
+              </Button>
+
+              <Dialog
+                onOpenChange={(open) => {
+                  setIsReviewDialogOpen(open);
+                  if (!open && busyAction !== "review") setRequestedChanges("");
+                }}
+                open={isReviewDialogOpen}
+              >
+                <DialogContent className="max-w-lg rounded-[24px]">
+                  <DialogTitle className="text-lg font-semibold text-[#10203B]">
+                    Request application changes
+                  </DialogTitle>
+                  <DialogDescription className="text-sm leading-6 text-[#6C7F95]">
+                    Tell the applicant exactly what needs to be updated. They will receive these notes and a secure link to edit their complete application.
+                  </DialogDescription>
+                  <Textarea
+                    className="min-h-36 rounded-2xl border-[#D7E5F4] p-3"
+                    maxLength={5000}
+                    onChange={(event) => setRequestedChanges(event.target.value)}
+                    placeholder="For example: Please upload your current certification and add the dates for your professional training."
+                    value={requestedChanges}
+                  />
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      disabled={busyAction === "review"}
+                      onClick={() => setIsReviewDialogOpen(false)}
+                      type="button"
+                      variant="outline"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      disabled={busyAction === "review" || requestedChanges.trim().length < 3}
+                      onClick={() => {
+                        void onReview(requestedChanges.trim()).then((succeeded) => {
+                          if (!succeeded) return;
+                          setRequestedChanges("");
+                          setIsReviewDialogOpen(false);
+                        });
+                      }}
+                      type="button"
+                    >
+                      {busyAction === "review" ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
+                      Send edit request
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </>
           ) : null}
 
           {canResend && onResendPaymentLink ? (

@@ -84,11 +84,11 @@ export async function rejectMemberApplication(orderId: string) {
   );
 }
 
-export async function moveMemberApplicationToReview(orderId: string) {
+export async function moveMemberApplicationToReview(orderId: string, requestedChanges: string) {
   return requestJson<{ ok?: boolean }>(
     "/api/admin/review",
     {
-      body: JSON.stringify({ orderId }),
+      body: JSON.stringify({ orderId, requestedChanges }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     },
