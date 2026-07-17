@@ -2,9 +2,8 @@
 
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { ChevronRight } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -63,17 +62,10 @@ function NavItem({
 
   const [open, setOpen] = useState(isActive || isChildActive);
 
-  useEffect(() => {
-    if (isActive || isChildActive) {
-      setOpen(true);
-    }
-  }, [isActive, isChildActive]);
-
   if (!hasChildren) {
     return (
-      <Link
+      <a
         ref={(node) => registerItemRef(item.href, node)}
-        prefetch={false}
         aria-current={isActive ? "page" : undefined}
         className={cn(
           "group relative z-[1] flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-[13.5px] font-semibold",
@@ -97,7 +89,7 @@ function NavItem({
         </span>
 
         <span className="truncate">{item.label}</span>
-      </Link>
+      </a>
     );
   }
 
@@ -140,9 +132,8 @@ function NavItem({
             const childActive = activeHref === child.href;
 
             return (
-              <Link
+              <a
                 ref={(node) => registerItemRef(child.href, node)}
-                prefetch={false}
                 aria-current={childActive ? "page" : undefined}
                 className={cn(
                   "group/child relative z-[1] flex items-center gap-2 rounded-xl px-3 py-2 text-[12.5px]",
@@ -164,7 +155,7 @@ function NavItem({
                   )}
                 />
                 <span className="truncate">{child.label}</span>
-              </Link>
+              </a>
             );
           })}
         </div>
