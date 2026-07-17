@@ -59,6 +59,18 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ file }) => {
       return { uploadedBy: "landing-applicant", url: file.ufsUrl };
     }),
+  applicationDocumentUploader: f({
+    image: { maxFileSize: "16MB", maxFileCount: 10 },
+    pdf: { maxFileSize: "8MB", maxFileCount: 10 },
+    "application/msword": { maxFileSize: "8MB", maxFileCount: 10 },
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { maxFileSize: "8MB", maxFileCount: 10 },
+  })
+    .middleware(async () => {
+      return { uploadedBy: "landing-applicant" };
+    })
+    .onUploadComplete(async ({ file }) => {
+      return { uploadedBy: "landing-applicant", url: file.ufsUrl };
+    }),
   avatarUploader: f({ image: { maxFileSize: "8MB", maxFileCount: 1 } })
     .middleware(async () => {
       const { userId } = await auth();

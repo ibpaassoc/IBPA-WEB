@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import type { UseFormRegister } from "react-hook-form";
+import type { MembershipCategory } from "@/lib/membership";
 
 type ConfirmStepProps = {
   isRu: boolean;
@@ -12,6 +13,7 @@ type ConfirmStepProps = {
   selectedConfigTitle: string;
   localizedApplicantType: string;
   selectedPrice: string;
+  selectedCategory: MembershipCategory;
   register: UseFormRegister<any>;
   renderFieldError: (field: any) => ReactNode;
 };
@@ -24,10 +26,12 @@ export function ConfirmStep({
   selectedConfigTitle,
   localizedApplicantType,
   selectedPrice,
+  selectedCategory,
   register,
   renderFieldError,
 }: ConfirmStepProps) {
-  const t = (en: string, _ru: string, _uk: string) => en;
+  const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
+  const isOrganization = selectedCategory === "Business" || selectedCategory === "Brand";
 
   return (
     <motion.div
@@ -69,14 +73,48 @@ export function ConfirmStep({
         {renderFieldError("certifyTrue")}
 
         <label className="flex items-start gap-3 text-sm text-slate-700">
-          <input type="checkbox" {...register("understandReview", { required: true })} className="mt-1 accent-black" />
-          <span>{t("I understand the application review process.", "Я понимаю процесс рассмотрения заявки.", "Я розумію процес розгляду заявки.")}</span>
+          {isOrganization ? (
+            <input type="checkbox" {...register("additionalDocumentationConsent", { required: true })} className="mt-1 accent-black" />
+          ) : (
+            <input type="checkbox" {...register("understandReview", { required: true })} className="mt-1 accent-black" />
+          )}
+          <span>
+            {isOrganization
+              ? t(
+                  "I understand that IBPA may request additional documentation.",
+                  "Я понимаю, что IBPA может запросить дополнительные документы.",
+                  "Я розумію, що IBPA може запросити додаткові документи.",
+                )
+              : t("I understand the application review process.", "Я понимаю процесс рассмотрения заявки.", "Я розумію процес розгляду заявки.")}
+          </span>
         </label>
-        {renderFieldError("understandReview")}
+        {renderFieldError(isOrganization ? "additionalDocumentationConsent" : "understandReview")}
+
+        {isOrganization && (
+          <label className="flex items-start gap-3 text-sm text-slate-700">
+            <input type="checkbox" {...register("understandReview", { required: true })} className="mt-1 accent-black" />
+            <span>
+              {selectedCategory === "Business"
+                ? t(
+                    "I understand that membership approval is subject to review by the Membership Committee.",
+                    "Я понимаю, что одобрение членства зависит от решения Комитета по членству.",
+                    "Я розумію, що схвалення членства залежить від рішення Комітету з членства.",
+                  )
+                : t(
+                    "I understand that submitting this application does not guarantee approval.",
+                    "Я понимаю, что подача заявки не гарантирует одобрение.",
+                    "Я розумію, що подання заявки не гарантує схвалення.",
+                  )}
+            </span>
+          </label>
+        )}
+        {isOrganization ? renderFieldError("understandReview") : null}
 
         <label className="flex items-start gap-3 text-sm text-slate-700">
           <input type="checkbox" {...register("agreeStandards", { required: true })} className="mt-1 accent-black" />
-          <span>{t("I agree to comply with IBPA professional standards.", "Я согласен(а) соблюдать профессиональные стандарты IBPA.", "Я погоджуюся дотримуватися професійних стандартів IBPA.")}</span>
+          <span>{isOrganization
+            ? t("I agree to comply with the IBPA Code of Ethics.", "Я согласен(а) соблюдать Кодекс этики IBPA.", "Я погоджуюся дотримуватися Кодексу етики IBPA.")
+            : t("I agree to comply with IBPA professional standards.", "Я согласен(а) соблюдать профессиональные стандарты IBPA.", "Я погоджуюся дотримуватися професійних стандартів IBPA.")}</span>
         </label>
         {renderFieldError("agreeStandards")}
 
@@ -87,7 +125,7 @@ export function ConfirmStep({
         {renderFieldError("privacyConsent")}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {!isOrganization && <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
           <label className="field-label">{t("Full legal name", "Полное юридическое имя", "Повне юридичне ім’я")} *</label>
           <input {...register("legalName", { required: true })} className="form-input" />
@@ -98,7 +136,7 @@ export function ConfirmStep({
           <input {...register("signature", { required: true })} className="form-input" />
           {renderFieldError("signature")}
         </div>
-      </div>
+      </div>}
     </motion.div>
   );
 }

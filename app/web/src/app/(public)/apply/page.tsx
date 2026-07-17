@@ -33,12 +33,27 @@ import {
 } from "@/lib/membership";
 import { getBackendUrl } from "@/lib/public-urls";
 import { useI18n } from "@/lib/i18n";
+import {
+  getOrganizationStepFields,
+  isOrganizationApplication,
+  organizationApplicationLabels,
+} from "@/lib/organization-application";
+import { OrganizationApplicationStep } from "./components/OrganizationApplicationStep";
 
 type FormData = {
   portfolioImages: string[];
   trainerEducationPlanFiles: string[];
   trainerCertificateFiles: string[];
   trainerExperienceProofFiles: string[];
+  businessProfilePhotoFiles: string[];
+  businessProfessionalCertificationFiles: string[];
+  businessSupportingDocumentFiles: string[];
+  businessPortfolioImages: string[];
+  businessClientTestimonialFiles: string[];
+  brandReviewFiles: string[];
+  brandProductFiles: string[];
+  brandAchievementDocumentFiles: string[];
+  brandSupportingDocumentFiles: string[];
   membershipCategory: MembershipCategory;
   applicantType: string;
   firstName: string;
@@ -84,6 +99,74 @@ type FormData = {
   brandYear?: string;
   brandMarket?: string;
   brandType?: string;
+  preferredName?: string;
+  businessCurrentPosition?: string;
+  businessCurrentPositionOther?: string;
+  professionalBiography?: string;
+  professionalExperience?: string;
+  professionalEducation?: string;
+  professionalAchievements?: string;
+  bizTypeOther?: string;
+  businessCountry?: string;
+  businessCity?: string;
+  businessAddress?: string;
+  businessWebsite?: string;
+  businessInstagram?: string;
+  businessFacebook?: string;
+  businessTikTok?: string;
+  businessLinkedIn?: string;
+  businessYouTube?: string;
+  businessOtherSocial?: string;
+  businessDescription?: string;
+  businessAchievements?: string;
+  businessMission?: string;
+  businessIndustryContribution?: string;
+  businessMediaFeatured?: "Yes" | "No";
+  businessMediaDescription?: string;
+  businessPublications?: "Yes" | "No";
+  businessSpeakingExperience?: "Yes" | "No";
+  businessJudgingExperience?: "Yes" | "No";
+  businessProfessionalMemberships?: string;
+  brandTypeOther?: string;
+  brandRegistrationCountry?: string;
+  brandCity?: string;
+  brandAddress?: string;
+  brandWebsite?: string;
+  brandInstagram?: string;
+  brandFacebook?: string;
+  brandSocialWebsite?: string;
+  brandTikTok?: string;
+  brandLinkedIn?: string;
+  brandYouTube?: string;
+  brandPinterest?: string;
+  brandOtherSocial?: string;
+  brandPrimaryContact?: string;
+  brandContactPosition?: string;
+  brandContactPositionOther?: string;
+  brandContactEmail?: string;
+  brandContactPhone?: string;
+  brandDescription?: string;
+  brandMission?: string;
+  brandValues?: string;
+  brandProductsServices?: string;
+  brandProductCategories: string[];
+  brandProductCategoryOther?: string;
+  brandCatalogLinks?: string;
+  brandOperatingCountries?: string;
+  brandEmployeeCount?: string;
+  brandAchievements?: string;
+  brandCertifications: string[];
+  brandCertificationOther?: string;
+  brandPublicationsYesNo?: "Yes" | "No";
+  brandPublicationsDetails?: string;
+  brandExhibitionsYesNo?: "Yes" | "No";
+  brandExhibitionsDetails?: string;
+  brandIndustryContribution?: string;
+  brandCooperationMethods: string[];
+  brandCooperationOther?: string;
+  brandAdditionalLinks?: string;
+  brandMemberBenefits: string[];
+  brandMemberBenefitOther?: string;
   achievementsYesNo?: "Yes" | "No";
   achievementsDesc?: string;
   competitionsYesNo?: "Yes" | "No";
@@ -108,6 +191,7 @@ type FormData = {
   understandReview: boolean;
   agreeStandards: boolean;
   privacyConsent: boolean;
+  additionalDocumentationConsent: boolean;
   legalName: string;
   signature: string;
 };
@@ -156,7 +240,7 @@ const ConfirmStep = dynamic(
   { ssr: false },
 );
 
-const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }> = {
+const fieldLabels: Partial<Record<keyof FormData, { en: string; ru: string; uk: string }>> = {
   portfolioImages: { en: "Portfolio images", ru: "Фото работ", uk: "Фото робіт" },
   trainerEducationPlanFiles: { en: "Education Plan / Методичка", ru: "Методичка / план обучения", uk: "Методичка / план навчання" },
   trainerCertificateFiles: { en: "Certificate", ru: "Сертификат", uk: "Сертифікат" },
@@ -232,6 +316,7 @@ const fieldLabels: Record<keyof FormData, { en: string; ru: string; uk: string }
   privacyConsent: { en: "Privacy consent", ru: "Согласие на обработку данных", uk: "Згода на обробку даних" },
   legalName: { en: "Full legal name", ru: "Полное юридическое имя", uk: "Повне юридичне ім’я" },
   signature: { en: "Electronic signature", ru: "Электронная подпись", uk: "Електронний підпис" },
+  ...organizationApplicationLabels,
 };
 
 function formatPhoneNumber(value: string) {
@@ -317,6 +402,10 @@ function includesSubcategorySection(category: MembershipCategory) {
 }
 
 function getStepFields(step: number, category: MembershipCategory): (keyof FormData)[] {
+  if (step > 0 && isOrganizationApplication(category)) {
+    return getOrganizationStepFields(category, step) as (keyof FormData)[];
+  }
+
   switch (step) {
     case 0:
       return ["membershipCategory"];
@@ -360,7 +449,7 @@ export default function ApplyPage() {
   const { locale } = useI18n();
   const isRu = locale === "ru";
   const isUk = locale === "uk";
-  const t = (en: string, _ru: string, _uk: string) => en;
+  const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
   const useEnglishTypography = true;
   const headlineClassName = useEnglishTypography
     ? `${homeTemplateDisplay.className} font-black tracking-[-0.05em]`
@@ -385,6 +474,7 @@ export default function ApplyPage() {
     trigger,
     reset,
     getFieldState,
+    unregister,
     formState: { errors },
   } = useForm<FormData>({
     mode: "onChange",
@@ -395,6 +485,19 @@ export default function ApplyPage() {
       trainerEducationPlanFiles: [],
       trainerCertificateFiles: [],
       trainerExperienceProofFiles: [],
+      businessProfilePhotoFiles: [],
+      businessProfessionalCertificationFiles: [],
+      businessSupportingDocumentFiles: [],
+      businessPortfolioImages: [],
+      businessClientTestimonialFiles: [],
+      brandReviewFiles: [],
+      brandProductFiles: [],
+      brandAchievementDocumentFiles: [],
+      brandSupportingDocumentFiles: [],
+      brandProductCategories: [],
+      brandCertifications: [],
+      brandCooperationMethods: [],
+      brandMemberBenefits: [],
       specialization: [],
       hasLicense: "Yes",
     },
@@ -408,7 +511,13 @@ export default function ApplyPage() {
   const selectedConfigTitle = isRu ? selectedConfig.titleRu : isUk ? selectedConfig.titleUk : selectedConfig.title;
   const selectedConfigShortTitle = isRu ? selectedConfig.shortTitleRu : isUk ? selectedConfig.shortTitleUk : selectedConfig.shortTitle;
   const selectedConfigSummary = isRu ? selectedConfig.summaryRu : isUk ? selectedConfig.summaryUk : selectedConfig.summary;
-  const localizedApplicantType = selectedConfig.applicantType;
+  const localizedApplicantType = selectedConfig.applicantType === "Individual"
+    ? (isRu ? "Частное лицо" : isUk ? "Приватна особа" : "Individual")
+    : selectedConfig.applicantType === "Business"
+      ? (isRu ? "Бизнес" : isUk ? "Бізнес" : "Business")
+      : selectedConfig.applicantType === "School"
+        ? (isRu ? "Школа" : isUk ? "Школа" : "School")
+        : (isRu ? "Бренд" : isUk ? "Бренд" : "Brand");
 
   React.useEffect(() => {
     if (typeof window === "undefined") {
@@ -512,6 +621,18 @@ export default function ApplyPage() {
     });
   }, [selectedCategory, setValue]);
 
+  const previousCategoryRef = React.useRef<MembershipCategory>(selectedCategory);
+  React.useEffect(() => {
+    const previousCategory = previousCategoryRef.current;
+    if (previousCategory !== selectedCategory) {
+      const previousFields = Array.from(new Set(
+        [1, 2, 3, 4, 5, 6].flatMap((step) => getStepFields(step, previousCategory)),
+      ));
+      unregister(previousFields);
+    }
+    previousCategoryRef.current = selectedCategory;
+  }, [selectedCategory, unregister]);
+
   React.useEffect(() => {
     if (!includesSubcategorySection(selectedCategory)) {
       setValue("specialization", [], { shouldDirty: false, shouldTouch: false, shouldValidate: false });
@@ -609,8 +730,12 @@ export default function ApplyPage() {
   }, [isRu, isUk, register, selectedCategory]);
 
   const getFieldLabel = React.useCallback(
-    (field: keyof FormData) => fieldLabels[field].en,
-    [],
+    (field: keyof FormData) => {
+      const item = fieldLabels[field];
+      if (!item) return String(field);
+      return isRu ? item.ru : isUk ? item.uk : item.en;
+    },
+    [isRu, isUk],
   );
 
   const renderFieldError = React.useCallback(
@@ -669,14 +794,20 @@ export default function ApplyPage() {
 
     try {
       const isResubmission = Boolean(reviewToken && isReviewEdit);
+      const submissionName = data.membershipCategory === "Brand"
+        ? data.brandPrimaryContact?.trim() || data.brandName?.trim() || "Brand applicant"
+        : `${data.firstName || ""} ${data.lastName || ""}`.trim();
+      const submissionEmail = data.membershipCategory === "Brand" ? data.brandContactEmail : data.email;
+      const submissionPhone = data.membershipCategory === "Brand" ? data.brandContactPhone : data.phone;
       const response = await fetch(isResubmission ? "/api/application-review" : "/api/orders", {
         method: isResubmission ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: `${data.firstName} ${data.lastName}`.trim(),
-          email: data.email,
+          name: submissionName,
+          email: submissionEmail,
+          phone: submissionPhone,
           package: data.membershipCategory,
           applicantType: data.applicantType,
           application: data,
@@ -842,6 +973,20 @@ export default function ApplyPage() {
           </div>
 
           <AnimatePresence mode="wait">
+            {currentStep >= 1 && currentStep <= 5 && isOrganizationApplication(selectedCategory) && (
+              <OrganizationApplicationStep
+                step={currentStep}
+                selectedCategory={selectedCategory}
+                isRu={isRu}
+                isUk={isUk}
+                headlineClassName={headlineClassName}
+                editorialClassName={editorialClassName}
+                register={register}
+                watch={watch}
+                setValue={setValue}
+                renderFieldError={renderFieldError}
+              />
+            )}
             {currentStep === 0 && (
               <motion.div key="category" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-10">
                 <div className="space-y-3">
@@ -900,7 +1045,7 @@ export default function ApplyPage() {
               </motion.div>
             )}
 
-            {currentStep === 1 && (
+            {currentStep === 1 && !isOrganizationApplication(selectedCategory) && (
               <motion.div key="contact" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-10">
                 <div className="space-y-3">
                   <h2 className={`text-3xl md:text-4xl uppercase tracking-tight text-slate-900 ${headlineClassName}`}>Applicant contact details</h2>
@@ -1014,7 +1159,7 @@ export default function ApplyPage() {
               </motion.div>
             )}
 
-            {currentStep === 2 && (
+            {currentStep === 2 && !isOrganizationApplication(selectedCategory) && (
               <motion.div key="profile" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-10">
                 <div className="space-y-3">
                   <h2 className={`text-3xl md:text-4xl uppercase tracking-tight text-slate-900 ${headlineClassName}`}>Professional snapshot</h2>
@@ -1118,7 +1263,7 @@ export default function ApplyPage() {
               </motion.div>
             )}
 
-            {currentStep === 3 && (
+            {currentStep === 3 && !isOrganizationApplication(selectedCategory) && (
               <motion.div key="credentials" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-10">
                 <div className="space-y-3">
                   <h2 className={`text-3xl md:text-4xl uppercase tracking-tight text-slate-900 ${headlineClassName}`}>Education and qualifications</h2>
@@ -1184,15 +1329,15 @@ export default function ApplyPage() {
               </motion.div>
             )}
 
-            {currentStep === 4 && (
+            {currentStep === 4 && !isOrganizationApplication(selectedCategory) && (
               <DetailsStep
                 isRu={isRu}
                 isUk={isUk}
                 headlineClassName={headlineClassName}
                 editorialClassName={editorialClassName}
                 selectedCategory={selectedCategory}
-                detailTitle={selectedConfig.detailTitle}
-                detailDescription={selectedConfig.detailDescription}
+                detailTitle={isRu ? selectedConfig.detailTitleRu : isUk ? selectedConfig.detailTitleUk : selectedConfig.detailTitle}
+                detailDescription={isRu ? selectedConfig.detailDescriptionRu : isUk ? selectedConfig.detailDescriptionUk : selectedConfig.detailDescription}
                 register={register}
                 watch={watch}
                 renderFieldError={renderFieldError}
@@ -1231,7 +1376,7 @@ export default function ApplyPage() {
               />
             )}
 
-            {currentStep === 5 && (
+            {currentStep === 5 && !isOrganizationApplication(selectedCategory) && (
               <MotivationStep
                 isRu={isRu}
                 isUk={isUk}
@@ -1250,9 +1395,10 @@ export default function ApplyPage() {
                 isUk={isUk}
                 headlineClassName={headlineClassName}
                 editorialClassName={editorialClassName}
-                selectedConfigTitle={selectedConfig.title}
+                selectedConfigTitle={selectedConfigTitle}
                 localizedApplicantType={localizedApplicantType}
                 selectedPrice={selectedConfig.price}
+                selectedCategory={selectedCategory}
                 register={register}
                 renderFieldError={renderFieldError}
               />

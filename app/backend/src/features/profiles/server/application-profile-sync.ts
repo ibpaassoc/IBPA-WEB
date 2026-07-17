@@ -154,26 +154,61 @@ export function mapApplicationPayloadToProfile(
   const specializations = uniqueStrings([
     ...stringArray(payload.specialization),
     textValue(payload.specializationOther),
+    ...stringArray(payload.brandProductCategories),
+    textValue(payload.bizType),
+    textValue(payload.brandType),
   ]);
 
   return {
     firstName: textValue(payload.firstName) || nameFallback.firstName,
     lastName: textValue(payload.lastName) || nameFallback.lastName,
-    phone: textValue(payload.phone) || textValue(application.phone),
-    bio: textValue(payload.professionalDesc) || textValue(payload.whyJoin),
+    phone: textValue(payload.phone) || textValue(payload.brandContactPhone) || textValue(application.phone),
+    bio:
+      textValue(payload.professionalDesc)
+      || textValue(payload.professionalBiography)
+      || textValue(payload.businessDescription)
+      || textValue(payload.brandDescription)
+      || textValue(payload.whyJoin),
     credentials: joinNonEmpty(
-      [textValue(payload.educationDesc), textValue(payload.additionalEducation)],
+      [
+        textValue(payload.educationDesc),
+        textValue(payload.professionalEducation),
+        textValue(payload.additionalEducation),
+        stringArray(payload.brandCertifications).join(", "),
+      ],
       "\n\n",
     ),
-    achievements: textValue(payload.achievementsDesc),
-    industryContribution: textValue(payload.contributionDesc),
-    workGalleryPhotos: stringArray(payload.portfolioImages),
+    achievements:
+      textValue(payload.achievementsDesc)
+      || textValue(payload.professionalAchievements)
+      || textValue(payload.businessAchievements)
+      || textValue(payload.brandAchievements),
+    industryContribution:
+      textValue(payload.contributionDesc)
+      || textValue(payload.businessIndustryContribution)
+      || textValue(payload.brandIndustryContribution),
+    workGalleryPhotos: uniqueStrings([
+      ...stringArray(payload.portfolioImages),
+      ...stringArray(payload.businessPortfolioImages),
+    ]),
     specializations,
-    city: textValue(payload.city),
+    city: textValue(payload.city) || textValue(payload.businessCity) || textValue(payload.brandCity),
     state: textValue(payload.state),
-    country: textValue(payload.country),
-    website: normalizeUrl(textValue(payload.websiteLink) || textValue(payload.portfolioLink)),
-    instagram: normalizeInstagram(textValue(payload.instagramLink)),
+    country:
+      textValue(payload.country)
+      || textValue(payload.businessCountry)
+      || textValue(payload.brandRegistrationCountry),
+    website: normalizeUrl(
+      textValue(payload.websiteLink)
+      || textValue(payload.portfolioLink)
+      || textValue(payload.businessWebsite)
+      || textValue(payload.brandWebsite),
+    ),
+    instagram: normalizeInstagram(
+      textValue(payload.instagramLink)
+      || textValue(payload.businessInstagram)
+      || textValue(payload.brandInstagram),
+    ),
     yearsExperience: parseYearsExperience(payload.yearsExperience ?? payload.educatorYears),
   };
 }

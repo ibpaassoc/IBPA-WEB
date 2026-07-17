@@ -205,6 +205,129 @@ function textValue(value: unknown) {
   return "";
 }
 
+function humanizeApplicationField(field: string) {
+  return field
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/^./, (character) => character.toUpperCase());
+}
+
+function validateOrganizationApplication(
+  membershipPackage: keyof typeof MEMBERSHIP_PRICE_KEYS,
+  payload: Record<string, unknown>,
+) {
+  if (membershipPackage !== "Business" && membershipPackage !== "Brand") {
+    return null;
+  }
+
+  const requiredText = (fields: string[]) => {
+    const missing = fields.find((field) => typeof payload[field] !== "string" || !String(payload[field]).trim());
+    return missing ? `${humanizeApplicationField(missing)} is required.` : null;
+  };
+  const requiredFiles = (field: string, minimum: number) => {
+    const value = payload[field];
+    return Array.isArray(value) && value.filter((item) => typeof item === "string" && item.trim()).length >= minimum
+      ? null
+      : `${humanizeApplicationField(field)} requires at least ${minimum} file${minimum === 1 ? "" : "s"}.`;
+  };
+  const requiredSelections = (field: string) => {
+    const value = payload[field];
+    return Array.isArray(value) && value.some((item) => typeof item === "string" && item.trim())
+      ? null
+      : `Select at least one ${humanizeApplicationField(field).toLowerCase()}.`;
+  };
+  const requiredAgreements = [
+    "certifyTrue",
+    "additionalDocumentationConsent",
+    "agreeStandards",
+    "understandReview",
+    "privacyConsent",
+  ];
+  const missingAgreement = requiredAgreements.find((field) => payload[field] !== true);
+  if (missingAgreement) {
+    return `${humanizeApplicationField(missingAgreement)} must be accepted.`;
+  }
+
+  if (membershipPackage === "Business") {
+    const textError = requiredText([
+      "firstName", "lastName", "dateOfBirth", "country", "city", "phone", "email", "businessCurrentPosition",
+      "yearsExperience", "professionalBiography", "professionalExperience", "professionalEducation", "professionalAchievements",
+      "bizName", "bizType", "bizYear", "businessCountry", "businessCity", "businessAddress", "businessWebsite",
+      "businessInstagram", "bizTeamSize", "businessDescription", "bizServices", "businessAchievements", "businessMission",
+      "businessIndustryContribution", "businessMediaFeatured", "businessPublications", "businessSpeakingExperience",
+      "businessJudgingExperience", "whyJoin", "contributionDesc",
+    ]);
+    if (textError) return textError;
+    if (payload.businessCurrentPosition === "Other") {
+      const error = requiredText(["businessCurrentPositionOther"]);
+      if (error) return error;
+    }
+    if (payload.bizType === "Other") {
+      const error = requiredText(["bizTypeOther"]);
+      if (error) return error;
+    }
+    if (payload.businessMediaFeatured === "Yes") {
+      const error = requiredText(["businessMediaDescription"]);
+      if (error) return error;
+    }
+    return requiredFiles("businessProfilePhotoFiles", 1)
+      || requiredFiles("businessProfessionalCertificationFiles", 1)
+      || requiredFiles("businessSupportingDocumentFiles", 1)
+      || requiredFiles("businessPortfolioImages", 5)
+      || requiredFiles("businessClientTestimonialFiles", 5);
+  }
+
+  const textError = requiredText([
+    "brandName", "brandType", "brandYear", "brandRegistrationCountry", "brandCity", "brandAddress", "brandWebsite",
+    "brandInstagram", "brandSocialWebsite", "brandPrimaryContact", "brandContactPosition", "brandContactEmail", "brandContactPhone",
+    "brandDescription", "brandMission", "brandValues", "brandProductsServices", "brandOperatingCountries", "brandEmployeeCount",
+    "brandAchievements", "brandPublicationsYesNo", "brandExhibitionsYesNo", "brandIndustryContribution", "whyJoin",
+  ]);
+  if (textError) return textError;
+  if (payload.brandType === "Other") {
+    const error = requiredText(["brandTypeOther"]);
+    if (error) return error;
+  }
+  if (payload.brandContactPosition === "Other") {
+    const error = requiredText(["brandContactPositionOther"]);
+    if (error) return error;
+  }
+  if (payload.brandPublicationsYesNo === "Yes") {
+    const error = requiredText(["brandPublicationsDetails"]);
+    if (error) return error;
+  }
+  if (payload.brandExhibitionsYesNo === "Yes") {
+    const error = requiredText(["brandExhibitionsDetails"]);
+    if (error) return error;
+  }
+
+  const selectionError = requiredSelections("brandProductCategories")
+    || requiredSelections("brandCertifications")
+    || requiredSelections("brandCooperationMethods")
+    || requiredSelections("brandMemberBenefits");
+  if (selectionError) return selectionError;
+  if ((payload.brandProductCategories as unknown[]).includes("Other")) {
+    const error = requiredText(["brandProductCategoryOther"]);
+    if (error) return error;
+  }
+  if ((payload.brandCertifications as unknown[]).includes("Other")) {
+    const error = requiredText(["brandCertificationOther"]);
+    if (error) return error;
+  }
+  if ((payload.brandCooperationMethods as unknown[]).includes("Other")) {
+    const error = requiredText(["brandCooperationOther"]);
+    if (error) return error;
+  }
+  if ((payload.brandMemberBenefits as unknown[]).includes("Other")) {
+    const error = requiredText(["brandMemberBenefitOther"]);
+    if (error) return error;
+  }
+
+  return requiredFiles("brandReviewFiles", 5)
+    || requiredFiles("brandProductFiles", 1)
+    || requiredFiles("brandAchievementDocumentFiles", 5)
+    || requiredFiles("brandSupportingDocumentFiles", 1);
+}
+
 function mapCanonicalStatusToLegacy(status: string | null | undefined) {
   switch ((status || "").toUpperCase()) {
     case "UNDER_REVIEW":
@@ -693,6 +816,13 @@ ordersRouter.patch("/review-edit", async (req, res) => {
   if (!membershipPackage || !ALLOWED_MEMBERSHIP_PACKAGES.has(membershipPackage)) {
     return res.status(400).json({ error: "Unsupported membership package." });
   }
+  const organizationValidationError = validateOrganizationApplication(
+    membershipPackage,
+    applicationData as Record<string, unknown>,
+  );
+  if (organizationValidationError) {
+    return res.status(400).json({ error: organizationValidationError });
+  }
 
   try {
     const db = requireDb();
@@ -720,7 +850,10 @@ ordersRouter.patch("/review-edit", async (req, res) => {
         resubmittedAt: new Date().toISOString(),
       },
     };
-    const applicantPhone = textValue((applicationData as Record<string, unknown>).phone).slice(0, 50) || null;
+    const applicantPhone = textValue(
+      (applicationData as Record<string, unknown>).phone
+      ?? (applicationData as Record<string, unknown>).brandContactPhone,
+    ).slice(0, 50) || null;
 
     await db
       .update(coreApplications)
@@ -843,6 +976,13 @@ ordersRouter.post("/", async (req, res) => {
   }
   if (typeof application !== "object" || application === null || Array.isArray(application)) {
     return res.status(400).json({ error: "Application payload is required." });
+  }
+  const organizationValidationError = validateOrganizationApplication(
+    membershipPackage,
+    application as Record<string, unknown>,
+  );
+  if (organizationValidationError) {
+    return res.status(400).json({ error: organizationValidationError });
   }
 
   const ipLimit = applicationLimiter.hit(`orders:ip:${clientIp}`);

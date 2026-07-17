@@ -152,7 +152,7 @@ export function ApplicationMediaRail({
           )}
 
           {documentGroups.every((group) => group.files.length === 0) ? (
-            <EmptyHint>No trainer documents submitted.</EmptyHint>
+            <EmptyHint>No application documents submitted.</EmptyHint>
           ) : null}
         </div>
       </RailCard>
