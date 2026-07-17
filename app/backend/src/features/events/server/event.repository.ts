@@ -207,7 +207,7 @@ export async function upsertCanonicalEvent(db: DbClient, input: EventPersistence
       coverImage: input.coverImageUrl ? { url: input.coverImageUrl, aspect: input.coverAspect ?? null } : null,
       location: input.location ?? null,
       visibility: input.visibility,
-      price: input.price ?? 0,
+      price: input.price ?? null,
       capacity: input.capacity ?? null,
       eventLink: input.eventLink ?? null,
       eventAllDay: Boolean(input.eventAllDay),
