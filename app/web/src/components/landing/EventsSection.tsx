@@ -1,5 +1,6 @@
 import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
 import Link from "next/link";
+import { PreservedText } from "@/components/content/PreservedText";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { SectionPattern } from "@/components/landing/SectionPattern";
 import { cyrillicDisplay } from "@/lib/cyrillic-fonts";
@@ -160,13 +161,13 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
                     <span className={`text-xs ${bodyClassName}`}>{event.location}</span>
                   </div>
                   <div className="max-w-2xl pt-4 text-base leading-relaxed text-slate-600 md:text-lg">
-                    <p className={`hidden md:block ${bodyClassName}`}>
+                    <PreservedText className={`hidden md:block ${bodyClassName}`}>
                       {event.description}
-                    </p>
+                    </PreservedText>
 
                     <details className="group md:hidden">
                       <summary className={`list-none cursor-pointer ${bodyClassName}`}>
-                        <p
+                        <PreservedText
                           className="overflow-hidden"
                           style={{
                             display: "-webkit-box",
@@ -175,16 +176,16 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
                           }}
                         >
                           {event.description}
-                        </p>
+                        </PreservedText>
                         <span className="mt-3 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">
                           <span className="group-open:hidden">раскрыть</span>
                           <span className="hidden group-open:inline">свернуть</span>
                           <ArrowRight size={12} className="transition-transform group-open:rotate-90" />
                         </span>
                       </summary>
-                      <p className={`mt-4 ${bodyClassName}`}>
+                      <PreservedText className={`mt-4 ${bodyClassName}`}>
                         {event.description}
-                      </p>
+                      </PreservedText>
                     </details>
                   </div>
                 </div>

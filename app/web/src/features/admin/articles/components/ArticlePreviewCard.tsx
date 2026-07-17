@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { PreservedText } from "@/components/content/PreservedText";
 
 import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
 import { formatAdminDate } from "../../shared/utils/admin-formatters";
@@ -36,12 +37,12 @@ export function ArticlePreviewCard({ article, draft }: ArticlePreviewCardProps) 
         >
           {title}
         </h3>
-        <p
-          className="whitespace-pre-wrap text-sm leading-7 text-[#55708D]"
+        <PreservedText
+          className="text-sm leading-7 text-[#55708D]"
           style={{ textWrap: "pretty" }}
         >
           {body}
-        </p>
+        </PreservedText>
       </div>
       {ctaUrl ? (
         <Button

@@ -2,6 +2,7 @@
 
 import { Pencil, Trash2 } from "lucide-react";
 
+import { PreservedText } from "@/components/content/PreservedText";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -55,7 +56,9 @@ export function ArticlesTable({
           render: (article) => (
             <div className="flex flex-col gap-0.5">
               <span className="font-semibold text-[#10203B]">{article.title}</span>
-              <span className="line-clamp-1 text-xs text-[#6C7F95]">{article.body}</span>
+              <PreservedText as="span" className="text-xs text-[#6C7F95]">
+                {article.body}
+              </PreservedText>
             </div>
           ),
         },

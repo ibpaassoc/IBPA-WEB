@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { PreservedText } from "@/components/content/PreservedText";
 
 import { AdminEmptyState } from "../../shared/components/AdminEmptyState";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
@@ -54,7 +55,9 @@ export function EventDetailsView({ counts, event }: EventDetailsViewProps) {
 
         <div>
           <h3 className="text-xl font-semibold tracking-[-0.01em] text-[#10203B]">{event.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-[#55708D]">{event.body}</p>
+          <PreservedText className="mt-2 text-sm leading-6 text-[#55708D]">
+            {event.body}
+          </PreservedText>
         </div>
 
         <dl className="grid gap-3 sm:grid-cols-2">

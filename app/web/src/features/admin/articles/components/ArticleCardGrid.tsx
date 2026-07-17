@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { PreservedText } from "@/components/content/PreservedText";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -159,12 +160,12 @@ export function ArticleCardGrid({
                 </div>
 
                 {article.body ? (
-                  <p
-                    className="line-clamp-2 text-xs leading-5 text-[#6C7F95]"
+                  <PreservedText
+                    className="text-xs leading-5 text-[#6C7F95]"
                     style={{ textWrap: "pretty" }}
                   >
                     {article.body}
-                  </p>
+                  </PreservedText>
                 ) : null}
 
                 <div className="flex items-center gap-1.5 text-xs text-[#6C7F95]">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { PreservedText } from "@/components/content/PreservedText";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { useI18n } from "@/lib/i18n";
 import { fetchPublicContent, type PublicContentItem } from "@/lib/public-content";
@@ -137,11 +138,10 @@ export default function NewsPage() {
                       {item.title}
                     </h2>
 
-                    <div
+                    <PreservedText
+                      as="div"
                       className={`
                         mt-4
-                        whitespace-pre-wrap
-                        break-words
                         leading-relaxed
                         text-slate-600
                         ${bodyClassName}
@@ -149,7 +149,7 @@ export default function NewsPage() {
                       `}
                     >
                       {item.summary}
-                    </div>
+                    </PreservedText>
 
                     {item.summary ? (
                       <div className="mt-6">

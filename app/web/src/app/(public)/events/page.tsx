@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { PreservedText } from "@/components/content/PreservedText";
 import { cyrillicDisplay } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { useI18n } from "@/lib/i18n";
@@ -106,9 +107,13 @@ export default function EventsPage() {
               ) : null}
               <h2 className={`text-3xl uppercase leading-none text-slate-900 md:text-5xl ${headlineClassName}`}>{renderedEvent.title}</h2>
               <p className={`text-sm uppercase tracking-[0.16em] text-slate-500 ${uiClassName}`}>{renderedEvent.location}</p>
-              <p className={`max-w-3xl leading-relaxed text-slate-600 md:text-lg ${bodyClassName}`}>{renderedEvent.description}</p>
+              <PreservedText className={`max-w-3xl leading-relaxed text-slate-600 md:text-lg ${bodyClassName}`}>
+                {renderedEvent.description}
+              </PreservedText>
               {renderedEvent.extra ? (
-                <p className={`max-w-3xl leading-relaxed text-slate-500 md:text-[1.02rem] ${bodyClassName}`}>{renderedEvent.extra}</p>
+                <PreservedText className={`max-w-3xl leading-relaxed text-slate-500 md:text-[1.02rem] ${bodyClassName}`}>
+                  {renderedEvent.extra}
+                </PreservedText>
               ) : null}
               <div className="flex flex-col gap-4 pt-2 sm:flex-row">
                 <Link href={renderedEvent.href} target={renderedEvent.href.startsWith("http") ? "_blank" : undefined} rel={renderedEvent.href.startsWith("http") ? "noreferrer" : undefined} className={`inline-flex justify-center rounded-full bg-black px-8 py-4 text-sm uppercase text-white ${uiClassName}`}>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { PreservedText } from "@/components/content/PreservedText";
 import type { DashboardContentItem } from "@/components/dashboard/dashboard-types";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import {
@@ -157,9 +158,9 @@ export function DashboardEvents({
                     {item.title}
                   </h3>
 
-                  <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-500">
+                  <PreservedText className="mt-3 text-sm leading-6 text-slate-500">
                     {item.body}
-                  </p>
+                  </PreservedText>
 
                   <div className="mt-auto pt-5">
                     <div className="grid gap-2.5 sm:grid-cols-3">
