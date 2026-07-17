@@ -6,11 +6,10 @@ import type { ReactNode } from "react";
 import type { ContentImageMetadata } from "@/lib/content-image";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
+import { getEventCardLayoutClassName, type EventCardVariant } from "@/lib/event-card";
 import { ContentImage } from "./ContentImage";
 import { InteractiveContentImage } from "./InteractiveContentImage";
 import { PreservedText } from "./PreservedText";
-
-type EventCardVariant = "featured" | "standard" | "compact" | "admin";
 
 export type EventCardMetaItem = {
   kind: "date" | "location" | "price" | "status";
@@ -112,13 +111,7 @@ export function EventCard({
       )}
     >
       <div
-        className={cn(
-          "grid min-w-0 items-start gap-5",
-          featured && "md:grid-cols-[minmax(240px,0.9fr)_minmax(0,1.1fr)] lg:gap-8",
-          (variant === "standard" || variant === "admin") &&
-            "md:grid-cols-[minmax(210px,0.82fr)_minmax(0,1.18fr)]",
-          compact && "grid-cols-[minmax(84px,112px)_minmax(0,1fr)] gap-4",
-        )}
+        className={getEventCardLayoutClassName(variant)}
       >
         <div className="min-w-0">{media}</div>
 

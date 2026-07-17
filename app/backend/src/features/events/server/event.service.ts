@@ -131,7 +131,7 @@ function mapCanonicalEvent(item: Awaited<ReturnType<typeof listCanonicalEvents>>
   });
 }
 
-function normalizeEventPayload(payload: EventPayload): EventPersistenceInput {
+export function normalizeEventPayload(payload: EventPayload): EventPersistenceInput {
   const id = payload.id || crypto.randomUUID();
   const imageMetadata = normalizeContentImageMetadata(payload.imageMetadata, payload.coverImage);
   return {

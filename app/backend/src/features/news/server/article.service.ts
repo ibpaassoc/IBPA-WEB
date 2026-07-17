@@ -76,7 +76,7 @@ function mapCanonicalArticle(item: Awaited<ReturnType<typeof listCanonicalArticl
   });
 }
 
-function normalizeArticlePayload(payload: ArticlePayload): ArticlePersistenceInput {
+export function normalizeArticlePayload(payload: ArticlePayload): ArticlePersistenceInput {
   const id = payload.id || crypto.randomUUID();
   const imageMetadata = normalizeContentImageMetadata(payload.imageMetadata, payload.coverImage);
 

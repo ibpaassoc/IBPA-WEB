@@ -38,6 +38,38 @@ export type ResolvedContentImage = ContentImageMetadata & {
   originalHeight: number | null;
 };
 
+export function toContentImagePayload(
+  metadata?: ContentImageMetadata | null,
+): ContentImageMetadata | null {
+  if (!metadata?.url?.trim()) return null;
+
+  return {
+    url: metadata.url.trim(),
+    key: metadata.key ?? null,
+    originalWidth: finitePositive(metadata.originalWidth),
+    originalHeight: finitePositive(metadata.originalHeight),
+    aspect: isAspect(metadata.aspect) ? metadata.aspect : "original",
+    crop: normalizeImageCrop(metadata.crop),
+    zoom: finitePositive(metadata.zoom),
+    focalPoint:
+      metadata.focalPoint &&
+      Number.isFinite(metadata.focalPoint.x) &&
+      Number.isFinite(metadata.focalPoint.y) &&
+      metadata.focalPoint.x >= 0 &&
+      metadata.focalPoint.x <= 1 &&
+      metadata.focalPoint.y >= 0 &&
+      metadata.focalPoint.y <= 1
+        ? { ...metadata.focalPoint }
+        : null,
+    alt: metadata.alt?.trim() || null,
+    version: finitePositive(metadata.version),
+  };
+}
+
+export function isLightboxCloseKey(key: string) {
+  return key === "Escape";
+}
+
 const aspectValues: Record<Exclude<ContentImageAspect, "original">, number> = {
   "16:9": 16 / 9,
   "4:3": 4 / 3,

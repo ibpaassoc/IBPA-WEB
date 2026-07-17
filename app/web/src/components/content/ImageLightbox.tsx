@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import {
   getContentImageAspect,
   resolveContentImage,
+  isLightboxCloseKey,
   type ContentImageMetadata,
 } from "@/lib/content-image";
 import { PreservedText } from "./PreservedText";
@@ -23,9 +24,7 @@ type ImageLightboxProps = {
   errorLabel?: string;
 };
 
-export function isLightboxCloseKey(key: string) {
-  return key === "Escape";
-}
+export { isLightboxCloseKey };
 
 export function ImageLightbox({
   open,

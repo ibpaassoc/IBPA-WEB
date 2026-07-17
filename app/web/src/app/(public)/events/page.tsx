@@ -77,7 +77,7 @@ export default function EventsPage() {
           <p className={`text-[10px] uppercase tracking-[0.4em] text-[#708090] ${uiClassName}`}>
             {isRu ? "События IBPA" : isUk ? "Події IBPA" : "IBPA Events"}
           </p>
-          <h1 className={`text-6xl sm:text-7xl md:text-9xl uppercase leading-[0.92] text-slate-900 ${headlineClassName}`}>
+          <h1 className={`break-words text-5xl uppercase leading-[0.92] text-slate-900 sm:text-7xl md:text-9xl ${headlineClassName}`}>
             {isRu ? <>Календарь <span className="text-[#72A0C1]">событий</span></> : isUk ? <>Календар <span className="text-[#72A0C1]">подій</span></> : <>Professional Events <span className="text-[#72A0C1]">Calendar</span></>}
           </h1>
           <p className={`max-w-3xl text-lg leading-relaxed text-slate-600 ${bodyClassName}`}>
