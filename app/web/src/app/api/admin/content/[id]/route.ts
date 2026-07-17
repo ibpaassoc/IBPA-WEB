@@ -1,4 +1,4 @@
-import { getAdminProxyContext } from "@/lib/admin-proxy";
+import { requireAdminApi } from "@/lib/admin-api-auth";
 import { readBackendResponse } from "@/lib/read-backend-response";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -17,9 +17,10 @@ function normalizeContentBody(body: Record<string, any>) {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { backendUrl, authHeaders, error } = await getAdminProxyContext(req.url);
+  const adminAuth = await requireAdminApi(req);
+  if (!adminAuth.ok) return adminAuth.response;
+  const { backendUrl, authHeaders } = adminAuth;
   const { id } = await params;
-  if (error || !authHeaders) return error!;
 
   try {
     const body = normalizeContentBody(await req.json());
@@ -45,9 +46,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { backendUrl, authHeaders, error } = await getAdminProxyContext(_req.url);
+  const adminAuth = await requireAdminApi(_req);
+  if (!adminAuth.ok) return adminAuth.response;
+  const { backendUrl, authHeaders } = adminAuth;
   const { id } = await params;
-  if (error || !authHeaders) return error!;
 
   try {
     const res = await fetch(`${backendUrl}/api/content/admin/${id}`, {

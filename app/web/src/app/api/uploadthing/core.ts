@@ -29,7 +29,7 @@ export const ourFileRouter = {
       return { uploadedBy: "landing-applicant" };
     })
     .onUploadComplete(async ({ file }) => {
-      return { uploadedBy: "landing-applicant", url: file.url };
+      return { uploadedBy: "landing-applicant", url: file.ufsUrl };
     }),
   trainerEducationPlanUploader: f({
     pdf: { maxFileSize: "8MB", maxFileCount: 1 },
@@ -40,7 +40,7 @@ export const ourFileRouter = {
       return { uploadedBy: "landing-applicant" };
     })
     .onUploadComplete(async ({ file }) => {
-      return { uploadedBy: "landing-applicant", url: file.url };
+      return { uploadedBy: "landing-applicant", url: file.ufsUrl };
     }),
   trainerCertificateUploader: f({
     pdf: { maxFileSize: "8MB", maxFileCount: 1 },
@@ -50,14 +50,14 @@ export const ourFileRouter = {
       return { uploadedBy: "landing-applicant" };
     })
     .onUploadComplete(async ({ file }) => {
-      return { uploadedBy: "landing-applicant", url: file.url };
+      return { uploadedBy: "landing-applicant", url: file.ufsUrl };
     }),
   trainerProofUploader: f({ image: { maxFileSize: "16MB", maxFileCount: 10 } })
     .middleware(async () => {
       return { uploadedBy: "landing-applicant" };
     })
     .onUploadComplete(async ({ file }) => {
-      return { uploadedBy: "landing-applicant", url: file.url };
+      return { uploadedBy: "landing-applicant", url: file.ufsUrl };
     }),
   avatarUploader: f({ image: { maxFileSize: "8MB", maxFileCount: 1 } })
     .middleware(async () => {
@@ -70,7 +70,7 @@ export const ourFileRouter = {
       return { uploadedBy: userId };
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      return { uploadedBy: metadata.uploadedBy, url: file.url };
+      return { uploadedBy: metadata.uploadedBy, url: file.ufsUrl };
     }),
   externalCertificateUploader: f({
     image: { maxFileSize: "16MB", maxFileCount: 1 },
@@ -88,13 +88,13 @@ export const ourFileRouter = {
       return { uploadedBy: userId };
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      return { uploadedBy: metadata.uploadedBy, url: file.url };
+      return { uploadedBy: metadata.uploadedBy, url: file.ufsUrl };
     }),
   certificateUploader: f({ pdf: { maxFileSize: "8MB", maxFileCount: 1 } })
     .middleware(requireAdminUpload)
     .onUploadComplete(async ({ file }) => {
-      console.log("Upload complete for certificate:", file.url);
-      return { uploadedBy: "Admin", url: file.url };
+      console.log("Upload complete for certificate:", file.ufsUrl);
+      return { uploadedBy: "Admin", url: file.ufsUrl };
     }),
   applicationAdditionalFileUploader: f({
     image: { maxFileSize: "16MB", maxFileCount: 10 },
@@ -104,13 +104,13 @@ export const ourFileRouter = {
   })
     .middleware(requireAdminUpload)
     .onUploadComplete(async ({ file }) => {
-      return { uploadedBy: "Admin", url: file.url };
+      return { uploadedBy: "Admin", url: file.ufsUrl };
     }),
   contentImageUploader: f({ image: { maxFileSize: "16MB", maxFileCount: 1 } })
     .middleware(requireAdminUpload)
     .onUploadComplete(async ({ file }) => {
-      console.log("Upload complete for content image:", file.url);
-      return { uploadedBy: "Admin", url: file.url };
+      console.log("Upload complete for content image:", file.ufsUrl);
+      return { uploadedBy: "Admin", url: file.ufsUrl };
     }),
 } satisfies FileRouter;
 

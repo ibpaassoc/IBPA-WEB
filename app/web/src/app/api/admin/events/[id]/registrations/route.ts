@@ -1,4 +1,4 @@
-import { getAdminProxyContext } from "@/lib/admin-proxy";
+import { requireAdminApi } from "@/lib/admin-api-auth";
 import { readBackendResponse } from "@/lib/read-backend-response";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -6,9 +6,10 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { backendUrl, authHeaders, error } = await getAdminProxyContext(req.url);
+  const adminAuth = await requireAdminApi(req);
+  if (!adminAuth.ok) return adminAuth.response;
+  const { backendUrl, authHeaders } = adminAuth;
   const { id } = await params;
-  if (error || !authHeaders) return error!;
 
   try {
     const res = await fetch(

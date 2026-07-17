@@ -44,8 +44,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   // ClerkProvider intentionally lives in the route groups that use Clerk on the
-  // client (dashboard, sign-in, checkout success) so public landing pages and the
-  // admin area never download clerk-js.
+  // client (dashboard, sign-in, checkout success, admin) so public landing
+  // pages never download clerk-js.
   return (
     <html lang="en" className={cn("font-sans", inter.variable, cyrillicDisplay.variable, cyrillicEditorial.variable, raleway.variable)}>
       <body className="min-h-screen bg-[#F8FAFC] text-slate-900 antialiased">

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminProxyContext } from "@/lib/admin-proxy";
+import { requireAdminApi } from "@/lib/admin-api-auth";
 import { readBackendResponse } from "@/lib/read-backend-response";
 
 export async function GET(
@@ -7,8 +7,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const { backendUrl, authHeaders, error } = await getAdminProxyContext(req.url);
-  if (error || !authHeaders) return error!;
+  const adminAuth = await requireAdminApi(req);
+  if (!adminAuth.ok) return adminAuth.response;
+  const { backendUrl, authHeaders } = adminAuth;
 
   try {
     const resp = await fetch(`${backendUrl}/api/partner-applications/${encodeURIComponent(id)}`, {
@@ -39,8 +40,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const { backendUrl, authHeaders, error } = await getAdminProxyContext(req.url);
-  if (error || !authHeaders) return error!;
+  const adminAuth = await requireAdminApi(req);
+  if (!adminAuth.ok) return adminAuth.response;
+  const { backendUrl, authHeaders } = adminAuth;
 
   try {
     let resp = await fetch(`${backendUrl}/api/partner-applications/${encodeURIComponent(id)}`, {
