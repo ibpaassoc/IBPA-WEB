@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/lib/i18n";
 
 import type { ArticleEditorState } from "../types/article-admin.types";
 import { ArticlePreviewCard } from "./ArticlePreviewCard";
@@ -36,6 +37,7 @@ export function ArticleEditorForm({
   onReset,
   onSave,
 }: ArticleEditorFormProps) {
+  const { t } = useI18n();
   const [hasPendingImageChanges, setHasPendingImageChanges] = useState(false);
   const patch = (next: Partial<ArticleEditorState>) => onChange({ ...form, ...next });
 
@@ -45,7 +47,7 @@ export function ArticleEditorForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (hasPendingImageChanges) {
-          toast.error("Apply or cancel the current image adjustments first.");
+          toast.error(t.contentImages.unsavedChanges);
           return;
         }
         onSave();
@@ -108,7 +110,7 @@ export function ArticleEditorForm({
 
       <ContentImageEditor
         key={`${form.id || "new-article"}:${form.coverImage}`}
-        alt={form.title || "Article cover"}
+        alt={form.title || t.contentImages.cardPreview}
         legacyAspect={form.coverAspect}
         legacyUrl={form.coverImage}
         onChange={(imageMetadata, coverAspect) =>

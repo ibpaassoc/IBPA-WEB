@@ -9,6 +9,7 @@ import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { uploadAdminContentImage } from "@/lib/admin-content-upload";
+import { useI18n, type ContentImageDictionary } from "@/lib/i18n";
 import {
   contentImageAspects,
   getContentImageAspect,
@@ -24,59 +25,7 @@ import { InteractiveContentImage } from "./InteractiveContentImage";
 const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-export type ContentImageEditorLabels = {
-  uploadImage: string;
-  changeImage: string;
-  removeImage: string;
-  crop: string;
-  zoom: string;
-  aspectRatio: string;
-  original: string;
-  reset: string;
-  apply: string;
-  cancel: string;
-  preview: string;
-  cardPreview: string;
-  viewerPreview: string;
-  openFullImage: string;
-  closeViewer: string;
-  imageUploadFailed: string;
-  unsupportedFormat: string;
-  fileTooLarge: string;
-  processing: string;
-  uploadComplete: string;
-  unsavedChanges: string;
-  loadingImage: string;
-  imageLoadFailed: string;
-  helperText: string;
-};
-
-export const defaultContentImageEditorLabels: ContentImageEditorLabels = {
-  uploadImage: "Upload image",
-  changeImage: "Change image",
-  removeImage: "Remove image",
-  crop: "Crop",
-  zoom: "Zoom",
-  aspectRatio: "Aspect ratio",
-  original: "Original",
-  reset: "Reset",
-  apply: "Apply",
-  cancel: "Cancel",
-  preview: "Preview",
-  cardPreview: "Card preview",
-  viewerPreview: "Large image preview",
-  openFullImage: "Open full image",
-  closeViewer: "Close image viewer",
-  imageUploadFailed: "Image upload failed.",
-  unsupportedFormat: "Unsupported image format.",
-  fileTooLarge: "The image is larger than 16 MB.",
-  processing: "Uploading image…",
-  uploadComplete: "Image ready to save.",
-  unsavedChanges: "Apply or cancel the current image adjustments first.",
-  loadingImage: "Loading image",
-  imageLoadFailed: "Image could not be loaded",
-  helperText: "JPG, PNG, or WEBP up to 16 MB. Adjust locally before uploading.",
-};
+export type ContentImageEditorLabels = ContentImageDictionary;
 
 type ContentImageEditorProps = {
   value?: ContentImageMetadata | null;
@@ -122,13 +71,15 @@ export function ContentImageEditor({
   legacyUrl,
   legacyAspect,
   alt,
-  labels = defaultContentImageEditorLabels,
+  labels: labelsProp,
   onChange,
   onDirtyChange,
   onError,
   className,
   renderCardPreview,
 }: ContentImageEditorProps) {
+  const { t } = useI18n();
+  const labels = labelsProp || t.contentImages;
   const resolved = useMemo(
     () => resolveContentImage({ metadata: value, legacyUrl, legacyAspect, alt }),
     [alt, legacyAspect, legacyUrl, value],
@@ -287,12 +238,8 @@ export function ContentImageEditor({
       setLocalUrl(null);
       setDirty(false);
       setMessage(labels.uploadComplete);
-    } catch (uploadError) {
-      reportError(
-        uploadError instanceof Error && uploadError.message
-          ? `${labels.imageUploadFailed} ${uploadError.message}`
-          : labels.imageUploadFailed,
-      );
+    } catch {
+      reportError(labels.imageUploadFailed);
     } finally {
       setIsUploading(false);
     }

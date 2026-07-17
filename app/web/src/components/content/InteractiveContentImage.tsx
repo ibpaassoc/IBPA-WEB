@@ -4,6 +4,7 @@ import { Maximize2 } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 import { ContentImage, type ContentImageProps } from "./ContentImage";
 import { ImageLightbox } from "./ImageLightbox";
 
@@ -15,11 +16,12 @@ type InteractiveContentImageProps = ContentImageProps & {
 
 export function InteractiveContentImage({
   caption,
-  openLabel = "Open full image",
+  openLabel,
   closeLabel,
   className,
   ...imageProps
 }: InteractiveContentImageProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
   const handleOpen = (event: MouseEvent<HTMLButtonElement>) => {
@@ -31,7 +33,7 @@ export function InteractiveContentImage({
   return (
     <>
       <button
-        aria-label={openLabel}
+        aria-label={openLabel || t.contentImages.openFullImage}
         className={cn(
           "group/image relative block w-full cursor-zoom-in overflow-hidden text-left outline-none focus-visible:ring-4 focus-visible:ring-[#72A0C1]/45",
           className,
@@ -48,7 +50,7 @@ export function InteractiveContentImage({
       <ImageLightbox
         alt={imageProps.alt}
         caption={caption}
-        closeLabel={closeLabel}
+        closeLabel={closeLabel || t.contentImages.closeViewer}
         errorLabel={imageProps.errorLabel}
         legacyAspect={imageProps.legacyAspect}
         legacyUrl={imageProps.legacyUrl}

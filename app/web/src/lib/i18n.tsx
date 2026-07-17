@@ -30,6 +30,36 @@ type BenefitItem = {
   desc: string;
 };
 
+export type ContentImageDictionary = {
+  uploadImage: string;
+  changeImage: string;
+  removeImage: string;
+  crop: string;
+  zoom: string;
+  aspectRatio: string;
+  original: string;
+  reset: string;
+  apply: string;
+  cancel: string;
+  preview: string;
+  cardPreview: string;
+  viewerPreview: string;
+  openFullImage: string;
+  closeViewer: string;
+  imageUploadFailed: string;
+  unsupportedFormat: string;
+  fileTooLarge: string;
+  processing: string;
+  uploadComplete: string;
+  unsavedChanges: string;
+  loadingImage: string;
+  imageLoadFailed: string;
+  helperText: string;
+  eventFallbackTitle: string;
+  eventFallbackDescription: string;
+  adminPreview: string;
+};
+
 type Dictionary = {
   nav: {
     about: string;
@@ -63,6 +93,7 @@ type Dictionary = {
     accept: string;
     necessaryOnly: string;
   };
+  contentImages: ContentImageDictionary;
     home: {
       hero: {
         titleTop: string;
@@ -180,6 +211,35 @@ const dictionaries: Record<Locale, PublicDictionary> = {
         "We use cookies to improve site performance, remember your preferences, and support a smoother browsing experience on IBPA.",
       accept: "Accept All",
       necessaryOnly: "Only Necessary",
+    },
+    contentImages: {
+      uploadImage: "Upload image",
+      changeImage: "Change image",
+      removeImage: "Remove image",
+      crop: "Crop",
+      zoom: "Zoom",
+      aspectRatio: "Aspect ratio",
+      original: "Original",
+      reset: "Reset",
+      apply: "Apply",
+      cancel: "Cancel",
+      preview: "Preview",
+      cardPreview: "Card preview",
+      viewerPreview: "Large image preview",
+      openFullImage: "Open full image",
+      closeViewer: "Close image viewer",
+      imageUploadFailed: "Image upload failed.",
+      unsupportedFormat: "Unsupported image format.",
+      fileTooLarge: "The image is larger than 16 MB.",
+      processing: "Uploading image…",
+      uploadComplete: "Image ready to save.",
+      unsavedChanges: "Apply or cancel the current image adjustments first.",
+      loadingImage: "Loading image",
+      imageLoadFailed: "Image could not be loaded",
+      helperText: "JPG, PNG, or WEBP up to 16 MB. Adjust locally before uploading.",
+      eventFallbackTitle: "Event title",
+      eventFallbackDescription: "Event details",
+      adminPreview: "Admin preview",
     },
     home: {
       hero: {
@@ -389,6 +449,35 @@ const dictionaries: Record<Locale, PublicDictionary> = {
       accept: "Принять все",
       necessaryOnly: "Только необходимые",
     },
+    contentImages: {
+      uploadImage: "Загрузить изображение",
+      changeImage: "Изменить изображение",
+      removeImage: "Удалить изображение",
+      crop: "Обрезка",
+      zoom: "Масштаб",
+      aspectRatio: "Соотношение сторон",
+      original: "Оригинал",
+      reset: "Сбросить",
+      apply: "Применить",
+      cancel: "Отмена",
+      preview: "Предпросмотр",
+      cardPreview: "Предпросмотр карточки",
+      viewerPreview: "Предпросмотр крупного изображения",
+      openFullImage: "Открыть полное изображение",
+      closeViewer: "Закрыть просмотр изображения",
+      imageUploadFailed: "Не удалось загрузить изображение.",
+      unsupportedFormat: "Формат изображения не поддерживается.",
+      fileTooLarge: "Размер изображения превышает 16 МБ.",
+      processing: "Загрузка изображения…",
+      uploadComplete: "Изображение готово к сохранению.",
+      unsavedChanges: "Сначала примените или отмените текущие настройки изображения.",
+      loadingImage: "Загрузка изображения",
+      imageLoadFailed: "Не удалось загрузить изображение",
+      helperText: "JPG, PNG или WEBP до 16 МБ. Настройте изображение локально перед загрузкой.",
+      eventFallbackTitle: "Название события",
+      eventFallbackDescription: "Описание события",
+      adminPreview: "Предпросмотр администратора",
+    },
     home: {
       hero: {
         titleTop: "International Beauty",
@@ -596,6 +685,35 @@ const dictionaries: Record<Locale, PublicDictionary> = {
         "Ми використовуємо cookie, щоб покращувати роботу сайту, запам’ятовувати ваші налаштування та робити взаємодію з IBPA зручнішою.",
       accept: "Прийняти все",
       necessaryOnly: "Тільки необхідні",
+    },
+    contentImages: {
+      uploadImage: "Завантажити зображення",
+      changeImage: "Змінити зображення",
+      removeImage: "Видалити зображення",
+      crop: "Обрізання",
+      zoom: "Масштаб",
+      aspectRatio: "Співвідношення сторін",
+      original: "Оригінал",
+      reset: "Скинути",
+      apply: "Застосувати",
+      cancel: "Скасувати",
+      preview: "Попередній перегляд",
+      cardPreview: "Попередній перегляд картки",
+      viewerPreview: "Попередній перегляд великого зображення",
+      openFullImage: "Відкрити повне зображення",
+      closeViewer: "Закрити перегляд зображення",
+      imageUploadFailed: "Не вдалося завантажити зображення.",
+      unsupportedFormat: "Формат зображення не підтримується.",
+      fileTooLarge: "Розмір зображення перевищує 16 МБ.",
+      processing: "Завантаження зображення…",
+      uploadComplete: "Зображення готове до збереження.",
+      unsavedChanges: "Спочатку застосуйте або скасуйте поточні налаштування зображення.",
+      loadingImage: "Завантаження зображення",
+      imageLoadFailed: "Не вдалося завантажити зображення",
+      helperText: "JPG, PNG або WEBP до 16 МБ. Налаштуйте зображення локально перед завантаженням.",
+      eventFallbackTitle: "Назва події",
+      eventFallbackDescription: "Опис події",
+      adminPreview: "Попередній перегляд адміністратора",
     },
     home: {
       hero: {

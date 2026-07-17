@@ -12,6 +12,7 @@ import {
 } from "@/lib/content-image";
 import { isOptimizableRemoteUrl } from "@/lib/optimized-image";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export type ContentImageProps = {
   metadata?: ContentImageMetadata | null;
@@ -35,9 +36,12 @@ export function ContentImage({
   imageClassName,
   sizes = "100vw",
   priority = false,
-  loadingLabel = "Loading image",
-  errorLabel = "Image could not be loaded",
+  loadingLabel,
+  errorLabel,
 }: ContentImageProps) {
+  const { t } = useI18n();
+  const resolvedLoadingLabel = loadingLabel || t.contentImages.loadingImage;
+  const resolvedErrorLabel = errorLabel || t.contentImages.imageLoadFailed;
   const image = useMemo(
     () => resolveContentImage({ metadata, legacyUrl, legacyAspect, alt }),
     [alt, legacyAspect, legacyUrl, metadata],
@@ -50,7 +54,7 @@ export function ContentImage({
           className,
         )}
         role="img"
-        aria-label={errorLabel}
+        aria-label={resolvedErrorLabel}
       >
         <ImageOff aria-hidden="true" className="size-7" strokeWidth={1.5} />
       </div>
@@ -62,10 +66,10 @@ export function ContentImage({
       key={`${image.url}:${JSON.stringify(image.crop)}`}
       alt={alt}
       className={className}
-      errorLabel={errorLabel}
+      errorLabel={resolvedErrorLabel}
       image={image}
       imageClassName={imageClassName}
-      loadingLabel={loadingLabel}
+      loadingLabel={resolvedLoadingLabel}
       priority={priority}
       sizes={sizes}
     />

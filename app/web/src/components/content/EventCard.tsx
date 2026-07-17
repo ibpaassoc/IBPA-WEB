@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import type { ContentImageMetadata } from "@/lib/content-image";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 import { ContentImage } from "./ContentImage";
 import { InteractiveContentImage } from "./InteractiveContentImage";
 import { PreservedText } from "./PreservedText";
@@ -63,13 +64,15 @@ export function EventCard({
   titleClassName,
   imagePriority = false,
   imageSizes = "(min-width: 768px) 42vw, 100vw",
-  imageLabels = {
-    open: "Open full image",
-    close: "Close image viewer",
-    loading: "Loading image",
-    error: "Image could not be loaded",
-  },
+  imageLabels,
 }: EventCardProps) {
+  const { t } = useI18n();
+  const resolvedImageLabels = imageLabels || {
+    open: t.contentImages.openFullImage,
+    close: t.contentImages.closeViewer,
+    loading: t.contentImages.loadingImage,
+    error: t.contentImages.imageLoadFailed,
+  };
   const compact = variant === "compact";
   const featured = variant === "featured";
   const hasImage = Boolean(event.imageMetadata?.url || event.coverImage);
@@ -78,13 +81,13 @@ export function EventCard({
       alt={event.imageMetadata?.alt || event.title}
       caption={event.description}
       className={cn("rounded-[22px]", featured && "lg:rounded-[28px]")}
-      closeLabel={imageLabels.close}
-      errorLabel={imageLabels.error}
+      closeLabel={resolvedImageLabels.close}
+      errorLabel={resolvedImageLabels.error}
       legacyAspect={event.coverAspect}
       legacyUrl={event.coverImage}
-      loadingLabel={imageLabels.loading}
+      loadingLabel={resolvedImageLabels.loading}
       metadata={event.imageMetadata}
-      openLabel={imageLabels.open}
+      openLabel={resolvedImageLabels.open}
       priority={imagePriority}
       sizes={imageSizes}
     />
@@ -92,8 +95,8 @@ export function EventCard({
     <ContentImage
       alt={event.title}
       className={cn("rounded-[22px]", featured && "lg:rounded-[28px]")}
-      errorLabel={imageLabels.error}
-      loadingLabel={imageLabels.loading}
+      errorLabel={resolvedImageLabels.error}
+      loadingLabel={resolvedImageLabels.loading}
     />
   );
 

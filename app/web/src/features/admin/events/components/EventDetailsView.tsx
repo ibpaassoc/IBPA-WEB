@@ -1,7 +1,10 @@
+"use client";
+
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/content/EventCard";
+import { useI18n } from "@/lib/i18n";
 
 import { AdminEmptyState } from "../../shared/components/AdminEmptyState";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
@@ -27,6 +30,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 export function EventDetailsView({ counts, event }: EventDetailsViewProps) {
+  const { t } = useI18n();
   if (!event) {
     return (
       <AdminSectionCard title="Event details">
@@ -50,7 +54,7 @@ export function EventDetailsView({ counts, event }: EventDetailsViewProps) {
             coverImage: event.coverImage,
             coverAspect: event.coverAspect ?? event.cover_aspect,
             imageMetadata: event.imageMetadata,
-            eyebrow: "Admin preview",
+            eyebrow: t.contentImages.adminPreview,
           }}
           badges={
             <>

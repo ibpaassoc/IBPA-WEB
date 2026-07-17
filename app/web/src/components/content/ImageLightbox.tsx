@@ -8,6 +8,7 @@ import {
 } from "@/lib/content-image";
 import { PreservedText } from "./PreservedText";
 import { ContentImage } from "./ContentImage";
+import { useI18n } from "@/lib/i18n";
 
 type ImageLightboxProps = {
   open: boolean;
@@ -34,17 +35,18 @@ export function ImageLightbox({
   legacyAspect,
   alt,
   caption,
-  closeLabel = "Close image viewer",
+  closeLabel,
   loadingLabel,
   errorLabel,
 }: ImageLightboxProps) {
+  const { t } = useI18n();
   const image = resolveContentImage({ metadata, legacyUrl, legacyAspect, alt });
   const aspect = image ? getContentImageAspect(image) : 16 / 9;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        closeLabel={closeLabel}
+        closeLabel={closeLabel || t.contentImages.closeViewer}
         className="max-h-[96dvh] max-w-[96vw] overflow-y-auto rounded-[28px] border border-white/80 bg-white p-3 shadow-[0_30px_90px_rgba(15,46,83,0.28)] sm:p-4"
       >
         <DialogTitle className="sr-only">{alt}</DialogTitle>
