@@ -4,6 +4,7 @@ import { InteractiveContentImage } from "@/components/content/InteractiveContent
 import { cyrillicDisplay } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { getBackendUrl } from "@/lib/public-urls";
+import type { ContentImageMetadata } from "@/lib/content-image";
 
 type NewsSectionProps = {
   locale: "en" | "ru" | "uk";
@@ -16,6 +17,7 @@ type ContentItem = {
   coverImage?: string | null;
   coverAspect?: number | null;
   cover_aspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   createdAt: string;
 };
@@ -74,6 +76,7 @@ export const NewsSection = async ({ locale }: NewsSectionProps) => {
     title: item.title,
     date: new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     category: locale === "ru" ? "Новость" : locale === "uk" ? "Новина" : item.type === "news" ? copy.newsCategory : "Event",
+    imageMetadata: item.imageMetadata ?? null,
   }));
 
   if (!newsItems.length) {
@@ -108,6 +111,7 @@ export const NewsSection = async ({ locale }: NewsSectionProps) => {
                   imageClassName="transition-transform duration-700 group-hover:scale-[1.03]"
                   legacyAspect={news.aspect}
                   legacyUrl={news.img}
+                  metadata={news.imageMetadata}
                   sizes="(min-width: 768px) 600px, 100vw"
                 />
                 <div className="absolute inset-0 bg-black/10" />

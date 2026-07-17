@@ -58,6 +58,7 @@ export default function NewsPage() {
     }),
     summary: item.body || "",
     image: item.coverImage || "/news/beauty-forum-2025.webp",
+    imageMetadata: item.imageMetadata ?? null,
     aspect: item.coverAspect ?? 16 / 9,
     href: item.ctaUrl || "/contact",
     ctaLabel:
@@ -120,6 +121,7 @@ export default function NewsPage() {
                     className="rounded-[40px]"
                     legacyAspect={item.aspect}
                     legacyUrl={item.image}
+                    metadata={item.imageMetadata}
                     sizes="(min-width: 768px) 560px, 100vw"
                   />
 

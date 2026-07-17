@@ -6,6 +6,7 @@ import { SectionPattern } from "@/components/landing/SectionPattern";
 import { cyrillicDisplay } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { getBackendUrl } from "@/lib/public-urls";
+import type { ContentImageMetadata } from "@/lib/content-image";
 
 interface EventItem {
   date: string;
@@ -15,6 +16,7 @@ interface EventItem {
   aspect: number;
   description: string;
   href: string;
+  imageMetadata?: ContentImageMetadata | null;
 }
 
 type EventsSectionProps = {
@@ -28,6 +30,7 @@ type ContentItem = {
   coverImage?: string | null;
   coverAspect?: number | null;
   cover_aspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   createdAt: string;
 };
@@ -100,6 +103,7 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
     aspect: item.coverAspect ?? item.cover_aspect ?? 16 / 9,
     description: item.body,
     href: item.ctaUrl || "/events",
+    imageMetadata: item.imageMetadata ?? null,
   }));
 
   if (!events.length) {
@@ -141,6 +145,7 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
                   imageClassName="transition-transform duration-700 group-hover:scale-[1.03]"
                   legacyAspect={event.aspect}
                   legacyUrl={event.img}
+                  metadata={event.imageMetadata}
                   sizes="(min-width: 1024px) 620px, 100vw"
                 />
                 <div className="absolute inset-0 bg-black/10" />

@@ -1,6 +1,11 @@
 import crypto from "crypto";
 import { requireDb } from "@/lib/db";
 import { clearCanonicalPinnedArticles, deleteCanonicalArticle, listCanonicalArticles, upsertCanonicalArticle, type ArticlePersistenceInput } from "./article.repository";
+import {
+  getContentImageMetadataAspect,
+  normalizeContentImageMetadata,
+  type ContentImageMetadata,
+} from "@/features/content/image-metadata";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -9,6 +14,7 @@ type ArticlePayload = {
   title: string;
   body: string;
   coverImage?: string | null;
+  imageMetadata?: unknown;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;
@@ -21,6 +27,7 @@ function toCompatibilityShape(item: {
   title: string;
   body: string;
   coverImage?: string | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;
@@ -34,9 +41,10 @@ function toCompatibilityShape(item: {
     type: "news",
     title: item.title,
     body: item.body,
-    coverImage: item.coverImage ?? null,
-    coverAspect: null,
-    cover_aspect: null,
+    coverImage: item.imageMetadata?.url ?? item.coverImage ?? null,
+    imageMetadata: item.imageMetadata ?? null,
+    coverAspect: getContentImageMetadataAspect(item.imageMetadata),
+    cover_aspect: getContentImageMetadataAspect(item.imageMetadata),
     eventAddress: null,
     eventAllDay: false,
     eventDate: null,
@@ -57,6 +65,7 @@ function mapCanonicalArticle(item: Awaited<ReturnType<typeof listCanonicalArticl
     title: item.title,
     body: item.content,
     coverImage: item.coverImage,
+    imageMetadata: item.imagePresentation,
     ctaUrl: item.ctaUrl,
     ctaLabel: item.ctaLabel,
     isPinned: item.isPinned,
@@ -69,12 +78,14 @@ function mapCanonicalArticle(item: Awaited<ReturnType<typeof listCanonicalArticl
 
 function normalizeArticlePayload(payload: ArticlePayload): ArticlePersistenceInput {
   const id = payload.id || crypto.randomUUID();
+  const imageMetadata = normalizeContentImageMetadata(payload.imageMetadata, payload.coverImage);
 
   return {
     id,
     title: payload.title.trim(),
     content: payload.body,
-    coverImage: payload.coverImage ?? null,
+    coverImage: imageMetadata?.url ?? payload.coverImage ?? null,
+    imageMetadata,
     ctaUrl: payload.ctaUrl ?? null,
     ctaLabel: payload.ctaLabel ?? "Open Link",
     isPinned: Boolean(payload.isPinned),

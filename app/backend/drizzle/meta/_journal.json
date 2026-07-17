@@ -99,6 +99,13 @@
       "when": 1784319600000,
       "tag": "0013_change_event_price_to_text",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784406000000,
+      "tag": "0014_add_content_image_presentation",
+      "breakpoints": true
     }
   ]
 }

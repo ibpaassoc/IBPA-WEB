@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
 import { coreEventRegistrations, coreEvents, coreProfiles, coreUsers } from "@/lib/schema";
+import type { ContentImageMetadata } from "@/features/content/image-metadata";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -11,6 +12,7 @@ export type EventPersistenceInput = {
   price?: string | null;
   coverImageUrl?: string | null;
   coverAspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   location?: string | null;
   visibility: string;
   capacity?: number | null;
@@ -177,6 +179,12 @@ export async function upsertCanonicalEvent(db: DbClient, input: EventPersistence
         title: input.title,
         description: input.description,
         coverImage: input.coverImageUrl ? { url: input.coverImageUrl, aspect: input.coverAspect ?? null } : null,
+        imagePresentation:
+          input.imageMetadata === undefined
+            ? input.coverImageUrl !== undefined && input.coverImageUrl !== existing.coverImage?.url
+              ? null
+              : existing.imagePresentation
+            : input.imageMetadata,
         location: input.location ?? null,
         visibility: input.visibility,
         price: input.price ?? existing.price,
@@ -205,6 +213,7 @@ export async function upsertCanonicalEvent(db: DbClient, input: EventPersistence
       title: input.title,
       description: input.description,
       coverImage: input.coverImageUrl ? { url: input.coverImageUrl, aspect: input.coverAspect ?? null } : null,
+      imagePresentation: input.imageMetadata ?? null,
       location: input.location ?? null,
       visibility: input.visibility,
       price: input.price ?? null,

@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
 import { coreArticles } from "@/lib/schema";
+import type { ContentImageMetadata } from "@/features/content/image-metadata";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -9,6 +10,7 @@ export type ArticlePersistenceInput = {
   title: string;
   content: string;
   coverImage?: string | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;
@@ -39,6 +41,12 @@ export async function upsertCanonicalArticle(db: DbClient, input: ArticlePersist
         title: input.title,
         content: input.content,
         coverImage: input.coverImage ?? existing.coverImage,
+        imagePresentation:
+          input.imageMetadata === undefined
+            ? input.coverImage !== undefined && input.coverImage !== existing.coverImage
+              ? null
+              : existing.imagePresentation
+            : input.imageMetadata,
         ctaUrl: input.ctaUrl ?? existing.ctaUrl,
         ctaLabel: input.ctaLabel ?? existing.ctaLabel,
         isPinned: Boolean(input.isPinned),
@@ -59,6 +67,7 @@ export async function upsertCanonicalArticle(db: DbClient, input: ArticlePersist
       title: input.title,
       content: input.content,
       coverImage: input.coverImage ?? null,
+      imagePresentation: input.imageMetadata ?? null,
       ctaUrl: input.ctaUrl ?? null,
       ctaLabel: input.ctaLabel ?? null,
       isPinned: Boolean(input.isPinned),

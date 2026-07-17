@@ -133,7 +133,11 @@ contentRouter.post("/admin", adminClerkMiddleware, requireAdminAccess, async (re
     const item = await createOrUpdatePartner(db, bodyPayload as any);
     return res.json({ item });
   } catch (error) {
-    if (error instanceof Error && error.message === "Event end date must be after the start date.") {
+    if (
+      error instanceof Error &&
+      (error.message === "Event end date must be after the start date." ||
+        error.message === "Invalid image metadata.")
+    ) {
       return res.status(400).json({ error: error.message });
     }
 
@@ -174,7 +178,11 @@ contentRouter.patch("/admin/:id", adminClerkMiddleware, requireAdminAccess, asyn
     const item = await createOrUpdatePartner(db, { ...(bodyPayload as any), id });
     return res.json({ item });
   } catch (error) {
-    if (error instanceof Error && error.message === "Event end date must be after the start date.") {
+    if (
+      error instanceof Error &&
+      (error.message === "Event end date must be after the start date." ||
+        error.message === "Invalid image metadata.")
+    ) {
       return res.status(400).json({ error: error.message });
     }
 

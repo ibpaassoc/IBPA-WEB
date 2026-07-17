@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgEnum, pgSchema, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 import type { ProfileService } from "@/features/profiles/server/profile.types";
+import type { ContentImageMetadata } from "@/features/content/image-metadata";
 
 const ibpa = pgSchema("ibpa");
 
@@ -125,6 +126,7 @@ export const coreEvents = ibpa.table("events", {
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description").notNull(),
   coverImage: jsonb("cover_image").$type<{ url: string | null; aspect?: number | null } | null>(),
+  imagePresentation: jsonb("image_presentation").$type<ContentImageMetadata | null>(),
   location: text("location"),
   visibility: varchar("visibility", { length: 40 }).notNull().default("PRIVATE"),
   price: text("price"),
@@ -167,6 +169,7 @@ export const coreArticles = ibpa.table("articles", {
   title: varchar("title", { length: 255 }).notNull(),
   content: text("content").notNull(),
   coverImage: text("cover_image"),
+  imagePresentation: jsonb("image_presentation").$type<ContentImageMetadata | null>(),
   ctaUrl: text("cta_url"),
   ctaLabel: varchar("cta_label", { length: 120 }),
   isPinned: boolean("is_pinned").notNull().default(false),

@@ -56,6 +56,7 @@ export default function EventsPage() {
             href: items[0].ctaUrl || "/contact",
             ctaLabel: items[0].ctaLabel || (isRu ? "Открыть ссылку" : isUk ? "Відкрити посилання" : "Open Link"),
             image: items[0].coverImage || "/events/teora-event.webp",
+            imageMetadata: items[0].imageMetadata ?? null,
             aspect: items[0].coverAspect ?? 16 / 9,
             isPinned: Boolean(items[0].isPinned),
           }
@@ -63,6 +64,7 @@ export default function EventsPage() {
             ...localizedEvent,
             ctaLabel: isRu ? "Перейти к регистрации" : isUk ? "Перейти до реєстрації" : "Open Registration",
             image: "/events/teora-event.webp",
+            imageMetadata: null,
             aspect: 16 / 9,
             isPinned: false,
           },
@@ -96,6 +98,7 @@ export default function EventsPage() {
               className="rounded-none"
               legacyAspect={renderedEvent.aspect}
               legacyUrl={renderedEvent.image}
+              metadata={renderedEvent.imageMetadata}
               priority
               sizes="(min-width: 1024px) 520px, 100vw"
             />

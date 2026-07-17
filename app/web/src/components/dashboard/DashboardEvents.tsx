@@ -142,6 +142,7 @@ export function DashboardEvents({
                       caption={item.body}
                       legacyAspect={item.coverAspect}
                       legacyUrl={item.coverImage}
+                      metadata={item.imageMetadata}
                       sizes="(min-width: 1280px) 560px, 100vw"
                     />
                   </div>
