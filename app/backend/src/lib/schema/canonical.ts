@@ -235,10 +235,13 @@ export const coreTeamMembers = ibpa.table("team_members", {
   fullName: varchar("full_name", { length: 255 }).notNull(),
   role: varchar("role", { length: 120 }),
   status: varchar("status", { length: 40 }).notNull().default("INVITED"),
+  // Team-member credential, format: TEAM-<teamNumber>-<YYYYMMDD>-<hex>. Verified via the shared /verify-cert route.
+  credentials: varchar("credentials", { length: 60 }),
   joinedAt: timestamp("joined_at"),
 }, (table) => [
   index("ibpa_team_members_team_id_idx").on(table.teamId),
   index("ibpa_team_members_email_idx").on(table.email),
+  uniqueIndex("ibpa_team_members_credentials_uidx").on(table.credentials),
 ]);
 
 export const coreFiles = ibpa.table("files", {
