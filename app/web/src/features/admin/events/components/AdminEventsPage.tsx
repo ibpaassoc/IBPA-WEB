@@ -323,7 +323,7 @@ export function AdminEventsPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="editor" className="m-0">
+          <TabsContent value="editor" forceMount className="m-0 data-[state=inactive]:hidden">
             <EventEditorForm
               form={form}
               isSaving={isSaving}

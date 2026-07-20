@@ -1,4 +1,5 @@
 import type { ProfileRecordData, ProfileService } from "@/lib/profile-record";
+import type { ContentImageMetadata } from "@/lib/content-image";
 
 export interface Certificate {
   certNumber: string;
@@ -118,6 +119,7 @@ export type DashboardContentItem = {
   body: string;
   coverImage?: string | null;
   coverAspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;

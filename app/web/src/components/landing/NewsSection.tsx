@@ -1,9 +1,10 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
 import { cyrillicDisplay } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { getBackendUrl } from "@/lib/public-urls";
+import type { ContentImageMetadata } from "@/lib/content-image";
 
 type NewsSectionProps = {
   locale: "en" | "ru" | "uk";
@@ -16,13 +17,14 @@ type ContentItem = {
   coverImage?: string | null;
   coverAspect?: number | null;
   cover_aspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   createdAt: string;
 };
 
 async function getNews() {
   const response = await fetch(getBackendUrl("/api/content/public?type=news&target=site"), {
-    next: { revalidate: 300 },
+    next: { revalidate: 300, tags: ["public-content"] },
   }).catch(() => null);
 
   if (!response?.ok) {
@@ -74,6 +76,7 @@ export const NewsSection = async ({ locale }: NewsSectionProps) => {
     title: item.title,
     date: new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     category: locale === "ru" ? "Новость" : locale === "uk" ? "Новина" : item.type === "news" ? copy.newsCategory : "Event",
+    imageMetadata: item.imageMetadata ?? null,
   }));
 
   if (!newsItems.length) {
@@ -100,12 +103,15 @@ export const NewsSection = async ({ locale }: NewsSectionProps) => {
 
         <div className="grid gap-12 md:grid-cols-2">
           {newsItems.map((news, i) => (
-            <Link key={i} href="/news" className="group block space-y-6 cursor-pointer" aria-label={news.title}>
-              <div className="overflow-hidden rounded-[40px] relative" style={{ aspectRatio: news.aspect }}>
-                <ImageWithFallback
-                  src={news.img}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.05]"
+            <article key={i} className="group block space-y-6">
+              <div className="relative overflow-hidden rounded-[40px]">
+                <InteractiveContentImage
                   alt={news.title}
+                  className="rounded-[40px]"
+                  imageClassName="transition-transform duration-700 group-hover:scale-[1.03]"
+                  legacyAspect={news.aspect}
+                  legacyUrl={news.img}
+                  metadata={news.imageMetadata}
                   sizes="(min-width: 768px) 600px, 100vw"
                 />
                 <div className="absolute inset-0 bg-black/10" />
@@ -116,13 +122,15 @@ export const NewsSection = async ({ locale }: NewsSectionProps) => {
                 <div className="space-y-4 px-2">
                 <p className={`text-[#708090] text-[10px] uppercase tracking-[0.14em] ${uiClassName}`}>{news.date}</p>
                 <div className="space-y-4">
-                  <h3 className={`text-2xl uppercase font-bold group-hover:text-[#72A0C1] transition-colors ${headlineClassName}`}>{news.title}</h3>
+                  <h3 className={`text-2xl uppercase font-bold group-hover:text-[#72A0C1] transition-colors ${headlineClassName}`}>
+                    <Link href="/news">{news.title}</Link>
+                  </h3>
                 </div>
-                <div className={`flex items-center gap-2 text-black text-[10px] uppercase tracking-[0.14em] ${uiClassName}`}>
+                <Link href="/news" className={`flex items-center gap-2 text-black text-[10px] uppercase tracking-[0.14em] ${uiClassName}`}>
                   {copy.readArticle} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                </div>
+                </Link>
               </div>
-            </Link>
+            </article>
           ))}
         </div>
       </div>

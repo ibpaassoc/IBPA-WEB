@@ -1,7 +1,10 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/features/admin/shared/components/AdminShell";
 import { getAdminPageAuth } from "@/lib/admin-api-auth";
 import { AppClerkProvider } from "@/lib/clerk-provider";
+import { I18nProvider } from "@/lib/i18n";
+import { resolveLocale } from "@/lib/locale";
 
 export default async function AdminLayout({
   children,
@@ -9,6 +12,8 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const adminAuth = await getAdminPageAuth();
+  const cookieStore = await cookies();
+  const initialLocale = resolveLocale(cookieStore.get("ibpa-locale")?.value);
 
   if (adminAuth.status === "unauthenticated") {
     redirect("/sign-in");
@@ -24,9 +29,11 @@ export default async function AdminLayout({
   // which made POST/PATCH/DELETE intermittently fail with 401 in production.
   return (
     <AppClerkProvider>
-      <AdminShell adminEmail={adminAuth.email} adminName={adminAuth.fullName}>
-        {children}
-      </AdminShell>
+      <I18nProvider initialLocale={initialLocale}>
+        <AdminShell adminEmail={adminAuth.email} adminName={adminAuth.fullName}>
+          {children}
+        </AdminShell>
+      </I18nProvider>
     </AppClerkProvider>
   );
 }

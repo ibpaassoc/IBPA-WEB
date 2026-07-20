@@ -5,6 +5,7 @@ import type {
   EventEditorState,
   EventRegistrationCounts,
 } from "../types/event-admin.types";
+import { toContentImagePayload } from "@/lib/content-image";
 
 export async function listContentItems() {
   return requestJson<{ items?: AdminContentItem[] }>(
@@ -18,6 +19,7 @@ export async function saveEvent(input: EventEditorState) {
   const payload = {
     ...input,
     coverAspect: input.coverAspect ?? 16 / 9,
+    imageMetadata: toContentImagePayload(input.imageMetadata),
     type: "events",
   };
   const url = input.id ? `/api/admin/content/${encodeURIComponent(input.id)}` : "/api/admin/content";

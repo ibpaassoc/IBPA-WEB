@@ -1,4 +1,5 @@
 import type { AdminContentItem } from "../../shared/types/admin.types";
+import type { ContentImageMetadata } from "@/lib/content-image";
 
 export type AdminEvent = AdminContentItem & {
   type: "events";
@@ -12,6 +13,7 @@ export type EventEditorState = {
   body: string;
   coverImage: string;
   coverAspect: number | null;
+  imageMetadata: ContentImageMetadata | null;
   eventAddress: string;
   eventAllDay: boolean;
   eventDate: string;

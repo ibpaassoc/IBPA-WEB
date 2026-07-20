@@ -1,6 +1,8 @@
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
+import { PreservedText } from "@/components/content/PreservedText";
 
 import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
 import { formatAdminDate } from "../../shared/utils/admin-formatters";
@@ -18,6 +20,9 @@ export function ArticlePreviewCard({ article, draft }: ArticlePreviewCardProps) 
   const ctaUrl = draft?.ctaUrl || article?.ctaUrl;
   const ctaLabel = draft?.ctaLabel || article?.ctaLabel || "Read more";
   const publishedLabel = article ? getArticleVisibility(article) : "Draft preview";
+  const coverImage = draft?.coverImage || article?.coverImage;
+  const coverAspect = draft?.coverAspect ?? article?.coverAspect ?? article?.cover_aspect;
+  const imageMetadata = draft?.imageMetadata ?? article?.imageMetadata;
 
   return (
     <div className="flex flex-col gap-5 rounded-[24px] border border-[#D7E5F4] bg-white p-6 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
@@ -29,6 +34,17 @@ export function ArticlePreviewCard({ article, draft }: ArticlePreviewCardProps) 
           <span className="text-xs text-[#6C7F95]">{formatAdminDate(article.updatedAt)}</span>
         ) : null}
       </div>
+      {coverImage ? (
+        <InteractiveContentImage
+          alt={title}
+          caption={body}
+          className="rounded-[20px]"
+          legacyAspect={coverAspect}
+          legacyUrl={coverImage}
+          metadata={imageMetadata}
+          sizes="(min-width: 768px) 720px, 100vw"
+        />
+      ) : null}
       <div className="flex flex-col gap-3">
         <h3
           className="text-2xl font-semibold tracking-[-0.02em] text-[#10203B]"
@@ -36,12 +52,12 @@ export function ArticlePreviewCard({ article, draft }: ArticlePreviewCardProps) 
         >
           {title}
         </h3>
-        <p
-          className="whitespace-pre-wrap text-sm leading-7 text-[#55708D]"
+        <PreservedText
+          className="text-sm leading-7 text-[#55708D]"
           style={{ textWrap: "pretty" }}
         >
           {body}
-        </p>
+        </PreservedText>
       </div>
       {ctaUrl ? (
         <Button

@@ -1,3 +1,5 @@
+import type { ContentImageMetadata } from "@/lib/content-image";
+
 export type PublicContentItem = {
   id: string;
   type: "news" | "events" | "partners";
@@ -6,6 +8,7 @@ export type PublicContentItem = {
   coverImage?: string | null;
   coverAspect?: number | null;
   cover_aspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;

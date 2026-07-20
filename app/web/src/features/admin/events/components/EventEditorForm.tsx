@@ -1,9 +1,11 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
-import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
+import { ContentImageEditor } from "@/components/content/ContentImageEditor";
+import { EventCard } from "@/components/content/EventCard";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -16,6 +18,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/lib/i18n";
 
 import type { EventEditorState } from "../types/event-admin.types";
 
@@ -34,6 +37,8 @@ export function EventEditorForm({
   onReset,
   onSave,
 }: EventEditorFormProps) {
+  const { t } = useI18n();
+  const [hasPendingImageChanges, setHasPendingImageChanges] = useState(false);
   const patch = (next: Partial<EventEditorState>) => onChange({ ...form, ...next });
 
   return (
@@ -41,6 +46,10 @@ export function EventEditorForm({
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
+        if (hasPendingImageChanges) {
+          toast.error(t.contentImages.unsavedChanges);
+          return;
+        }
         onSave();
       }}
     >
@@ -144,21 +153,46 @@ export function EventEditorForm({
           <FieldLabel htmlFor="event-cover">Cover image URL</FieldLabel>
           <Input
             id="event-cover"
-            onChange={(event) => patch({ coverImage: event.target.value })}
+            onChange={(event) => patch({ coverImage: event.target.value, imageMetadata: null })}
             placeholder="https://..."
             value={form.coverImage}
           />
         </Field>
       </FieldGroup>
 
-      <AdminUploadZone
-        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-        buttonText="Choose image"
-        endpoint="contentImageUploader"
-        helperText="JPG, PNG, WEBP up to 16 MB."
-        label="Upload event cover"
+      <ContentImageEditor
+        key={`${form.id || "new-event"}:${form.coverImage}`}
+        alt={form.title || t.contentImages.eventFallbackTitle}
+        legacyAspect={form.coverAspect}
+        legacyUrl={form.coverImage}
+        onChange={(imageMetadata, coverAspect) =>
+          patch({
+            coverAspect,
+            coverImage: imageMetadata?.url || "",
+            imageMetadata,
+          })
+        }
+        onDirtyChange={setHasPendingImageChanges}
         onError={(message) => toast.error(message)}
-        onUploaded={(url, metadata) => patch({ coverAspect: metadata?.aspect ?? form.coverAspect, coverImage: url })}
+        renderCardPreview={(imageMetadata) => (
+          <EventCard
+            event={{
+              title: form.title || t.contentImages.eventFallbackTitle,
+              description: form.body || t.contentImages.eventFallbackDescription,
+              coverImage: imageMetadata.url,
+              coverAspect: form.coverAspect,
+              imageMetadata,
+              eyebrow: t.contentImages.adminPreview,
+            }}
+            meta={[
+              ...(form.eventDate ? [{ kind: "date" as const, value: form.eventDate }] : []),
+              ...(form.eventAddress ? [{ kind: "location" as const, value: form.eventAddress }] : []),
+              ...(form.price ? [{ kind: "price" as const, value: form.price }] : []),
+            ]}
+            variant="admin"
+          />
+        )}
+        value={form.imageMetadata}
       />
 
       <FieldGroup>

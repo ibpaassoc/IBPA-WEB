@@ -1,6 +1,11 @@
 import crypto from "crypto";
 import { requireDb } from "@/lib/db";
 import { clearCanonicalPinnedArticles, deleteCanonicalArticle, listCanonicalArticles, upsertCanonicalArticle, type ArticlePersistenceInput } from "./article.repository";
+import {
+  getContentImageMetadataAspect,
+  normalizeContentImageMetadata,
+  type ContentImageMetadata,
+} from "@/features/content/image-metadata";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -9,6 +14,8 @@ type ArticlePayload = {
   title: string;
   body: string;
   coverImage?: string | null;
+  coverAspect?: number | null;
+  imageMetadata?: unknown;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;
@@ -20,7 +27,9 @@ function toCompatibilityShape(item: {
   id: string;
   title: string;
   body: string;
-  coverImage?: string | null;
+  coverImageUrl?: string | null;
+  coverAspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;
@@ -29,14 +38,17 @@ function toCompatibilityShape(item: {
   createdAt: Date;
   updatedAt?: Date | null;
 }) {
+  const coverAspect = getContentImageMetadataAspect(item.imageMetadata) ?? item.coverAspect ?? null;
+
   return {
     id: item.id,
     type: "news",
     title: item.title,
     body: item.body,
-    coverImage: item.coverImage ?? null,
-    coverAspect: null,
-    cover_aspect: null,
+    coverImage: item.imageMetadata?.url ?? item.coverImageUrl ?? null,
+    imageMetadata: item.imageMetadata ?? null,
+    coverAspect,
+    cover_aspect: coverAspect,
     eventAddress: null,
     eventAllDay: false,
     eventDate: null,
@@ -56,7 +68,9 @@ function mapCanonicalArticle(item: Awaited<ReturnType<typeof listCanonicalArticl
     id: item.id,
     title: item.title,
     body: item.content,
-    coverImage: item.coverImage,
+    coverImageUrl: item.coverImage?.url ?? null,
+    coverAspect: item.coverImage?.aspect ?? null,
+    imageMetadata: item.imagePresentation,
     ctaUrl: item.ctaUrl,
     ctaLabel: item.ctaLabel,
     isPinned: item.isPinned,
@@ -67,14 +81,18 @@ function mapCanonicalArticle(item: Awaited<ReturnType<typeof listCanonicalArticl
   });
 }
 
-function normalizeArticlePayload(payload: ArticlePayload): ArticlePersistenceInput {
+export function normalizeArticlePayload(payload: ArticlePayload): ArticlePersistenceInput {
   const id = payload.id || crypto.randomUUID();
+  const imageMetadata = normalizeContentImageMetadata(payload.imageMetadata, payload.coverImage);
 
   return {
     id,
     title: payload.title.trim(),
     content: payload.body,
-    coverImage: payload.coverImage ?? null,
+    coverImageUrl: imageMetadata?.url ?? payload.coverImage ?? null,
+    coverAspect: getContentImageMetadataAspect(imageMetadata) ?? payload.coverAspect ?? null,
+    coverZoom: imageMetadata?.zoom ?? null,
+    imageMetadata,
     ctaUrl: payload.ctaUrl ?? null,
     ctaLabel: payload.ctaLabel ?? "Open Link",
     isPinned: Boolean(payload.isPinned),

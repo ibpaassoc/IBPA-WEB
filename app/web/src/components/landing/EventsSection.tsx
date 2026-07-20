@@ -1,10 +1,11 @@
-import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { EventCard } from "@/components/content/EventCard";
 import { SectionPattern } from "@/components/landing/SectionPattern";
 import { cyrillicDisplay } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { getBackendUrl } from "@/lib/public-urls";
+import type { ContentImageMetadata } from "@/lib/content-image";
 
 interface EventItem {
   date: string;
@@ -14,6 +15,7 @@ interface EventItem {
   aspect: number;
   description: string;
   href: string;
+  imageMetadata?: ContentImageMetadata | null;
 }
 
 type EventsSectionProps = {
@@ -27,13 +29,14 @@ type ContentItem = {
   coverImage?: string | null;
   coverAspect?: number | null;
   cover_aspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   createdAt: string;
 };
 
 async function getEvents() {
   const response = await fetch(getBackendUrl("/api/content/public?type=events&target=site"), {
-    next: { revalidate: 300 },
+    next: { revalidate: 300, tags: ["public-content"] },
   }).catch(() => null);
 
   if (!response?.ok) {
@@ -99,6 +102,7 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
     aspect: item.coverAspect ?? item.cover_aspect ?? 16 / 9,
     description: item.body,
     href: item.ctaUrl || "/events",
+    imageMetadata: item.imageMetadata ?? null,
   }));
 
   if (!events.length) {
@@ -131,72 +135,30 @@ export const EventsSection = async ({ locale }: EventsSectionProps) => {
 
         <div className="grid gap-8">
           {events.map((event, i) => (
-            <div key={i} className="group overflow-hidden rounded-[44px] border border-white bg-[#F0F8FF]/30 transition-[background-color,box-shadow,border-color] duration-300 hover:bg-white hover:shadow-2xl">
-              <div className="grid lg:grid-cols-[0.96fr_1.04fr]">
-              <div className="relative overflow-hidden" style={{ aspectRatio: event.aspect }}>
-                <ImageWithFallback
-                  src={event.img}
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
-                  alt={event.name}
-                  sizes="(min-width: 1024px) 620px, 100vw"
-                />
-                <div className="absolute inset-0 bg-black/10" />
-                <div className={`absolute top-6 right-6 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[10px] text-white uppercase tracking-[0.14em] ${uiClassName}`}>
-                  {copy.upcoming}
-                </div>
-              </div>
-              
-              <div className="p-10 md:p-12 flex-grow flex flex-col space-y-8">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 text-[#708090]">
-                    <CalendarDays size={20} className="text-[#72A0C1]" />
-                    <span className={`text-[10px] uppercase tracking-[0.14em] ${uiClassName}`}>{event.date}</span>
-                  </div>
-                  <h3 className={`text-3xl uppercase font-bold leading-tight md:text-5xl ${headlineClassName}`}>
-                    {event.name}
-                  </h3>
-                  <div className="flex items-center gap-3 text-gray-400">
-                    <MapPin size={20} className="opacity-50" />
-                    <span className={`text-xs ${bodyClassName}`}>{event.location}</span>
-                  </div>
-                  <div className="max-w-2xl pt-4 text-base leading-relaxed text-slate-600 md:text-lg">
-                    <p className={`hidden md:block ${bodyClassName}`}>
-                      {event.description}
-                    </p>
-
-                    <details className="group md:hidden">
-                      <summary className={`list-none cursor-pointer ${bodyClassName}`}>
-                        <p
-                          className="overflow-hidden"
-                          style={{
-                            display: "-webkit-box",
-                            WebkitBoxOrient: "vertical",
-                            WebkitLineClamp: 4,
-                          }}
-                        >
-                          {event.description}
-                        </p>
-                        <span className="mt-3 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                          <span className="group-open:hidden">раскрыть</span>
-                          <span className="hidden group-open:inline">свернуть</span>
-                          <ArrowRight size={12} className="transition-transform group-open:rotate-90" />
-                        </span>
-                      </summary>
-                      <p className={`mt-4 ${bodyClassName}`}>
-                        {event.description}
-                      </p>
-                    </details>
-                  </div>
-                </div>
-                
-                <div className="pt-4 mt-auto">
-                  <Link href={event.href} target="_blank" rel="noreferrer" className={`w-full md:w-fit px-8 py-4 bg-black text-white text-center rounded-full text-[10px] uppercase tracking-[0.16em] group-hover:bg-[#72A0C1] group-hover:text-black transition-colors duration-300 flex items-center justify-center gap-3 ${uiClassName}`}>
-                    {copy.register} <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </div>
-              </div>
-            </div>
+            <EventCard
+              key={`${event.name}-${i}`}
+              event={{
+                title: event.name,
+                description: event.description,
+                coverImage: event.img,
+                coverAspect: event.aspect,
+                imageMetadata: event.imageMetadata,
+                eyebrow: copy.upcoming,
+              }}
+              imagePriority={i === 0}
+              imageSizes="(min-width: 1024px) 620px, 100vw"
+              meta={[
+                { kind: "date", value: event.date },
+                { kind: "location", value: event.location },
+              ]}
+              actions={
+                <Link href={event.href} target={event.href.startsWith("http") ? "_blank" : undefined} rel={event.href.startsWith("http") ? "noreferrer" : undefined} className={`inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#1F5D8F] px-8 py-4 text-center text-[10px] uppercase tracking-[0.16em] text-white transition-colors hover:bg-[#17496F] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#72A0C1]/40 md:w-fit ${uiClassName}`}>
+                  {copy.register} <ArrowRight size={14} />
+                </Link>
+              }
+              titleClassName={`${headlineClassName} uppercase`}
+              variant="featured"
+            />
           ))}
         </div>
       </div>

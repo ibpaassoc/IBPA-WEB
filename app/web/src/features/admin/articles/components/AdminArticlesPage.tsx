@@ -234,7 +234,7 @@ export function AdminArticlesPage() {
             <TabsTrigger value="editor">Editor</TabsTrigger>
             <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
-          <TabsContent value="editor" className="m-0">
+          <TabsContent value="editor" forceMount className="m-0 data-[state=inactive]:hidden">
             <ArticleEditorForm
               form={form}
               isSaving={isSaving}

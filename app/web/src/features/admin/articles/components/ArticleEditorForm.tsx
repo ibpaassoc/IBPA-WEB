@@ -1,9 +1,10 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
-import { AdminUploadZone } from "@/components/admin/AdminUploadZone";
+import { ContentImageEditor } from "@/components/content/ContentImageEditor";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -16,8 +17,10 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/lib/i18n";
 
 import type { ArticleEditorState } from "../types/article-admin.types";
+import { ArticlePreviewCard } from "./ArticlePreviewCard";
 
 type ArticleEditorFormProps = {
   form: ArticleEditorState;
@@ -34,6 +37,8 @@ export function ArticleEditorForm({
   onReset,
   onSave,
 }: ArticleEditorFormProps) {
+  const { t } = useI18n();
+  const [hasPendingImageChanges, setHasPendingImageChanges] = useState(false);
   const patch = (next: Partial<ArticleEditorState>) => onChange({ ...form, ...next });
 
   return (
@@ -41,6 +46,10 @@ export function ArticleEditorForm({
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
+        if (hasPendingImageChanges) {
+          toast.error(t.contentImages.unsavedChanges);
+          return;
+        }
         onSave();
       }}
     >
@@ -91,7 +100,7 @@ export function ArticleEditorForm({
           <FieldLabel htmlFor="article-cover">Cover image URL</FieldLabel>
           <Input
             id="article-cover"
-            onChange={(event) => patch({ coverImage: event.target.value })}
+            onChange={(event) => patch({ coverImage: event.target.value, imageMetadata: null })}
             placeholder="https://..."
             value={form.coverImage}
           />
@@ -99,14 +108,24 @@ export function ArticleEditorForm({
         </Field>
       </FieldGroup>
 
-      <AdminUploadZone
-        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-        buttonText="Choose image"
-        endpoint="contentImageUploader"
-        helperText="JPG, PNG, WEBP up to 16 MB."
-        label="Upload article cover"
+      <ContentImageEditor
+        key={`${form.id || "new-article"}:${form.coverImage}`}
+        alt={form.title || t.contentImages.cardPreview}
+        legacyAspect={form.coverAspect}
+        legacyUrl={form.coverImage}
+        onChange={(imageMetadata, coverAspect) =>
+          patch({
+            coverAspect,
+            coverImage: imageMetadata?.url || "",
+            imageMetadata,
+          })
+        }
+        onDirtyChange={setHasPendingImageChanges}
         onError={(message) => toast.error(message)}
-        onUploaded={(url, metadata) => patch({ coverAspect: metadata?.aspect ?? form.coverAspect, coverImage: url })}
+        renderCardPreview={(imageMetadata) => (
+          <ArticlePreviewCard draft={{ ...form, imageMetadata }} />
+        )}
+        value={form.imageMetadata}
       />
 
       <FieldGroup>

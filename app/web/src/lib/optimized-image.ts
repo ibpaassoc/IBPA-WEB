@@ -11,11 +11,15 @@ const OPTIMIZABLE_HOSTS = new Set([
   "images.unsplash.com",
 ]);
 
+function isUploadThingCdnHost(hostname: string) {
+  return hostname === "ufs.sh" || hostname.endsWith(".ufs.sh");
+}
+
 export function isOptimizableRemoteUrl(src: string): boolean {
   try {
     const url = new URL(src);
     if (url.protocol !== "https:") return false;
-    if (!OPTIMIZABLE_HOSTS.has(url.hostname)) return false;
+    if (!OPTIMIZABLE_HOSTS.has(url.hostname) && !isUploadThingCdnHost(url.hostname)) return false;
     // The optimizer refuses SVGs by default; serve them as-is.
     if (url.pathname.toLowerCase().endsWith(".svg")) return false;
     return true;

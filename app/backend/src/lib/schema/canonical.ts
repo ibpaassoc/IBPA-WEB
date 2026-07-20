@@ -1,8 +1,16 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgEnum, pgSchema, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 import type { ProfileService } from "@/features/profiles/server/profile.types";
+import type { ContentImageMetadata } from "@/features/content/image-metadata";
 
 const ibpa = pgSchema("ibpa");
+
+/** Cover image summary stored on content rows; full presentation metadata lives in image_presentation. */
+export type ContentCoverImage = {
+  url: string | null;
+  aspect?: number | null;
+  zoom?: number | null;
+};
 
 export const userRoleEnum = pgEnum("ibpa_user_role", ["ADMIN", "MEMBER", "PARTNER", "TEAM_MEMBER"]);
 export const applicationTypeEnum = pgEnum("ibpa_application_type", ["MEMBER", "PARTNER", "TEAM_MEMBER"]);
@@ -124,7 +132,8 @@ export const coreEvents = ibpa.table("events", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description").notNull(),
-  coverImage: jsonb("cover_image").$type<{ url: string | null; aspect?: number | null } | null>(),
+  coverImage: jsonb("cover_image").$type<ContentCoverImage | null>(),
+  imagePresentation: jsonb("image_presentation").$type<ContentImageMetadata | null>(),
   location: text("location"),
   visibility: varchar("visibility", { length: 40 }).notNull().default("PRIVATE"),
   price: text("price"),
@@ -166,7 +175,8 @@ export const coreArticles = ibpa.table("articles", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title", { length: 255 }).notNull(),
   content: text("content").notNull(),
-  coverImage: text("cover_image"),
+  coverImage: jsonb("cover_image").$type<ContentCoverImage | null>(),
+  imagePresentation: jsonb("image_presentation").$type<ContentImageMetadata | null>(),
   ctaUrl: text("cta_url"),
   ctaLabel: varchar("cta_label", { length: 120 }),
   isPinned: boolean("is_pinned").notNull().default(false),

@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { InteractiveContentImage } from "@/components/content/InteractiveContentImage";
+import { PreservedText } from "@/components/content/PreservedText";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -50,13 +52,15 @@ function ArticleThumbnail({ article }: { article: AdminArticle }) {
   }
 
   return (
-    <div className="relative aspect-square size-24 shrink-0 overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-28">
-      <img
-        alt=""
-        className="h-full w-full object-cover"
-        decoding="async"
-        loading="lazy"
-        src={article.coverImage}
+    <div className="relative size-24 shrink-0 overflow-hidden rounded-2xl bg-[#EEF6FF] sm:size-28">
+      <InteractiveContentImage
+        alt={article.title}
+        caption={article.body}
+        className="h-full rounded-2xl"
+        legacyAspect={article.coverAspect ?? article.cover_aspect}
+        legacyUrl={article.coverImage}
+        metadata={article.imageMetadata}
+        sizes="112px"
       />
     </div>
   );
@@ -107,7 +111,7 @@ export function ArticleCardGrid({
 }: ArticleCardGridProps) {
   if (isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <ArticleCardSkeleton key={i} />
         ))}
@@ -125,7 +129,9 @@ export function ArticleCardGrid({
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    // items-start: cards keep their natural height — one long card does not
+    // stretch its row siblings.
+    <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {articles.map((article) => {
         const isSelected = article.id === selectedId;
         const hasCta = Boolean(article.ctaUrl);
@@ -159,12 +165,12 @@ export function ArticleCardGrid({
                 </div>
 
                 {article.body ? (
-                  <p
-                    className="line-clamp-2 text-xs leading-5 text-[#6C7F95]"
+                  <PreservedText
+                    className="line-clamp-3 text-xs leading-5 text-[#6C7F95]"
                     style={{ textWrap: "pretty" }}
                   >
                     {article.body}
-                  </p>
+                  </PreservedText>
                 ) : null}
 
                 <div className="flex items-center gap-1.5 text-xs text-[#6C7F95]">

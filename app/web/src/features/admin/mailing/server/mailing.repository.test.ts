@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import { listEmailHistory, sendEmailCampaign } from "./mailing.repository";
+import {
+  listEmailHistory,
+  listEventRegistrantAudienceEmails,
+  sendEmailCampaign,
+} from "./mailing.repository";
 
 type TrackedResponse = {
   response: Response;
@@ -142,5 +146,52 @@ describe("mailing repository response handling", () => {
     );
     assert.equal(tracked.bodyReads(), 1, "body must be consumed exactly once");
     assert.equal(tracked.cloneCallsAfterBodyUsed(), 0, "must not clone after consumption");
+  });
+
+  it("loads and deduplicates event registrants through the admin event routes", async () => {
+    const calls: string[] = [];
+    globalThis.fetch = ((input: RequestInfo | URL) => {
+      const url = String(input);
+      calls.push(url);
+
+      if (url === "/api/admin/content") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: [
+                { id: "event one", type: "events" },
+                { id: "article-one", type: "news" },
+              ],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+
+      if (url === "/api/admin/events/event%20one/registrations") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: [
+                { email: "Member@Example.com" },
+                { email: " member@example.com " },
+                { email: "second@example.com" },
+              ],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }) as typeof fetch;
+
+    const result = await listEventRegistrantAudienceEmails();
+
+    assert.deepEqual(result, ["member@example.com", "second@example.com"]);
+    assert.deepEqual(calls, [
+      "/api/admin/content",
+      "/api/admin/events/event%20one/registrations",
+    ]);
   });
 });

@@ -2,6 +2,11 @@ import crypto from "crypto";
 import { requireDb } from "@/lib/db";
 import type { CoreEventRegistration } from "@/lib/schema";
 import {
+  getContentImageMetadataAspect,
+  normalizeContentImageMetadata,
+  type ContentImageMetadata,
+} from "@/features/content/image-metadata";
+import {
   clearCanonicalPinnedEvents,
   deleteEventRegistrationByEventAndUser,
   deleteCanonicalEvent,
@@ -25,6 +30,7 @@ type EventPayload = {
   price?: string | null;
   coverImage?: string | null;
   coverAspect?: number | null;
+  imageMetadata?: unknown;
   eventAddress?: string | null;
   eventAllDay?: boolean;
   eventDate?: string | Date | null;
@@ -62,6 +68,7 @@ function toCompatibilityShape(item: {
   description: string;
   coverImageUrl?: string | null;
   coverAspect?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   location?: string | null;
   eventAllDay?: boolean;
   startDate?: Date | null;
@@ -75,7 +82,7 @@ function toCompatibilityShape(item: {
   createdAt: Date;
   updatedAt?: Date | null;
 }) {
-  const coverAspect = item.coverAspect ?? null;
+  const coverAspect = getContentImageMetadataAspect(item.imageMetadata) ?? item.coverAspect ?? null;
 
   return {
     id: item.id,
@@ -83,7 +90,8 @@ function toCompatibilityShape(item: {
     title: item.title,
     body: item.description,
     price: item.price ?? null,
-    coverImage: item.coverImageUrl ?? null,
+    coverImage: item.imageMetadata?.url ?? item.coverImageUrl ?? null,
+    imageMetadata: item.imageMetadata ?? null,
     coverAspect,
     cover_aspect: coverAspect,
     eventAddress: item.location ?? null,
@@ -108,6 +116,7 @@ function mapCanonicalEvent(item: Awaited<ReturnType<typeof listCanonicalEvents>>
     price: item.price ?? null,
     coverImageUrl: item.coverImage?.url ?? null,
     coverAspect: item.coverImage?.aspect ?? null,
+    imageMetadata: item.imagePresentation,
     location: item.location,
     eventAllDay: item.eventAllDay,
     startDate: item.startDate,
@@ -122,15 +131,18 @@ function mapCanonicalEvent(item: Awaited<ReturnType<typeof listCanonicalEvents>>
   });
 }
 
-function normalizeEventPayload(payload: EventPayload): EventPersistenceInput {
+export function normalizeEventPayload(payload: EventPayload): EventPersistenceInput {
   const id = payload.id || crypto.randomUUID();
+  const imageMetadata = normalizeContentImageMetadata(payload.imageMetadata, payload.coverImage);
   return {
     id,
     title: payload.title.trim(),
     description: payload.body,
     price: payload.price?.trim() || null,
-    coverImageUrl: payload.coverImage ?? null,
-    coverAspect: payload.coverAspect ?? null,
+    coverImageUrl: imageMetadata?.url ?? payload.coverImage ?? null,
+    coverAspect: getContentImageMetadataAspect(imageMetadata) ?? payload.coverAspect ?? null,
+    coverZoom: imageMetadata?.zoom ?? null,
+    imageMetadata,
     location: payload.eventAddress ?? null,
     visibility: resolveVisibility(payload.publishToSite, payload.publishToDashboard),
     eventLink: payload.ctaUrl ?? null,

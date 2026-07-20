@@ -1,6 +1,7 @@
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
 import { coreArticles } from "@/lib/schema";
+import type { ContentImageMetadata } from "@/features/content/image-metadata";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -8,13 +9,25 @@ export type ArticlePersistenceInput = {
   id: string;
   title: string;
   content: string;
-  coverImage?: string | null;
+  coverImageUrl?: string | null;
+  coverAspect?: number | null;
+  coverZoom?: number | null;
+  imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
   isPinned?: boolean;
   publishToSite?: boolean;
   publishToDashboard?: boolean;
 };
+
+function toCoverImageColumn(input: ArticlePersistenceInput) {
+  if (!input.coverImageUrl) return null;
+  return {
+    url: input.coverImageUrl,
+    aspect: input.coverAspect ?? null,
+    zoom: input.coverZoom ?? null,
+  };
+}
 
 export async function listCanonicalArticles(db: DbClient) {
   return db.select().from(coreArticles).orderBy(desc(coreArticles.isPinned), desc(coreArticles.createdAt));
@@ -38,7 +51,13 @@ export async function upsertCanonicalArticle(db: DbClient, input: ArticlePersist
       .set({
         title: input.title,
         content: input.content,
-        coverImage: input.coverImage ?? existing.coverImage,
+        coverImage: toCoverImageColumn(input),
+        imagePresentation:
+          input.imageMetadata === undefined
+            ? input.coverImageUrl !== undefined && input.coverImageUrl !== existing.coverImage?.url
+              ? null
+              : existing.imagePresentation
+            : input.imageMetadata,
         ctaUrl: input.ctaUrl ?? existing.ctaUrl,
         ctaLabel: input.ctaLabel ?? existing.ctaLabel,
         isPinned: Boolean(input.isPinned),
@@ -58,7 +77,8 @@ export async function upsertCanonicalArticle(db: DbClient, input: ArticlePersist
       id: input.id,
       title: input.title,
       content: input.content,
-      coverImage: input.coverImage ?? null,
+      coverImage: toCoverImageColumn(input),
+      imagePresentation: input.imageMetadata ?? null,
       ctaUrl: input.ctaUrl ?? null,
       ctaLabel: input.ctaLabel ?? null,
       isPinned: Boolean(input.isPinned),
