@@ -111,7 +111,7 @@ export function ArticleCardGrid({
 }: ArticleCardGridProps) {
   if (isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <ArticleCardSkeleton key={i} />
         ))}
@@ -129,7 +129,9 @@ export function ArticleCardGrid({
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    // items-start: cards keep their natural height — one long card does not
+    // stretch its row siblings.
+    <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {articles.map((article) => {
         const isSelected = article.id === selectedId;
         const hasCta = Boolean(article.ctaUrl);
@@ -164,7 +166,7 @@ export function ArticleCardGrid({
 
                 {article.body ? (
                   <PreservedText
-                    className="text-xs leading-5 text-[#6C7F95]"
+                    className="line-clamp-3 text-xs leading-5 text-[#6C7F95]"
                     style={{ textWrap: "pretty" }}
                   >
                     {article.body}
