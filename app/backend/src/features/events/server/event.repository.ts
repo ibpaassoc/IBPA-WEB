@@ -12,6 +12,7 @@ export type EventPersistenceInput = {
   price?: string | null;
   coverImageUrl?: string | null;
   coverAspect?: number | null;
+  coverZoom?: number | null;
   imageMetadata?: ContentImageMetadata | null;
   location?: string | null;
   visibility: string;
@@ -178,7 +179,9 @@ export async function upsertCanonicalEvent(db: DbClient, input: EventPersistence
       .set({
         title: input.title,
         description: input.description,
-        coverImage: input.coverImageUrl ? { url: input.coverImageUrl, aspect: input.coverAspect ?? null } : null,
+        coverImage: input.coverImageUrl
+          ? { url: input.coverImageUrl, aspect: input.coverAspect ?? null, zoom: input.coverZoom ?? null }
+          : null,
         imagePresentation:
           input.imageMetadata === undefined
             ? input.coverImageUrl !== undefined && input.coverImageUrl !== existing.coverImage?.url
@@ -212,7 +215,9 @@ export async function upsertCanonicalEvent(db: DbClient, input: EventPersistence
       id: input.id,
       title: input.title,
       description: input.description,
-      coverImage: input.coverImageUrl ? { url: input.coverImageUrl, aspect: input.coverAspect ?? null } : null,
+      coverImage: input.coverImageUrl
+        ? { url: input.coverImageUrl, aspect: input.coverAspect ?? null, zoom: input.coverZoom ?? null }
+        : null,
       imagePresentation: input.imageMetadata ?? null,
       location: input.location ?? null,
       visibility: input.visibility,

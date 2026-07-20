@@ -14,6 +14,7 @@ type ArticlePayload = {
   title: string;
   body: string;
   coverImage?: string | null;
+  coverAspect?: number | null;
   imageMetadata?: unknown;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
@@ -26,7 +27,8 @@ function toCompatibilityShape(item: {
   id: string;
   title: string;
   body: string;
-  coverImage?: string | null;
+  coverImageUrl?: string | null;
+  coverAspect?: number | null;
   imageMetadata?: ContentImageMetadata | null;
   ctaUrl?: string | null;
   ctaLabel?: string | null;
@@ -36,15 +38,17 @@ function toCompatibilityShape(item: {
   createdAt: Date;
   updatedAt?: Date | null;
 }) {
+  const coverAspect = getContentImageMetadataAspect(item.imageMetadata) ?? item.coverAspect ?? null;
+
   return {
     id: item.id,
     type: "news",
     title: item.title,
     body: item.body,
-    coverImage: item.imageMetadata?.url ?? item.coverImage ?? null,
+    coverImage: item.imageMetadata?.url ?? item.coverImageUrl ?? null,
     imageMetadata: item.imageMetadata ?? null,
-    coverAspect: getContentImageMetadataAspect(item.imageMetadata),
-    cover_aspect: getContentImageMetadataAspect(item.imageMetadata),
+    coverAspect,
+    cover_aspect: coverAspect,
     eventAddress: null,
     eventAllDay: false,
     eventDate: null,
@@ -64,7 +68,8 @@ function mapCanonicalArticle(item: Awaited<ReturnType<typeof listCanonicalArticl
     id: item.id,
     title: item.title,
     body: item.content,
-    coverImage: item.coverImage,
+    coverImageUrl: item.coverImage?.url ?? null,
+    coverAspect: item.coverImage?.aspect ?? null,
     imageMetadata: item.imagePresentation,
     ctaUrl: item.ctaUrl,
     ctaLabel: item.ctaLabel,
@@ -84,7 +89,9 @@ export function normalizeArticlePayload(payload: ArticlePayload): ArticlePersist
     id,
     title: payload.title.trim(),
     content: payload.body,
-    coverImage: imageMetadata?.url ?? payload.coverImage ?? null,
+    coverImageUrl: imageMetadata?.url ?? payload.coverImage ?? null,
+    coverAspect: getContentImageMetadataAspect(imageMetadata) ?? payload.coverAspect ?? null,
+    coverZoom: imageMetadata?.zoom ?? null,
     imageMetadata,
     ctaUrl: payload.ctaUrl ?? null,
     ctaLabel: payload.ctaLabel ?? "Open Link",

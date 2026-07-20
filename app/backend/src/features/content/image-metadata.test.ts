@@ -38,7 +38,7 @@ test("server validation rejects temporary URLs and out-of-bounds crops", () => {
   );
 });
 
-test("article create payload carries image metadata and the legacy URL", () => {
+test("article create payload derives the cover image summary from metadata", () => {
   const normalized = normalizeArticlePayload({
     title: " Article title ",
     body: "Line one\nLine two",
@@ -47,7 +47,9 @@ test("article create payload carries image metadata and the legacy URL", () => {
   });
 
   assert.equal(normalized.title, "Article title");
-  assert.equal(normalized.coverImage, imageMetadata.url);
+  assert.equal(normalized.coverImageUrl, imageMetadata.url);
+  assert.equal(normalized.coverAspect, 4 / 3);
+  assert.equal(normalized.coverZoom, 1.25);
   assert.deepEqual(normalized.imageMetadata, imageMetadata);
 });
 
@@ -64,5 +66,6 @@ test("event edit payload keeps its id and derives the legacy aspect", () => {
   assert.equal(normalized.id, "d2078863-6ac6-4a5e-9798-3b2c5f3df111");
   assert.equal(normalized.coverImageUrl, imageMetadata.url);
   assert.equal(normalized.coverAspect, 4 / 3);
+  assert.equal(normalized.coverZoom, 1.25);
   assert.deepEqual(normalized.imageMetadata, imageMetadata);
 });

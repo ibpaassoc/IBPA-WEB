@@ -141,6 +141,7 @@ export function normalizeEventPayload(payload: EventPayload): EventPersistenceIn
     price: payload.price?.trim() || null,
     coverImageUrl: imageMetadata?.url ?? payload.coverImage ?? null,
     coverAspect: getContentImageMetadataAspect(imageMetadata) ?? payload.coverAspect ?? null,
+    coverZoom: imageMetadata?.zoom ?? null,
     imageMetadata,
     location: payload.eventAddress ?? null,
     visibility: resolveVisibility(payload.publishToSite, payload.publishToDashboard),
