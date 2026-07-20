@@ -24,7 +24,7 @@ type ContentItem = {
 
 async function getNews() {
   const response = await fetch(getBackendUrl("/api/content/public?type=news&target=site"), {
-    next: { revalidate: 300 },
+    next: { revalidate: 300, tags: ["public-content"] },
   }).catch(() => null);
 
   if (!response?.ok) {

@@ -1,5 +1,6 @@
 import { requireAdminApi } from "@/lib/admin-api-auth";
 import { readBackendResponse } from "@/lib/read-backend-response";
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 function normalizeContentBody(body: Record<string, any>) {
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
     const { data, text } = await readBackendResponse(res);
 
     if (res.ok) {
+      revalidateTag("public-content", "max");
       return NextResponse.json(data, { status: res.status });
     }
 

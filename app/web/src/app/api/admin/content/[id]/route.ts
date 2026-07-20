@@ -1,5 +1,6 @@
 import { requireAdminApi } from "@/lib/admin-api-auth";
 import { readBackendResponse } from "@/lib/read-backend-response";
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 function normalizeContentBody(body: Record<string, any>) {
@@ -32,6 +33,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { data, text } = await readBackendResponse(res);
 
     if (res.ok) {
+      revalidateTag("public-content", "max");
       return NextResponse.json(data, { status: res.status });
     }
 
@@ -59,6 +61,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const { data, text } = await readBackendResponse(res);
 
     if (res.ok) {
+      revalidateTag("public-content", "max");
       return NextResponse.json(data, { status: res.status });
     }
 

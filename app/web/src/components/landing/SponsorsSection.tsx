@@ -13,7 +13,7 @@ async function fetchPartners(locale: Locale) {
 
   try {
     const response = await fetch(getBackendUrl("/api/content/public?type=partners&target=site"), {
-      next: { revalidate: 300 },
+      next: { revalidate: 300, tags: ["public-content"] },
     });
 
     if (!response.ok) {
