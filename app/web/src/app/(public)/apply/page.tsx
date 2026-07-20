@@ -519,6 +519,11 @@ export default function ApplyPage() {
         ? (isRu ? "Школа" : isUk ? "Школа" : "School")
         : (isRu ? "Бренд" : isUk ? "Бренд" : "Brand");
 
+  // Set when form values are restored programmatically (saved draft or an
+  // additional-review edit link) so the category-cleanup effect below doesn't
+  // treat the restored category as a user-driven switch and wipe the values.
+  const restoredCategoryRef = React.useRef<MembershipCategory | null>(null);
+
   React.useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -550,6 +555,7 @@ export default function ApplyPage() {
         },
         { keepDefaultValues: true },
       );
+      restoredCategoryRef.current = draftCategory || "Specialist";
     } catch {
       window.localStorage.removeItem(APPLY_DRAFT_KEY);
     }
@@ -594,6 +600,7 @@ export default function ApplyPage() {
           },
           { keepDefaultValues: true },
         );
+        restoredCategoryRef.current = savedCategory || "Specialist";
         setRequestedChanges(typeof payload.requestedChanges === "string" ? payload.requestedChanges : "");
         setIsReviewEdit(true);
       })
@@ -624,13 +631,21 @@ export default function ApplyPage() {
   const previousCategoryRef = React.useRef<MembershipCategory>(selectedCategory);
   React.useEffect(() => {
     const previousCategory = previousCategoryRef.current;
-    if (previousCategory !== selectedCategory) {
-      const previousFields = Array.from(new Set(
-        [1, 2, 3, 4, 5, 6].flatMap((step) => getStepFields(step, previousCategory)),
-      ));
-      unregister(previousFields);
+    if (previousCategory === selectedCategory) {
+      return;
     }
     previousCategoryRef.current = selectedCategory;
+
+    const isRestoredCategory = restoredCategoryRef.current === selectedCategory;
+    restoredCategoryRef.current = null;
+    if (isRestoredCategory) {
+      return;
+    }
+
+    const previousFields = Array.from(new Set(
+      [1, 2, 3, 4, 5, 6].flatMap((step) => getStepFields(step, previousCategory)),
+    ));
+    unregister(previousFields);
   }, [selectedCategory, unregister]);
 
   React.useEffect(() => {
