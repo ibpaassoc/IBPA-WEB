@@ -7,7 +7,6 @@ import {
   isLightboxCloseKey,
   type ContentImageMetadata,
 } from "@/lib/content-image";
-import { PreservedText } from "./PreservedText";
 import { ContentImage } from "./ContentImage";
 import { useI18n } from "@/lib/i18n";
 
@@ -26,6 +25,11 @@ type ImageLightboxProps = {
 
 export { isLightboxCloseKey };
 
+/**
+ * Image-only glassmorphic viewer: a frosted frame floating over a blurred
+ * navy backdrop. Sized to roughly half the viewport on desktop and capped by
+ * height, so the popup never scrolls.
+ */
 export function ImageLightbox({
   open,
   onOpenChange,
@@ -46,31 +50,27 @@ export function ImageLightbox({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         closeLabel={closeLabel || t.contentImages.closeViewer}
-        className="max-h-[96dvh] max-w-[96vw] overflow-y-auto rounded-[28px] border border-white/80 bg-white p-3 shadow-[0_30px_90px_rgba(15,46,83,0.28)] sm:p-4"
+        className="w-auto max-w-none gap-0 overflow-hidden rounded-[28px] border border-white/45 bg-white/20 p-2 shadow-[0_40px_120px_rgba(15,46,83,0.45)] ring-1 ring-white/25 backdrop-blur-2xl sm:rounded-[32px] sm:p-2.5 md:p-3"
+        closeClassName="right-5 top-5 z-10 rounded-full border-white/60 bg-white/30 p-2.5 text-white shadow-lg backdrop-blur-xl hover:bg-white/50 hover:text-[#10203B]"
+        overlayClassName="bg-[#10203B]/45 backdrop-blur-md"
       >
         <DialogTitle className="sr-only">{alt}</DialogTitle>
         <DialogDescription className="sr-only">{caption || alt}</DialogDescription>
         <div
-          className="mx-auto w-full overflow-hidden rounded-[20px] bg-[#EEF6FF]"
-          style={{ width: `min(92vw, ${aspect * 84}dvh)` }}
+          className="overflow-hidden rounded-[20px] bg-[#EEF6FF]/60 sm:rounded-[24px]"
+          style={{ width: `min(92vw, ${aspect * 62}dvh, max(50vw, 30rem))` }}
         >
           <ContentImage
             alt={alt}
             errorLabel={errorLabel}
-            imageClassName="max-h-[84dvh]"
             legacyAspect={legacyAspect}
             legacyUrl={legacyUrl}
             loadingLabel={loadingLabel}
             metadata={metadata}
             priority
-            sizes="92vw"
+            sizes="(min-width: 1024px) 50vw, 92vw"
           />
         </div>
-        {caption ? (
-          <PreservedText className="px-2 pb-1 text-sm leading-6 text-[#55708D]">
-            {caption}
-          </PreservedText>
-        ) : null}
       </DialogContent>
     </Dialog>
   );
