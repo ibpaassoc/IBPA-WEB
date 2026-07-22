@@ -77,6 +77,14 @@ function isDocumentFile(fileUrl: string) {
   );
 }
 
+// Admin certificates live at opaque UploadThing URLs (no file extension), so
+// detect PDFs from the stored MIME type / filename rather than the URL.
+function isPdfCertificate(item: AdminCertificate) {
+  if ((item.fileType || "").toLowerCase().includes("pdf")) return true;
+  if ((item.fileName || "").toLowerCase().endsWith(".pdf")) return true;
+  return item.fileUrl.toLowerCase().split("?")[0].endsWith(".pdf");
+}
+
 function ExternalCertificatePreview({
   fileUrl,
   title,
@@ -233,6 +241,109 @@ function CertificatePreview({
   );
 }
 
+function AdminCertificateCard({ item }: { item: AdminCertificate }) {
+  const { locale, t } = useI18n();
+  const localeCode = getLocaleNumberFormat(locale);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const issuedLabel =
+    formatDate(item.issuedAt || item.createdAt, localeCode) ||
+    t.dashboard.certificates.recently;
+  const canEmbed = isPdfCertificate(item) && !previewFailed;
+  // Hide the native PDF chrome so the embed reads as a clean page thumbnail.
+  const previewSrc = `${item.fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
+
+  return (
+    <article className="group flex flex-col overflow-hidden rounded-[28px] border border-[#CFE0F3] bg-white shadow-[0_20px_52px_rgba(11,31,68,0.08)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_30px_72px_rgba(11,31,68,0.13)]">
+      {/* Live document preview */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden border-b border-[#E2EBF5] bg-[linear-gradient(160deg,#F4F9FF_0%,#E6F0FB_100%)]">
+        {/* Branded fallback sits behind the embed; it shows through only when
+            there is nothing to render (non-PDF or a failed load). */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[#7FA3C7]">
+          <div className="flex size-14 items-center justify-center rounded-[20px] border border-[#CADCEF] bg-white text-[#1F5D8F] shadow-sm">
+            <FileBadge2 className="h-6 w-6" />
+          </div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em]">
+            {isPdfCertificate(item)
+              ? t.dashboard.certificates.pdfDocument
+              : t.dashboard.certificates.previewUnavailable}
+          </p>
+        </div>
+
+        {canEmbed ? (
+          <iframe
+            src={previewSrc}
+            title={item.title}
+            loading="lazy"
+            tabIndex={-1}
+            aria-hidden="true"
+            onError={() => setPreviewFailed(true)}
+            className="pointer-events-none absolute inset-0 h-full w-full bg-white"
+          />
+        ) : null}
+
+        {/* Soft fade so the page bottom blends into the card */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.82)_100%)]" />
+
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-[#B9D0EA] bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#1F5D8F] shadow-sm backdrop-blur">
+          <ShieldCheck className="h-3 w-3" />
+          {t.dashboard.certificates.additionalBadge}
+        </span>
+
+        {/* Hover affordance to open the full document */}
+        <a
+          href={item.fileUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={t.dashboard.certificates.openFile}
+          className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:bg-[#10203B]/25 group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#10203B] shadow-lg">
+            <Download className="h-4 w-4" />
+            {t.dashboard.certificates.openFile}
+          </span>
+        </a>
+      </div>
+
+      {/* Details */}
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-start gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-[16px] bg-[#EEF6FF] text-[#1F5D8F]">
+            <Award className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-2 text-base font-semibold leading-6 tracking-tight text-[#10203B]">
+              {item.title}
+            </h3>
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+              <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+              {t.dashboard.certificates.issuedOn(issuedLabel)}
+            </p>
+          </div>
+        </div>
+
+        {item.fileName ? (
+          <p className="mt-4 flex items-center gap-2 rounded-2xl border border-[#E2EBF5] bg-[#F8FBFF] px-3 py-2 text-xs text-slate-500">
+            <FileBadge2 className="h-4 w-4 shrink-0 text-[#2B5C99]" />
+            <span className="truncate">{item.fileName}</span>
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex-1" />
+
+        <a
+          href={item.fileUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#10203B] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1A3157]"
+        >
+          <Download className="h-4 w-4" />
+          {t.dashboard.certificates.openFile}
+        </a>
+      </div>
+    </article>
+  );
+}
+
 export function DashboardCertificates({
   certificates,
   externalCertificates,
@@ -251,7 +362,6 @@ export function DashboardCertificates({
   refreshDashboardData: (params?: { silent?: boolean }) => Promise<void>;
 }) {
   const { locale, t } = useI18n();
-  const localeCode = getLocaleNumberFormat(locale);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [title, setTitle] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -471,58 +581,9 @@ export function DashboardCertificates({
             </span>
           </div>
 
-          <div className="mt-5 grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {adminCertificates.map((item) => (
-              <article
-                key={item.id}
-                className="group flex min-h-[320px] flex-col rounded-[32px] border border-[#C7D9EC] bg-[linear-gradient(180deg,rgba(244,249,255,0.98)_0%,rgba(234,244,255,0.98)_100%)] p-7 shadow-[0_20px_52px_rgba(11,31,68,0.08)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(11,31,68,0.12)]"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 items-start gap-4">
-                    <div className="flex size-14 shrink-0 items-center justify-center rounded-[22px] border border-[#B9D0EA] bg-white text-[#1F5D8F] shadow-[0_10px_25px_rgba(31,93,143,0.12)]">
-                      <Award className="h-6 w-6" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="line-clamp-2 text-lg font-semibold leading-7 tracking-tight text-[#10203B]">
-                        {item.title}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-500">
-                        {t.dashboard.certificates.issuedOn(
-                          formatDate(item.issuedAt || item.createdAt, localeCode) ||
-                            t.dashboard.certificates.recently,
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#B9D0EA] bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#1F5D8F]">
-                    <ShieldCheck className="h-3 w-3" />
-                    {t.dashboard.certificates.additionalBadge}
-                  </span>
-                </div>
-
-                <ExternalCertificatePreview fileUrl={item.fileUrl} title={item.title} />
-
-                {item.fileName ? (
-                  <p className="mt-4 flex items-center gap-2 truncate text-xs text-slate-500">
-                    {getFileIcon(item.fileUrl)}
-                    <span className="truncate">{item.fileName}</span>
-                  </p>
-                ) : null}
-
-                <div className="mt-6">
-                  <a
-                    href={item.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-[#C7D9EC] bg-white px-4 py-2.5 text-sm font-semibold text-[#10203B] shadow-sm transition hover:border-[#2B5C99]/35 hover:bg-[#F5F9FF]"
-                  >
-                    <Download className="h-4 w-4" />
-                    {t.dashboard.certificates.openFile}
-                  </a>
-                </div>
-              </article>
+              <AdminCertificateCard item={item} key={item.id} />
             ))}
           </div>
         </section>

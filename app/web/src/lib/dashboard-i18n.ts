@@ -172,6 +172,8 @@ export type DashboardDictionary = {
     additionalBadge: string;
     additionalCount: (count: number) => string;
     issuedOn: (dateLabel: string) => string;
+    pdfDocument: string;
+    previewUnavailable: string;
     uploadedCount: (count: number) => string;
     addedOn: (dateLabel: string) => string;
     recently: string;
@@ -608,6 +610,8 @@ export const dashboardDictionaries = {
       additionalBadge: "IBPA issued",
       additionalCount: (count) => `${count} issued`,
       issuedOn: (dateLabel) => `Issued ${dateLabel}`,
+      pdfDocument: "PDF document",
+      previewUnavailable: "Preview unavailable",
       uploadedCount: (count) => `${count} uploaded`,
       addedOn: (dateLabel) => `Added ${dateLabel}`,
       recently: "recently",
@@ -1164,6 +1168,8 @@ export const dashboardDictionaries = {
       additionalBadge: "Выдан IBPA",
       additionalCount: (count) => `${count} выдано`,
       issuedOn: (dateLabel) => `Выдан ${dateLabel}`,
+      pdfDocument: "PDF-документ",
+      previewUnavailable: "Предпросмотр недоступен",
       uploadedCount: (count) => `${count} загружено`,
       addedOn: (dateLabel) => `Добавлено ${dateLabel}`,
       recently: "недавно",
@@ -1722,6 +1728,8 @@ export const dashboardDictionaries = {
       additionalBadge: "Видано IBPA",
       additionalCount: (count) => `${count} видано`,
       issuedOn: (dateLabel) => `Видано ${dateLabel}`,
+      pdfDocument: "PDF-документ",
+      previewUnavailable: "Попередній перегляд недоступний",
       uploadedCount: (count) => `${count} завантажено`,
       addedOn: (dateLabel) => `Додано ${dateLabel}`,
       recently: "нещодавно",
