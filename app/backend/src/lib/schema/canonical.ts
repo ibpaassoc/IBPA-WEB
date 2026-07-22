@@ -128,6 +128,28 @@ export const coreCertificates = ibpa.table("certificates", {
   uniqueIndex("ibpa_certificates_number_uidx").on(table.certificateNumber),
 ]);
 
+// Admin-uploaded additional certificates for an applicant. Kept in a dedicated
+// table (NOT in `certificates`) so the primary membership certificate and its
+// CERT-... number / verification / expiry semantics stay untouched. Associated
+// by `order_id` (the canonical applicant reference = membership.id = application.id);
+// `clerk_user_id` is denormalised for reliable dashboard association.
+export const coreAdminCertificates = ibpa.table("admin_certificates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id").references(() => coreMemberships.id, { onDelete: "cascade" }).notNull(),
+  clerkUserId: varchar("clerk_user_id", { length: 255 }),
+  title: varchar("title", { length: 255 }).notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileKey: varchar("file_key", { length: 255 }),
+  fileName: varchar("file_name", { length: 255 }),
+  fileType: varchar("file_type", { length: 120 }),
+  issuedAt: timestamp("issued_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("ibpa_admin_certificates_order_id_idx").on(table.orderId),
+  index("ibpa_admin_certificates_clerk_user_id_idx").on(table.clerkUserId),
+]);
+
 export const coreEvents = ibpa.table("events", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title", { length: 255 }).notNull(),
@@ -275,6 +297,7 @@ export type CoreApplication = typeof coreApplications.$inferSelect;
 export type CoreMembership = typeof coreMemberships.$inferSelect;
 export type CorePayment = typeof corePayments.$inferSelect;
 export type CoreCertificate = typeof coreCertificates.$inferSelect;
+export type CoreAdminCertificate = typeof coreAdminCertificates.$inferSelect;
 export type CoreEvent = typeof coreEvents.$inferSelect;
 export type CoreEventRegistration = typeof coreEventRegistrations.$inferSelect;
 export type CoreArticle = typeof coreArticles.$inferSelect;
