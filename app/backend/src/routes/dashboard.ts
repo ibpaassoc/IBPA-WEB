@@ -37,7 +37,7 @@ import {
 import { markNotificationsRead } from "../features/notifications/server/notification.service";
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
 import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
-import { findCanonicalTeam, upsertCanonicalTeam, upsertCanonicalTeamMember } from "../features/teams/server/team.repository";
+import { findCanonicalTeam, generateUniqueTeamMemberCredential, getTeamSequentialNumber, upsertCanonicalTeam, upsertCanonicalTeamMember } from "../features/teams/server/team.repository";
 import {
   listDashboardEventsForUser,
   registerDashboardEvent,
@@ -501,6 +501,7 @@ async function getPartnerTeamSnapshot(db: ReturnType<typeof requireDb>, team: ty
       return {
         id: member.id,
         teamMemberId: `${ownerMemberId}-T${String(seatNumber).padStart(2, "0")}`,
+        credentials: member.credentials ?? null,
         fullName: member.fullName,
         email: member.email,
         emailNormalized: normalizeEmail(member.email),
@@ -1080,6 +1081,9 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
       });
     }
 
+    const teamNumber = await getTeamSequentialNumber(db, team.id);
+    const credentials = await generateUniqueTeamMemberCredential(db, { teamNumber });
+
     const created = await upsertCanonicalTeamMember(db, {
       id: crypto.randomUUID(),
       teamId: team.id,
@@ -1087,6 +1091,7 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
       fullName,
       role,
       status: "INVITED",
+      credentials,
       joinedAt: new Date(),
     });
     const refreshed = await getPartnerTeamSnapshot(db, team);
@@ -1098,6 +1103,7 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
       member: {
         id: created.record.id,
         teamMemberId: createdRecord?.teamMemberId ?? created.record.id,
+        credentials: created.record.credentials ?? null,
         fullName: created.record.fullName,
         email: created.record.email,
         role: created.record.role || "",

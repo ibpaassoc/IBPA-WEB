@@ -18,6 +18,7 @@
     "db:verify:cutover": "tsx scripts/verify-cutover.ts",
     "repair:payments": "tsx scripts/repair-application-payment-state.ts",
     "backfill:profiles": "tsx scripts/backfill-paid-application-profiles.ts",
+    "backfill:team-credentials": "tsx scripts/backfill-team-member-credentials.ts",
     "test:profile-sync": "tsx scripts/test-application-profile-sync.ts"
   },
   "dependencies": {

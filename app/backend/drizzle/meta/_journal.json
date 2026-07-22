@@ -113,6 +113,13 @@
       "when": 1784492400000,
       "tag": "0015_articles_cover_image_jsonb",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1784578800000,
+      "tag": "0016_add_team_member_credentials",
+      "breakpoints": true
     }
   ]
 }
