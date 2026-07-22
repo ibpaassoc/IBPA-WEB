@@ -167,6 +167,11 @@ export type DashboardDictionary = {
     uploadCertificate: string;
     personalUploadsEyebrow: string;
     personalUploadsTitle: string;
+    additionalEyebrow: string;
+    additionalTitle: string;
+    additionalBadge: string;
+    additionalCount: (count: number) => string;
+    issuedOn: (dateLabel: string) => string;
     uploadedCount: (count: number) => string;
     addedOn: (dateLabel: string) => string;
     recently: string;
@@ -598,6 +603,11 @@ export const dashboardDictionaries = {
       uploadCertificate: "Upload certificate",
       personalUploadsEyebrow: "Personal uploads",
       personalUploadsTitle: "External certificates",
+      additionalEyebrow: "Issued by IBPA",
+      additionalTitle: "Additional certificates",
+      additionalBadge: "IBPA issued",
+      additionalCount: (count) => `${count} issued`,
+      issuedOn: (dateLabel) => `Issued ${dateLabel}`,
       uploadedCount: (count) => `${count} uploaded`,
       addedOn: (dateLabel) => `Added ${dateLabel}`,
       recently: "recently",
@@ -1149,6 +1159,11 @@ export const dashboardDictionaries = {
       uploadCertificate: "Загрузить сертификат",
       personalUploadsEyebrow: "Личные загрузки",
       personalUploadsTitle: "Внешние сертификаты",
+      additionalEyebrow: "Выдано IBPA",
+      additionalTitle: "Дополнительные сертификаты",
+      additionalBadge: "Выдан IBPA",
+      additionalCount: (count) => `${count} выдано`,
+      issuedOn: (dateLabel) => `Выдан ${dateLabel}`,
       uploadedCount: (count) => `${count} загружено`,
       addedOn: (dateLabel) => `Добавлено ${dateLabel}`,
       recently: "недавно",
@@ -1702,6 +1717,11 @@ export const dashboardDictionaries = {
       uploadCertificate: "Завантажити сертифікат",
       personalUploadsEyebrow: "Особисті завантаження",
       personalUploadsTitle: "Зовнішні сертифікати",
+      additionalEyebrow: "Видано IBPA",
+      additionalTitle: "Додаткові сертифікати",
+      additionalBadge: "Видано IBPA",
+      additionalCount: (count) => `${count} видано`,
+      issuedOn: (dateLabel) => `Видано ${dateLabel}`,
       uploadedCount: (count) => `${count} завантажено`,
       addedOn: (dateLabel) => `Додано ${dateLabel}`,
       recently: "нещодавно",

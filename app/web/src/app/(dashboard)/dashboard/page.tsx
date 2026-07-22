@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const {
     certificates,
     externalCertificates,
+    adminCertificates,
     billingHistory,
     profileData,
     dashboardMeta,
@@ -208,6 +209,7 @@ export default function DashboardPage() {
         snapshotItems: finalDerived.snapshotItems,
         certificates,
         externalCertificates,
+        adminCertificates,
         billingEntries: finalDerived.billingEntries,
         overviewCards: finalDerived.overviewCards,
         profileChecklist: finalDerived.profileChecklist,

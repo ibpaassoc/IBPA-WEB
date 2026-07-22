@@ -22,6 +22,20 @@ export interface ExternalCertificate {
   createdAt: string;
 }
 
+// Admin-uploaded additional certificate shown in the applicant's dashboard.
+// Distinct from the primary membership certificate (no CERT-... number,
+// verification status, or expiry) and from the member's own uploads.
+export interface AdminCertificate {
+  id: string;
+  title: string;
+  fileUrl: string;
+  fileName: string | null;
+  fileType: string | null;
+  issuedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BillingHistoryEntry {
   id: string;
   type: string;
