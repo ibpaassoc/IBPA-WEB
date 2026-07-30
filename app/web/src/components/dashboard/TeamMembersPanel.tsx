@@ -46,8 +46,10 @@ type TeamMemberRecord = {
 
 type TeamMembersPayload = {
   ownerMemberId: string;
-  partnerBusinessName: string;
-  partnerBusinessEmail: string;
+  ownerBusinessName: string;
+  ownerBusinessEmail: string;
+  partnerBusinessName?: string;
+  partnerBusinessEmail?: string;
   includedSeats: number;
   includedUsed: number;
   includedRemaining: number;

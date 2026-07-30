@@ -49,6 +49,7 @@ export function formatMembershipCategory(
       partner: "Partner Membership",
       review: "Membership Review",
       partnerTeamAccess: "Partner Team Access",
+      businessTeamAccess: "Business Owner Team Access",
     } satisfies DashboardDictionary["membershipCategories"]);
 
   switch (normalized) {

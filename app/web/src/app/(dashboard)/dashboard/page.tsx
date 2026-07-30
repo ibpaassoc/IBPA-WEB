@@ -127,7 +127,7 @@ export default function DashboardPage() {
     }
   }, [
     activeTab,
-    finalDerived.isPartnerOwner,
+    finalDerived.isTeamOwner,
     finalDerived.isTeamMemberDashboard,
     setActiveTab,
   ]);
@@ -167,6 +167,7 @@ export default function DashboardPage() {
         setActiveTab,
         isTeamMemberDashboard: finalDerived.isTeamMemberDashboard,
         isPartnerOwner: finalDerived.isPartnerOwner,
+        isTeamOwner: finalDerived.isTeamOwner,
         isMembershipActive: finalDerived.isMembershipActive,
         showCertificatesTab: finalDerived.showCertificatesTab,
         teamMemberAccess,

@@ -350,9 +350,11 @@ export function DashboardProfile({
           </p>
         </ProfilePanel>
 
-        <ProfilePanel title={dashboard.profile.partnerBusiness}>
+        <ProfilePanel title={dashboard.profile.ownerBusiness}>
           <p className="text-sm font-semibold text-[#10203B]">
-            {teamMemberAccess?.partnerBusinessName || dashboard.profile.partnerAccount}
+            {teamMemberAccess?.ownerBusinessName ||
+              teamMemberAccess?.partnerBusinessName ||
+              dashboard.profile.ownerAccount}
           </p>
         </ProfilePanel>
 

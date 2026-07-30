@@ -13,34 +13,31 @@ export async function upsertCanonicalTeam(db: DbClient, input: {
   createdAt?: Date;
 }) {
   const [existing] = await db.select().from(coreTeams).where(eq(coreTeams.id, input.id)).limit(1);
-
-  if (existing) {
-    const [updated] = await db
-      .update(coreTeams)
-      .set({
-        ownerUserId: input.ownerUserId,
-        name: input.name,
-        seatCount: input.seatCount,
-        createdAt: input.createdAt ?? existing.createdAt,
-      })
-      .where(eq(coreTeams.id, existing.id))
-      .returning();
-
-    return { record: updated ?? existing, created: false };
-  }
-
-  const [created] = await db
+  const createdAt = input.createdAt ?? existing?.createdAt ?? new Date();
+  const [record] = await db
     .insert(coreTeams)
     .values({
       id: input.id,
       ownerUserId: input.ownerUserId,
       name: input.name,
       seatCount: input.seatCount,
-      createdAt: input.createdAt ?? new Date(),
+      createdAt,
+    })
+    .onConflictDoUpdate({
+      target: coreTeams.id,
+      set: {
+        ownerUserId: input.ownerUserId,
+        name: input.name,
+        seatCount: input.seatCount,
+        createdAt,
+      },
     })
     .returning();
 
-  return { record: created, created: true };
+  return {
+    record: record ?? existing!,
+    created: !existing,
+  };
 }
 
 export async function findCanonicalTeam(db: DbClient, id: string) {

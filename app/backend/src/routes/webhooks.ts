@@ -28,6 +28,10 @@ import { upsertCanonicalCertificate } from "../features/certificates/server/cert
 import { upsertCanonicalProfile } from "../features/profiles/server/profile.repository";
 import { syncProfileFromApplication } from "../features/profiles/server/application-profile-sync";
 import { upsertCanonicalTeam } from "../features/teams/server/team.repository";
+import {
+  INCLUDED_TEAM_SEATS,
+  isBusinessOwnerMembershipType,
+} from "../features/teams/server/team-access";
 
 export const webhooksRouter = Router();
 
@@ -238,12 +242,15 @@ async function ensurePaidApplication(applicationId: string, stripeSessionId: str
     expiresAt,
   });
 
-  if (application.type === "PARTNER") {
+  if (
+    application.type === "PARTNER" ||
+    isBusinessOwnerMembershipType(application.packageName)
+  ) {
     await upsertCanonicalTeam(db, {
       id: applicationId,
       ownerUserId: userResult.record.id,
       name: application.fullName,
-      seatCount: 5,
+      seatCount: INCLUDED_TEAM_SEATS,
       createdAt: application.createdAt,
     });
   }
