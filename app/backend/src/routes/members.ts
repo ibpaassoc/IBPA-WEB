@@ -44,7 +44,9 @@ async function verifyTeamCredential(db: DbClient, code: string) {
 
   // A team credential is valid while the member is not removed AND the owning
   // team is active (i.e. the partner/owner account is still active).
-  const memberActive = member.status.toUpperCase() !== "REMOVED";
+  const memberActive = ["INVITED", "ACTIVE"].includes(
+    member.status.toUpperCase(),
+  );
 
   const [team] = await db
     .select({ ownerUserId: coreTeams.ownerUserId })
@@ -76,7 +78,7 @@ membersRouter.get("/verify-cert", async (req, res) => {
     return res.status(400).json({ error: "certNumber query param is required" });
   }
 
-  const code = certNumber.trim();
+  const code = certNumber.trim().toUpperCase();
 
   try {
     const db = requireDb();

@@ -316,6 +316,10 @@ export function useDashboardData({
               "Not provided";
             setTeamMemberAccess({
               teamMemberId: certData.dashboardAccess.teamMemberId || "Pending",
+              certificateNumber:
+                certData.dashboardAccess.certificateNumber ||
+                certData.dashboardAccess.licenseNumber ||
+                "Pending",
               role: certData.dashboardAccess.role || "Team Member",
               licenseNumber:
                 certData.dashboardAccess.licenseNumber || "Not provided",

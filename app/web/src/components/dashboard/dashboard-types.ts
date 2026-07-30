@@ -55,6 +55,7 @@ export type DashboardAccessType =
 export type TeamMemberAccessInfo = {
   id?: string;
   teamMemberId: string;
+  certificateNumber: string;
   fullName?: string;
   email?: string;
   role: string;
@@ -74,6 +75,7 @@ export type PartnerInvitedMember = {
   email: string;
   role: string;
   status: string;
+  certificateNumber?: string | null;
 };
 
 export type PartnerTeamSummary = {

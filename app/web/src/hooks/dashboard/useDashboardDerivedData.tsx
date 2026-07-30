@@ -296,9 +296,15 @@ export function useDashboardDerivedData({
     certificatesCount: certificates.length,
   }, dashboard.checklist);
 
-  const memberIdDisplay = formatMemberId(
-    profileData.orderId || primaryCertificate?.certNumber || user?.id,
-  );
+  const teamMemberCertificateNumber =
+    profileData.teamMember?.certificateNumber ||
+    primaryCertificate?.certNumber ||
+    "";
+  const memberIdDisplay = isTeamMemberDashboard
+    ? teamMemberCertificateNumber || dashboard.statuses.pending
+    : formatMemberId(
+        profileData.orderId || primaryCertificate?.certNumber || user?.id,
+      );
 
   const publicProfileHref = getPublicProfilePreviewHref(profileData.id);
 
@@ -314,11 +320,14 @@ export function useDashboardDerivedData({
     profileData.certificatesSummary || "",
   ).trim();
 
-  const certificateStatusDisplay = formatStatusLabel(
-    normalizedCertificateStatus,
-    dashboard.statuses.pending,
-    dashboard.statuses,
-  );
+  const certificateStatusDisplay =
+    isTeamMemberDashboard && teamMemberCertificateNumber
+      ? teamMemberCertificateNumber
+      : formatStatusLabel(
+          normalizedCertificateStatus,
+          dashboard.statuses.pending,
+          dashboard.statuses,
+        );
 
   const partnerSeatPrice = partnerTeamSummary?.additionalSeatPrice ?? 100;
 

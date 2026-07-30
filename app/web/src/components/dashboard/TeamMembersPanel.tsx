@@ -27,6 +27,7 @@ type TeamMemberRecord = {
   fullName: string;
   email: string;
   role: string;
+  certificateNumber?: string | null;
   avatarUrl?: string | null;
   bio?: string | null;
   location?: string | null;
@@ -85,8 +86,6 @@ const INITIAL_FORM: FormState = {
   portfolioLink: "",
   affiliationConfirmed: false,
 };
-
-const FALLBACK_LICENSE_NUMBER = "Not provided";
 
 const floatingSectionClassName =
   "rounded-[32px] border border-[#D4E0F0] bg-white/95 p-5 shadow-[0_22px_60px_rgba(11,31,68,0.10)]";
@@ -299,7 +298,6 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...form,
-            licenseNumber: FALLBACK_LICENSE_NUMBER,
           }),
         });
 
@@ -531,6 +529,15 @@ export function TeamMembersPanel({ enabled }: TeamMembersPanelProps) {
                         <p className="mt-3 line-clamp-1 text-xs font-bold uppercase tracking-[0.18em] text-[#16386D]">
                           {member.role || t.dashboard.teamMembers.teamMemberRoleFallback}
                         </p>
+
+                        <div className="mt-3 rounded-xl border border-[#D4E0F0] bg-[#F5F9FF] px-3 py-2">
+                          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            {t.dashboard.teamMembers.certificateNumber}
+                          </p>
+                          <p className="mt-1 break-all text-xs font-semibold text-[#16386D]">
+                            {member.certificateNumber || member.licenseNumber}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
