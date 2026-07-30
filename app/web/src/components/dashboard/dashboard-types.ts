@@ -34,7 +34,9 @@ export interface BillingHistoryEntry {
 export type DashboardAccessType =
   | "member"
   | "partner_owner"
-  | "partner_team_member";
+  | "business_owner"
+  | "partner_team_member"
+  | "business_team_member";
 
 export type TeamMemberAccessInfo = {
   id?: string;
@@ -45,8 +47,10 @@ export type TeamMemberAccessInfo = {
   licenseNumber: string;
   status: string;
   ownerMemberId: string;
-  partnerBusinessName: string;
-  partnerBusinessEmail: string;
+  ownerBusinessName: string;
+  ownerBusinessEmail: string;
+  partnerBusinessName?: string;
+  partnerBusinessEmail?: string;
 };
 
 export type PartnerInvitedMember = {

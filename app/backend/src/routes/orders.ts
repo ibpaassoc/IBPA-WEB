@@ -28,6 +28,11 @@ import { upsertCanonicalPayment } from "../features/payments/server/payment.repo
 import { upsertCanonicalMembership } from "../features/memberships/server/membership.repository";
 import { upsertCanonicalCertificate } from "../features/certificates/server/certificate.repository";
 import { syncProfileFromApplication } from "../features/profiles/server/application-profile-sync";
+import { upsertCanonicalTeam } from "../features/teams/server/team.repository";
+import {
+  INCLUDED_TEAM_SEATS,
+  isBusinessOwnerMembershipType,
+} from "../features/teams/server/team-access";
 
 export const ordersRouter = Router();
 
@@ -673,6 +678,16 @@ async function markApplicationPaid(params: {
       },
     },
   });
+
+  if (isBusinessOwnerMembershipType(params.application.packageName)) {
+    await upsertCanonicalTeam(db, {
+      id: params.application.id,
+      ownerUserId: userResult.record.id,
+      name: params.application.fullName,
+      seatCount: INCLUDED_TEAM_SEATS,
+      createdAt: params.application.createdAt,
+    });
+  }
 
   return {
     user: userResult.record,

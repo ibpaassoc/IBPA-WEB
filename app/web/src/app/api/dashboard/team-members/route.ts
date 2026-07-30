@@ -32,7 +32,7 @@ export async function GET() {
     if (!res.ok) {
       return NextResponse.json(
         {
-          error: getSafeBackendErrorMessage(data, text, "Unable to load partner team members right now."),
+          error: getSafeBackendErrorMessage(data, text, "Unable to load team members right now."),
           code: data?.code,
         },
         { status: res.status },

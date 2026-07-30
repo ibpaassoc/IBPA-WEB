@@ -36,6 +36,7 @@ import { importSourceOrderMembership } from "../src/features/memberships/server/
 import { importSourceOrderPayment, importSourcePartnerApplicationPayment, importSourceStripeWebhookEvent } from "../src/features/payments/server/payment.service";
 import { importSourceCertificate } from "../src/features/certificates/server/certificate.service";
 import { importSourceTeam, importSourceTeamMember } from "../src/features/teams/server/team.service";
+import { isBusinessOwnerMembershipType } from "../src/features/teams/server/team-access";
 import { upsertCanonicalEvent } from "../src/features/events/server/event.repository";
 import { upsertCanonicalArticle } from "../src/features/news/server/article.repository";
 import { insertCanonicalNotification } from "../src/features/notifications/server/notification.repository";
@@ -372,7 +373,10 @@ async function main() {
       }
     }
 
-    if (order.accountType?.toLowerCase() === "partner" && order.status === "paid" && canonicalUserId) {
+    const hasTeamAccess =
+      order.accountType?.toLowerCase() === "partner" ||
+      isBusinessOwnerMembershipType(order.membershipCategory);
+    if (hasTeamAccess && order.status === "paid" && canonicalUserId) {
       try {
         const teamResult = await importSourceTeam(db, {
           order,
@@ -587,7 +591,11 @@ async function main() {
     }
   }
 
-  for (const order of legacyOrders.filter((item) => item.accountType?.toLowerCase() === "partner")) {
+  for (const order of legacyOrders.filter(
+    (item) =>
+      item.accountType?.toLowerCase() === "partner" ||
+      isBusinessOwnerMembershipType(item.membershipCategory),
+  )) {
     const ownerUserId = canonicalUserIdByEmail.get(normalizeEmail(order.email));
 
     if (!ownerUserId || order.status !== "paid") {

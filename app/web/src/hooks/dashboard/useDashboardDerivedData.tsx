@@ -17,7 +17,11 @@ import {
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 
-import type { TabType, SupportMode } from "@/components/dashboard/dashboard-types";
+import type {
+  DashboardAccessType,
+  TabType,
+  SupportMode,
+} from "@/components/dashboard/dashboard-types";
 import {
   buildEventDiscountLabel,
   buildOnboardingChecklist,
@@ -28,6 +32,11 @@ import {
   getMembershipAmount,
   inferEventAudience,
 } from "@/lib/dashboard-cabinet";
+import {
+  isPartnerOwnerDashboard,
+  isTeamMemberDashboard as hasTeamMemberDashboardAccess,
+  isTeamOwnerDashboard as hasTeamOwnerDashboardAccess,
+} from "@/lib/dashboard-access";
 import {
   getProfileLocation,
   getProfileSnapshotItems,
@@ -55,7 +64,7 @@ type Params = {
   }>;
   profileData: any;
   dashboardMeta: any;
-  dashboardAccessType: string;
+  dashboardAccessType: DashboardAccessType;
   dashboardEvents: any[];
   eventRegistrationFilter: EventRegistrationFilter;
   hasNewEvents: boolean;
@@ -148,11 +157,14 @@ export function useDashboardDerivedData({
   }, [certificates, dashboardMeta, profileData]);
 
   const isPartnerAccount = normalizedAccountType === "partner";
-  const isTeamMemberDashboard = dashboardAccessType === "partner_team_member";
+  const isTeamMemberDashboard =
+    hasTeamMemberDashboardAccess(dashboardAccessType);
 
   const isPartnerOwner =
-    dashboardAccessType === "partner_owner" ||
-    (isPartnerAccount && dashboardAccessType !== "partner_team_member");
+    isPartnerOwnerDashboard(dashboardAccessType) ||
+    (isPartnerAccount && !isTeamMemberDashboard);
+  const isTeamOwner =
+    hasTeamOwnerDashboardAccess(dashboardAccessType) || isPartnerOwner;
 
   const showCertificatesTab = !isTeamMemberDashboard;
 
@@ -227,7 +239,9 @@ export function useDashboardDerivedData({
     : dashboard.statuses.pending;
 
   const membershipCategoryLabel = isTeamMemberDashboard
-    ? dashboard.membershipCategories.partnerTeamAccess
+    ? dashboardAccessType === "business_team_member"
+      ? dashboard.membershipCategories.businessTeamAccess
+      : dashboard.membershipCategories.partnerTeamAccess
     : isPartnerOwner
       ? dashboard.membershipCategories.partner
       : formatMembershipCategory(
@@ -472,7 +486,7 @@ export function useDashboardDerivedData({
           },
         ]
       : []),
-    ...(isPartnerOwner
+    ...(isTeamOwner
       ? [
           {
             key: "teamMembers" as const,
@@ -524,6 +538,7 @@ export function useDashboardDerivedData({
     hasApprovedCert,
     isTeamMemberDashboard,
     isPartnerOwner,
+    isTeamOwner,
     isMembershipActive,
     showCertificatesTab,
     partnerTeamSummary,

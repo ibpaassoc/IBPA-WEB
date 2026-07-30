@@ -35,6 +35,7 @@ type Props = {
 
   isTeamMemberDashboard: boolean;
   isPartnerOwner: boolean;
+  isTeamOwner: boolean;
   isMembershipActive: boolean;
   showCertificatesTab: boolean;
 
@@ -109,6 +110,7 @@ export function DashboardContent(props: Props) {
     setActiveTab,
     isTeamMemberDashboard,
     isPartnerOwner,
+    isTeamOwner,
     isMembershipActive,
     showCertificatesTab,
     teamMemberAccess,
@@ -272,14 +274,14 @@ export function DashboardContent(props: Props) {
       );
 
     case "teamMembers":
-      return <DashboardTeamMembers isPartnerOwner={isPartnerOwner} />;
+      return <DashboardTeamMembers isTeamOwner={isTeamOwner} />;
 
     case "dashboard":
     default:
       return (
         <DashboardOverview
           statusSummary={statusSummary}
-          isPartnerOwner={isPartnerOwner}
+          isTeamOwner={isTeamOwner}
           isTeamMemberDashboard={isTeamMemberDashboard}
           isMembershipActive={isMembershipActive}
           fullName={fullName}

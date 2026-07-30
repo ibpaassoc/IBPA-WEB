@@ -74,7 +74,7 @@ type DashboardOverviewProps = {
     description: string;
     tone: "pending" | "active" | "verified";
   };
-  isPartnerOwner: boolean;
+  isTeamOwner: boolean;
   isTeamMemberDashboard: boolean;
   isMembershipActive: boolean;
   fullName: string;
@@ -112,7 +112,7 @@ export function DashboardOverview({
   getNotificationMeta,
   setActiveTab,
   quickActions,
-  isPartnerOwner,
+  isTeamOwner,
   teamMembers = [],
   dashboardEvents = [],
 }: DashboardOverviewProps) {
@@ -150,7 +150,7 @@ export function DashboardOverview({
             localeCode={localeCode}
           />
 
-          {isPartnerOwner ? (
+          {isTeamOwner ? (
             <TeamMembersCard
               members={visibleTeamMembers}
               total={teamMembers.length}

@@ -37,7 +37,17 @@ import {
 import { markNotificationsRead } from "../features/notifications/server/notification.service";
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
 import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
-import { findCanonicalTeam, generateUniqueTeamMemberCredential, getTeamSequentialNumber, upsertCanonicalTeam, upsertCanonicalTeamMember } from "../features/teams/server/team.repository";
+import { generateUniqueTeamMemberCredential, getTeamSequentialNumber, upsertCanonicalTeam, upsertCanonicalTeamMember } from "../features/teams/server/team.repository";
+import {
+  getTeamAccountType,
+  getTeamMemberAccessType,
+  getTeamOwnerAccessType,
+  INCLUDED_TEAM_SEATS,
+  isTeamMemberAccess,
+  isTeamOwnerAccess,
+  resolveTeamOwnerKind,
+  type TeamDashboardAccessType,
+} from "../features/teams/server/team-access";
 import {
   listDashboardEventsForUser,
   registerDashboardEvent,
@@ -53,7 +63,6 @@ const ADMIN_CARD_MAILING_DEFAULT_LIMIT = 100;
 // the UI still starts at 30 and pages via offset.
 const ADMIN_CARD_LIST_MAX_LIMIT = 200;
 const ADMIN_CARD_MAILING_MAX_LIMIT = 200;
-const PARTNER_INCLUDED_TEAM_SEATS = 5;
 const ADDITIONAL_TEAM_SEAT_PRICE = 100;
 const MAX_TEAM_SEATS = 60;
 
@@ -62,12 +71,12 @@ const DASHBOARD_ACCESS_ERROR = {
   code: "ACCESS_NOT_ACTIVATED",
 };
 
-const PARTNER_OWNER_ONLY_ERROR = {
-  error: "Team Members are available only for partner accounts.",
-  code: "PARTNER_OWNER_ONLY",
+const TEAM_OWNER_ONLY_ERROR = {
+  error: "Team Members are available only for Partner and Business Owner accounts.",
+  code: "TEAM_OWNER_ONLY",
 };
 
-type DashboardAccessType = "member" | "partner_owner" | "partner_team_member";
+type DashboardAccessType = TeamDashboardAccessType;
 
 type DashboardAccessContext = {
   db: ReturnType<typeof requireDb>;
@@ -202,14 +211,6 @@ function mapPaymentStatusToLegacy(status: string | null | undefined) {
 
 function mapApplicationTypeToAccountType(type: string | null | undefined) {
   return (type || "").toUpperCase() === "PARTNER" ? "partner" : "member";
-}
-
-function mapRoleToDashboardAccess(role: string | null | undefined, hasTeam: boolean): DashboardAccessType {
-  if ((role || "").toUpperCase() === "PARTNER" || hasTeam) {
-    return "partner_owner";
-  }
-
-  return "member";
 }
 
 function getApplicationData(application: typeof coreApplications.$inferSelect | null | undefined) {
@@ -366,7 +367,7 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
   const { db, canonicalUser, candidateEmails, primaryEmail, clerkUser } = session;
 
   if (canonicalUser) {
-    const [membership, team, profile] = await Promise.all([
+    const [membership, existingTeam, profile] = await Promise.all([
       db
         .select()
         .from(coreMemberships)
@@ -384,12 +385,34 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
         db.select().from(corePayments).where(eq(corePayments.id, membership.id)).limit(1).then((rows: typeof corePayments.$inferSelect[]) => rows[0] ?? null),
         db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, membership.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
       ]);
+      const ownerKind = resolveTeamOwnerKind({
+        role: canonicalUser.role,
+        applicationType: application?.type,
+        packageName: application?.packageName,
+        membershipType: membership.type,
+        hasTeam: Boolean(existingTeam),
+      });
+      let team = existingTeam;
+
+      // Existing paid Business Owners predate team provisioning. Creating the
+      // canonical team on first dashboard access makes the feature available
+      // without requiring a one-off production backfill.
+      if (!team && ownerKind) {
+        const ensuredTeam = await upsertCanonicalTeam(db, {
+          id: application?.id ?? membership.id,
+          ownerUserId: canonicalUser.id,
+          name: application?.fullName || canonicalUser.email,
+          seatCount: INCLUDED_TEAM_SEATS,
+          createdAt: application?.createdAt ?? membership.startedAt,
+        });
+        team = ensuredTeam.record;
+      }
 
       return {
         db,
         clerkUser,
         primaryEmail,
-        accessType: mapRoleToDashboardAccess(canonicalUser.role, Boolean(team)),
+        accessType: getTeamOwnerAccessType(ownerKind),
         canonicalUser,
         membership,
         application,
@@ -444,11 +467,19 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
     db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, membership.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
   ]);
 
+  const ownerKind = resolveTeamOwnerKind({
+    role: ownerUser.role,
+    applicationType: application?.type,
+    packageName: application?.packageName,
+    membershipType: membership.type,
+    hasTeam: true,
+  });
+
   return {
     db,
     clerkUser,
     primaryEmail,
-    accessType: "partner_team_member",
+    accessType: getTeamMemberAccessType(ownerKind),
     canonicalUser,
     membership,
     application,
@@ -461,7 +492,7 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
   };
 }
 
-async function getPartnerOwnerMemberId(db: ReturnType<typeof requireDb>, teamId: string) {
+async function getTeamOwnerMemberId(db: ReturnType<typeof requireDb>, teamId: string) {
   const teams = await db
     .select({ id: coreTeams.id })
     .from(coreTeams)
@@ -472,7 +503,7 @@ async function getPartnerOwnerMemberId(db: ReturnType<typeof requireDb>, teamId:
   return `IBPA-BO-${String(normalizedIndex).padStart(3, "0")}`;
 }
 
-async function getPartnerTeamSnapshot(db: ReturnType<typeof requireDb>, team: typeof coreTeams.$inferSelect) {
+async function getTeamSnapshot(db: ReturnType<typeof requireDb>, team: typeof coreTeams.$inferSelect) {
   const members = await db
     .select()
     .from(coreTeamMembers)
@@ -480,15 +511,15 @@ async function getPartnerTeamSnapshot(db: ReturnType<typeof requireDb>, team: ty
     .orderBy(asc(coreTeamMembers.joinedAt), asc(coreTeamMembers.id));
 
   const activeMembers = members.filter((member: typeof coreTeamMembers.$inferSelect) => member.status.toUpperCase() !== "REMOVED");
-  const includedUsed = Math.min(activeMembers.length, PARTNER_INCLUDED_TEAM_SEATS);
-  const totalAllowedSeats = Math.max(team.seatCount, PARTNER_INCLUDED_TEAM_SEATS);
-  const paidAdditionalSeats = Math.max(totalAllowedSeats - PARTNER_INCLUDED_TEAM_SEATS, 0);
+  const includedUsed = Math.min(activeMembers.length, INCLUDED_TEAM_SEATS);
+  const totalAllowedSeats = Math.max(team.seatCount, INCLUDED_TEAM_SEATS);
+  const paidAdditionalSeats = Math.max(totalAllowedSeats - INCLUDED_TEAM_SEATS, 0);
   const additionalUsed = Math.max(activeMembers.length - includedUsed, 0);
-  const includedRemaining = Math.max(PARTNER_INCLUDED_TEAM_SEATS - includedUsed, 0);
+  const includedRemaining = Math.max(INCLUDED_TEAM_SEATS - includedUsed, 0);
   const usedSeats = activeMembers.length;
   const remainingSeats = Math.max(totalAllowedSeats - usedSeats, 0);
   const canInvite = usedSeats < totalAllowedSeats;
-  const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
+  const ownerMemberId = await getTeamOwnerMemberId(db, team.id);
 
   return {
     ownerMemberId,
@@ -496,7 +527,7 @@ async function getPartnerTeamSnapshot(db: ReturnType<typeof requireDb>, team: ty
       const isRemoved = member.status.toUpperCase() === "REMOVED";
       const activeIndex = activeMembers.findIndex((active: typeof coreTeamMembers.$inferSelect) => active.id === member.id);
       const seatNumber = activeIndex >= 0 ? activeIndex + 1 : index + 1;
-      const seatKind = seatNumber <= PARTNER_INCLUDED_TEAM_SEATS ? "included" : "additional";
+      const seatKind = seatNumber <= INCLUDED_TEAM_SEATS ? "included" : "additional";
 
       return {
         id: member.id,
@@ -520,7 +551,7 @@ async function getPartnerTeamSnapshot(db: ReturnType<typeof requireDb>, team: ty
       };
     }),
     summary: {
-      includedSeats: PARTNER_INCLUDED_TEAM_SEATS,
+      includedSeats: INCLUDED_TEAM_SEATS,
       includedUsed,
       includedRemaining,
       usedSeats,
@@ -587,22 +618,34 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    if (accessType === "partner_team_member" && teamMember && team && ownerUser) {
-      const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
+    if (isTeamMemberAccess(accessType) && teamMember && team && ownerUser) {
+      const ownerKind = resolveTeamOwnerKind({
+        role: ownerUser.role,
+        applicationType: application?.type,
+        packageName: application?.packageName,
+        membershipType: membership.type,
+        hasTeam: true,
+      });
+      const accountType = getTeamAccountType(ownerKind);
+      const ownerMemberId = await getTeamOwnerMemberId(db, team.id);
       return res.json({
         certificates: [],
         externalCertificates: [],
-        accountType: "partner",
+        accountType,
         applicationType: "TEAM_MEMBER",
-        orderType: "partner",
+        orderType: accountType,
         membershipStatus: membership.status.toLowerCase(),
         paymentStatus: mapPaymentStatusToLegacy(payment?.status),
         certificateStatus: "not_available_for_team_member",
         dashboardAccess: {
           type: accessType,
-          accountType: "partner",
+          accountType,
+          ownerOrderId: team.id,
+          ownerName: team.name,
+          ownerEmail: ownerUser.email,
+          // Retained for clients that still consume the legacy partner keys.
           partnerOrderId: team.id,
-          partnerName: ownerUser.email,
+          partnerName: team.name,
           partnerEmail: ownerUser.email,
           ownerMemberId,
           teamMemberId: teamMember.id,
@@ -614,8 +657,8 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
     }
 
     let partnerTeam = null;
-    if (accessType === "partner_owner" && team) {
-      const snapshot = await getPartnerTeamSnapshot(db, team);
+    if (isTeamOwnerAccess(accessType) && team) {
+      const snapshot = await getTeamSnapshot(db, team);
       partnerTeam = {
         ...snapshot.summary,
         invitedMembers: snapshot.records
@@ -712,14 +755,22 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    if (accessType === "partner_team_member" && teamMember && team && ownerUser) {
-      const ownerMemberId = await getPartnerOwnerMemberId(db, team.id);
+    if (isTeamMemberAccess(accessType) && teamMember && team && ownerUser) {
+      const ownerKind = resolveTeamOwnerKind({
+        role: ownerUser.role,
+        applicationType: application?.type,
+        packageName: application?.packageName,
+        membershipType: membership.type,
+        hasTeam: true,
+      });
+      const accountType = getTeamAccountType(ownerKind);
+      const ownerMemberId = await getTeamOwnerMemberId(db, team.id);
       return res.json({
         profile: {
-          type: "partner",
-          accountType: "partner",
+          type: accountType,
+          accountType,
           applicationType: "TEAM_MEMBER",
-          orderType: "partner",
+          orderType: accountType,
           membershipStatus: membership.status.toLowerCase(),
           paymentStatus: mapPaymentStatusToLegacy(payment?.status),
           certificateStatus: "not_available_for_team_member",
@@ -736,7 +787,9 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
             licenseNumber: "Not provided",
             status: teamMember.status,
             ownerMemberId,
-            partnerBusinessName: ownerUser.email,
+            ownerBusinessName: team.name,
+            ownerBusinessEmail: ownerUser.email,
+            partnerBusinessName: team.name,
             partnerBusinessEmail: ownerUser.email,
           },
         },
@@ -753,8 +806,8 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       currentRole: canonicalUser.role,
     });
 
-    const partnerTeamSnapshot = accessType === "partner_owner" && team
-      ? await getPartnerTeamSnapshot(db, team)
+    const partnerTeamSnapshot = isTeamOwnerAccess(accessType) && team
+      ? await getTeamSnapshot(db, team)
       : null;
 
     const mappedProfile = buildOwnerDashboardProfile({
@@ -918,7 +971,7 @@ dashboardRouter.get("/notifications", clerkMiddleware(clerkOptions), async (req,
       .select()
       .from(coreNotifications)
       .orderBy(desc(coreNotifications.createdAt));
-    const role = access.accessType === "partner_team_member"
+    const role = isTeamMemberAccess(access.accessType)
       ? "TEAM_MEMBER"
       : access.canonicalUser?.role ?? "MEMBER";
     const email = access.primaryEmail || access.canonicalUser?.email || access.teamMember?.email || "";
@@ -991,16 +1044,18 @@ dashboardRouter.get("/team-members", clerkMiddleware(clerkOptions), async (req, 
     }
 
     const { db, accessType, team, canonicalUser } = access;
-    if (!team || !canonicalUser || accessType !== "partner_owner") {
-      return res.status(403).json(PARTNER_OWNER_ONLY_ERROR);
+    if (!team || !canonicalUser || !isTeamOwnerAccess(accessType)) {
+      return res.status(403).json(TEAM_OWNER_ONLY_ERROR);
     }
 
-    const snapshot = await getPartnerTeamSnapshot(db, team);
+    const snapshot = await getTeamSnapshot(db, team);
 
     return res.json({
       ownerMemberId: snapshot.ownerMemberId,
       ...snapshot.summary,
-      partnerBusinessName: canonicalUser.email,
+      ownerBusinessName: team.name,
+      ownerBusinessEmail: canonicalUser.email,
+      partnerBusinessName: team.name,
       partnerBusinessEmail: canonicalUser.email,
       members: snapshot.records.map((item: any) => ({
         id: item.id,
@@ -1043,8 +1098,8 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
     }
 
     const { db, accessType, team, canonicalUser } = access;
-    if (!team || !canonicalUser || accessType !== "partner_owner") {
-      return res.status(403).json(PARTNER_OWNER_ONLY_ERROR);
+    if (!team || !canonicalUser || !isTeamOwnerAccess(accessType)) {
+      return res.status(403).json(TEAM_OWNER_ONLY_ERROR);
     }
 
     const fullName = trimValue(req.body?.fullName);
@@ -1066,13 +1121,13 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
       return res.status(400).json({ error: "Affiliation confirmation is required before adding a team member." });
     }
 
-    const snapshot = await getPartnerTeamSnapshot(db, team);
+    const snapshot = await getTeamSnapshot(db, team);
     const activeMembers = snapshot.records.filter((member: any) => member.status !== "removed");
     if (activeMembers.length >= MAX_TEAM_SEATS) {
       return res.status(400).json({ error: `Maximum team size is ${MAX_TEAM_SEATS} seats for this release.` });
     }
     if (activeMembers.some((member: any) => member.emailNormalized === emailNormalized)) {
-      return res.status(400).json({ error: "This email is already assigned to an active team seat in your partner account." });
+      return res.status(400).json({ error: "This email is already assigned to an active team seat in your account." });
     }
     if (!snapshot.summary.canInvite) {
       return res.status(400).json({
@@ -1094,7 +1149,7 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
       credentials,
       joinedAt: new Date(),
     });
-    const refreshed = await getPartnerTeamSnapshot(db, team);
+    const refreshed = await getTeamSnapshot(db, team);
     const createdRecord = refreshed.records.find((item: any) => item.id === created.record.id);
 
     return res.status(201).json({
@@ -1111,7 +1166,7 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
         licenseNumber: "Not provided",
         status: createdRecord?.status ?? "invited",
         seatNumber: createdRecord?.seatNumber ?? activeMembers.length + 1,
-        seatKind: createdRecord?.seatKind ?? (activeMembers.length + 1 <= PARTNER_INCLUDED_TEAM_SEATS ? "included" : "additional"),
+        seatKind: createdRecord?.seatKind ?? (activeMembers.length + 1 <= INCLUDED_TEAM_SEATS ? "included" : "additional"),
         billingStatus: createdRecord?.billingStatus ?? "included",
         accessStatus: createdRecord?.accessStatus ?? "invited",
         registrationStatus: createdRecord?.registrationStatus ?? "not_registered",
@@ -1139,8 +1194,8 @@ dashboardRouter.post("/team-members/extend-seats", clerkMiddleware(clerkOptions)
     }
 
     const { db, accessType, team } = access;
-    if (!team || accessType !== "partner_owner") {
-      return res.status(403).json(PARTNER_OWNER_ONLY_ERROR);
+    if (!team || !isTeamOwnerAccess(accessType)) {
+      return res.status(403).json(TEAM_OWNER_ONLY_ERROR);
     }
 
     const seatsRequested = Math.max(1, Math.min(Number(req.body?.seatsRequested) || 1, 20));
@@ -1178,8 +1233,8 @@ dashboardRouter.delete("/team-members/:id", clerkMiddleware(clerkOptions), async
     }
 
     const { db, accessType, team } = access;
-    if (!team || accessType !== "partner_owner") {
-      return res.status(403).json(PARTNER_OWNER_ONLY_ERROR);
+    if (!team || !isTeamOwnerAccess(accessType)) {
+      return res.status(403).json(TEAM_OWNER_ONLY_ERROR);
     }
 
     const [member] = await db
@@ -1220,9 +1275,9 @@ dashboardRouter.patch("/profile", clerkMiddleware(clerkOptions), async (req, res
     }
 
     const { db, primaryEmail, accessType, canonicalUser } = access;
-    if (accessType === "partner_team_member") {
+    if (isTeamMemberAccess(accessType)) {
       return res.status(403).json({
-        error: "Team member profiles are managed by the partner owner.",
+        error: "Team member profiles are managed by the account owner.",
         code: "TEAM_MEMBER_EDIT_DISABLED",
       });
     }
@@ -1294,9 +1349,9 @@ dashboardRouter.patch("/profile/services", clerkMiddleware(clerkOptions), async 
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
-    if (access.accessType === "partner_team_member") {
+    if (isTeamMemberAccess(access.accessType)) {
       return res.status(403).json({
-        error: "Team member profiles are managed by the partner owner.",
+        error: "Team member profiles are managed by the account owner.",
         code: "TEAM_MEMBER_EDIT_DISABLED",
       });
     }
@@ -1326,7 +1381,7 @@ dashboardRouter.get("/certificates/external", clerkMiddleware(clerkOptions), asy
 
   try {
     const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
-    if (!access || access.accessType === "partner_team_member") {
+    if (!access || isTeamMemberAccess(access.accessType)) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
@@ -1345,7 +1400,7 @@ dashboardRouter.post("/certificates/external", clerkMiddleware(clerkOptions), as
 
   try {
     const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
-    if (!access || access.accessType === "partner_team_member") {
+    if (!access || isTeamMemberAccess(access.accessType)) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 
@@ -1374,7 +1429,7 @@ dashboardRouter.delete("/certificates/external/:id", clerkMiddleware(clerkOption
 
   try {
     const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
-    if (!access || access.accessType === "partner_team_member") {
+    if (!access || isTeamMemberAccess(access.accessType)) {
       return res.status(403).json(DASHBOARD_ACCESS_ERROR);
     }
 

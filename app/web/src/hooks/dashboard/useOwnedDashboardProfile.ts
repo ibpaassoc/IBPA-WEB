@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import type { DashboardProfileData } from "@/components/dashboard/dashboard-types";
+import { isTeamMemberDashboard } from "@/lib/dashboard-access";
 import { useI18n } from "@/lib/i18n";
 
 export function useOwnedDashboardProfile() {
@@ -39,7 +40,7 @@ export function useOwnedDashboardProfile() {
       }
 
       const nextProfile = (data.profile || {}) as DashboardProfileData;
-      if (nextProfile.dashboardAccessType === "partner_team_member") {
+      if (isTeamMemberDashboard(nextProfile.dashboardAccessType)) {
         setAccessBlocked(true);
         setAccessBlockedMessage(t.dashboard.editProfile.teamMemberBlocked);
         setProfile(null);

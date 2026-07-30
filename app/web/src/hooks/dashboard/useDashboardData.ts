@@ -14,6 +14,10 @@ import type {
   PartnerTeamSummary,
   TeamMemberAccessInfo,
 } from "@/components/dashboard/dashboard-types";
+import {
+  isDashboardAccessType,
+  isTeamMemberDashboard,
+} from "@/lib/dashboard-access";
 import { normalizeNotifications, type DashboardNotification } from "@/lib/notifications";
 import type { PublicMember } from "@/lib/public-members";
 
@@ -285,15 +289,19 @@ export function useDashboardData({
 
           const accessFromMe = certData?.dashboardAccess?.type;
 
-          if (
-            accessFromMe === "member" ||
-            accessFromMe === "partner_owner" ||
-            accessFromMe === "partner_team_member"
-          ) {
+          if (isDashboardAccessType(accessFromMe)) {
             setDashboardAccessType(accessFromMe);
           }
 
-          if (accessFromMe === "partner_team_member" && certData?.dashboardAccess) {
+          if (isTeamMemberDashboard(accessFromMe) && certData?.dashboardAccess) {
+            const ownerBusinessName =
+              certData.dashboardAccess.ownerName ||
+              certData.dashboardAccess.partnerName ||
+              "Owner Account";
+            const ownerBusinessEmail =
+              certData.dashboardAccess.ownerEmail ||
+              certData.dashboardAccess.partnerEmail ||
+              "Not provided";
             setTeamMemberAccess({
               teamMemberId: certData.dashboardAccess.teamMemberId || "Pending",
               role: certData.dashboardAccess.role || "Team Member",
@@ -302,10 +310,10 @@ export function useDashboardData({
               status: certData.dashboardAccess.teamMemberStatus || "invited",
               ownerMemberId:
                 certData.dashboardAccess.ownerMemberId || "IBPA #000123",
-              partnerBusinessName:
-                certData.dashboardAccess.partnerName || "Partner Account",
-              partnerBusinessEmail:
-                certData.dashboardAccess.partnerEmail || "Not provided",
+              ownerBusinessName,
+              ownerBusinessEmail,
+              partnerBusinessName: ownerBusinessName,
+              partnerBusinessEmail: ownerBusinessEmail,
             });
           } else {
             setTeamMemberAccess(null);
@@ -346,17 +354,13 @@ export function useDashboardData({
 
           const accessFromProfile = nextProfile.dashboardAccessType;
 
-          if (
-            accessFromProfile === "member" ||
-            accessFromProfile === "partner_owner" ||
-            accessFromProfile === "partner_team_member"
-          ) {
+          if (isDashboardAccessType(accessFromProfile)) {
             setDashboardAccessType(accessFromProfile);
           }
 
           if (nextProfile.teamMember) {
             setTeamMemberAccess(nextProfile.teamMember);
-          } else if (accessFromProfile !== "partner_team_member") {
+          } else if (!isTeamMemberDashboard(accessFromProfile)) {
             setTeamMemberAccess(null);
           }
         }

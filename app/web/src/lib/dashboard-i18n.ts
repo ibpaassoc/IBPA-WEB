@@ -49,6 +49,7 @@ export type DashboardDictionary = {
     partner: string;
     review: string;
     partnerTeamAccess: string;
+    businessTeamAccess: string;
   };
   quickActions: {
     editProfile: { label: string; description: string };
@@ -75,9 +76,11 @@ export type DashboardDictionary = {
   profile: {
     role: string;
     partnerBusiness: string;
+    ownerBusiness: string;
     access: string;
     teamMember: string;
     partnerAccount: string;
+    ownerAccount: string;
     invited: string;
     editProfile: string;
       openPublicProfile: string;
@@ -460,6 +463,7 @@ export const dashboardDictionaries = {
       partner: "Partner Membership",
       review: "Membership Review",
       partnerTeamAccess: "Partner Team Access",
+      businessTeamAccess: "Business Owner Team Access",
     },
     quickActions: {
       editProfile: {
@@ -504,9 +508,11 @@ export const dashboardDictionaries = {
     profile: {
       role: "Role",
       partnerBusiness: "Partner business",
+      ownerBusiness: "Owner business",
       access: "Access",
       teamMember: "Team Member",
       partnerAccount: "Partner account",
+      ownerAccount: "Owner account",
       invited: "Invited",
       editProfile: "Edit profile",
       openPublicProfile: "Open public profile",
@@ -713,9 +719,9 @@ export const dashboardDictionaries = {
     },
     teamMembers: {
       title: "Team Members",
-      partnerRequired: "Partner account required",
+      partnerRequired: "Partner or Business Owner account required",
       partnerRequiredDescription:
-        "Team access is available only for partner memberships.",
+        "Team access is available for Partner and Business Owner memberships.",
       includedSeats: "Included seats",
       usedSeats: "Used seats",
       remainingSeats: "Remaining seats",
@@ -852,7 +858,7 @@ export const dashboardDictionaries = {
       accessBlockedDescription:
         "Profile editing is available only for paid IBPA members. If your membership payment was completed, sign in with the same email used for your application and payment.",
       accessBlockedGeneric: "Profile editing is not available for this account.",
-      teamMemberBlocked: "Team member profiles are managed by the partner owner.",
+      teamMemberBlocked: "Team member profiles are managed by the account owner.",
       profileBlocked: "Profile editing is not available for this account.",
       backToDashboard: "Back to Dashboard",
       contactSupport: "Contact Support",
@@ -1007,6 +1013,7 @@ export const dashboardDictionaries = {
       partner: "Партнёрское членство",
       review: "Проверка членства",
       partnerTeamAccess: "Доступ партнёрской команды",
+      businessTeamAccess: "Доступ команды владельца бизнеса",
     },
     quickActions: {
       editProfile: {
@@ -1051,9 +1058,11 @@ export const dashboardDictionaries = {
     profile: {
       role: "Роль",
       partnerBusiness: "Партнёрский бизнес",
+      ownerBusiness: "Бизнес владельца",
       access: "Доступ",
       teamMember: "Участник команды",
       partnerAccount: "Партнёрский аккаунт",
+      ownerAccount: "Аккаунт владельца",
       invited: "Приглашён",
       editProfile: "Редактировать профиль",
       openPublicProfile: "Открыть публичный профиль",
@@ -1311,9 +1320,9 @@ export const dashboardDictionaries = {
     directory: { title: "Каталог участников" },
     teamMembers: {
       title: "Участники команды",
-      partnerRequired: "Требуется партнёрский аккаунт",
+      partnerRequired: "Требуется аккаунт партнёра или владельца бизнеса",
       partnerRequiredDescription:
-        "Доступ к команде доступен только для партнёрских членств.",
+        "Доступ к команде доступен для партнёров и участников категории «Владелец бизнеса».",
       includedSeats: "Включённые места",
       usedSeats: "Использовано мест",
       remainingSeats: "Осталось мест",
@@ -1407,7 +1416,7 @@ export const dashboardDictionaries = {
       accessBlockedGeneric:
         "Редактирование профиля недоступно для этого аккаунта.",
       teamMemberBlocked:
-        "Профили участников команды управляются владельцем партнёрского аккаунта.",
+        "Профилями участников команды управляет владелец аккаунта.",
       profileBlocked:
         "Редактирование профиля недоступно для этого аккаунта.",
       backToDashboard: "Назад в кабинет",
@@ -1562,6 +1571,7 @@ export const dashboardDictionaries = {
       partner: "Партнерське членство",
       review: "Перевірка членства",
       partnerTeamAccess: "Доступ партнерської команди",
+      businessTeamAccess: "Доступ команди власника бізнесу",
     },
     quickActions: {
       editProfile: {
@@ -1606,9 +1616,11 @@ export const dashboardDictionaries = {
     profile: {
       role: "Роль",
       partnerBusiness: "Партнерський бізнес",
+      ownerBusiness: "Бізнес власника",
       access: "Доступ",
       teamMember: "Учасник команди",
       partnerAccount: "Партнерський акаунт",
+      ownerAccount: "Акаунт власника",
       invited: "Запрошено",
       editProfile: "Редагувати профіль",
       openPublicProfile: "Відкрити публічний профіль",
@@ -1864,9 +1876,9 @@ export const dashboardDictionaries = {
     directory: { title: "Каталог учасників" },
     teamMembers: {
       title: "Учасники команди",
-      partnerRequired: "Потрібен партнерський акаунт",
+      partnerRequired: "Потрібен акаунт партнера або власника бізнесу",
       partnerRequiredDescription:
-        "Доступ до команди доступний лише для партнерських членств.",
+        "Доступ до команди доступний для партнерів і учасників категорії «Власник бізнесу».",
       includedSeats: "Включені місця",
       usedSeats: "Використано місць",
       remainingSeats: "Залишилось місць",
@@ -1958,7 +1970,7 @@ export const dashboardDictionaries = {
       accessBlockedGeneric:
         "Редагування профілю недоступне для цього акаунта.",
       teamMemberBlocked:
-        "Профілями учасників команди керує власник партнерського акаунта.",
+        "Профілями учасників команди керує власник акаунта.",
       profileBlocked:
         "Редагування профілю недоступне для цього акаунта.",
       backToDashboard: "Назад до кабінету",

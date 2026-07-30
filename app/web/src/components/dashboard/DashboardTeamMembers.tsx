@@ -2,9 +2,9 @@ import { TeamMembersPanel } from "@/components/dashboard/TeamMembersPanel";
 import { useI18n } from "@/lib/i18n";
 
 export function DashboardTeamMembers({
-  isPartnerOwner,
+  isTeamOwner,
 }: {
-  isPartnerOwner: boolean;
+  isTeamOwner: boolean;
 }) {
   const { t } = useI18n();
 
@@ -16,7 +16,7 @@ export function DashboardTeamMembers({
         </h1>
       </div>
 
-      <TeamMembersPanel enabled={isPartnerOwner} />
+      <TeamMembersPanel enabled={isTeamOwner} />
     </div>
   );
 }
