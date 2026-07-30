@@ -67,7 +67,10 @@ export function getPrimaryEmailFromClerkUser(user: {
 }
 
 export function getAllEmailsFromClerkUser(user: {
-  emailAddresses?: Array<{ emailAddress?: string | null }>;
+  emailAddresses?: Array<{
+    emailAddress?: string | null;
+    verification?: { status?: string | null } | null;
+  }>;
 } | null | undefined) {
   if (!user?.emailAddresses || !Array.isArray(user.emailAddresses)) {
     return [];
@@ -75,6 +78,15 @@ export function getAllEmailsFromClerkUser(user: {
 
   const unique = new Set<string>();
   for (const item of user.emailAddresses) {
+    // Clerk returns an explicit "unverified" state for an address that has not
+    // completed verification. Never let that address claim an invitation.
+    // Keep accepting records without verification metadata for compatibility
+    // with older Clerk payloads and test fixtures.
+    const verificationStatus = item?.verification?.status?.trim().toLowerCase();
+    if (verificationStatus && verificationStatus !== "verified") {
+      continue;
+    }
+
     if (typeof item?.emailAddress !== "string") {
       continue;
     }
