@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import type {
+  AdminCertificate,
   BillingHistoryEntry,
   Certificate,
   DashboardAccessType,
@@ -32,6 +33,9 @@ export function useDashboardData({
   const [externalCertificates, setExternalCertificates] = useState<
     ExternalCertificate[]
   >([]);
+  const [adminCertificates, setAdminCertificates] = useState<AdminCertificate[]>(
+    [],
+  );
   const [billingHistory, setBillingHistory] = useState<BillingHistoryEntry[]>([]);
   const [profileData, setProfileData] = useState<DashboardProfileData>({});
   const [dashboardMeta, setDashboardMeta] = useState<DashboardMeta>({});
@@ -160,6 +164,7 @@ export function useDashboardData({
         setCertificates([]);
         setProfileData({});
         setExternalCertificates([]);
+        setAdminCertificates([]);
         setBillingHistory([]);
         setDirectoryMembers([]);
         setCustomNotifications([]);
@@ -197,6 +202,7 @@ export function useDashboardData({
           setCertificates([]);
           setProfileData({});
           setExternalCertificates([]);
+        setAdminCertificates([]);
           setBillingHistory([]);
           setDirectoryMembers([]);
           setDashboardMeta({});
@@ -216,6 +222,7 @@ export function useDashboardData({
           setCertificates([]);
           setProfileData({});
           setExternalCertificates([]);
+        setAdminCertificates([]);
           setBillingHistory([]);
           setDirectoryMembers([]);
           setDashboardMeta({});
@@ -252,6 +259,11 @@ export function useDashboardData({
           setExternalCertificates(
             Array.isArray(certData.externalCertificates)
               ? certData.externalCertificates
+              : [],
+          );
+          setAdminCertificates(
+            Array.isArray(certData.adminCertificates)
+              ? certData.adminCertificates
               : [],
           );
           setBillingHistory(
@@ -446,6 +458,7 @@ export function useDashboardData({
   return {
     certificates,
     externalCertificates,
+    adminCertificates,
     billingHistory,
     profileData,
     dashboardMeta,

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 import { formatAdminDate } from "../../shared/utils/admin-formatters";
 import type { AdminMemberRecord } from "../types/members-admin.types";
+import { AdminAdditionalCertificates } from "./AdminAdditionalCertificates";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -36,6 +37,7 @@ export function MemberCertificateTab({
   onResendCertificate,
 }: Props) {
   return (
+    <div className="flex flex-col gap-6">
     <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
       {/* Left: read-only info */}
       <div className="flex flex-col gap-5">
@@ -140,6 +142,9 @@ export function MemberCertificateTab({
           </section>
         ) : null}
       </aside>
+    </div>
+
+      <AdminAdditionalCertificates orderId={member.id} />
     </div>
   );
 }

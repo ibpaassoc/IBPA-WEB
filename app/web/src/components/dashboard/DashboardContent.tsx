@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { DashboardNotification } from "@/lib/notifications";
 import type { ProfileRecordData } from "@/lib/profile-record";
 import type {
+  AdminCertificate,
   Certificate,
   ExternalCertificate,
   SupportMode,
@@ -77,6 +78,7 @@ type Props = {
 
   certificates: any[];
   externalCertificates: ExternalCertificate[];
+  adminCertificates: AdminCertificate[];
   billingEntries: any[];
   overviewCards: any[];
   profileChecklist: ProfileChecklist;
@@ -145,6 +147,7 @@ export function DashboardContent(props: Props) {
     snapshotItems,
     certificates,
     externalCertificates,
+    adminCertificates,
     billingEntries,
     overviewCards,
     profileChecklist,
@@ -197,6 +200,7 @@ export function DashboardContent(props: Props) {
         <DashboardCertificates
           certificates={certificates}
           externalCertificates={externalCertificates}
+          adminCertificates={adminCertificates}
           showCertificatesTab={showCertificatesTab}
           fullName={fullName}
           membershipExpiresDisplay={membershipExpiresDisplay}
