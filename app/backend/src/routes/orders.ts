@@ -28,6 +28,13 @@ import { upsertCanonicalPayment } from "../features/payments/server/payment.repo
 import { upsertCanonicalMembership } from "../features/memberships/server/membership.repository";
 import { upsertCanonicalCertificate } from "../features/certificates/server/certificate.repository";
 import { syncProfileFromApplication } from "../features/profiles/server/application-profile-sync";
+import {
+  AdminCertificateError,
+  createAdminCertificate,
+  listAdminCertificates,
+  removeAdminCertificate,
+  replaceAdminCertificate,
+} from "../features/admin-certificates/server/admin-certificate.service";
 
 export const ordersRouter = Router();
 
@@ -1608,6 +1615,99 @@ ordersRouter.delete("/:id/certificate", adminClerkMiddleware, requireAdminAccess
   } catch (error) {
     console.error("Failed to remove certificate URL:", error);
     return res.status(500).json({ error: "Failed to remove certificate URL" });
+  }
+});
+
+function handleAdminCertificateError(res: any, error: unknown, fallback: string) {
+  if (error instanceof AdminCertificateError) {
+    return res.status(error.status).json({ error: error.message });
+  }
+  if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+    return res.status(503).json({ error: error.message });
+  }
+  console.error(fallback, error);
+  return res.status(500).json({ error: fallback });
+}
+
+// Admin-uploaded additional certificates for an applicant. Kept separate from
+// the primary membership certificate (`/:id/certificate`) and from application
+// review attachments (`/:id/additional-files`). The applicant reference is the
+// order id (= membership id) in the URL; identity is never taken from the body.
+ordersRouter.get("/:id/admin-certificates", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+  if (!id) {
+    return res.status(400).json({ error: "Invalid applicant id" });
+  }
+
+  try {
+    const items = await listAdminCertificates({ orderId: id });
+    return res.json({ items });
+  } catch (error) {
+    return handleAdminCertificateError(res, error, "Failed to list additional certificates");
+  }
+});
+
+ordersRouter.post("/:id/admin-certificates", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+  if (!id) {
+    return res.status(400).json({ error: "Invalid applicant id" });
+  }
+
+  try {
+    const item = await createAdminCertificate({
+      orderId: id,
+      title: req.body?.title,
+      fileUrl: req.body?.fileUrl,
+      fileKey: req.body?.fileKey,
+      fileName: req.body?.fileName,
+      fileType: req.body?.fileType,
+      issuedAt: req.body?.issuedAt,
+    });
+    return res.status(201).json({ success: true, item });
+  } catch (error) {
+    return handleAdminCertificateError(res, error, "Failed to add additional certificate");
+  }
+});
+
+ordersRouter.patch("/:id/admin-certificates/:certId", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+  const certId = getSingleValue(req.params.certId);
+  if (!id || !certId) {
+    return res.status(400).json({ error: "Invalid certificate id" });
+  }
+
+  try {
+    const { certificate, previousFileKey } = await replaceAdminCertificate({
+      orderId: id,
+      certificateId: certId,
+      title: req.body?.title,
+      fileUrl: req.body?.fileUrl,
+      fileKey: req.body?.fileKey,
+      fileName: req.body?.fileName,
+      fileType: req.body?.fileType,
+      issuedAt: req.body?.issuedAt,
+    });
+    return res.json({ success: true, item: certificate, previousFileKey });
+  } catch (error) {
+    return handleAdminCertificateError(res, error, "Failed to update additional certificate");
+  }
+});
+
+ordersRouter.delete("/:id/admin-certificates/:certId", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+  const certId = getSingleValue(req.params.certId);
+  if (!id || !certId) {
+    return res.status(400).json({ error: "Invalid certificate id" });
+  }
+
+  try {
+    const { certificate, removedFileKey } = await removeAdminCertificate({
+      orderId: id,
+      certificateId: certId,
+    });
+    return res.json({ success: true, id: certificate.id, removedFileKey });
+  } catch (error) {
+    return handleAdminCertificateError(res, error, "Failed to delete additional certificate");
   }
 });
 

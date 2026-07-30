@@ -28,6 +28,7 @@ import {
   deleteExternalCertificate,
   listExternalCertificates,
 } from "../features/files/server/file.service";
+import { listAdminCertificatesForDashboard } from "../features/admin-certificates/server/admin-certificate.service";
 import {
   ensureOwnedProfileRecord,
   normalizeProfileServices,
@@ -592,6 +593,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       return res.json({
         certificates: [],
         externalCertificates: [],
+        adminCertificates: [],
         accountType: "partner",
         applicationType: "TEAM_MEMBER",
         orderType: "partner",
@@ -642,6 +644,16 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       console.error("[Dashboard /me] Failed to load external certificates:", error);
     }
 
+    // Admin-uploaded additional certificates are keyed by the applicant's order
+    // (membership) id. `membership` here already belongs to the signed-in user,
+    // so scoping by its id returns only this applicant's certificates.
+    let adminCertificates: Awaited<ReturnType<typeof listAdminCertificatesForDashboard>> = [];
+    try {
+      adminCertificates = await listAdminCertificatesForDashboard({ orderId: membership.id });
+    } catch (error) {
+      console.error("[Dashboard /me] Failed to load admin certificates:", error);
+    }
+
     const paymentHistory = canonicalUser
       ? await listPaymentsByUserId(db, canonicalUser.id)
       : [];
@@ -666,6 +678,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
     return res.json({
       certificates: certificatePayload,
       externalCertificates,
+      adminCertificates,
       paymentHistory: paymentHistory.map((entry: typeof corePayments.$inferSelect) => ({
         id: entry.id,
         type: entry.type,

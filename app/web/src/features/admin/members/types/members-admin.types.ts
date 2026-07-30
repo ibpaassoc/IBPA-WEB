@@ -7,6 +7,19 @@ export type AdminMemberFilters = {
   certificate: "all" | "issued" | "not_issued";
 };
 
+// Admin-uploaded additional certificate, as returned by the admin proxy API.
+// The UploadThing storage key is intentionally never exposed to the browser.
+export type AdminCertificateRecord = {
+  id: string;
+  title: string;
+  fileUrl: string;
+  fileName: string | null;
+  fileType: string | null;
+  issuedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AdminMemberRecord = AdminClient & {
   // membership
   daysUntilExpiry: number | null;
