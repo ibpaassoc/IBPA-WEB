@@ -10,7 +10,7 @@ import {
   PAYMENTS_SENDER,
   adminNotificationEmail,
   applicationsEmail,
-  sendEmail,
+  sendEmailOrThrow,
 } from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
@@ -160,7 +160,7 @@ function toAdminShape(application: typeof coreApplications.$inferSelect, payment
 }
 
 async function sendPartnerApplicationReceivedEmail(params: { email: string; name: string; requestedTier?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: APPLICATIONS_SENDER,
     to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
@@ -176,7 +176,7 @@ async function sendPartnerApplicationReceivedEmail(params: { email: string; name
 }
 
 async function sendAdminPartnerApplicationEmail(params: { name: string; email: string; phone?: string | null; message: string; requestedTier?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: APPLICATIONS_SENDER,
     to: adminNotificationEmail,
     replyTo: APPLICATIONS_REPLY_TO,
@@ -194,7 +194,7 @@ async function sendAdminPartnerApplicationEmail(params: { name: string; email: s
 }
 
 async function sendPartnerApprovalEmail(params: { email: string; name: string; requestedTier: string; checkoutUrl?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: APPLICATIONS_SENDER,
     to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
@@ -211,7 +211,7 @@ async function sendPartnerApprovalEmail(params: { email: string; name: string; r
 }
 
 async function sendAdminPartnerPaymentLinkSentEmail(params: { applicationId: string; name: string; email: string; requestedTier: string; checkoutUrl?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
     replyTo: PAYMENTS_REPLY_TO,
@@ -229,7 +229,7 @@ async function sendAdminPartnerPaymentLinkSentEmail(params: { applicationId: str
 }
 
 async function sendPartnerRejectedEmail(params: { email: string; name: string; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: APPLICATIONS_SENDER,
     to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
@@ -558,6 +558,16 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
         requestedTier: selectedTier,
         checkoutUrl: session.url,
       });
+    } catch (emailError) {
+      console.error("[Partner Application] Applicant approval email failed", emailError);
+      return res.status(502).json({
+        error:
+          "The partner application was approved, but the approval email could not be delivered.",
+        code: "APPROVAL_EMAIL_FAILED",
+      });
+    }
+
+    try {
       await sendAdminPartnerPaymentLinkSentEmail({
         applicationId: updated.record.id,
         name: updated.record.fullName,
@@ -566,7 +576,7 @@ partnerApplicationsRouter.post("/admin/approve", adminClerkMiddleware, requireAd
         checkoutUrl: session.url,
       });
     } catch (emailError) {
-      console.error("[Partner Application] Approval emails failed", emailError);
+      console.error("[Partner Application] Admin approval notification failed", emailError);
     }
 
     return res.json({
@@ -623,6 +633,26 @@ partnerApplicationsRouter.post("/admin/reject", adminClerkMiddleware, requireAdm
       await sendPartnerRejectedEmail({ email: application.email, name: application.fullName });
     } catch (emailError) {
       console.error("[Partner Application] Rejection email failed", emailError);
+      await upsertCanonicalApplication(db, {
+        id: application.id,
+        userId: application.userId ?? null,
+        type: "PARTNER",
+        packageName: application.packageName ?? null,
+        status: application.status,
+        fullName: application.fullName,
+        email: application.email,
+        phone: application.phone ?? null,
+        paymentLink: application.paymentLink ?? null,
+        applicationData: application.applicationData as Record<string, unknown>,
+        applicationFiles: application.applicationFiles,
+        approvedAt: application.approvedAt ?? null,
+        createdAt: application.createdAt,
+      });
+      return res.status(502).json({
+        error:
+          "The rejection email could not be delivered. The application was left unchanged.",
+        code: "REJECTION_EMAIL_FAILED",
+      });
     }
 
     return res.json({ success: true, status: "REJECTED" });

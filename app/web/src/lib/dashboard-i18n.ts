@@ -276,6 +276,7 @@ export type DashboardDictionary = {
     fullName: string;
     email: string;
     role: string;
+    certificateNumber: string;
     portfolioLink: string;
     affiliationConfirmation: string;
     inviting: string;
@@ -744,6 +745,7 @@ export const dashboardDictionaries = {
       fullName: "Full Name",
       email: "Email",
       role: "Role / Position",
+      certificateNumber: "Certificate number",
       portfolioLink: "Instagram or Portfolio Link",
       affiliationConfirmation:
         "I confirm that this person is professionally affiliated with my business.",
@@ -1345,6 +1347,7 @@ export const dashboardDictionaries = {
       fullName: "Полное имя",
       email: "Email",
       role: "Роль / должность",
+      certificateNumber: "Номер сертификата",
       portfolioLink: "Instagram или ссылка на портфолио",
       affiliationConfirmation:
         "Подтверждаю, что этот человек профессионально связан с моим бизнесом.",
@@ -1899,6 +1902,7 @@ export const dashboardDictionaries = {
       fullName: "Повне ім'я",
       email: "Email",
       role: "Роль / посада",
+      certificateNumber: "Номер сертифіката",
       portfolioLink: "Instagram або посилання на портфоліо",
       affiliationConfirmation:
         "Підтверджую, що ця людина професійно пов'язана з моїм бізнесом.",

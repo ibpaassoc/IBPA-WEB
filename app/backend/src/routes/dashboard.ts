@@ -37,7 +37,17 @@ import {
 import { markNotificationsRead } from "../features/notifications/server/notification.service";
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
 import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
-import { generateUniqueTeamMemberCredential, getTeamSequentialNumber, upsertCanonicalTeam, upsertCanonicalTeamMember } from "../features/teams/server/team.repository";
+import {
+  ensureCanonicalTeamMemberCredential,
+  generateUniqueTeamMemberCredential,
+  getTeamSequentialNumber,
+  upsertCanonicalTeam,
+  upsertCanonicalTeamMember,
+} from "../features/teams/server/team.repository";
+import {
+  buildTeamAccountSetupUrl,
+  sendTeamInvitationEmail,
+} from "../features/teams/server/team-invitation";
 import {
   getTeamAccountType,
   getTeamMemberAccessType,
@@ -430,17 +440,32 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
     return null;
   }
 
-  const [teamMember] = await db
+  const [matchedTeamMember] = await db
     .select()
     .from(coreTeamMembers)
-    .where(inArray(coreTeamMembers.email, candidateEmails.filter((value): value is string => typeof value === "string" && value.length > 0)))
+    .where(
+      and(
+        inArray(
+          sql<string>`lower(${coreTeamMembers.email})`,
+          candidateEmails.filter(
+            (value): value is string =>
+              typeof value === "string" && value.length > 0,
+          ),
+        ),
+        sql`upper(${coreTeamMembers.status}) <> 'REMOVED'`,
+      ),
+    )
     .orderBy(desc(coreTeamMembers.joinedAt))
     .limit(1);
 
-  if (!teamMember || teamMember.status.toUpperCase() === "REMOVED") {
+  if (!matchedTeamMember || matchedTeamMember.status.toUpperCase() === "REMOVED") {
     return null;
   }
 
+  let teamMember = await ensureCanonicalTeamMemberCredential(
+    db,
+    matchedTeamMember,
+  );
   const [team] = await db.select().from(coreTeams).where(eq(coreTeams.id, teamMember.teamId)).limit(1);
   if (!team) {
     return null;
@@ -459,6 +484,35 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
 
   if (!ownerUser || !membership) {
     return null;
+  }
+
+  if (teamMember.status.toUpperCase() !== "ACTIVE") {
+    const activated = await upsertCanonicalTeamMember(db, {
+      id: teamMember.id,
+      teamId: teamMember.teamId,
+      email: normalizeEmail(teamMember.email),
+      fullName: teamMember.fullName,
+      role: teamMember.role,
+      status: "ACTIVE",
+      credentials: teamMember.credentials,
+      joinedAt: teamMember.joinedAt ?? new Date(),
+    });
+    teamMember = activated.record;
+  }
+
+  let teamCanonicalUser = canonicalUser;
+  if (canonicalUser && primaryEmail) {
+    const ensuredTeamUser = await ensureCanonicalUser(db, {
+      clerkId: clerkUserId,
+      email: primaryEmail,
+      role:
+        canonicalUser.role === "MEMBER" ||
+        canonicalUser.role === "TEAM_MEMBER"
+          ? "TEAM_MEMBER"
+          : canonicalUser.role,
+      status: "ACTIVE",
+    });
+    teamCanonicalUser = ensuredTeamUser.record;
   }
 
   const [application, payment, certificate] = await Promise.all([
@@ -480,7 +534,7 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
     clerkUser,
     primaryEmail,
     accessType: getTeamMemberAccessType(ownerKind),
-    canonicalUser,
+    canonicalUser: teamCanonicalUser,
     membership,
     application,
     payment,
@@ -504,11 +558,16 @@ async function getTeamOwnerMemberId(db: ReturnType<typeof requireDb>, teamId: st
 }
 
 async function getTeamSnapshot(db: ReturnType<typeof requireDb>, team: typeof coreTeams.$inferSelect) {
-  const members = await db
+  const storedMembers = await db
     .select()
     .from(coreTeamMembers)
     .where(eq(coreTeamMembers.teamId, team.id))
     .orderBy(asc(coreTeamMembers.joinedAt), asc(coreTeamMembers.id));
+  const members = await Promise.all(
+    storedMembers.map((member: typeof coreTeamMembers.$inferSelect) =>
+      ensureCanonicalTeamMemberCredential(db, member),
+    ),
+  );
 
   const activeMembers = members.filter((member: typeof coreTeamMembers.$inferSelect) => member.status.toUpperCase() !== "REMOVED");
   const includedUsed = Math.min(activeMembers.length, INCLUDED_TEAM_SEATS);
@@ -533,12 +592,13 @@ async function getTeamSnapshot(db: ReturnType<typeof requireDb>, team: typeof co
         id: member.id,
         teamMemberId: `${ownerMemberId}-T${String(seatNumber).padStart(2, "0")}`,
         credentials: member.credentials ?? null,
+        certificateNumber: member.credentials ?? null,
         fullName: member.fullName,
         email: member.email,
         emailNormalized: normalizeEmail(member.email),
         role: member.role || "",
         portfolioLink: null,
-        license: "Not provided",
+        license: member.credentials ?? "Pending",
         status: isRemoved ? "removed" : member.status.toLowerCase() === "active" ? "active" : "invited",
         seatNumber,
         seatKind,
@@ -628,15 +688,29 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
       });
       const accountType = getTeamAccountType(ownerKind);
       const ownerMemberId = await getTeamOwnerMemberId(db, team.id);
+      const certificateNumber = teamMember.credentials || teamMember.id;
+      const teamCertificate = {
+        certNumber: certificateNumber,
+        orderEmail: teamMember.email,
+        orderName: teamMember.fullName,
+        accountType,
+        phone: null,
+        membershipCategory: membership.type,
+        applicantType: "TEAM_MEMBER",
+        status: "paid",
+        certificateUrl: null,
+        expiresAt: null,
+        createdAt: teamMember.joinedAt ?? new Date(),
+      };
       return res.json({
-        certificates: [],
+        certificates: [teamCertificate],
         externalCertificates: [],
         accountType,
         applicationType: "TEAM_MEMBER",
         orderType: accountType,
         membershipStatus: membership.status.toLowerCase(),
         paymentStatus: mapPaymentStatusToLegacy(payment?.status),
-        certificateStatus: "not_available_for_team_member",
+        certificateStatus: "issued",
         dashboardAccess: {
           type: accessType,
           accountType,
@@ -649,9 +723,10 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
           partnerEmail: ownerUser.email,
           ownerMemberId,
           teamMemberId: teamMember.id,
+          certificateNumber,
           teamMemberStatus: teamMember.status,
           role: teamMember.role,
-          licenseNumber: "Not provided",
+          licenseNumber: certificateNumber,
         },
       });
     }
@@ -670,6 +745,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
             email: item.email,
             role: item.role,
             status: item.status,
+            certificateNumber: item.certificateNumber,
           })),
       };
     }
@@ -765,18 +841,21 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
       });
       const accountType = getTeamAccountType(ownerKind);
       const ownerMemberId = await getTeamOwnerMemberId(db, team.id);
+      const certificateNumber = teamMember.credentials || teamMember.id;
       return res.json({
         profile: {
+          fullName: teamMember.fullName,
+          email: teamMember.email,
           type: accountType,
           accountType,
           applicationType: "TEAM_MEMBER",
           orderType: accountType,
           membershipStatus: membership.status.toLowerCase(),
           paymentStatus: mapPaymentStatusToLegacy(payment?.status),
-          certificateStatus: "not_available_for_team_member",
+          certificateStatus: "issued",
           membershipCategory: membership.type,
           applicantType: "TEAM_MEMBER",
-          orderId: team.id,
+          orderId: certificateNumber,
           dashboardAccessType: accessType,
           teamMember: {
             id: teamMember.id,
@@ -784,7 +863,8 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
             fullName: teamMember.fullName,
             email: teamMember.email,
             role: teamMember.role,
-            licenseNumber: "Not provided",
+            certificateNumber,
+            licenseNumber: certificateNumber,
             status: teamMember.status,
             ownerMemberId,
             ownerBusinessName: team.name,
@@ -830,6 +910,7 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
                 email: item.email,
                 role: item.role,
                 status: item.status,
+                certificateNumber: item.certificateNumber,
               })),
           }
         : null,
@@ -1063,12 +1144,13 @@ dashboardRouter.get("/team-members", clerkMiddleware(clerkOptions), async (req, 
         fullName: item.fullName,
         email: item.email,
         role: item.role,
+        certificateNumber: item.certificateNumber,
         avatarUrl: item.avatarUrl,
         bio: item.bio,
         location: item.location,
         joinedAt: item.joinedAt,
         portfolioLink: item.portfolioLink,
-        licenseNumber: item.license,
+        licenseNumber: item.certificateNumber ?? item.license,
         status: item.status,
         seatNumber: item.seatNumber,
         seatKind: item.seatKind,
@@ -1103,7 +1185,6 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
     }
 
     const fullName = trimValue(req.body?.fullName);
-    const email = trimValue(req.body?.email);
     const emailNormalized = normalizeEmail(req.body?.email);
     const role = trimValue(req.body?.role, 120);
     const affiliationConfirmed = req.body?.affiliationConfirmed === true;
@@ -1121,13 +1202,60 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
       return res.status(400).json({ error: "Affiliation confirmation is required before adding a team member." });
     }
 
+    const [existingTeamAssignment] = await db
+      .select({
+        id: coreTeamMembers.id,
+        teamId: coreTeamMembers.teamId,
+        status: coreTeamMembers.status,
+      })
+      .from(coreTeamMembers)
+      .where(
+        and(
+          eq(sql<string>`lower(${coreTeamMembers.email})`, emailNormalized),
+          sql`upper(${coreTeamMembers.status}) <> 'REMOVED'`,
+        ),
+      )
+      .orderBy(desc(coreTeamMembers.joinedAt))
+      .limit(1);
+    if (existingTeamAssignment) {
+      return res.status(409).json({
+        error:
+          existingTeamAssignment.teamId === team.id
+            ? "This email is already assigned to an active team seat in your account."
+            : "This email is already assigned to another IBPA team.",
+        code: "TEAM_EMAIL_ALREADY_ASSIGNED",
+      });
+    }
+
+    const [existingAccount] = await db
+      .select({ id: coreUsers.id })
+      .from(coreUsers)
+      .where(eq(sql<string>`lower(${coreUsers.email})`, emailNormalized))
+      .limit(1);
+    if (existingAccount) {
+      const [activeMembership] = await db
+        .select({ id: coreMemberships.id })
+        .from(coreMemberships)
+        .where(
+          and(
+            eq(coreMemberships.userId, existingAccount.id),
+            eq(coreMemberships.status, "ACTIVE"),
+          ),
+        )
+        .limit(1);
+      if (activeMembership) {
+        return res.status(409).json({
+          error:
+            "This email already belongs to an active IBPA member account and cannot be assigned a team-member seat.",
+          code: "EMAIL_HAS_ACTIVE_MEMBERSHIP",
+        });
+      }
+    }
+
     const snapshot = await getTeamSnapshot(db, team);
     const activeMembers = snapshot.records.filter((member: any) => member.status !== "removed");
     if (activeMembers.length >= MAX_TEAM_SEATS) {
       return res.status(400).json({ error: `Maximum team size is ${MAX_TEAM_SEATS} seats for this release.` });
-    }
-    if (activeMembers.some((member: any) => member.emailNormalized === emailNormalized)) {
-      return res.status(400).json({ error: "This email is already assigned to an active team seat in your account." });
     }
     if (!snapshot.summary.canInvite) {
       return res.status(400).json({
@@ -1138,38 +1266,88 @@ dashboardRouter.post("/team-members", clerkMiddleware(clerkOptions), async (req,
 
     const teamNumber = await getTeamSequentialNumber(db, team.id);
     const credentials = await generateUniqueTeamMemberCredential(db, { teamNumber });
+    let setupUrl: string;
+    try {
+      setupUrl = buildTeamAccountSetupUrl({ email: emailNormalized });
+    } catch (error) {
+      console.error("[Dashboard /team-members POST] Invitation URL configuration error:", error);
+      return res.status(503).json({
+        error:
+          "Team invitations are temporarily unavailable because account setup is not configured.",
+        code: "TEAM_INVITATION_NOT_CONFIGURED",
+      });
+    }
 
     const created = await upsertCanonicalTeamMember(db, {
       id: crypto.randomUUID(),
       teamId: team.id,
-      email,
+      email: emailNormalized,
       fullName,
       role,
       status: "INVITED",
       credentials,
       joinedAt: new Date(),
     });
-    const refreshed = await getTeamSnapshot(db, team);
-    const createdRecord = refreshed.records.find((item: any) => item.id === created.record.id);
+    try {
+      await sendTeamInvitationEmail({
+        email: emailNormalized,
+        fullName,
+        role,
+        teamName: team.name,
+        certificateNumber: credentials,
+        setupUrl,
+      });
+    } catch (error) {
+      console.error("[Dashboard /team-members POST] Invitation email failed:", error);
+      let rollbackSucceeded = true;
+      try {
+        await db
+          .delete(coreTeamMembers)
+          .where(
+            and(
+              eq(coreTeamMembers.id, created.record.id),
+              eq(coreTeamMembers.teamId, team.id),
+            ),
+          );
+      } catch (cleanupError) {
+        rollbackSucceeded = false;
+        console.error(
+          "[Dashboard /team-members POST] Failed to roll back undelivered invitation:",
+          cleanupError,
+        );
+      }
+      return res.status(rollbackSucceeded ? 502 : 500).json({
+        error: rollbackSucceeded
+          ? "The invitation email could not be delivered. No team seat was added; verify the email configuration and try again."
+          : "The invitation email failed and the unused seat could not be rolled back automatically. Remove the pending member before trying again.",
+        code: rollbackSucceeded
+          ? "TEAM_INVITATION_EMAIL_FAILED"
+          : "TEAM_INVITATION_ROLLBACK_FAILED",
+      });
+    }
+    const seatNumber = activeMembers.length + 1;
+    const seatKind =
+      seatNumber <= INCLUDED_TEAM_SEATS ? "included" : "additional";
 
     return res.status(201).json({
-      ownerMemberId: refreshed.ownerMemberId,
+      ownerMemberId: snapshot.ownerMemberId,
       additionalSeatPrice: ADDITIONAL_TEAM_SEAT_PRICE,
       member: {
         id: created.record.id,
-        teamMemberId: createdRecord?.teamMemberId ?? created.record.id,
+        teamMemberId: `${snapshot.ownerMemberId}-T${String(seatNumber).padStart(2, "0")}`,
         credentials: created.record.credentials ?? null,
+        certificateNumber: created.record.credentials ?? null,
         fullName: created.record.fullName,
         email: created.record.email,
         role: created.record.role || "",
         portfolioLink: null,
-        licenseNumber: "Not provided",
-        status: createdRecord?.status ?? "invited",
-        seatNumber: createdRecord?.seatNumber ?? activeMembers.length + 1,
-        seatKind: createdRecord?.seatKind ?? (activeMembers.length + 1 <= INCLUDED_TEAM_SEATS ? "included" : "additional"),
-        billingStatus: createdRecord?.billingStatus ?? "included",
-        accessStatus: createdRecord?.accessStatus ?? "invited",
-        registrationStatus: createdRecord?.registrationStatus ?? "not_registered",
+        licenseNumber: created.record.credentials ?? "Pending",
+        status: "invited",
+        seatNumber,
+        seatKind,
+        billingStatus: seatKind === "included" ? "included" : "paid",
+        accessStatus: "invited",
+        registrationStatus: "not_registered",
         ticketCode: null,
         attendanceStatus: "not_marked",
         createdAt: created.record.joinedAt ?? new Date(),

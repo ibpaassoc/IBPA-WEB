@@ -10,7 +10,7 @@ import {
   SUPPORT_EMAIL,
 } from "../lib/email/config";
 
-type SendEmailParams = {
+export type SendEmailParams = {
   from: string;
   to: string | string[];
   subject: string;
@@ -86,6 +86,29 @@ export async function sendEmail(payload: SendEmailParams): Promise<SendResponse>
     const message = error instanceof Error ? error.message : "Unknown Resend send error";
     return { data: null, error: { message } };
   }
+}
+
+/**
+ * Transactional email helper for flows that must not report success when the
+ * provider rejected the message or delivery is misconfigured.
+ */
+export function assertTransactionalEmailDeliveryEnabled(
+  enabled = EMAIL_SENDING_ENABLED,
+) {
+  if (!enabled) {
+    throw new Error(
+      "Email delivery is disabled. Set EMAIL_SENDING_ENABLED=true to send transactional emails.",
+    );
+  }
+}
+
+export async function sendEmailOrThrow(payload: SendEmailParams) {
+  assertTransactionalEmailDeliveryEnabled();
+  const result = await sendEmail(payload);
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+  return result.data;
 }
 
 export async function sendBatchEmail(payload: BatchEmailParams): Promise<BatchSendResponse> {

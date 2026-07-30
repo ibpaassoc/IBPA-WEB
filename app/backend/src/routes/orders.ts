@@ -19,6 +19,7 @@ import {
   adminNotificationEmail,
   applicationsEmail,
   sendEmail,
+  sendEmailOrThrow,
 } from "../services/email";
 import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
@@ -376,7 +377,7 @@ function toVerificationResponse(application: typeof coreApplications.$inferSelec
 }
 
 async function sendApplicationReceivedEmail(params: { email: string; name: string; membershipPackage?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: APPLICATIONS_SENDER,
     to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
@@ -392,7 +393,7 @@ async function sendApplicationReceivedEmail(params: { email: string; name: strin
 }
 
 async function sendAdminNewApplicationEmail(params: { email: string; name: string; phone?: string | null; membershipPackage?: string | null; applicantType?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: APPLICATIONS_SENDER,
     to: adminNotificationEmail,
     replyTo: APPLICATIONS_REPLY_TO,
@@ -410,7 +411,7 @@ async function sendAdminNewApplicationEmail(params: { email: string; name: strin
 }
 
 async function sendApprovalEmail(params: { email: string; name: string; certificateNumber: string; checkoutUrl?: string | null; paymentLinkUrl?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: APPLICATIONS_SENDER,
     to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
@@ -430,7 +431,7 @@ async function sendApprovalEmail(params: { email: string; name: string; certific
 }
 
 async function sendAdminPaymentLinkSentEmail(params: { email: string; name: string; orderId: string; membershipCategory?: string | null; checkoutUrl?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
     replyTo: PAYMENTS_REPLY_TO,
@@ -454,7 +455,7 @@ async function sendReviewEmail(params: { email: string; name: string; requestedC
   }
   const editUrl = `${frontendUrl}/application/edit?token=${encodeURIComponent(params.editToken)}`;
 
-  return sendEmail({
+  return sendEmailOrThrow({
     from: APPLICATIONS_SENDER,
     to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
@@ -472,7 +473,7 @@ async function sendReviewEmail(params: { email: string; name: string; requestedC
 }
 
 async function sendRejectedEmail(params: { email: string; name: string; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: APPLICATIONS_SENDER,
     to: params.email,
     replyTo: APPLICATIONS_REPLY_TO,
@@ -485,7 +486,7 @@ async function sendDashboardActivationEmail(params: { email: string; name: strin
   const dashboardUrl = process.env.DASHBOARD_URL || process.env.FRONTEND_URL || "";
   const activationUrl = `${dashboardUrl.replace(/\/$/, "")}/success?token=${encodeURIComponent(params.secureToken)}`;
 
-  return sendEmail({
+  return sendEmailOrThrow({
     from: PAYMENTS_SENDER,
     to: params.email,
     replyTo: PAYMENTS_REPLY_TO,
@@ -495,7 +496,7 @@ async function sendDashboardActivationEmail(params: { email: string; name: strin
 }
 
 async function sendAdminPaymentReceivedEmail(params: { email: string; name: string; orderId: string; membershipCategory?: string | null; stripeSessionId?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
     replyTo: PAYMENTS_REPLY_TO,
@@ -1267,6 +1268,16 @@ ordersRouter.post("/admin/approve", adminClerkMiddleware, requireAdminAccess, as
         checkoutUrl: session.url,
         paymentLinkUrl,
       });
+    } catch (emailError) {
+      console.error("Applicant approval email failed", emailError);
+      return res.status(502).json({
+        error:
+          "The application was approved, but the approval email could not be delivered. Verify email delivery and use Resend Payment Link.",
+        code: "APPROVAL_EMAIL_FAILED",
+      });
+    }
+
+    try {
       await sendAdminPaymentLinkSentEmail({
         email: application.email,
         name: application.fullName,
@@ -1275,7 +1286,7 @@ ordersRouter.post("/admin/approve", adminClerkMiddleware, requireAdminAccess, as
         checkoutUrl: session.url,
       });
     } catch (emailError) {
-      console.error("Approval emails failed", emailError);
+      console.error("Admin approval notification email failed", emailError);
     }
 
     return res.json({ success: true, certificateNumber, checkoutUrl: session.url, paymentLinkUrl });
@@ -1424,6 +1435,15 @@ ordersRouter.post("/admin/reject", adminClerkMiddleware, requireAdminAccess, asy
       await sendRejectedEmail({ email: application.email, name: application.fullName });
     } catch (emailError) {
       console.error("Rejected application email failed", emailError);
+      await db
+        .update(coreApplications)
+        .set({ status: application.status })
+        .where(eq(coreApplications.id, orderId));
+      return res.status(502).json({
+        error:
+          "The rejection email could not be delivered. The application was left unchanged.",
+        code: "REJECTION_EMAIL_FAILED",
+      });
     }
 
     return res.json({ success: true, status: "rejected" });
@@ -1483,6 +1503,16 @@ ordersRouter.post("/:id/resend-payment-link", adminClerkMiddleware, requireAdmin
         checkoutUrl: session.url,
         paymentLinkUrl,
       });
+    } catch (emailError) {
+      console.error("[Admin] Failed to send fresh payment link email", emailError);
+      return res.status(502).json({
+        error:
+          "The payment link was regenerated, but the email could not be delivered.",
+        code: "PAYMENT_LINK_EMAIL_FAILED",
+      });
+    }
+
+    try {
       await sendAdminPaymentLinkSentEmail({
         email: application.email,
         name: application.fullName,
@@ -1491,7 +1521,7 @@ ordersRouter.post("/:id/resend-payment-link", adminClerkMiddleware, requireAdmin
         checkoutUrl: session.url,
       });
     } catch (emailError) {
-      console.error("[Admin] Failed to send fresh payment link email", emailError);
+      console.error("[Admin] Payment-link notification email failed", emailError);
     }
 
     return res.json({ success: true, checkoutUrl: session.url, paymentLinkUrl, certificateNumber });

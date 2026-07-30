@@ -70,6 +70,7 @@ export async function upsertCanonicalTeamMember(db: DbClient, input: {
   credentials?: string | null;
   joinedAt?: Date | null;
 }) {
+  const normalizedEmail = input.email.trim().toLowerCase();
   const [existing] = await db.select().from(coreTeamMembers).where(eq(coreTeamMembers.id, input.id)).limit(1);
 
   if (existing) {
@@ -77,7 +78,7 @@ export async function upsertCanonicalTeamMember(db: DbClient, input: {
       .update(coreTeamMembers)
       .set({
         teamId: input.teamId,
-        email: input.email,
+        email: normalizedEmail,
         fullName: input.fullName,
         role: input.role ?? existing.role,
         status: input.status,
@@ -96,7 +97,7 @@ export async function upsertCanonicalTeamMember(db: DbClient, input: {
     .values({
       id: input.id,
       teamId: input.teamId,
-      email: input.email,
+      email: normalizedEmail,
       fullName: input.fullName,
       role: input.role ?? null,
       status: input.status,
@@ -144,4 +145,26 @@ export async function generateUniqueTeamMemberCredential(
     }
   }
   throw new Error("Unable to generate a unique team-member credential after multiple attempts.");
+}
+
+export async function ensureCanonicalTeamMemberCredential(
+  db: DbClient,
+  member: typeof coreTeamMembers.$inferSelect,
+) {
+  if (member.credentials) {
+    return member;
+  }
+
+  const teamNumber = await getTeamSequentialNumber(db, member.teamId);
+  const credentials = await generateUniqueTeamMemberCredential(db, {
+    teamNumber,
+    date: member.joinedAt ?? new Date(),
+  });
+  const [updated] = await db
+    .update(coreTeamMembers)
+    .set({ credentials })
+    .where(eq(coreTeamMembers.id, member.id))
+    .returning();
+
+  return updated ?? { ...member, credentials };
 }

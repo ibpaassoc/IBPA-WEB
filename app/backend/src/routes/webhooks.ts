@@ -19,7 +19,7 @@ import {
   PAYMENTS_REPLY_TO,
   PAYMENTS_SENDER,
   adminNotificationEmail,
-  sendEmail,
+  sendEmailOrThrow,
 } from "../services/email";
 import { ensureCanonicalUser } from "../features/users/server/user.service";
 import { upsertCanonicalPayment, upsertCanonicalStripeWebhookEvent } from "../features/payments/server/payment.repository";
@@ -137,7 +137,7 @@ async function sendDashboardActivationEmail(params: { email: string; name: strin
   const dashboardUrl = process.env.DASHBOARD_URL || process.env.FRONTEND_URL || "";
   const activationUrl = `${dashboardUrl.replace(/\/$/, "")}/success?token=${encodeURIComponent(params.secureToken)}`;
 
-  return sendEmail({
+  return sendEmailOrThrow({
     from: PAYMENTS_SENDER,
     to: params.email,
     replyTo: PAYMENTS_REPLY_TO,
@@ -147,7 +147,7 @@ async function sendDashboardActivationEmail(params: { email: string; name: strin
 }
 
 async function sendAdminPaymentReceivedEmail(params: { applicationId: string; email: string; name: string; membershipCategory?: string | null; stripeSessionId?: string | null; }) {
-  return sendEmail({
+  return sendEmailOrThrow({
     from: PAYMENTS_SENDER,
     to: adminNotificationEmail,
     replyTo: PAYMENTS_REPLY_TO,
