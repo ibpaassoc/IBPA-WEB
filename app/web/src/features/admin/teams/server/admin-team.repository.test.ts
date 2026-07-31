@@ -58,4 +58,45 @@ describe("admin team repository", () => {
       return true;
     });
   });
+
+  it("accepts a stored TEAM credential from the previous response key but rejects IBPA ids", async () => {
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        new Response(JSON.stringify({
+          ownerOrderId: "owner-id",
+          ownerType: "business",
+          ownerName: "Studio",
+          seatCount: 5,
+          count: 2,
+          activeCount: 2,
+          items: [
+            {
+              id: "team-credential",
+              teamMemberId: "TEAM-03-20260731-2E10",
+              avatarUrl: null,
+              fullName: "Stored Credential",
+              email: "stored@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+            {
+              id: "membership-id",
+              teamMemberId: "IBPA-BO-003-T01",
+              avatarUrl: null,
+              fullName: "Membership Identifier",
+              email: "membership@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+          ],
+        }), { status: 200 }),
+      )) as typeof fetch;
+
+    const result = await getAdminTeamMembers("owner-id");
+
+    assert.equal(result.items[0].credentials, "TEAM-03-20260731-2E10");
+    assert.equal(result.items[1].credentials, null);
+  });
 });
