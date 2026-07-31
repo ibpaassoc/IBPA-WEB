@@ -47,6 +47,7 @@ import {
   listApplicationQueue,
   toMemberApplicationRecord,
   toPartnerApplicationRecord,
+  toggleExpandedTeamKeys,
 } from "../server/application-admin.service";
 import type {
   AdminApplicationFilters,
@@ -151,12 +152,7 @@ export function AdminApplicationsPage() {
     const key = selectedKey(record);
     if (!key) return;
 
-    setExpandedTeams((current) => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setExpandedTeams((current) => toggleExpandedTeamKeys(current, key));
   };
 
   const openApplication = async (record: AdminApplicationRecord) => {

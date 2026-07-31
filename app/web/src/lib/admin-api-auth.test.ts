@@ -45,6 +45,7 @@ describe("classifyProxyPath", () => {
   it("protects admin, cards, and dashboard APIs", () => {
     assert.equal(classifyProxyPath("/api/admin/content"), "protected-api");
     assert.equal(classifyProxyPath("/api/admin/orders/abc/certificate"), "protected-api");
+    assert.equal(classifyProxyPath("/api/admin/orders/abc/team-members"), "protected-api");
     assert.equal(classifyProxyPath("/api/cards"), "protected-api");
     assert.equal(classifyProxyPath("/api/dashboard/me"), "protected-api");
   });

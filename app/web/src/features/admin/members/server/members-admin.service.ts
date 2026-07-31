@@ -1,6 +1,6 @@
 import type { AdminClient, AdminStatusTone } from "../../shared/types/admin.types";
 import { getMembershipCategory } from "@/lib/membership";
-import type { AdminMemberFilters, AdminMemberRecord } from "../types/members-admin.types";
+import type { AdminMemberFilters, AdminMemberRecord, MemberTab } from "../types/members-admin.types";
 
 const EXPIRING_SOON_DAYS = 60;
 
@@ -45,6 +45,13 @@ export function isOrganizationMember(
     member.applicationType === "PARTNER" ||
     getMembershipCategory(member.membershipCategory) === "Business"
   );
+}
+
+export function resolveMemberTab(
+  member: Pick<AdminClient, "accountType" | "applicationType" | "membershipCategory">,
+  requestedTab: MemberTab,
+): MemberTab {
+  return requestedTab === "team" && !isOrganizationMember(member) ? "profile" : requestedTab;
 }
 
 export function filterMemberRecords(

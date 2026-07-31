@@ -27,7 +27,7 @@ import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import {
   filterMemberRecords,
-  isOrganizationMember,
+  resolveMemberTab,
   toMemberRecord,
 } from "../server/members-admin.service";
 import type { AdminMemberFilters, AdminMemberRecord, MemberTab } from "../types/members-admin.types";
@@ -175,7 +175,7 @@ export function AdminMembersPage() {
 
     if (alreadyOpen && tab) {
       // Just switch tab — keep panel open
-      setActiveTab(tab === "team" && !isOrganizationMember(member) ? "profile" : tab);
+      setActiveTab(resolveMemberTab(member, tab));
       return;
     }
 
@@ -189,9 +189,7 @@ export function AdminMembersPage() {
 
     // Open a new member, optionally on a specific tab
     const requestedTab = tab ?? activeTab;
-    setActiveTab(
-      requestedTab === "team" && !isOrganizationMember(member) ? "profile" : requestedTab,
-    );
+    setActiveTab(resolveMemberTab(member, requestedTab));
     setSelectedMember(member);
     setSelectedCategory(member.membershipCategory ?? "");
     // The list ships only slim rows — bio, services, and portfolio load here.

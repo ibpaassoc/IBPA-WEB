@@ -146,6 +146,13 @@ export function isTeamApplication(record: AdminApplicationRecord) {
   );
 }
 
+export function toggleExpandedTeamKeys(current: ReadonlySet<string>, key: string) {
+  const next = new Set(current);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
+}
+
 export async function listApplicationQueue(params: { q?: string } = {}): Promise<ApplicationQueueResponse> {
   const [members, partners] = await Promise.all([
     listMemberApplications({ limit: 100, q: params.q }),
