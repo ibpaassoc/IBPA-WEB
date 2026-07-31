@@ -37,18 +37,17 @@ describe("admin team member mapping", () => {
     const records = mapAdminTeamMemberRecords(
       [
         sourceMember("one", "ACTIVE", { credentials: "TEAM-7-20260731-A1B2" }),
-        sourceMember("two", "INACTIVE", { credentials: "IBPA-BO-007-T09" }),
-        sourceMember("three", "REMOVED", { credentials: "stored-value-without-reconstruction" }),
+        sourceMember("two", "INACTIVE", { credentials: "TEAM-7-20260731-C3D4" }),
+        sourceMember("three", "REMOVED", { credentials: "TEAM-7-20260731-E5F6" }),
         sourceMember("four", "INVITED", { credentials: null }),
       ],
-      "IBPA-BO-007",
     );
 
     assert.equal(records.length, 4);
-    assert.equal(records[0].teamMemberId, "TEAM-7-20260731-A1B2");
-    assert.equal(records[1].teamMemberId, "IBPA-BO-007-T09");
-    assert.equal(records[2].teamMemberId, "stored-value-without-reconstruction");
-    assert.equal(records[3].teamMemberId, null);
+    assert.equal(records[0].credentials, "TEAM-7-20260731-A1B2");
+    assert.equal(records[1].credentials, "TEAM-7-20260731-C3D4");
+    assert.equal(records[2].credentials, "TEAM-7-20260731-E5F6");
+    assert.equal(records[3].credentials, null);
     assert.equal(records[0].accessStatus, "active");
     assert.equal(records[1].accessStatus, "inactive");
     assert.equal(records[2].accessStatus, "removed");

@@ -56,9 +56,9 @@ export function TeamMemberCard({ member }: { member: AdminTeamMember }) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-5 text-[#10203B]">{member.fullName}</p>
           <p className="mt-0.5 break-all text-xs leading-5 text-[#6C7F95]">{member.email}</p>
-          {member.teamMemberId ? (
+          {member.credentials ? (
             <span className="mt-1.5 inline-flex max-w-full rounded-md border border-[#C7DDF5] bg-[#EEF6FF] px-2 py-1 font-mono text-[11px] font-semibold leading-none text-[#1F5D8F] shadow-sm">
-              {member.teamMemberId}
+              {member.credentials}
             </span>
           ) : (
             <span className="mt-1.5 inline-flex rounded-md border border-[#D7E5F4] bg-[#F6FAFF] px-2 py-1 text-[11px] font-medium leading-none text-[#6C7F95]">

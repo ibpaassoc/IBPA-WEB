@@ -2,7 +2,7 @@ export type AdminTeamOwnerType = "business" | "partner";
 
 export type AdminTeamMember = {
   id: string;
-  teamMemberId: string | null;
+  credentials: string | null;
   avatarUrl: string | null;
   fullName: string;
   email: string;

@@ -25,7 +25,7 @@ describe("admin team repository", () => {
             activeCount: 1,
             items: [{
               id: "member-id",
-              teamMemberId: "TEAM-2-20260731-ABCD",
+              credentials: "TEAM-2-20260731-ABCD",
               avatarUrl: null,
               fullName: "Team Member",
               email: "member@example.com",
@@ -42,7 +42,7 @@ describe("admin team repository", () => {
     const result = await getAdminTeamMembers("owner id");
 
     assert.equal(result.count, 1);
-    assert.equal(result.items[0].teamMemberId, "TEAM-2-20260731-ABCD");
+    assert.equal(result.items[0].credentials, "TEAM-2-20260731-ABCD");
     assert.equal(result.items[0].accessStatus, "active");
     assert.deepEqual(calls, ["/api/admin/orders/owner%20id/team-members"]);
   });

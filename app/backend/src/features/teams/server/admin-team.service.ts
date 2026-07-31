@@ -19,7 +19,7 @@ export type AdminTeamMembersResponse = {
   activeCount: number;
   items: Array<{
     id: string;
-    teamMemberId: string | null;
+    credentials: string | null;
     avatarUrl: string | null;
     fullName: string;
     email: string;
@@ -51,7 +51,6 @@ function normalizeMemberStatus(value: string): AdminTeamMemberStatus {
 
 export function mapAdminTeamMemberRecords(
   members: TeamMember[],
-  _legacyOwnerMemberId?: string,
 ) {
   const activeMembers = members.filter(
     (member) => normalizeMemberStatus(member.status) !== "removed",
@@ -66,9 +65,7 @@ export function mapAdminTeamMemberRecords(
 
     return {
       id: member.id,
-      // `credentials` is the canonical field that retained the legacy
-      // team_members.team_member_id value during the schema cutover.
-      teamMemberId: member.credentials,
+      credentials: member.credentials,
       avatarUrl: null,
       fullName: member.fullName,
       email: member.email,

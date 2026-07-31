@@ -9,7 +9,7 @@ import { TeamMemberCard } from "./AdminTeamMemberList";
 function member(overrides: Partial<AdminTeamMember> = {}): AdminTeamMember {
   return {
     id: "member-id",
-    teamMemberId: "TEAM-2-20260731-ABCD",
+    credentials: "TEAM-2-20260731-ABCD",
     avatarUrl: null,
     fullName: "Alexandra Very Long Team Member Name",
     email: "alexandra.long.email.address@example.com",
@@ -41,7 +41,7 @@ describe("admin team member card", () => {
   });
 
   it("uses a neutral fallback instead of inventing a missing credential", () => {
-    const markup = renderMember({ teamMemberId: null });
+    const markup = renderMember({ credentials: null });
 
     assert.match(markup, />Not assigned</);
     assert.doesNotMatch(markup, /TEAM-2-20260731-ABCD/);
