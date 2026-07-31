@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 import { formatAdminDate } from "../../shared/utils/admin-formatters";
 import type { AdminApplicationRecord } from "../types/application-admin.types";
+import { handleTeamControlClick } from "../server/application-admin.service";
 import { ApplicationCombinedStatus } from "./ApplicationCombinedStatus";
 import { AdminTeamMemberList } from "../../teams/components/AdminTeamMemberList";
 
@@ -47,64 +48,62 @@ export function ApplicationListRow({
           : "border-[#D7E5F4]",
       )}
     >
-      <div className="flex min-w-0 items-stretch">
+      <div className="relative flex min-w-0 items-center gap-3 px-4 py-3.5 sm:gap-4">
         <button
-          className="group flex min-w-0 flex-1 items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-[#F8FBFF]"
+          aria-label={`Review ${record.applicantName}'s application`}
+          className="peer absolute inset-0 rounded-[23px] text-left transition-colors hover:bg-[#F8FBFF] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#1F5D8F]/15"
           onClick={() => onOpen(record)}
           type="button"
-        >
+        />
+
+        <div className="pointer-events-none relative z-[1]">
           <Initials name={record.applicantName} />
+        </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="truncate text-sm font-semibold text-[#10203B]">
-                {record.applicantName}
-              </p>
-              <span className="hidden shrink-0 rounded-full border border-[#D7E5F4] bg-[#F6FAFF] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#55708D] sm:inline">
-                {record.kind === "member" ? record.applicantType : "Partner"}
-              </span>
-            </div>
-
-            <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-[#6C7F95]">
-              <Mail className="size-3 shrink-0 text-[#8AA2BD]" />
-              <span className="truncate">{record.applicantEmail}</span>
+        <div className="pointer-events-none relative z-[1] min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="pointer-events-none min-w-0 truncate text-sm font-semibold text-[#10203B]">
+              {record.applicantName}
             </p>
-          </div>
-
-          <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
-            <ApplicationCombinedStatus record={record} />
-            <span className="text-[11px] tabular-nums text-[#8AA2BD]">
-              {formatAdminDate(record.submittedAt)}
+            <span className="pointer-events-none hidden shrink-0 rounded-full border border-[#D7E5F4] bg-[#F6FAFF] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#55708D] sm:inline">
+              {record.kind === "member" ? record.applicantType : "Partner"}
             </span>
+
+            {hasTeam ? (
+              <button
+                aria-expanded={isTeamOpen}
+                className={cn(
+                  "pointer-events-auto relative z-10 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold shadow-sm transition-colors",
+                  isTeamOpen
+                    ? "border-[#B9D4F0] bg-[#EEF6FF] text-[#1F5D8F]"
+                    : "border-[#D7E5F4] bg-white text-[#55708D] hover:bg-[#F6FAFF]",
+                )}
+                onClick={(event) => handleTeamControlClick(event, record, onToggleTeam)}
+                type="button"
+              >
+                <Users className="size-3.5" />
+                Team
+                <ChevronDown className={cn("size-3 transition-transform", isTeamOpen && "rotate-180")} />
+              </button>
+            ) : null}
           </div>
 
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl border border-[#D7E5F4] bg-white text-[#55708D] transition-all duration-200 group-hover:translate-x-0.5 group-hover:border-[#BFD3EA] group-hover:text-[#1F5D8F]">
-            <ArrowRight className="size-4" />
+          <p className="pointer-events-none mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-[#6C7F95]">
+            <Mail className="size-3 shrink-0 text-[#8AA2BD]" />
+            <span className="truncate">{record.applicantEmail}</span>
+          </p>
+        </div>
+
+        <div className="pointer-events-none relative z-[1] hidden shrink-0 flex-col items-end gap-1 sm:flex">
+          <ApplicationCombinedStatus record={record} />
+          <span className="text-[11px] tabular-nums text-[#8AA2BD]">
+            {formatAdminDate(record.submittedAt)}
           </span>
-        </button>
+        </div>
 
-        {hasTeam ? (
-          <div className="flex items-center border-l border-[#E4EEF8] px-2 sm:px-3">
-            <button
-              aria-expanded={isTeamOpen}
-              className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-colors",
-                isTeamOpen
-                  ? "border-[#B9D4F0] bg-[#EEF6FF] text-[#1F5D8F]"
-                  : "border-[#D7E5F4] bg-white text-[#55708D] hover:bg-[#F6FAFF]",
-              )}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleTeam?.(record);
-              }}
-              type="button"
-            >
-              <Users className="size-3.5" />
-              Team
-              <ChevronDown className={cn("size-3 transition-transform", isTeamOpen && "rotate-180")} />
-            </button>
-          </div>
-        ) : null}
+        <span className="pointer-events-none relative z-[1] flex size-9 shrink-0 items-center justify-center rounded-2xl border border-[#D7E5F4] bg-white text-[#55708D] transition-all duration-200 peer-hover:translate-x-0.5 peer-hover:border-[#BFD3EA] peer-hover:text-[#1F5D8F]">
+          <ArrowRight className="size-4" />
+        </span>
       </div>
 
       {hasTeam && isTeamOpen ? (

@@ -153,6 +153,15 @@ export function toggleExpandedTeamKeys(current: ReadonlySet<string>, key: string
   return next;
 }
 
+export function handleTeamControlClick(
+  event: { stopPropagation: () => void },
+  record: AdminApplicationRecord,
+  onToggleTeam?: (record: AdminApplicationRecord) => void,
+) {
+  event.stopPropagation();
+  onToggleTeam?.(record);
+}
+
 export async function listApplicationQueue(params: { q?: string } = {}): Promise<ApplicationQueueResponse> {
   const [members, partners] = await Promise.all([
     listMemberApplications({ limit: 100, q: params.q }),
