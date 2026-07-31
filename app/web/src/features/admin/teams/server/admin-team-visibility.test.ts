@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  handleTeamControlClick,
   isTeamApplication,
   toggleExpandedTeamKeys,
 } from "../../applications/server/application-admin.service";
@@ -50,6 +51,24 @@ describe("application Team control visibility", () => {
     assert.deepEqual([...current], ["member:first"]);
     assert.deepEqual([...opened], ["member:first", "partner:second"]);
     assert.deepEqual([...closed], ["member:first"]);
+  });
+
+  it("stops row propagation and invokes only the Team toggle callback", () => {
+    const record = application("member", "Business");
+    let propagationStopped = false;
+    let toggledRecord: AdminApplicationRecord | null = null;
+    let reviewOpened = false;
+
+    handleTeamControlClick(
+      { stopPropagation: () => { propagationStopped = true; } },
+      record,
+      (value) => { toggledRecord = value; },
+    );
+    if (!propagationStopped) reviewOpened = true;
+
+    assert.equal(propagationStopped, true);
+    assert.equal(toggledRecord, record);
+    assert.equal(reviewOpened, false);
   });
 });
 

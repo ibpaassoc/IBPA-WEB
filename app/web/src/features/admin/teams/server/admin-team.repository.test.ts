@@ -21,9 +21,18 @@ describe("admin team repository", () => {
             ownerType: "business",
             ownerName: "Studio",
             seatCount: 5,
-            count: 0,
-            activeCount: 0,
-            items: [],
+            count: 1,
+            activeCount: 1,
+            items: [{
+              id: "member-id",
+              teamMemberId: "TEAM-2-20260731-ABCD",
+              avatarUrl: null,
+              fullName: "Team Member",
+              email: "member@example.com",
+              role: "Long-form role",
+              accessStatus: "active",
+              joinedAt: null,
+            }],
           }),
           { status: 200 },
         ),
@@ -32,7 +41,9 @@ describe("admin team repository", () => {
 
     const result = await getAdminTeamMembers("owner id");
 
-    assert.equal(result.count, 0);
+    assert.equal(result.count, 1);
+    assert.equal(result.items[0].teamMemberId, "TEAM-2-20260731-ABCD");
+    assert.equal(result.items[0].accessStatus, "active");
     assert.deepEqual(calls, ["/api/admin/orders/owner%20id/team-members"]);
   });
 

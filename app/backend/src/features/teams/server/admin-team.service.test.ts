@@ -33,36 +33,25 @@ describe("admin team owner id validation", () => {
 });
 
 describe("admin team member mapping", () => {
-  it("keeps removed and inactive members visible with stable owner-derived ids", () => {
+  it("returns stored credentials unchanged and keeps every access state visible", () => {
     const records = mapAdminTeamMemberRecords(
       [
-        sourceMember("one", "ACTIVE"),
-        sourceMember("two", "INACTIVE"),
-        sourceMember("three", "REMOVED"),
-        sourceMember("four", "INVITED"),
+        sourceMember("one", "ACTIVE", { credentials: "TEAM-7-20260731-A1B2" }),
+        sourceMember("two", "INACTIVE", { credentials: "IBPA-BO-007-T09" }),
+        sourceMember("three", "REMOVED", { credentials: "stored-value-without-reconstruction" }),
+        sourceMember("four", "INVITED", { credentials: null }),
       ],
       "IBPA-BO-007",
     );
 
     assert.equal(records.length, 4);
-    assert.equal(records[0].teamMemberId, "IBPA-BO-007-T01");
-    assert.equal(records[0].registrationStatus, "registered");
-    assert.equal(records[1].status, "inactive");
+    assert.equal(records[0].teamMemberId, "TEAM-7-20260731-A1B2");
+    assert.equal(records[1].teamMemberId, "IBPA-BO-007-T09");
+    assert.equal(records[2].teamMemberId, "stored-value-without-reconstruction");
+    assert.equal(records[3].teamMemberId, null);
+    assert.equal(records[0].accessStatus, "active");
     assert.equal(records[1].accessStatus, "inactive");
-    assert.equal(records[2].status, "removed");
     assert.equal(records[2].accessStatus, "removed");
-    assert.equal(records[3].status, "invited");
-  });
-
-  it("derives included and additional seat types using the existing five-seat rule", () => {
-    const records = mapAdminTeamMemberRecords(
-      Array.from({ length: 6 }, (_, index) =>
-        sourceMember(`member-${index + 1}`, "ACTIVE"),
-      ),
-      "IBPA-BO-003",
-    );
-
-    assert.equal(records[4].seatType, "included");
-    assert.equal(records[5].seatType, "additional");
+    assert.equal(records[3].accessStatus, "invited");
   });
 });

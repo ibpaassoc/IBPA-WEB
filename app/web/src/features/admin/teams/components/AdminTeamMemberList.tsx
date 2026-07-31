@@ -42,7 +42,7 @@ function statusTone(value: string): "danger" | "info" | "neutral" | "success" | 
   }
 }
 
-function TeamMemberCard({ member }: { member: AdminTeamMember }) {
+export function TeamMemberCard({ member }: { member: AdminTeamMember }) {
   return (
     <article className="grid min-h-28 gap-y-4 rounded-[22px] border border-[#D7E5F4] bg-white px-4 py-5 shadow-[0_12px_30px_rgba(15,46,83,0.05)] sm:grid-cols-[minmax(13rem,1fr)_minmax(0,1.35fr)_7.5rem] sm:items-stretch sm:gap-x-5 sm:gap-y-0 sm:px-5 lg:grid-cols-[minmax(16rem,1fr)_minmax(0,1.45fr)_8.5rem] lg:gap-x-7 lg:px-6">
       <div className="flex min-w-0 items-center gap-3.5">
