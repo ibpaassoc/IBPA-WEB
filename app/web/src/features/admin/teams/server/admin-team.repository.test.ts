@@ -99,4 +99,56 @@ describe("admin team repository", () => {
     assert.equal(result.items[0].credentials, "TEAM-03-20260731-2E10");
     assert.equal(result.items[1].credentials, null);
   });
+
+  it("shows any stored credential, including formats the TEAM prefix does not cover", async () => {
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        new Response(JSON.stringify({
+          ownerOrderId: "owner-id",
+          ownerType: "business",
+          ownerName: "Studio",
+          seatCount: 5,
+          count: 3,
+          activeCount: 3,
+          items: [
+            {
+              id: "legacy-format",
+              credentials: "IBPA-TM-2024-0042",
+              avatarUrl: null,
+              fullName: "Imported Credential",
+              email: "imported@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+            {
+              id: "padded",
+              credentials: "  TEAM-03-20260731-2E10  ",
+              avatarUrl: null,
+              fullName: "Padded Credential",
+              email: "padded@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+            {
+              id: "blank",
+              credentials: "   ",
+              avatarUrl: null,
+              fullName: "Blank Credential",
+              email: "blank@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+          ],
+        }), { status: 200 }),
+      )) as typeof fetch;
+
+    const result = await getAdminTeamMembers("owner-id");
+
+    assert.equal(result.items[0].credentials, "IBPA-TM-2024-0042");
+    assert.equal(result.items[1].credentials, "TEAM-03-20260731-2E10");
+    assert.equal(result.items[2].credentials, null);
+  });
 });

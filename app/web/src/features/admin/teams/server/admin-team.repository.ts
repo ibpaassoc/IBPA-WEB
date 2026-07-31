@@ -13,13 +13,23 @@ type AdminTeamMembersWireResponse = Omit<AdminTeamMembersResponse, "items"> & {
   items: AdminTeamMemberWire[];
 };
 
-function storedTeamCredential(value: unknown) {
-  return typeof value === "string" && value.startsWith("TEAM-") ? value : null;
+/** Any non-empty stored credential is shown as-is, whatever its format. */
+function storedCredential(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/**
+ * `teamMemberId` is a derived seat label (IBPA-BO-003-T01) in some payloads, so
+ * it is only trusted when it carries a real TEAM- credential.
+ */
+function credentialFromLegacyKey(value: unknown) {
+  const stored = storedCredential(value);
+  return stored?.toUpperCase().startsWith("TEAM-") ? stored : null;
 }
 
 export function normalizeAdminTeamMember(member: AdminTeamMemberWire): AdminTeamMember {
   const credentials =
-    storedTeamCredential(member.credentials) ?? storedTeamCredential(member.teamMemberId);
+    storedCredential(member.credentials) ?? credentialFromLegacyKey(member.teamMemberId);
 
   return {
     ...member,

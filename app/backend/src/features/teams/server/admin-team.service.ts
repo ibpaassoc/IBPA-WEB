@@ -3,7 +3,10 @@ import { eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
 import { coreApplications, coreTeams } from "@/lib/schema";
 import { INCLUDED_TEAM_SEATS, resolveTeamOwnerKind } from "./team-access";
-import { listCanonicalTeamMembers } from "./team.repository";
+import {
+  ensureCanonicalTeamMemberCredential,
+  listCanonicalTeamMembers,
+} from "./team.repository";
 
 type DbClient = ReturnType<typeof requireDb>;
 type TeamMember = Awaited<ReturnType<typeof listCanonicalTeamMembers>>[number];
@@ -94,19 +97,23 @@ export async function listAdminTeamMembersByOwnerOrder(
     return { ok: false, reason: "not_found" };
   }
 
-  const ownerType = resolveTeamOwnerKind({
-    applicationType: application.type,
-    packageName: application.packageName,
-  });
-  if (!ownerType) {
-    return { ok: false, reason: "unsupported_owner" };
-  }
-
   const [team] = await db
     .select()
     .from(coreTeams)
     .where(eq(coreTeams.id, ownerOrderId))
     .limit(1);
+
+  // `hasTeam` mirrors the dashboard resolution: an owner that actually has a
+  // team record stays visible to admins even when its source classification is
+  // incomplete (legacy partner imports), instead of failing as unsupported.
+  const ownerType = resolveTeamOwnerKind({
+    applicationType: application.type,
+    packageName: application.packageName,
+    hasTeam: Boolean(team),
+  });
+  if (!ownerType) {
+    return { ok: false, reason: "unsupported_owner" };
+  }
 
   if (!team) {
     return {
@@ -123,7 +130,14 @@ export async function listAdminTeamMembersByOwnerOrder(
     };
   }
 
-  const members = await listCanonicalTeamMembers(db, team.id);
+  const storedMembers = await listCanonicalTeamMembers(db, team.id);
+  // Mint a credential for any member that never got one, exactly as the owner
+  // dashboard does on read. Without this an admin sees "Not assigned" for
+  // members whose owner has not opened the dashboard since the credential
+  // column was introduced.
+  const members = await Promise.all(
+    storedMembers.map((member: TeamMember) => ensureCanonicalTeamMemberCredential(db, member)),
+  );
   const items = mapAdminTeamMemberRecords(members);
 
   return {
