@@ -25,7 +25,11 @@ import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
-import { filterMemberRecords, toMemberRecord } from "../server/members-admin.service";
+import {
+  filterMemberRecords,
+  resolveMemberTab,
+  toMemberRecord,
+} from "../server/members-admin.service";
 import type { AdminMemberFilters, AdminMemberRecord, MemberTab } from "../types/members-admin.types";
 import { MemberExpandableRow } from "./MemberExpandableRow";
 
@@ -39,7 +43,7 @@ const baseFilters: AdminMemberFilters = {
 const PAGE_SIZE = 30;
 
 function readTabParam(value: string | null): MemberTab {
-  if (value === "membership" || value === "certificate") return value;
+  if (value === "membership" || value === "certificate" || value === "team") return value;
   return "profile";
 }
 
@@ -171,7 +175,7 @@ export function AdminMembersPage() {
 
     if (alreadyOpen && tab) {
       // Just switch tab — keep panel open
-      setActiveTab(tab);
+      setActiveTab(resolveMemberTab(member, tab));
       return;
     }
 
@@ -184,7 +188,8 @@ export function AdminMembersPage() {
     }
 
     // Open a new member, optionally on a specific tab
-    if (tab) setActiveTab(tab);
+    const requestedTab = tab ?? activeTab;
+    setActiveTab(resolveMemberTab(member, requestedTab));
     setSelectedMember(member);
     setSelectedCategory(member.membershipCategory ?? "");
     // The list ships only slim rows — bio, services, and portfolio load here.

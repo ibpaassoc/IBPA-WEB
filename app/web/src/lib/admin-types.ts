@@ -65,6 +65,8 @@ export type AdminClient = {
   state?: string | null;
   city?: string | null;
   hasDashboardAccess?: boolean;
+  applicationType?: "MEMBER" | "PARTNER" | "TEAM_MEMBER" | null;
+  accountType?: "individual" | "business" | "partner" | null;
 };
 
 export type AdminListResponse<T> = {
