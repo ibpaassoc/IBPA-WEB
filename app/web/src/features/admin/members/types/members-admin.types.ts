@@ -1,6 +1,6 @@
 import type { AdminClient, AdminStatusTone } from "../../shared/types/admin.types";
 
-export type MemberTab = "profile" | "membership" | "certificate";
+export type MemberTab = "profile" | "membership" | "certificate" | "team";
 
 export type AdminMemberFilters = {
   membership: "all" | string;

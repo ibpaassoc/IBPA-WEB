@@ -1,4 +1,5 @@
 import type { AdminClient, AdminStatusTone } from "../../shared/types/admin.types";
+import { getMembershipCategory } from "@/lib/membership";
 import type { AdminMemberFilters, AdminMemberRecord } from "../types/members-admin.types";
 
 const EXPIRING_SOON_DAYS = 60;
@@ -33,6 +34,17 @@ export function toMemberRecord(client: AdminClient): AdminMemberRecord {
     certStatusTone: hasCertificate ? "success" : "neutral",
     isLinked: Boolean(client.userId && client.hasDashboardAccess),
   };
+}
+
+export function isOrganizationMember(
+  member: Pick<AdminClient, "accountType" | "applicationType" | "membershipCategory">,
+) {
+  return (
+    member.accountType === "business" ||
+    member.accountType === "partner" ||
+    member.applicationType === "PARTNER" ||
+    getMembershipCategory(member.membershipCategory) === "Business"
+  );
 }
 
 export function filterMemberRecords(
