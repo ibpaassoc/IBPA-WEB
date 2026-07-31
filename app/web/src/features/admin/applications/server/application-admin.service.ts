@@ -18,6 +18,7 @@ import type {
   PartnerApplicationStatus,
   PartnerPaymentStatus,
 } from "../types/application-admin.types";
+import { getMembershipCategory } from "@/lib/membership";
 import {
   listMemberApplications,
   listPartnerApplications,
@@ -136,6 +137,13 @@ export function toPartnerApplicationRecord(application: PartnerApplicationDetail
     statusTone: PARTNER_STATUS_TONES[application.status],
     submittedAt: application.createdAt,
   };
+}
+
+export function isTeamApplication(record: AdminApplicationRecord) {
+  return (
+    record.kind === "partner" ||
+    getMembershipCategory(record.membershipPackage) === "Business"
+  );
 }
 
 export async function listApplicationQueue(params: { q?: string } = {}): Promise<ApplicationQueueResponse> {

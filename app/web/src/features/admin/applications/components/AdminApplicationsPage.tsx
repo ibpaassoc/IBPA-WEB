@@ -43,6 +43,7 @@ import {
 } from "../server/application-admin.repository";
 import {
   filterApplicationRecords,
+  isTeamApplication,
   listApplicationQueue,
   toMemberApplicationRecord,
   toPartnerApplicationRecord,
@@ -106,6 +107,7 @@ export function AdminApplicationsPage() {
   const [selectedPartnerTier, setSelectedPartnerTier] = useState("Associate");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(() => new Set());
   // Monotonic tokens so a slow response can never overwrite the state a newer
   // request (different search term, different selected row) already produced.
   const listRequestRef = useRef(0);
@@ -144,6 +146,18 @@ export function AdminApplicationsPage() {
     () => filterApplicationRecords(applications, filters),
     [applications, filters],
   );
+
+  const toggleTeam = (record: AdminApplicationRecord) => {
+    const key = selectedKey(record);
+    if (!key) return;
+
+    setExpandedTeams((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const openApplication = async (record: AdminApplicationRecord) => {
     const requestId = ++detailRequestRef.current;
@@ -537,9 +551,12 @@ export function AdminApplicationsPage() {
           <div className="grid gap-3">
             {filteredApplications.map((record) => (
               <ApplicationListRow
+                hasTeam={isTeamApplication(record)}
                 isActive={selectedKey(record) === activeKey && sheetOpen}
+                isTeamOpen={expandedTeams.has(selectedKey(record) ?? "")}
                 key={selectedKey(record) ?? `${record.kind}:${record.id}`}
                 onOpen={openApplication}
+                onToggleTeam={toggleTeam}
                 record={record}
               />
             ))}
