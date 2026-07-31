@@ -4,7 +4,7 @@ import { requireDb } from "@/lib/db";
 import { coreApplications, coreTeams } from "@/lib/schema";
 import { INCLUDED_TEAM_SEATS, resolveTeamOwnerKind } from "./team-access";
 import {
-  getCanonicalTeamOwnerMemberId,
+  ensureCanonicalTeamMemberCredential,
   listCanonicalTeamMembers,
 } from "./team.repository";
 
@@ -22,7 +22,7 @@ export type AdminTeamMembersResponse = {
   activeCount: number;
   items: Array<{
     id: string;
-    teamMemberId: string;
+    credentials: string | null;
     avatarUrl: string | null;
     fullName: string;
     email: string;
@@ -30,7 +30,7 @@ export type AdminTeamMembersResponse = {
     status: AdminTeamMemberStatus;
     seatNumber: number;
     seatType: "included" | "additional";
-    accessStatus: string;
+    accessStatus: AdminTeamMemberStatus;
     registrationStatus: string;
     joinedAt: Date | null;
   }>;
@@ -54,7 +54,6 @@ function normalizeMemberStatus(value: string): AdminTeamMemberStatus {
 
 export function mapAdminTeamMemberRecords(
   members: TeamMember[],
-  ownerMemberId: string,
 ) {
   const activeMembers = members.filter(
     (member) => normalizeMemberStatus(member.status) !== "removed",
@@ -69,7 +68,7 @@ export function mapAdminTeamMemberRecords(
 
     return {
       id: member.id,
-      teamMemberId: `${ownerMemberId}-T${String(seatNumber).padStart(2, "0")}`,
+      credentials: member.credentials,
       avatarUrl: null,
       fullName: member.fullName,
       email: member.email,
@@ -98,19 +97,23 @@ export async function listAdminTeamMembersByOwnerOrder(
     return { ok: false, reason: "not_found" };
   }
 
-  const ownerType = resolveTeamOwnerKind({
-    applicationType: application.type,
-    packageName: application.packageName,
-  });
-  if (!ownerType) {
-    return { ok: false, reason: "unsupported_owner" };
-  }
-
   const [team] = await db
     .select()
     .from(coreTeams)
     .where(eq(coreTeams.id, ownerOrderId))
     .limit(1);
+
+  // `hasTeam` mirrors the dashboard resolution: an owner that actually has a
+  // team record stays visible to admins even when its source classification is
+  // incomplete (legacy partner imports), instead of failing as unsupported.
+  const ownerType = resolveTeamOwnerKind({
+    applicationType: application.type,
+    packageName: application.packageName,
+    hasTeam: Boolean(team),
+  });
+  if (!ownerType) {
+    return { ok: false, reason: "unsupported_owner" };
+  }
 
   if (!team) {
     return {
@@ -127,11 +130,15 @@ export async function listAdminTeamMembersByOwnerOrder(
     };
   }
 
-  const [members, ownerMemberId] = await Promise.all([
-    listCanonicalTeamMembers(db, team.id),
-    getCanonicalTeamOwnerMemberId(db, team.id),
-  ]);
-  const items = mapAdminTeamMemberRecords(members, ownerMemberId);
+  const storedMembers = await listCanonicalTeamMembers(db, team.id);
+  // Mint a credential for any member that never got one, exactly as the owner
+  // dashboard does on read. Without this an admin sees "Not assigned" for
+  // members whose owner has not opened the dashboard since the credential
+  // column was introduced.
+  const members = await Promise.all(
+    storedMembers.map((member: TeamMember) => ensureCanonicalTeamMemberCredential(db, member)),
+  );
+  const items = mapAdminTeamMemberRecords(members);
 
   return {
     ok: true,
@@ -141,7 +148,7 @@ export async function listAdminTeamMembersByOwnerOrder(
       ownerName: team.name || application.fullName,
       seatCount: team.seatCount,
       count: items.length,
-      activeCount: items.filter((item) => item.status === "active").length,
+      activeCount: items.filter((item) => item.accessStatus === "active").length,
       items,
     },
   };

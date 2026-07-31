@@ -21,9 +21,18 @@ describe("admin team repository", () => {
             ownerType: "business",
             ownerName: "Studio",
             seatCount: 5,
-            count: 0,
-            activeCount: 0,
-            items: [],
+            count: 1,
+            activeCount: 1,
+            items: [{
+              id: "member-id",
+              credentials: "TEAM-2-20260731-ABCD",
+              avatarUrl: null,
+              fullName: "Team Member",
+              email: "member@example.com",
+              role: "Long-form role",
+              accessStatus: "active",
+              joinedAt: null,
+            }],
           }),
           { status: 200 },
         ),
@@ -32,7 +41,9 @@ describe("admin team repository", () => {
 
     const result = await getAdminTeamMembers("owner id");
 
-    assert.equal(result.count, 0);
+    assert.equal(result.count, 1);
+    assert.equal(result.items[0].credentials, "TEAM-2-20260731-ABCD");
+    assert.equal(result.items[0].accessStatus, "active");
     assert.deepEqual(calls, ["/api/admin/orders/owner%20id/team-members"]);
   });
 
@@ -46,5 +57,98 @@ describe("admin team repository", () => {
       assert.equal(error.message, "Owner order not found.");
       return true;
     });
+  });
+
+  it("accepts a stored TEAM credential from the previous response key but rejects IBPA ids", async () => {
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        new Response(JSON.stringify({
+          ownerOrderId: "owner-id",
+          ownerType: "business",
+          ownerName: "Studio",
+          seatCount: 5,
+          count: 2,
+          activeCount: 2,
+          items: [
+            {
+              id: "team-credential",
+              teamMemberId: "TEAM-03-20260731-2E10",
+              avatarUrl: null,
+              fullName: "Stored Credential",
+              email: "stored@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+            {
+              id: "membership-id",
+              teamMemberId: "IBPA-BO-003-T01",
+              avatarUrl: null,
+              fullName: "Membership Identifier",
+              email: "membership@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+          ],
+        }), { status: 200 }),
+      )) as typeof fetch;
+
+    const result = await getAdminTeamMembers("owner-id");
+
+    assert.equal(result.items[0].credentials, "TEAM-03-20260731-2E10");
+    assert.equal(result.items[1].credentials, null);
+  });
+
+  it("shows any stored credential, including formats the TEAM prefix does not cover", async () => {
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        new Response(JSON.stringify({
+          ownerOrderId: "owner-id",
+          ownerType: "business",
+          ownerName: "Studio",
+          seatCount: 5,
+          count: 3,
+          activeCount: 3,
+          items: [
+            {
+              id: "legacy-format",
+              credentials: "IBPA-TM-2024-0042",
+              avatarUrl: null,
+              fullName: "Imported Credential",
+              email: "imported@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+            {
+              id: "padded",
+              credentials: "  TEAM-03-20260731-2E10  ",
+              avatarUrl: null,
+              fullName: "Padded Credential",
+              email: "padded@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+            {
+              id: "blank",
+              credentials: "   ",
+              avatarUrl: null,
+              fullName: "Blank Credential",
+              email: "blank@example.com",
+              role: "Stylist",
+              accessStatus: "active",
+              joinedAt: null,
+            },
+          ],
+        }), { status: 200 }),
+      )) as typeof fetch;
+
+    const result = await getAdminTeamMembers("owner-id");
+
+    assert.equal(result.items[0].credentials, "IBPA-TM-2024-0042");
+    assert.equal(result.items[1].credentials, "TEAM-03-20260731-2E10");
+    assert.equal(result.items[2].credentials, null);
   });
 });

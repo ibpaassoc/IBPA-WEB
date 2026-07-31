@@ -2,16 +2,12 @@ export type AdminTeamOwnerType = "business" | "partner";
 
 export type AdminTeamMember = {
   id: string;
-  teamMemberId: string;
+  credentials: string | null;
   avatarUrl: string | null;
   fullName: string;
   email: string;
   role: string;
-  status: string;
-  seatNumber: number;
-  seatType: "included" | "additional";
   accessStatus: string;
-  registrationStatus: string;
   joinedAt: string | null;
 };
 
