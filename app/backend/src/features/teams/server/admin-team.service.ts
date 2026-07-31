@@ -3,10 +3,7 @@ import { eq } from "drizzle-orm";
 import { requireDb } from "@/lib/db";
 import { coreApplications, coreTeams } from "@/lib/schema";
 import { INCLUDED_TEAM_SEATS, resolveTeamOwnerKind } from "./team-access";
-import {
-  getCanonicalTeamOwnerMemberId,
-  listCanonicalTeamMembers,
-} from "./team.repository";
+import { listCanonicalTeamMembers } from "./team.repository";
 
 type DbClient = ReturnType<typeof requireDb>;
 type TeamMember = Awaited<ReturnType<typeof listCanonicalTeamMembers>>[number];
@@ -22,7 +19,7 @@ export type AdminTeamMembersResponse = {
   activeCount: number;
   items: Array<{
     id: string;
-    teamMemberId: string;
+    teamMemberId: string | null;
     avatarUrl: string | null;
     fullName: string;
     email: string;
@@ -30,7 +27,7 @@ export type AdminTeamMembersResponse = {
     status: AdminTeamMemberStatus;
     seatNumber: number;
     seatType: "included" | "additional";
-    accessStatus: string;
+    accessStatus: AdminTeamMemberStatus;
     registrationStatus: string;
     joinedAt: Date | null;
   }>;
@@ -54,7 +51,7 @@ function normalizeMemberStatus(value: string): AdminTeamMemberStatus {
 
 export function mapAdminTeamMemberRecords(
   members: TeamMember[],
-  ownerMemberId: string,
+  _legacyOwnerMemberId?: string,
 ) {
   const activeMembers = members.filter(
     (member) => normalizeMemberStatus(member.status) !== "removed",
@@ -69,7 +66,9 @@ export function mapAdminTeamMemberRecords(
 
     return {
       id: member.id,
-      teamMemberId: `${ownerMemberId}-T${String(seatNumber).padStart(2, "0")}`,
+      // `credentials` is the canonical field that retained the legacy
+      // team_members.team_member_id value during the schema cutover.
+      teamMemberId: member.credentials,
       avatarUrl: null,
       fullName: member.fullName,
       email: member.email,
@@ -127,11 +126,8 @@ export async function listAdminTeamMembersByOwnerOrder(
     };
   }
 
-  const [members, ownerMemberId] = await Promise.all([
-    listCanonicalTeamMembers(db, team.id),
-    getCanonicalTeamOwnerMemberId(db, team.id),
-  ]);
-  const items = mapAdminTeamMemberRecords(members, ownerMemberId);
+  const members = await listCanonicalTeamMembers(db, team.id);
+  const items = mapAdminTeamMemberRecords(members);
 
   return {
     ok: true,
@@ -141,7 +137,7 @@ export async function listAdminTeamMembersByOwnerOrder(
       ownerName: team.name || application.fullName,
       seatCount: team.seatCount,
       count: items.length,
-      activeCount: items.filter((item) => item.status === "active").length,
+      activeCount: items.filter((item) => item.accessStatus === "active").length,
       items,
     },
   };
