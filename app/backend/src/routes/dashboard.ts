@@ -41,6 +41,7 @@ import { extendCanonicalTeamSeats } from "../features/teams/server/team.service"
 import {
   ensureCanonicalTeamMemberCredential,
   generateUniqueTeamMemberCredential,
+  getCanonicalTeamOwnerMemberId,
   getTeamSequentialNumber,
   upsertCanonicalTeam,
   upsertCanonicalTeamMember,
@@ -54,6 +55,7 @@ import {
   getTeamMemberAccessType,
   getTeamOwnerAccessType,
   INCLUDED_TEAM_SEATS,
+  isBusinessOwnerMembershipType,
   isTeamMemberAccess,
   isTeamOwnerAccess,
   resolveTeamOwnerKind,
@@ -547,17 +549,6 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
   };
 }
 
-async function getTeamOwnerMemberId(db: ReturnType<typeof requireDb>, teamId: string) {
-  const teams = await db
-    .select({ id: coreTeams.id })
-    .from(coreTeams)
-    .orderBy(asc(coreTeams.createdAt), asc(coreTeams.id));
-
-  const ownerIndex = teams.findIndex((record: { id: string }) => record.id === teamId);
-  const normalizedIndex = ownerIndex >= 0 ? ownerIndex + 1 : teams.length + 1;
-  return `IBPA-BO-${String(normalizedIndex).padStart(3, "0")}`;
-}
-
 async function getTeamSnapshot(db: ReturnType<typeof requireDb>, team: typeof coreTeams.$inferSelect) {
   const storedMembers = await db
     .select()
@@ -579,7 +570,7 @@ async function getTeamSnapshot(db: ReturnType<typeof requireDb>, team: typeof co
   const usedSeats = activeMembers.length;
   const remainingSeats = Math.max(totalAllowedSeats - usedSeats, 0);
   const canInvite = usedSeats < totalAllowedSeats;
-  const ownerMemberId = await getTeamOwnerMemberId(db, team.id);
+  const ownerMemberId = await getCanonicalTeamOwnerMemberId(db, team.id);
 
   return {
     ownerMemberId,
@@ -688,7 +679,7 @@ dashboardRouter.get("/me", clerkMiddleware(clerkOptions), async (req, res) => {
         hasTeam: true,
       });
       const accountType = getTeamAccountType(ownerKind);
-      const ownerMemberId = await getTeamOwnerMemberId(db, team.id);
+      const ownerMemberId = await getCanonicalTeamOwnerMemberId(db, team.id);
       const certificateNumber = teamMember.credentials || teamMember.id;
       const teamCertificate = {
         certNumber: certificateNumber,
@@ -852,7 +843,7 @@ dashboardRouter.get("/profile", clerkMiddleware(clerkOptions), async (req, res) 
         hasTeam: true,
       });
       const accountType = getTeamAccountType(ownerKind);
-      const ownerMemberId = await getTeamOwnerMemberId(db, team.id);
+      const ownerMemberId = await getCanonicalTeamOwnerMemberId(db, team.id);
       const certificateNumber = teamMember.credentials || teamMember.id;
       return res.json({
         profile: {
@@ -1703,6 +1694,13 @@ async function buildAdminClientRows(
       city: row.profile?.city ?? null,
       hasDashboardAccess: Boolean(row.user.clerkId),
       cardName: row.membership.type || "Professional Membership",
+      applicationType: row.application?.type ?? null,
+      accountType:
+        row.application?.type === "PARTNER"
+          ? "partner"
+          : isBusinessOwnerMembershipType(row.membership.type)
+            ? "business"
+            : "individual",
     };
   });
 }
@@ -1752,6 +1750,7 @@ async function buildAdminClientListPage(
       expiresAt: coreCertificates.expiresAt,
       applicationFullName: coreApplications.fullName,
       applicationPhone: coreApplications.phone,
+      applicationType: coreApplications.type,
     })
     .from(coreMemberships)
     .innerJoin(coreUsers, eq(coreMemberships.userId, coreUsers.id))
@@ -1805,6 +1804,13 @@ async function buildAdminClientListPage(
       createdAt: row.startedAt ?? row.id,
       hasDashboardAccess: Boolean(row.clerkId),
       cardName: row.membershipType || "Professional Membership",
+      applicationType: row.applicationType ?? null,
+      accountType:
+        row.applicationType === "PARTNER"
+          ? "partner"
+          : isBusinessOwnerMembershipType(row.membershipType)
+            ? "business"
+            : "individual",
     };
   });
 

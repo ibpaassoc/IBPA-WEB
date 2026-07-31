@@ -124,6 +124,19 @@ export async function getTeamSequentialNumber(db: DbClient, teamId: string): Pro
   return index >= 0 ? index + 1 : teams.length + 1;
 }
 
+export async function getCanonicalTeamOwnerMemberId(db: DbClient, teamId: string) {
+  const teamNumber = await getTeamSequentialNumber(db, teamId);
+  return `IBPA-BO-${String(teamNumber).padStart(3, "0")}`;
+}
+
+export async function listCanonicalTeamMembers(db: DbClient, teamId: string) {
+  return db
+    .select()
+    .from(coreTeamMembers)
+    .where(eq(coreTeamMembers.teamId, teamId))
+    .orderBy(asc(coreTeamMembers.joinedAt), asc(coreTeamMembers.id));
+}
+
 /**
  * Generate a team-member credential guaranteed unique against existing rows.
  * Collisions are astronomically unlikely (they require the same team number,

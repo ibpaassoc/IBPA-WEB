@@ -35,6 +35,10 @@ import {
   isBusinessOwnerMembershipType,
 } from "../features/teams/server/team-access";
 import {
+  isUuid,
+  listAdminTeamMembersByOwnerOrder,
+} from "../features/teams/server/admin-team.service";
+import {
   AdminCertificateError,
   createAdminCertificate,
   listAdminCertificates,
@@ -780,6 +784,30 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
     }
     console.error("Failed to fetch orders:", error);
     return res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+
+ordersRouter.get("/admin/:id/team-members", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
+  const id = getSingleValue(req.params.id);
+  if (!isUuid(id)) {
+    return res.status(400).json({ error: "Invalid owner order id." });
+  }
+
+  try {
+    const result = await listAdminTeamMembersByOwnerOrder(requireDb(), id);
+    if (!result.ok) {
+      if (result.reason === "not_found") {
+        return res.status(404).json({ error: "Owner order not found." });
+      }
+      return res.status(422).json({
+        error: "Team members are available only for Business and Partner accounts.",
+      });
+    }
+
+    return res.json(result.data);
+  } catch (error) {
+    console.error("Failed to fetch admin team members", error);
+    return res.status(500).json({ error: "Failed to fetch team members." });
   }
 });
 
