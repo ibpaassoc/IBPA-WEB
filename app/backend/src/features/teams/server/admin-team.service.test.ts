@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 
 import { coreApplications, coreTeamMembers, coreTeams } from "@/lib/schema";
 import {
+  buildTeamEmailIndex,
+  isMailableTeamMemberStatus,
   isUuid,
   listAdminTeamMembersByOwnerOrder,
   mapAdminTeamMemberRecords,
@@ -150,5 +152,32 @@ describe("admin team members lookup", () => {
 
     assert.equal(result.ok && result.data.items[0].credentials, "TEAM-01-20260731-ABCD");
     assert.equal(updated.length, 0);
+  });
+});
+
+describe("mailable team member index", () => {
+  it("keeps every state except removed", () => {
+    for (const status of ["ACTIVE", "invited", "INACTIVE", "", "pending"]) {
+      assert.equal(isMailableTeamMemberStatus(status), true, status);
+    }
+
+    assert.equal(isMailableTeamMemberStatus("REMOVED"), false);
+    assert.equal(isMailableTeamMemberStatus(" removed "), false);
+    assert.equal(isMailableTeamMemberStatus(null), true);
+  });
+
+  it("groups normalized emails by owner order id and drops removed seats", () => {
+    const index = buildTeamEmailIndex([
+      { teamId: "owner-a", email: "First@Example.com", status: "ACTIVE" },
+      { teamId: "owner-a", email: " first@example.com ", status: "INVITED" },
+      { teamId: "owner-a", email: "gone@example.com", status: "REMOVED" },
+      { teamId: "owner-a", email: "second@example.com", status: "INACTIVE" },
+      { teamId: "owner-b", email: "solo@example.com", status: "ACTIVE" },
+      { teamId: "owner-b", email: "   ", status: "ACTIVE" },
+    ]);
+
+    assert.deepEqual(index.get("owner-a"), ["first@example.com", "second@example.com"]);
+    assert.deepEqual(index.get("owner-b"), ["solo@example.com"]);
+    assert.equal(index.get("owner-c"), undefined);
   });
 });

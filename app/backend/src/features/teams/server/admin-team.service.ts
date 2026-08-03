@@ -52,6 +52,39 @@ function normalizeMemberStatus(value: string): AdminTeamMemberStatus {
   return normalized || "inactive";
 }
 
+/**
+ * A removed seat keeps its row for auditing but must never be mailed. Every
+ * other state (invited, inactive, active) still belongs to the account.
+ */
+export function isMailableTeamMemberStatus(value: unknown) {
+  return normalizeMemberStatus(typeof value === "string" ? value : "") !== "removed";
+}
+
+/**
+ * Groups mailable team member emails by team id. Team ids are the owner order
+ * ids, so the result maps straight onto a membership/order row.
+ */
+export function buildTeamEmailIndex(
+  members: Array<{ teamId: string; email: string; status: string }>,
+) {
+  const byTeam = new Map<string, string[]>();
+
+  for (const member of members) {
+    if (!isMailableTeamMemberStatus(member.status)) continue;
+
+    const email = String(member.email || "").trim().toLowerCase();
+    if (!email) continue;
+
+    const emails = byTeam.get(member.teamId) ?? [];
+    if (!emails.includes(email)) {
+      emails.push(email);
+    }
+    byTeam.set(member.teamId, emails);
+  }
+
+  return byTeam;
+}
+
 export function mapAdminTeamMemberRecords(
   members: TeamMember[],
 ) {
