@@ -29,7 +29,6 @@ export function MailingAudienceSelector({
 }: MailingAudienceSelectorProps) {
   const patch = (next: Partial<MailingDraft>) => onChange({ ...draft, ...next });
   const options = draft.audienceKind === "membership_type" ? membershipTypes : categories;
-  const isFutureAudience = draft.audienceKind === "team_members";
 
   return (
     <div className="flex flex-col gap-3">
@@ -96,12 +95,6 @@ export function MailingAudienceSelector({
         <span className="font-semibold tabular-nums text-[#10203B]">{recipientCount}</span>{" "}
         recipient{recipientCount === 1 ? "" : "s"}.
       </p>
-      {isFutureAudience ? (
-        <p className="rounded-2xl border border-[#D7E5F4] bg-[#F8FBFF] px-4 py-3 text-sm text-[#55708D]">
-          Team-member targeting is ready in the UI but needs a dedicated admin audience resolver
-          before sending.
-        </p>
-      ) : null}
     </div>
   );
 }
