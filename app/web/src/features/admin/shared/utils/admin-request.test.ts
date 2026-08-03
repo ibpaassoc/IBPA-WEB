@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import { requestJson } from "./admin-request";
+import { clearAdminReadCache, requestJson } from "./admin-request";
 
 const originalFetch = globalThis.fetch;
 
@@ -12,6 +12,7 @@ function stubFetch(body: string | null, init: ResponseInit) {
 }
 
 afterEach(() => {
+  clearAdminReadCache();
   globalThis.fetch = originalFetch;
 });
 
@@ -29,6 +30,32 @@ describe("admin requestJson helper", () => {
   it("returns null for a non-JSON success body", async () => {
     stubFetch("plain text", { status: 200 });
     assert.equal(await requestJson("/api/x"), null);
+  });
+
+  it("reuses a successful GET response until the cache is cleared", async () => {
+    let calls = 0;
+    const globalWithWindow = globalThis as { window?: unknown };
+    const previousWindow = globalWithWindow.window;
+    globalWithWindow.window = {};
+    globalThis.fetch = (() => {
+      calls += 1;
+      return Promise.resolve(new Response(JSON.stringify({ calls }), { status: 200 }));
+    }) as typeof fetch;
+
+    try {
+      assert.deepEqual(await requestJson("/api/cached"), { calls: 1 });
+      assert.deepEqual(await requestJson("/api/cached"), { calls: 1 });
+      assert.equal(calls, 1);
+
+      clearAdminReadCache();
+      assert.deepEqual(await requestJson("/api/cached"), { calls: 2 });
+    } finally {
+      if (previousWindow === undefined) {
+        delete globalWithWindow.window;
+      } else {
+        globalWithWindow.window = previousWindow;
+      }
+    }
   });
 
   it("prefers the server `error` field on failures", async () => {

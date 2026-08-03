@@ -24,6 +24,7 @@ import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSheet } from "../../shared/components/AdminSheet";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
+import { clearAdminReadCache } from "../../shared/utils/admin-request";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import {
   addMemberApplicationFiles,
@@ -424,7 +425,10 @@ export function AdminApplicationsPage() {
           <Button
             aria-label="Refresh applications"
             className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
-            onClick={() => void loadApplications()}
+            onClick={() => {
+              clearAdminReadCache();
+              void loadApplications();
+            }}
             type="button"
             variant="outline"
           >

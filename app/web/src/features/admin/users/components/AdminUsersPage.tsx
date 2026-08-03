@@ -23,6 +23,7 @@ import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
+import { clearAdminReadCache } from "../../shared/utils/admin-request";
 import { listProfiles } from "../../profiles/server/profile-admin.repository";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import { buildUserStats, filterUserRecords, toUserRecord } from "../server/user-admin.service";
@@ -111,7 +112,10 @@ export function AdminUsersPage() {
       actions={
         <Button
           className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
-          onClick={() => void loadUsers()}
+          onClick={() => {
+            clearAdminReadCache();
+            void loadUsers();
+          }}
           type="button"
           variant="outline"
         >
