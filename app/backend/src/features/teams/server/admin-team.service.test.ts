@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { coreApplications, coreTeamMembers, coreTeams } from "@/lib/schema";
 import {
+  buildTeamEmailIndex,
   selectMailableTeamMemberEmails,
   isMailableTeamMemberStatus,
   isUuid,
@@ -188,5 +189,19 @@ describe("mailable team member audience", () => {
       selectMailableTeamMemberEmails([{ email: "gone@example.com", status: "REMOVED" }]),
       [],
     );
+  });
+
+  it("groups seats by owner order id so bulk actions can scope them", () => {
+    const index = buildTeamEmailIndex([
+      { teamId: "owner-a", email: "First@Example.com", status: "ACTIVE" },
+      { teamId: "owner-a", email: " first@example.com ", status: "INVITED" },
+      { teamId: "owner-a", email: "gone@example.com", status: "REMOVED" },
+      { teamId: "owner-b", email: "solo@example.com", status: "ACTIVE" },
+      { teamId: "owner-b", email: "   ", status: "ACTIVE" },
+    ]);
+
+    assert.deepEqual(index.get("owner-a"), ["first@example.com"]);
+    assert.deepEqual(index.get("owner-b"), ["solo@example.com"]);
+    assert.equal(index.get("owner-c"), undefined);
   });
 });

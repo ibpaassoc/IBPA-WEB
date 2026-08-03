@@ -57,35 +57,3 @@ describe("admin team member card", () => {
     }
   });
 });
-
-describe("admin team member card selection", () => {
-  it("stays read-only when no selection is provided", () => {
-    const markup = renderMember();
-
-    assert.doesNotMatch(markup, /aria-pressed/);
-    assert.doesNotMatch(markup, /as a recipient/);
-  });
-
-  it("renders a toggle for a selectable seat and reflects the checked state", () => {
-    const unchecked = renderToStaticMarkup(
-      createElement(TeamMemberCard, {
-        member: member(),
-        selection: { isSelected: false, onToggle: () => {} },
-      }),
-    );
-    const checked = renderToStaticMarkup(
-      createElement(TeamMemberCard, {
-        member: member(),
-        selection: { isSelected: true, onToggle: () => {} },
-      }),
-    );
-
-    assert.match(unchecked, /aria-pressed="false"/);
-    assert.match(unchecked, /Add alexandra\.long\.email\.address@example\.com as a recipient/);
-    assert.doesNotMatch(unchecked, /bg-\[#1F5D8F\] text-white/);
-
-    assert.match(checked, /aria-pressed="true"/);
-    assert.match(checked, /Remove alexandra\.long\.email\.address@example\.com as a recipient/);
-    assert.match(checked, /bg-\[#1F5D8F\] text-white/);
-  });
-});

@@ -37,6 +37,7 @@ import {
 } from "../features/profiles/server/profile.service";
 import { markNotificationsRead } from "../features/notifications/server/notification.service";
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
+import { buildTeamEmailIndex } from "../features/teams/server/admin-team.service";
 import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
 import {
   ensureCanonicalTeamMemberCredential,
@@ -1828,23 +1829,36 @@ async function buildAdminClientListPage(
 // that buildAdminClientRows carries for the members directory.
 // The account classification rides along so the picker can offer a Team dropdown for
 // Business and Partner accounts; the roster itself loads on demand when expanded.
+// `teamMemberEmails` lets bulk actions scope seats to specific accounts (select the
+// shown members and you get their teams) without a per-account round trip.
 async function buildMailingRecipientRows(db: ReturnType<typeof requireDb>) {
-  const rows = await db
-    .select({
-      id: coreMemberships.id,
-      membershipType: coreMemberships.type,
-      email: coreUsers.email,
-      firstName: coreProfiles.firstName,
-      lastName: coreProfiles.lastName,
-      applicationFullName: coreApplications.fullName,
-      applicationType: coreApplications.type,
-    })
-    .from(coreMemberships)
-    .innerJoin(coreUsers, eq(coreMemberships.userId, coreUsers.id))
-    .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
-    .leftJoin(coreApplications, eq(coreApplications.id, coreMemberships.id))
-    .where(eq(coreMemberships.status, "ACTIVE"))
-    .orderBy(desc(coreMemberships.startedAt));
+  const [rows, teamMembers] = await Promise.all([
+    db
+      .select({
+        id: coreMemberships.id,
+        membershipType: coreMemberships.type,
+        email: coreUsers.email,
+        firstName: coreProfiles.firstName,
+        lastName: coreProfiles.lastName,
+        applicationFullName: coreApplications.fullName,
+        applicationType: coreApplications.type,
+      })
+      .from(coreMemberships)
+      .innerJoin(coreUsers, eq(coreMemberships.userId, coreUsers.id))
+      .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
+      .leftJoin(coreApplications, eq(coreApplications.id, coreMemberships.id))
+      .where(eq(coreMemberships.status, "ACTIVE"))
+      .orderBy(desc(coreMemberships.startedAt)),
+    db
+      .select({
+        teamId: coreTeamMembers.teamId,
+        email: coreTeamMembers.email,
+        status: coreTeamMembers.status,
+      })
+      .from(coreTeamMembers),
+  ]);
+
+  const teamEmailsByOwner = buildTeamEmailIndex(teamMembers);
 
   return rows.map((row: any) => {
     const userName =
@@ -1865,6 +1879,7 @@ async function buildMailingRecipientRows(db: ReturnType<typeof requireDb>) {
           : isBusinessOwnerMembershipType(row.membershipType)
             ? "business"
             : "individual",
+      teamMemberEmails: teamEmailsByOwner.get(row.id) ?? [],
     };
   });
 }

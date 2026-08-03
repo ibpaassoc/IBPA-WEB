@@ -60,6 +60,29 @@ export function isMailableTeamMemberStatus(value: unknown) {
   return normalizeMemberStatus(typeof value === "string" ? value : "") !== "removed";
 }
 
+/**
+ * Groups mailable seat addresses by team id. Team ids are the owner order ids,
+ * so the result maps straight onto a membership row.
+ */
+export function buildTeamEmailIndex(
+  members: Array<{ teamId: string; email: string; status: string }>,
+) {
+  const byTeam = new Map<string, string[]>();
+
+  for (const member of members) {
+    if (!isMailableTeamMemberStatus(member.status)) continue;
+
+    const email = String(member.email || "").trim().toLowerCase();
+    if (!email) continue;
+
+    const emails = byTeam.get(member.teamId) ?? [];
+    if (!emails.includes(email)) emails.push(email);
+    byTeam.set(member.teamId, emails);
+  }
+
+  return byTeam;
+}
+
 /** Normalized, deduplicated addresses of every seat that may be mailed. */
 export function selectMailableTeamMemberEmails(
   members: Array<{ email: string; status: string }>,
