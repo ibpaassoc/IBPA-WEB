@@ -78,6 +78,25 @@ export async function listApplicationAudienceEmails() {
   };
 }
 
+/**
+ * Team members are their own table, not membership rows, so the picker's card
+ * list never contains them — this reads the whole seat audience directly.
+ */
+export async function listTeamMemberAudienceEmails() {
+  const response = await requestJson<{ emails?: string[] }>(
+    "/api/admin/team-members",
+    { cache: "no-store" },
+    "Could not load team member audience.",
+  );
+
+  const emails = new Set<string>();
+  for (const email of response.emails ?? []) {
+    addEmail(emails, email);
+  }
+
+  return Array.from(emails);
+}
+
 export async function listEventRegistrantAudienceEmails() {
   const content = await requestJson<{ items?: AdminContentItem[] }>(
     "/api/admin/content",

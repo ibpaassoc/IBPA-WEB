@@ -1,3 +1,4 @@
+import { isOrganizationMember } from "../../members/server/members-admin.service";
 import type {
   ApplicationAudienceStatus,
   EmailLog,
@@ -35,7 +36,6 @@ export const emptyMailingDraft: MailingDraft = {
   audienceValue: "",
   body: "",
   customEmails: "",
-  includeTeamMembers: false,
   subject: "",
 };
 
@@ -57,48 +57,22 @@ export function normalizeRecipients(items: MailingRecipientSource[]): MailingRec
   return items
     .filter((item) => item.email)
     .map((item) => ({
+      accountType: item.accountType ?? null,
+      applicationType: item.applicationType ?? null,
       cardName: item.cardName,
       email: item.email.trim().toLowerCase(),
       id: item.id,
       membershipCategory: item.membershipCategory,
-      teamMemberEmails: normalizeEmailList(item.teamMemberEmails),
       userName: item.userName,
     }));
 }
 
-/** Accounts that carry at least one mailable team seat. */
-export function hasTeamMembers(recipient: MailingRecipient) {
-  return recipient.teamMemberEmails.length > 0;
-}
-
-/** Every team seat on file, used by the "Team members" bulk audience. */
-export function listAllTeamMemberEmails(recipients: MailingRecipient[]) {
-  return Array.from(new Set(recipients.flatMap((recipient) => recipient.teamMemberEmails)));
-}
-
 /**
- * Team seats belonging to the given account emails. Audiences resolve to plain
- * emails, so owners are matched by email rather than by row id — that keeps the
- * expansion working for every audience kind, not just the member picker.
+ * Business and Partner accounts own a team, so their card offers the same Team
+ * dropdown the applications queue uses. The roster itself is fetched on expand.
  */
-export function collectTeamMemberEmails(
-  recipients: MailingRecipient[],
-  ownerEmails: Iterable<string>,
-) {
-  const teamsByOwnerEmail = new Map(
-    recipients
-      .filter(hasTeamMembers)
-      .map((recipient) => [recipient.email, recipient.teamMemberEmails] as const),
-  );
-
-  const collected = new Set<string>();
-  for (const ownerEmail of ownerEmails) {
-    for (const email of teamsByOwnerEmail.get(ownerEmail) ?? []) {
-      collected.add(email);
-    }
-  }
-
-  return Array.from(collected);
+export function hasTeam(recipient: MailingRecipient) {
+  return isOrganizationMember(recipient);
 }
 
 export function parseCustomEmails(value: string) {
@@ -165,7 +139,7 @@ export function isMemberPickerActive(
 export type CampaignRecipients = {
   /** Account holders: picked members, or whatever the bulk audience resolved to. */
   accountEmails: string[];
-  /** Team seats reached on top of the accounts, never double-counted. */
+  /** Seats picked from a team dropdown, never double-counted against accounts. */
   teamEmails: string[];
   emails: string[];
 };
@@ -175,7 +149,6 @@ export function buildCampaignRecipients(input: {
   draft: MailingDraft;
   pickedMemberEmails: string[];
   pickedTeamMemberEmails: string[];
-  recipients: MailingRecipient[];
 }): CampaignRecipients {
   const usesPicker = isMemberPickerActive(input.pickedMemberEmails, input.pickedTeamMemberEmails);
   const accountEmails = usesPicker
@@ -186,12 +159,9 @@ export function buildCampaignRecipients(input: {
     : normalizeEmailList(input.audienceEmails);
 
   const accountSet = new Set(accountEmails);
-  const teamEmails = normalizeEmailList([
-    ...input.pickedTeamMemberEmails,
-    ...(input.draft.includeTeamMembers
-      ? collectTeamMemberEmails(input.recipients, accountEmails)
-      : []),
-  ]).filter((email) => !accountSet.has(email));
+  const teamEmails = normalizeEmailList(input.pickedTeamMemberEmails).filter(
+    (email) => !accountSet.has(email),
+  );
 
   return {
     accountEmails,

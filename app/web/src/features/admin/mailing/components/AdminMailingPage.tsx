@@ -16,10 +16,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
-  FieldContent,
   FieldDescription,
   FieldGroup,
   FieldLabel,
@@ -54,6 +52,7 @@ import {
   listEmailHistory,
   listEventRegistrantAudienceEmails,
   listMailingRecipients,
+  listTeamMemberAudienceEmails,
   sendEmailCampaign,
 } from "../server/mailing.repository";
 import {
@@ -62,7 +61,6 @@ import {
   emptyApplicationStatusEmails,
   getEmailLogRecipientCount,
   isMemberPickerActive,
-  listAllTeamMemberEmails,
   mailingTemplates,
   normalizeRecipients,
   renderEmailHtml,
@@ -89,6 +87,7 @@ export function AdminMailingPage() {
     Record<ApplicationAudienceStatus, string[]>
   >(emptyApplicationStatusEmails);
   const [eventRegistrantEmails, setEventRegistrantEmails] = useState<string[]>([]);
+  const [teamMemberEmails, setTeamMemberEmails] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [history, setHistory] = useState<EmailLog[]>([]);
   const [historySearch, setHistorySearch] = useState("");
@@ -108,8 +107,6 @@ export function AdminMailingPage() {
   );
 
   const useMemberPicker = isMemberPickerActive(pickedMemberEmails, pickedTeamMemberEmails);
-
-  const teamMemberEmails = useMemo(() => listAllTeamMemberEmails(recipients), [recipients]);
 
   const resolvedAudienceEmails = useMemo(
     () =>
@@ -132,9 +129,8 @@ export function AdminMailingPage() {
         draft,
         pickedMemberEmails,
         pickedTeamMemberEmails,
-        recipients,
       }),
-    [draft, pickedMemberEmails, pickedTeamMemberEmails, recipients, resolvedAudienceEmails],
+    [draft, pickedMemberEmails, pickedTeamMemberEmails, resolvedAudienceEmails],
   );
 
   const finalEmails = campaign.emails;
@@ -180,10 +176,12 @@ export function AdminMailingPage() {
   };
 
   const loadAudiences = async () => {
-    const [applicationAudienceResult, eventAudienceResult] = await Promise.allSettled([
-      listApplicationAudienceEmails(),
-      listEventRegistrantAudienceEmails(),
-    ] as const);
+    const [applicationAudienceResult, eventAudienceResult, teamAudienceResult] =
+      await Promise.allSettled([
+        listApplicationAudienceEmails(),
+        listEventRegistrantAudienceEmails(),
+        listTeamMemberAudienceEmails(),
+      ] as const);
 
     setApplicationStatusEmails(
       applicationAudienceResult.status === "fulfilled"
@@ -193,6 +191,7 @@ export function AdminMailingPage() {
     setEventRegistrantEmails(
       eventAudienceResult.status === "fulfilled" ? eventAudienceResult.value : [],
     );
+    setTeamMemberEmails(teamAudienceResult.status === "fulfilled" ? teamAudienceResult.value : []);
   };
 
   const ensureAudiences = () => {
@@ -500,26 +499,27 @@ export function AdminMailingPage() {
           <TabsContent className="m-0" value="recipients">
             <div className="flex flex-col gap-6">
               <section className="rounded-[24px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
-                <Field orientation="horizontal">
-                  <Checkbox
-                    checked={draft.includeTeamMembers}
-                    id="mailing-include-team-members"
-                    onCheckedChange={(checked) => patch({ includeTeamMembers: checked === true })}
-                  />
-                  <FieldContent>
-                    <FieldLabel htmlFor="mailing-include-team-members">
-                      Send to team members too
-                    </FieldLabel>
-                    <FieldDescription>
-                      Every account this campaign reaches — picked below or resolved from the bulk
-                      audience — also delivers to its team members.{" "}
-                      {teamMemberEmails.length.toLocaleString("en-US")} team member
-                      {teamMemberEmails.length === 1 ? "" : "s"} on file.
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
+                <header className="mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold tracking-[-0.01em] text-[#10203B]">
+                      Choose members
+                    </h3>
+                    <p className="mt-1 text-xs text-[#6C7F95]">
+                      Click a member card to include them. Business and Partner accounts open a Team
+                      dropdown where each team member can be picked. Picked people override the bulk
+                      audience.
+                    </p>
+                  </div>
+                </header>
+                <MailingMemberPicker
+                  onChange={setPickedMemberEmails}
+                  onTeamChange={setPickedTeamMemberEmails}
+                  recipients={recipients}
+                  selectedEmails={pickedMemberEmails}
+                  selectedTeamEmails={pickedTeamMemberEmails}
+                />
                 {campaign.teamEmails.length > 0 ? (
-                  <p className="mt-3 rounded-2xl border border-[#D7E5F4] bg-[#F8FBFF] px-4 py-2.5 text-xs text-[#55708D]">
+                  <p className="mt-4 rounded-2xl border border-[#D7E5F4] bg-[#F8FBFF] px-4 py-2.5 text-xs text-[#55708D]">
                     <span className="font-semibold tabular-nums text-[#10203B]">
                       {campaign.accountEmails.length.toLocaleString("en-US")}
                     </span>{" "}
@@ -530,28 +530,6 @@ export function AdminMailingPage() {
                     team member{campaign.teamEmails.length === 1 ? "" : "s"}.
                   </p>
                 ) : null}
-              </section>
-
-              <section className="rounded-[24px] border border-[#D7E5F4] bg-white p-5 shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
-                <header className="mb-4 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-base font-semibold tracking-[-0.01em] text-[#10203B]">
-                      Choose members
-                    </h3>
-                    <p className="mt-1 text-xs text-[#6C7F95]">
-                      Click a member card to include them. Accounts with a team open a dropdown for
-                      picking single team members. Picked people override the bulk audience.
-                    </p>
-                  </div>
-                </header>
-                <MailingMemberPicker
-                  includeTeamMembers={draft.includeTeamMembers}
-                  onChange={setPickedMemberEmails}
-                  onTeamChange={setPickedTeamMemberEmails}
-                  recipients={recipients}
-                  selectedEmails={pickedMemberEmails}
-                  selectedTeamEmails={pickedTeamMemberEmails}
-                />
               </section>
 
               <section

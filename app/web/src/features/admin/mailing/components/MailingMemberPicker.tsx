@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { AdminTeamMemberList } from "../../teams/components/AdminTeamMemberList";
-import { hasTeamMembers } from "../server/mailing.service";
+import { hasTeam } from "../server/mailing.service";
 import type { MailingRecipient } from "../types/mailing.types";
 
 type MailingMemberPickerProps = {
@@ -15,8 +15,6 @@ type MailingMemberPickerProps = {
   selectedEmails: string[];
   /** Seats picked one by one from an account's team dropdown. */
   selectedTeamEmails: string[];
-  /** True while every selected account already reaches its whole team. */
-  includeTeamMembers: boolean;
   onChange: (emails: string[]) => void;
   onTeamChange: (emails: string[]) => void;
 };
@@ -33,7 +31,6 @@ function Initials({ name, email }: { name?: string | null; email: string }) {
 }
 
 export function MailingMemberPicker({
-  includeTeamMembers,
   onChange,
   onTeamChange,
   recipients,
@@ -157,12 +154,8 @@ export function MailingMemberPicker({
         <div className="grid max-h-[58dvh] items-start gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
           {filtered.map((recipient) => {
             const isSelected = selectedSet.has(recipient.email);
-            const showsTeam = hasTeamMembers(recipient);
+            const showsTeam = hasTeam(recipient);
             const isTeamOpen = showsTeam && openTeams.has(recipient.id);
-            // With the campaign-wide toggle on, a selected account already
-            // carries its whole team, so those seats are shown as locked in.
-            const lockedEmails =
-              includeTeamMembers && isSelected ? recipient.teamMemberEmails : [];
 
             return (
               <article
@@ -216,7 +209,6 @@ export function MailingMemberPicker({
                     >
                       <Users className="size-3.5" />
                       Team
-                      <span className="tabular-nums">{recipient.teamMemberEmails.length}</span>
                       <ChevronDown
                         className={cn("size-3 transition-transform", isTeamOpen && "rotate-180")}
                       />
@@ -236,11 +228,10 @@ export function MailingMemberPicker({
                 </div>
 
                 {isTeamOpen ? (
-                  <div className="border-t border-[#D7E5F4] bg-[#F6FAFF] p-4">
+                  <div className="border-t border-[#D7E5F4] bg-[#F6FAFF] p-4 sm:p-5">
                     <AdminTeamMemberList
                       ownerOrderId={recipient.id}
                       selection={{
-                        lockedEmails,
                         onChange: changeTeamSelection,
                         selectedEmails: selectedTeamEmails,
                       }}

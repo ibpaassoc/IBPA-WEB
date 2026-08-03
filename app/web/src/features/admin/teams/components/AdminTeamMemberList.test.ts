@@ -70,13 +70,13 @@ describe("admin team member card selection", () => {
     const unchecked = renderToStaticMarkup(
       createElement(TeamMemberCard, {
         member: member(),
-        selection: { isLocked: false, isSelected: false, onToggle: () => {} },
+        selection: { isSelected: false, onToggle: () => {} },
       }),
     );
     const checked = renderToStaticMarkup(
       createElement(TeamMemberCard, {
         member: member(),
-        selection: { isLocked: false, isSelected: true, onToggle: () => {} },
+        selection: { isSelected: true, onToggle: () => {} },
       }),
     );
 
@@ -87,17 +87,5 @@ describe("admin team member card selection", () => {
     assert.match(checked, /aria-pressed="true"/);
     assert.match(checked, /Remove alexandra\.long\.email\.address@example\.com as a recipient/);
     assert.match(checked, /bg-\[#1F5D8F\] text-white/);
-  });
-
-  it("shows a locked seat as included without offering a toggle", () => {
-    const markup = renderToStaticMarkup(
-      createElement(TeamMemberCard, {
-        member: member(),
-        selection: { isLocked: true, isSelected: false, onToggle: () => {} },
-      }),
-    );
-
-    assert.doesNotMatch(markup, /aria-pressed/);
-    assert.match(markup, /bg-\[#1F5D8F\] text-white/);
   });
 });

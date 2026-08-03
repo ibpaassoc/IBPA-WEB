@@ -23,14 +23,11 @@ import type {
  */
 export type AdminTeamSelection = {
   selectedEmails: string[];
-  /** Seats already covered by a broader rule: shown checked and not clickable. */
-  lockedEmails?: string[];
   onChange: (emails: string[], isSelected: boolean) => void;
 };
 
 type TeamMemberCardSelection = {
   isSelected: boolean;
-  isLocked: boolean;
   onToggle: () => void;
 };
 
@@ -69,7 +66,7 @@ export function TeamMemberCard({
   member: AdminTeamMember;
   selection?: TeamMemberCardSelection;
 }) {
-  const isChecked = Boolean(selection && (selection.isSelected || selection.isLocked));
+  const isChecked = Boolean(selection?.isSelected);
 
   return (
     <article
@@ -78,7 +75,7 @@ export function TeamMemberCard({
         isChecked ? "border-[#1F5D8F] bg-[#F4F9FF]" : "border-[#D7E5F4]",
       )}
     >
-      {selection && !selection.isLocked ? (
+      {selection ? (
         <button
           aria-label={`${selection.isSelected ? "Remove" : "Add"} ${member.email} as a recipient`}
           aria-pressed={selection.isSelected}
@@ -96,7 +93,6 @@ export function TeamMemberCard({
               isChecked
                 ? "border-transparent bg-[#1F5D8F] text-white"
                 : "border-[#D7E5F4] bg-white text-transparent",
-              selection.isLocked && "opacity-70",
             )}
           >
             <Check className="size-3.5" />
@@ -209,10 +205,8 @@ export function AdminTeamMemberList({ ownerOrderId, selection }: Props) {
 
   const members = team?.items ?? [];
   const selectedEmails = new Set(selection?.selectedEmails ?? []);
-  const lockedEmails = new Set(selection?.lockedEmails ?? []);
   const mailableEmails = members.filter(isMailableTeamMember).map((member) => member.email);
-  const unlockedEmails = mailableEmails.filter((email) => !lockedEmails.has(email));
-  const hasUnselected = unlockedEmails.some((email) => !selectedEmails.has(email));
+  const hasUnselected = mailableEmails.some((email) => !selectedEmails.has(email));
 
   return (
     <section aria-label="Team members" className="space-y-3">
@@ -220,18 +214,16 @@ export function AdminTeamMemberList({ ownerOrderId, selection }: Props) {
         <div>
           <h3 className="text-sm font-semibold text-[#10203B]">Team members</h3>
           <p className="mt-0.5 text-xs text-[#6C7F95]">
-            {!selection
-              ? "Read-only account team visibility"
-              : lockedEmails.size > 0
-                ? "Already included with the account"
-                : "Pick the seats that should receive this campaign"}
+            {selection
+              ? "Pick the team members that should receive this campaign"
+              : "Read-only account team visibility"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {selection && unlockedEmails.length > 0 ? (
+          {selection && mailableEmails.length > 0 ? (
             <button
               className="rounded-full border border-[#D7E5F4] bg-white px-3 py-1.5 text-xs font-medium text-[#1F5D8F] transition-colors hover:border-[#BFD3EA] hover:bg-[#EEF6FF]"
-              onClick={() => selection.onChange(unlockedEmails, hasUnselected)}
+              onClick={() => selection.onChange(mailableEmails, hasUnselected)}
               type="button"
             >
               {hasUnselected ? "Select all" : "Clear all"}
@@ -258,7 +250,6 @@ export function AdminTeamMemberList({ ownerOrderId, selection }: Props) {
               selection={
                 selection && isMailableTeamMember(member)
                   ? {
-                      isLocked: lockedEmails.has(member.email),
                       isSelected: selectedEmails.has(member.email),
                       onToggle: () =>
                         selection.onChange([member.email], !selectedEmails.has(member.email)),

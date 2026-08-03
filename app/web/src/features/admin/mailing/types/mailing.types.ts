@@ -21,8 +21,6 @@ export type MailingDraft = {
   audienceKind: MailingAudienceKind;
   audienceValue: string;
   customEmails: string;
-  /** When on, every selected/resolved account also reaches its team seats. */
-  includeTeamMembers: boolean;
 };
 
 export type MailingTemplate = {
@@ -33,17 +31,18 @@ export type MailingTemplate = {
 };
 
 /** Mailing rows come from the slim `purpose=mailing` card projection. */
-export type MailingRecipientSource = AdminClient & {
-  teamMemberEmails?: string[] | null;
-};
+export type MailingRecipientSource = AdminClient;
 
 export type MailingRecipient = Pick<
   AdminClient,
-  "id" | "email" | "userName" | "membershipCategory" | "cardName"
-> & {
-  /** Mailable team seats of this account; empty when it has no team. */
-  teamMemberEmails: string[];
-};
+  | "id"
+  | "email"
+  | "userName"
+  | "membershipCategory"
+  | "cardName"
+  | "accountType"
+  | "applicationType"
+>;
 
 export type MailingAudienceSources = {
   applicationStatusEmails: Record<ApplicationAudienceStatus, string[]>;
