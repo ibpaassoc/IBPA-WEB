@@ -13,6 +13,7 @@ const studio: MailingRecipient = {
   email: "studio@example.com",
   id: "owner-studio",
   membershipCategory: "Business",
+  teamMemberEmails: ["seat.one@example.com", "seat.two@example.com"],
   userName: "Studio Owner",
 };
 
@@ -23,6 +24,7 @@ const partner: MailingRecipient = {
   email: "partner@example.com",
   id: "owner-partner",
   membershipCategory: "Associate",
+  teamMemberEmails: ["agency.seat@example.com"],
   userName: "Partner Account",
 };
 
@@ -33,6 +35,7 @@ const solo: MailingRecipient = {
   email: "solo@example.com",
   id: "owner-solo",
   membershipCategory: "Professional",
+  teamMemberEmails: [],
   userName: "Solo Member",
 };
 

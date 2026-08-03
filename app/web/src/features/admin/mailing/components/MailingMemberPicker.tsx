@@ -6,9 +6,9 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-import { AdminTeamMemberList } from "../../teams/components/AdminTeamMemberList";
-import { hasTeam } from "../server/mailing.service";
+import { hasTeam, toggleShownSelection } from "../server/mailing.service";
 import type { MailingRecipient } from "../types/mailing.types";
+import { MailingTeamPicker } from "./MailingTeamPicker";
 
 type MailingMemberPickerProps = {
   recipients: MailingRecipient[];
@@ -79,14 +79,16 @@ export function MailingMemberPicker({
     onTeamChange(Array.from(next));
   };
 
-  const selectAll = () => {
-    const union = new Set([...selectedEmails, ...filtered.map((r) => r.email)]);
-    onChange(Array.from(union));
-  };
-
-  const clear = () => {
-    const filteredEmails = new Set(filtered.map((r) => r.email));
-    onChange(selectedEmails.filter((email) => !filteredEmails.has(email)));
+  // Bulk actions carry the shown accounts' teams with them: selecting the shown
+  // members also selects their seats, and clearing takes those seats back out.
+  const toggleShown = (isSelected: boolean) => {
+    const next = toggleShownSelection(
+      { memberEmails: selectedEmails, teamEmails: selectedTeamEmails },
+      filtered,
+      isSelected,
+    );
+    onChange(next.memberEmails);
+    onTeamChange(next.teamEmails);
   };
 
   return (
@@ -104,14 +106,14 @@ export function MailingMemberPicker({
         <div className="flex shrink-0 items-center gap-2">
           <button
             className="rounded-full border border-[#D7E5F4] bg-white px-3 py-1.5 text-xs font-medium text-[#1F5D8F] transition-colors hover:border-[#BFD3EA] hover:bg-[#EEF6FF]"
-            onClick={selectAll}
+            onClick={() => toggleShown(true)}
             type="button"
           >
             Select shown
           </button>
           <button
             className="rounded-full border border-[#D7E5F4] bg-white px-3 py-1.5 text-xs font-medium text-[#55708D] transition-colors hover:border-[#BFD3EA] hover:bg-[#EEF6FF]"
-            onClick={clear}
+            onClick={() => toggleShown(false)}
             type="button"
           >
             Clear shown
@@ -162,7 +164,6 @@ export function MailingMemberPicker({
                 className={cn(
                   "overflow-hidden rounded-2xl border bg-white transition-colors duration-200",
                   isSelected ? "border-[#1F5D8F] bg-[#F4F9FF]" : "border-[#D7E5F4]",
-                  isTeamOpen && "sm:col-span-2",
                 )}
                 key={recipient.id}
               >
@@ -228,13 +229,11 @@ export function MailingMemberPicker({
                 </div>
 
                 {isTeamOpen ? (
-                  <div className="border-t border-[#D7E5F4] bg-[#F6FAFF] p-4 sm:p-5">
-                    <AdminTeamMemberList
+                  <div className="border-t border-[#D7E5F4] bg-[#F6FAFF] px-3 py-3">
+                    <MailingTeamPicker
+                      onChange={changeTeamSelection}
                       ownerOrderId={recipient.id}
-                      selection={{
-                        onChange: changeTeamSelection,
-                        selectedEmails: selectedTeamEmails,
-                      }}
+                      selectedEmails={selectedTeamEmails}
                     />
                   </div>
                 ) : null}

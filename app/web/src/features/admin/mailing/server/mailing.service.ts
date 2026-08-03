@@ -63,6 +63,7 @@ export function normalizeRecipients(items: MailingRecipientSource[]): MailingRec
       email: item.email.trim().toLowerCase(),
       id: item.id,
       membershipCategory: item.membershipCategory,
+      teamMemberEmails: normalizeEmailList(item.teamMemberEmails),
       userName: item.userName,
     }));
 }
@@ -73,6 +74,43 @@ export function normalizeRecipients(items: MailingRecipientSource[]): MailingRec
  */
 export function hasTeam(recipient: MailingRecipient) {
   return isOrganizationMember(recipient);
+}
+
+/** Seats belonging to the given accounts, for bulk select/clear actions. */
+export function teamEmailsOf(recipients: MailingRecipient[]) {
+  return normalizeEmailList(recipients.flatMap((recipient) => recipient.teamMemberEmails));
+}
+
+export type PickerSelection = {
+  memberEmails: string[];
+  teamEmails: string[];
+};
+
+/**
+ * "Select shown" / "Clear shown" act on the accounts *and* their teams, so a
+ * bulk pick never silently leaves team members behind.
+ */
+export function toggleShownSelection(
+  selection: PickerSelection,
+  shown: MailingRecipient[],
+  isSelected: boolean,
+): PickerSelection {
+  const shownMemberEmails = shown.map((recipient) => recipient.email);
+  const shownTeamEmails = teamEmailsOf(shown);
+
+  if (isSelected) {
+    return {
+      memberEmails: normalizeEmailList([...selection.memberEmails, ...shownMemberEmails]),
+      teamEmails: normalizeEmailList([...selection.teamEmails, ...shownTeamEmails]),
+    };
+  }
+
+  const droppedMembers = new Set(shownMemberEmails);
+  const droppedTeams = new Set(shownTeamEmails);
+  return {
+    memberEmails: selection.memberEmails.filter((email) => !droppedMembers.has(email)),
+    teamEmails: selection.teamEmails.filter((email) => !droppedTeams.has(email)),
+  };
 }
 
 export function parseCustomEmails(value: string) {
@@ -88,6 +126,13 @@ export function resolveAudienceEmails(
 ) {
   const byKind = (kind: MailingAudienceKind) => {
     switch (kind) {
+      // "Everyone on file" means account holders *and* their team members, who
+      // are their own records rather than memberships.
+      case "all_users":
+        return [
+          ...sources.recipients.map((recipient) => recipient.email),
+          ...sources.teamMemberEmails,
+        ];
       case "members":
         return sources.recipients
           .filter((recipient) => !String(recipient.cardName || "").toLowerCase().includes("partner"))

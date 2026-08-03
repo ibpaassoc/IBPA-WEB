@@ -9,6 +9,7 @@ import {
   isMemberPickerActive,
   normalizeRecipients,
   resolveAudienceEmails,
+  toggleShownSelection,
 } from "./mailing.service";
 
 function recipient(overrides: Partial<MailingRecipient> = {}): MailingRecipient {
@@ -19,6 +20,7 @@ function recipient(overrides: Partial<MailingRecipient> = {}): MailingRecipient 
     email: "owner@example.com",
     id: "owner-1",
     membershipCategory: "Professional",
+    teamMemberEmails: [],
     userName: "Owner One",
     ...overrides,
   };
@@ -30,6 +32,7 @@ const studio = recipient({
   email: "studio@example.com",
   id: "owner-studio",
   membershipCategory: "Business",
+  teamMemberEmails: ["seat.one@example.com", "seat.two@example.com"],
   userName: "Studio Owner",
 });
 
@@ -55,6 +58,7 @@ describe("mailing recipient normalization", () => {
         id: "owner-studio",
         membershipCategory: "Business",
         status: "active",
+        teamMemberEmails: ["Seat.One@Example.com", " seat.one@example.com ", "seat.two@example.com"],
         userName: "Studio Owner",
       },
       {
@@ -69,8 +73,59 @@ describe("mailing recipient normalization", () => {
 
     assert.equal(business.email, "studio@example.com");
     assert.equal(business.accountType, "business");
+    assert.deepEqual(business.teamMemberEmails, ["seat.one@example.com", "seat.two@example.com"]);
     assert.equal(individual.accountType, null);
     assert.equal(individual.applicationType, null);
+    assert.deepEqual(individual.teamMemberEmails, []);
+  });
+});
+
+describe("select shown", () => {
+  it("takes the shown accounts and their teams together", () => {
+    const next = toggleShownSelection(
+      { memberEmails: [], teamEmails: [] },
+      [studio, solo],
+      true,
+    );
+
+    assert.deepEqual(next.memberEmails, ["studio@example.com", "solo@example.com"]);
+    assert.deepEqual(next.teamEmails, ["seat.one@example.com", "seat.two@example.com"]);
+  });
+
+  it("keeps selections that are not currently shown", () => {
+    const next = toggleShownSelection(
+      { memberEmails: ["elsewhere@example.com"], teamEmails: ["other.seat@example.com"] },
+      [studio],
+      true,
+    );
+
+    assert.deepEqual(next.memberEmails, ["elsewhere@example.com", "studio@example.com"]);
+    assert.deepEqual(next.teamEmails, ["other.seat@example.com", "seat.one@example.com", "seat.two@example.com"]);
+  });
+
+  it("clears the shown accounts and their teams, leaving the rest alone", () => {
+    const next = toggleShownSelection(
+      {
+        memberEmails: ["studio@example.com", "elsewhere@example.com"],
+        teamEmails: ["seat.one@example.com", "other.seat@example.com"],
+      },
+      [studio],
+      false,
+    );
+
+    assert.deepEqual(next.memberEmails, ["elsewhere@example.com"]);
+    assert.deepEqual(next.teamEmails, ["other.seat@example.com"]);
+  });
+
+  it("is a no-op for a filtered view with no matches", () => {
+    const next = toggleShownSelection(
+      { memberEmails: ["studio@example.com"], teamEmails: ["seat.one@example.com"] },
+      [],
+      true,
+    );
+
+    assert.deepEqual(next.memberEmails, ["studio@example.com"]);
+    assert.deepEqual(next.teamEmails, ["seat.one@example.com"]);
   });
 });
 
@@ -85,6 +140,42 @@ describe("team dropdown visibility", () => {
     );
     assert.equal(hasTeam(solo), false);
     assert.equal(hasTeam(recipient({ membershipCategory: "Brand" })), false);
+  });
+});
+
+describe("all users audience", () => {
+  it("includes team members alongside the account holders", () => {
+    const emails = resolveAudienceEmails(
+      {
+        applicationStatusEmails: { approved: [], pending: [], rejected: [] },
+        eventRegistrantEmails: [],
+        recipients: [studio, solo],
+        teamMemberEmails: ["seat.one@example.com", "seat.two@example.com"],
+      },
+      draft({ audienceKind: "all_users" }),
+    );
+
+    assert.deepEqual(emails, [
+      "studio@example.com",
+      "solo@example.com",
+      "seat.one@example.com",
+      "seat.two@example.com",
+    ]);
+  });
+
+  it("does not pull team members into the members or partners audiences", () => {
+    const sources = {
+      applicationStatusEmails: { approved: [], pending: [], rejected: [] },
+      eventRegistrantEmails: [],
+      recipients: [studio, solo],
+      teamMemberEmails: ["seat.one@example.com"],
+    };
+
+    assert.deepEqual(
+      resolveAudienceEmails(sources, draft({ audienceKind: "members" })),
+      ["studio@example.com", "solo@example.com"],
+    );
+    assert.deepEqual(resolveAudienceEmails(sources, draft({ audienceKind: "partners" })), []);
   });
 });
 
