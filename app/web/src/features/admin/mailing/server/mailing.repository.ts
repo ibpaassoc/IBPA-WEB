@@ -1,14 +1,22 @@
 import type {
-  AdminCardsResponse,
   AdminContentItem,
+  AdminListResponse,
   AdminOrdersResponse,
   AdminPartnerApplicationsResponse,
 } from "../../shared/types/admin.types";
 import { requestJson } from "../../shared/utils/admin-request";
-import type { ApplicationAudienceStatus, EmailLog } from "../types/mailing.types";
+import type {
+  ApplicationAudienceStatus,
+  EmailLog,
+  MailingRecipientSource,
+} from "../types/mailing.types";
+
+type MailingRecipientsResponse = AdminListResponse<MailingRecipientSource> & {
+  categories?: string[];
+};
 
 export async function listMailingRecipients() {
-  return requestJson<AdminCardsResponse>(
+  return requestJson<MailingRecipientsResponse>(
     "/api/cards?purpose=mailing&limit=500",
     { cache: "no-store" },
     "Could not load mailing recipients.",
