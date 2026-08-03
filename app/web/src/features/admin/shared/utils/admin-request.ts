@@ -1,5 +1,57 @@
 const MAX_PLAIN_TEXT_ERROR_LENGTH = 300;
 
+/**
+ * Admin pages share a long-lived client-side cache while the admin workspace is
+ * open. Keeping this in memory deliberately avoids persisting sensitive member
+ * data to disk, and a full browser reload naturally starts a fresh session.
+ */
+export const ADMIN_READ_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_ADMIN_READ_CACHE_ENTRIES = 100;
+
+type CachedAdminResponse = {
+  expiresAt: number;
+  value: unknown;
+};
+
+const adminReadCache = new Map<string, CachedAdminResponse>();
+const pendingAdminReads = new Map<string, Promise<unknown>>();
+let adminReadCacheEpoch = 0;
+
+/** Clear all cached admin data before an explicit refresh or after a mutation. */
+export function clearAdminReadCache() {
+  adminReadCacheEpoch += 1;
+  adminReadCache.clear();
+  pendingAdminReads.clear();
+}
+
+function isCacheableRead(init?: RequestInit) {
+  return (
+    typeof window !== "undefined" &&
+    (!init?.method || init.method.toUpperCase() === "GET") &&
+    !init?.body &&
+    !init?.signal
+  );
+}
+
+function cacheAdminRead(url: string, value: unknown) {
+  const now = Date.now();
+
+  for (const [key, entry] of adminReadCache) {
+    if (entry.expiresAt <= now) adminReadCache.delete(key);
+  }
+
+  while (adminReadCache.size >= MAX_ADMIN_READ_CACHE_ENTRIES) {
+    const oldestKey = adminReadCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    adminReadCache.delete(oldestKey);
+  }
+
+  adminReadCache.set(url, {
+    expiresAt: now + ADMIN_READ_CACHE_TTL_MS,
+    value,
+  });
+}
+
 function readErrorMessage(data: unknown, raw: string, fallback: string) {
   if (data && typeof data === "object") {
     const { error, details } = data as { error?: unknown; details?: unknown };
@@ -75,6 +127,45 @@ export async function requestJson<T>(
   init?: RequestInit,
   fallback = "Request failed.",
 ): Promise<T> {
+  if (isCacheableRead(init)) {
+    const cached = adminReadCache.get(url);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value as T;
+    }
+
+    if (cached) adminReadCache.delete(url);
+
+    const pending = pendingAdminReads.get(url);
+    if (pending) return pending as Promise<T>;
+
+    const requestEpoch = adminReadCacheEpoch;
+    const request = requestJsonUncached<T>(url, init, fallback)
+      .then((value) => {
+        // A force refresh may finish before an older request. Do not let that
+        // older response repopulate the newly cleared cache.
+        if (requestEpoch === adminReadCacheEpoch) {
+          cacheAdminRead(url, value);
+        }
+        return value;
+      })
+      .finally(() => {
+        if (pendingAdminReads.get(url) === request) {
+          pendingAdminReads.delete(url);
+        }
+      });
+
+    pendingAdminReads.set(url, request);
+    return request;
+  }
+
+  return requestJsonUncached<T>(url, init, fallback);
+}
+
+async function requestJsonUncached<T>(
+  url: string,
+  init?: RequestInit,
+  fallback = "Request failed.",
+): Promise<T> {
   let response = await fetch(url, init);
 
   if (response.status === 401 && isRepeatableBody(init?.body) && (await refreshClerkSession())) {
@@ -93,6 +184,14 @@ export async function requestJson<T>(
 
   if (!response.ok) {
     throw new Error(readErrorMessage(data, raw, fallback));
+  }
+
+  // Admin mutations can affect several dashboards at once (for example an
+  // approval changes applications, payments, members, and the overview).
+  // Invalidate only after a successful response so failed edits do not discard
+  // a useful cache.
+  if (init?.method && init.method.toUpperCase() !== "GET") {
+    clearAdminReadCache();
   }
 
   return data as T;

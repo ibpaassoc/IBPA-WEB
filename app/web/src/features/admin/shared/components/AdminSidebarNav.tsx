@@ -2,6 +2,7 @@
 
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
 
@@ -64,7 +65,7 @@ function NavItem({
 
   if (!hasChildren) {
     return (
-      <a
+      <Link
         ref={(node) => registerItemRef(item.href, node)}
         aria-current={isActive ? "page" : undefined}
         className={cn(
@@ -89,7 +90,7 @@ function NavItem({
         </span>
 
         <span className="truncate">{item.label}</span>
-      </a>
+      </Link>
     );
   }
 
@@ -132,7 +133,7 @@ function NavItem({
             const childActive = activeHref === child.href;
 
             return (
-              <a
+              <Link
                 ref={(node) => registerItemRef(child.href, node)}
                 aria-current={childActive ? "page" : undefined}
                 className={cn(
@@ -155,7 +156,7 @@ function NavItem({
                   )}
                 />
                 <span className="truncate">{child.label}</span>
-              </a>
+              </Link>
             );
           })}
         </div>

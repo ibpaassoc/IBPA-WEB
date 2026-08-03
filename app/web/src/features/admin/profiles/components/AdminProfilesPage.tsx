@@ -22,6 +22,7 @@ import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
+import { clearAdminReadCache } from "../../shared/utils/admin-request";
 import { formatAdminCount } from "../../shared/utils/admin-formatters";
 import {
   deleteProfileMembership,
@@ -196,7 +197,10 @@ export function AdminProfilesPage() {
   return (
     <AdminPageShell
       actions={
-        <Button onClick={() => void loadProfiles()} type="button" variant="outline">
+        <Button onClick={() => {
+          clearAdminReadCache();
+          void loadProfiles();
+        }} type="button" variant="outline">
           <RefreshCw data-icon="inline-start" />
           Refresh
         </Button>

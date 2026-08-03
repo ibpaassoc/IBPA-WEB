@@ -19,6 +19,7 @@ import dynamic from "next/dynamic";
 
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
+import { clearAdminReadCache } from "../../shared/utils/admin-request";
 import { getAdminOverview } from "../server/dashboard-admin.service";
 import type { AdminOverviewData } from "../types/dashboard-admin.types";
 import { DashboardActivityFeed } from "./DashboardActivityFeed";
@@ -93,7 +94,10 @@ export function AdminDashboardOverview() {
         <Button
           className="size-10 rounded-full border-[#D4E0F0] bg-white/80 text-[#21466D] shadow-sm backdrop-blur-xl hover:bg-white hover:text-[#0B1F44]"
           disabled={isLoading}
-          onClick={() => void load(true)}
+          onClick={() => {
+            clearAdminReadCache();
+            void load(true);
+          }}
           size="icon"
           variant="outline"
         >

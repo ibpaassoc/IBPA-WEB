@@ -45,6 +45,7 @@ import { AdminMetricCard } from "../../shared/components/AdminMetricCard";
 import { AdminPageShell } from "../../shared/components/AdminPageShell";
 import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSheet } from "../../shared/components/AdminSheet";
+import { clearAdminReadCache } from "../../shared/utils/admin-request";
 import { formatAdminDate, formatAdminDateTime } from "../../shared/utils/admin-formatters";
 import {
   deleteEmailHistoryItem,
@@ -201,6 +202,7 @@ export function AdminMailingPage() {
   };
 
   const refreshMailing = () => {
+    clearAdminReadCache();
     void loadMailing();
     if (audiencesRequested.current) void loadAudiences();
   };

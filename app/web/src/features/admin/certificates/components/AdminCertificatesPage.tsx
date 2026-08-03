@@ -23,6 +23,7 @@ import { AdminSearch } from "../../shared/components/AdminSearch";
 import { AdminSectionCard } from "../../shared/components/AdminSectionCard";
 import { useAdminFilters } from "../../shared/hooks/useAdminFilters";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
+import { clearAdminReadCache } from "../../shared/utils/admin-request";
 import {
   getProfile,
   listProfiles,
@@ -200,7 +201,10 @@ export function AdminCertificatesPage() {
       actions={
         <Button
           className="h-10 rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
-          onClick={() => void loadCertificates()}
+          onClick={() => {
+            clearAdminReadCache();
+            void loadCertificates();
+          }}
           type="button"
           variant="outline"
         >
