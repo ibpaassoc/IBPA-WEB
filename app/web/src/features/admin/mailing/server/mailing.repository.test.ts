@@ -4,8 +4,15 @@ import { afterEach, describe, it } from "node:test";
 import {
   listEmailHistory,
   listEventRegistrantAudienceEmails,
+  listMailingRecipients,
   sendEmailCampaign,
 } from "./mailing.repository";
+import {
+  buildCampaignRecipients,
+  emptyMailingDraft,
+  normalizeRecipients,
+  renderEmailHtml,
+} from "./mailing.service";
 
 type TrackedResponse = {
   response: Response;
@@ -146,6 +153,113 @@ describe("mailing repository response handling", () => {
     );
     assert.equal(tracked.bodyReads(), 1, "body must be consumed exactly once");
     assert.equal(tracked.cloneCallsAfterBodyUsed(), 0, "must not clone after consumption");
+  });
+
+  /**
+   * End-to-end over the send path with fetch stubbed: loaded recipients ->
+   * assembled audience -> the body that reaches the admin mailing route. No
+   * request leaves the process.
+   */
+  it("posts the account holders and their team seats as one campaign", async () => {
+    const requests: Array<{ url: string; body: unknown }> = [];
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.startsWith("/api/cards")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: [
+                {
+                  cardName: "Business Membership",
+                  email: "Studio@Example.com",
+                  id: "owner-studio",
+                  membershipCategory: "Business",
+                  teamMemberEmails: ["Seat.One@Example.com", "seat.two@example.com"],
+                  userName: "Studio Owner",
+                },
+                {
+                  cardName: "Professional Membership",
+                  email: "solo@example.com",
+                  id: "owner-solo",
+                  membershipCategory: "Professional",
+                  userName: "Solo Member",
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+
+      requests.push({ body: JSON.parse(String(init?.body ?? "null")), url });
+      return Promise.resolve(new Response(JSON.stringify({ count: 4, success: true }), { status: 200 }));
+    }) as typeof fetch;
+
+    const recipients = normalizeRecipients((await listMailingRecipients()).items ?? []);
+    const campaign = buildCampaignRecipients({
+      audienceEmails: recipients.map((recipient) => recipient.email),
+      draft: { ...emptyMailingDraft, body: "Hello", includeTeamMembers: true, subject: "Update" },
+      pickedMemberEmails: [],
+      pickedTeamMemberEmails: [],
+      recipients,
+    });
+
+    const result = await sendEmailCampaign({
+      emails: campaign.emails,
+      html: renderEmailHtml("Hello"),
+      subject: "Update",
+    });
+
+    assert.equal(result.count, 4);
+    assert.deepEqual(requests, [
+      {
+        body: {
+          emails: [
+            "studio@example.com",
+            "solo@example.com",
+            "seat.one@example.com",
+            "seat.two@example.com",
+          ],
+          html: renderEmailHtml("Hello"),
+          subject: "Update",
+        },
+        url: "/api/admin/mailing",
+      },
+    ]);
+  });
+
+  it("leaves team seats out of the payload while the toggle is off", async () => {
+    let sentEmails: string[] = [];
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).startsWith("/api/admin/mailing")) {
+        sentEmails = JSON.parse(String(init?.body)).emails;
+      }
+      return Promise.resolve(new Response(JSON.stringify({ count: 1 }), { status: 200 }));
+    }) as typeof fetch;
+
+    const recipients = normalizeRecipients([
+      {
+        cardName: "Business Membership",
+        createdAt: "2026-01-01",
+        email: "studio@example.com",
+        id: "owner-studio",
+        status: "active",
+        teamMemberEmails: ["seat.one@example.com"],
+        userName: "Studio Owner",
+      },
+    ]);
+    const campaign = buildCampaignRecipients({
+      audienceEmails: ["studio@example.com"],
+      draft: emptyMailingDraft,
+      pickedMemberEmails: [],
+      pickedTeamMemberEmails: [],
+      recipients,
+    });
+
+    await sendEmailCampaign({ emails: campaign.emails, html: "<p>x</p>", subject: "s" });
+
+    assert.deepEqual(sentEmails, ["studio@example.com"]);
   });
 
   it("loads and deduplicates event registrants through the admin event routes", async () => {
