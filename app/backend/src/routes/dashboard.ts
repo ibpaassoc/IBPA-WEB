@@ -37,7 +37,6 @@ import {
 } from "../features/profiles/server/profile.service";
 import { markNotificationsRead } from "../features/notifications/server/notification.service";
 import { ensureCanonicalUser, resolveUserRole } from "../features/users/server/user.service";
-import { buildTeamEmailIndex } from "../features/teams/server/admin-team.service";
 import { extendCanonicalTeamSeats } from "../features/teams/server/team.service";
 import {
   ensureCanonicalTeamMemberCredential,
@@ -1827,35 +1826,25 @@ async function buildAdminClientListPage(
 // Slim projection for the mailing recipient picker. It only needs identity + membership
 // label, so this skips the certificates join and the heavy applicationData / profile blobs
 // that buildAdminClientRows carries for the members directory.
-// `teamMemberEmails` rides along so the picker can offer an account's team without a
-// per-owner round trip; the roster detail is still fetched on demand when expanded.
+// The account classification rides along so the picker can offer a Team dropdown for
+// Business and Partner accounts; the roster itself loads on demand when expanded.
 async function buildMailingRecipientRows(db: ReturnType<typeof requireDb>) {
-  const [rows, teamMembers] = await Promise.all([
-    db
-      .select({
-        id: coreMemberships.id,
-        membershipType: coreMemberships.type,
-        email: coreUsers.email,
-        firstName: coreProfiles.firstName,
-        lastName: coreProfiles.lastName,
-        applicationFullName: coreApplications.fullName,
-      })
-      .from(coreMemberships)
-      .innerJoin(coreUsers, eq(coreMemberships.userId, coreUsers.id))
-      .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
-      .leftJoin(coreApplications, eq(coreApplications.id, coreMemberships.id))
-      .where(eq(coreMemberships.status, "ACTIVE"))
-      .orderBy(desc(coreMemberships.startedAt)),
-    db
-      .select({
-        teamId: coreTeamMembers.teamId,
-        email: coreTeamMembers.email,
-        status: coreTeamMembers.status,
-      })
-      .from(coreTeamMembers),
-  ]);
-
-  const teamEmailsByOwner = buildTeamEmailIndex(teamMembers);
+  const rows = await db
+    .select({
+      id: coreMemberships.id,
+      membershipType: coreMemberships.type,
+      email: coreUsers.email,
+      firstName: coreProfiles.firstName,
+      lastName: coreProfiles.lastName,
+      applicationFullName: coreApplications.fullName,
+      applicationType: coreApplications.type,
+    })
+    .from(coreMemberships)
+    .innerJoin(coreUsers, eq(coreMemberships.userId, coreUsers.id))
+    .leftJoin(coreProfiles, eq(coreProfiles.userId, coreUsers.id))
+    .leftJoin(coreApplications, eq(coreApplications.id, coreMemberships.id))
+    .where(eq(coreMemberships.status, "ACTIVE"))
+    .orderBy(desc(coreMemberships.startedAt));
 
   return rows.map((row: any) => {
     const userName =
@@ -1869,7 +1858,13 @@ async function buildMailingRecipientRows(db: ReturnType<typeof requireDb>) {
       email: row.email,
       membershipCategory: row.membershipType,
       cardName: row.membershipType || "Professional Membership",
-      teamMemberEmails: teamEmailsByOwner.get(row.id) ?? [],
+      applicationType: row.applicationType ?? null,
+      accountType:
+        row.applicationType === "PARTNER"
+          ? "partner"
+          : isBusinessOwnerMembershipType(row.membershipType)
+            ? "business"
+            : "individual",
     };
   });
 }

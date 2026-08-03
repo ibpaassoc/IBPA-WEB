@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { requireDb } from "@/lib/db";
-import { coreApplications, coreTeams } from "@/lib/schema";
+import { coreApplications, coreTeamMembers, coreTeams } from "@/lib/schema";
 import { INCLUDED_TEAM_SEATS, resolveTeamOwnerKind } from "./team-access";
 import {
   ensureCanonicalTeamMemberCredential,
@@ -60,29 +60,32 @@ export function isMailableTeamMemberStatus(value: unknown) {
   return normalizeMemberStatus(typeof value === "string" ? value : "") !== "removed";
 }
 
-/**
- * Groups mailable team member emails by team id. Team ids are the owner order
- * ids, so the result maps straight onto a membership/order row.
- */
-export function buildTeamEmailIndex(
-  members: Array<{ teamId: string; email: string; status: string }>,
+/** Normalized, deduplicated addresses of every seat that may be mailed. */
+export function selectMailableTeamMemberEmails(
+  members: Array<{ email: string; status: string }>,
 ) {
-  const byTeam = new Map<string, string[]>();
+  const emails = new Set<string>();
 
   for (const member of members) {
     if (!isMailableTeamMemberStatus(member.status)) continue;
 
     const email = String(member.email || "").trim().toLowerCase();
-    if (!email) continue;
-
-    const emails = byTeam.get(member.teamId) ?? [];
-    if (!emails.includes(email)) {
-      emails.push(email);
-    }
-    byTeam.set(member.teamId, emails);
+    if (email) emails.add(email);
   }
 
-  return byTeam;
+  return Array.from(emails);
+}
+
+/**
+ * Team members live in their own table, so the mailing "Team members" audience
+ * cannot be derived from the membership rows — it is read straight from here.
+ */
+export async function listAllMailableTeamMemberEmails(db: DbClient) {
+  const members = await db
+    .select({ email: coreTeamMembers.email, status: coreTeamMembers.status })
+    .from(coreTeamMembers);
+
+  return selectMailableTeamMemberEmails(members);
 }
 
 export function mapAdminTeamMemberRecords(

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { coreApplications, coreTeamMembers, coreTeams } from "@/lib/schema";
 import {
-  buildTeamEmailIndex,
+  selectMailableTeamMemberEmails,
   isMailableTeamMemberStatus,
   isUuid,
   listAdminTeamMembersByOwnerOrder,
@@ -155,7 +155,7 @@ describe("admin team members lookup", () => {
   });
 });
 
-describe("mailable team member index", () => {
+describe("mailable team member audience", () => {
   it("keeps every state except removed", () => {
     for (const status of ["ACTIVE", "invited", "INACTIVE", "", "pending"]) {
       assert.equal(isMailableTeamMemberStatus(status), true, status);
@@ -166,18 +166,27 @@ describe("mailable team member index", () => {
     assert.equal(isMailableTeamMemberStatus(null), true);
   });
 
-  it("groups normalized emails by owner order id and drops removed seats", () => {
-    const index = buildTeamEmailIndex([
-      { teamId: "owner-a", email: "First@Example.com", status: "ACTIVE" },
-      { teamId: "owner-a", email: " first@example.com ", status: "INVITED" },
-      { teamId: "owner-a", email: "gone@example.com", status: "REMOVED" },
-      { teamId: "owner-a", email: "second@example.com", status: "INACTIVE" },
-      { teamId: "owner-b", email: "solo@example.com", status: "ACTIVE" },
-      { teamId: "owner-b", email: "   ", status: "ACTIVE" },
+  it("normalizes and deduplicates addresses across teams, dropping removed seats", () => {
+    const emails = selectMailableTeamMemberEmails([
+      { email: "First@Example.com", status: "ACTIVE" },
+      { email: " first@example.com ", status: "INVITED" },
+      { email: "gone@example.com", status: "REMOVED" },
+      { email: "second@example.com", status: "INACTIVE" },
+      { email: "   ", status: "ACTIVE" },
+      { email: "third@example.com", status: "ACTIVE" },
     ]);
 
-    assert.deepEqual(index.get("owner-a"), ["first@example.com", "second@example.com"]);
-    assert.deepEqual(index.get("owner-b"), ["solo@example.com"]);
-    assert.equal(index.get("owner-c"), undefined);
+    assert.deepEqual(emails, [
+      "first@example.com",
+      "second@example.com",
+      "third@example.com",
+    ]);
+  });
+
+  it("returns nothing when every seat was removed", () => {
+    assert.deepEqual(
+      selectMailableTeamMemberEmails([{ email: "gone@example.com", status: "REMOVED" }]),
+      [],
+    );
   });
 });
