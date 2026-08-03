@@ -30,7 +30,24 @@ export type MailingTemplate = {
   body: string;
 };
 
-export type MailingRecipient = Pick<AdminClient, "id" | "email" | "userName" | "membershipCategory" | "cardName">;
+/** Mailing rows come from the slim `purpose=mailing` card projection. */
+export type MailingRecipientSource = AdminClient & {
+  teamMemberEmails?: string[] | null;
+};
+
+export type MailingRecipient = Pick<
+  AdminClient,
+  | "id"
+  | "email"
+  | "userName"
+  | "membershipCategory"
+  | "cardName"
+  | "accountType"
+  | "applicationType"
+> & {
+  /** Mailable seats of this account, so bulk actions can scope teams. */
+  teamMemberEmails: string[];
+};
 
 export type MailingAudienceSources = {
   applicationStatusEmails: Record<ApplicationAudienceStatus, string[]>;

@@ -37,6 +37,7 @@ import {
 import {
   isUuid,
   listAdminTeamMembersByOwnerOrder,
+  listAllMailableTeamMemberEmails,
 } from "../features/teams/server/admin-team.service";
 import {
   AdminCertificateError,
@@ -784,6 +785,21 @@ ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res)
     }
     console.error("Failed to fetch orders:", error);
     return res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+
+// Mailing audience: every seat across every team, read from the team members
+// table (team members are not membership rows, so they are invisible to /cards).
+ordersRouter.get("/admin/team-members", adminClerkMiddleware, requireAdminAccess, async (_req, res) => {
+  try {
+    const emails = await listAllMailableTeamMemberEmails(requireDb());
+    return res.json({ emails, count: emails.length });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+      return res.status(503).json({ error: error.message });
+    }
+    console.error("Failed to fetch team member audience", error);
+    return res.status(500).json({ error: "Failed to fetch team member audience." });
   }
 });
 

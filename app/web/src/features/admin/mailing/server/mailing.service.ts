@@ -1,4 +1,4 @@
-import type { AdminClient } from "../../shared/types/admin.types";
+import { isOrganizationMember } from "../../members/server/members-admin.service";
 import type {
   ApplicationAudienceStatus,
   EmailLog,
@@ -6,6 +6,7 @@ import type {
   MailingAudienceSources,
   MailingDraft,
   MailingRecipient,
+  MailingRecipientSource,
   MailingTemplate,
 } from "../types/mailing.types";
 
@@ -44,16 +45,72 @@ export const emptyApplicationStatusEmails: Record<ApplicationAudienceStatus, str
   rejected: [],
 };
 
-export function normalizeRecipients(items: AdminClient[]): MailingRecipient[] {
+function normalizeEmailList(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const normalized = values
+    .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
+}
+
+export function normalizeRecipients(items: MailingRecipientSource[]): MailingRecipient[] {
   return items
     .filter((item) => item.email)
     .map((item) => ({
+      accountType: item.accountType ?? null,
+      applicationType: item.applicationType ?? null,
       cardName: item.cardName,
       email: item.email.trim().toLowerCase(),
       id: item.id,
       membershipCategory: item.membershipCategory,
+      teamMemberEmails: normalizeEmailList(item.teamMemberEmails),
       userName: item.userName,
     }));
+}
+
+/**
+ * Business and Partner accounts own a team, so their card offers the same Team
+ * dropdown the applications queue uses. The roster itself is fetched on expand.
+ */
+export function hasTeam(recipient: MailingRecipient) {
+  return isOrganizationMember(recipient);
+}
+
+/** Seats belonging to the given accounts, for bulk select/clear actions. */
+export function teamEmailsOf(recipients: MailingRecipient[]) {
+  return normalizeEmailList(recipients.flatMap((recipient) => recipient.teamMemberEmails));
+}
+
+export type PickerSelection = {
+  memberEmails: string[];
+  teamEmails: string[];
+};
+
+/**
+ * "Select shown" / "Clear shown" act on the accounts *and* their teams, so a
+ * bulk pick never silently leaves team members behind.
+ */
+export function toggleShownSelection(
+  selection: PickerSelection,
+  shown: MailingRecipient[],
+  isSelected: boolean,
+): PickerSelection {
+  const shownMemberEmails = shown.map((recipient) => recipient.email);
+  const shownTeamEmails = teamEmailsOf(shown);
+
+  if (isSelected) {
+    return {
+      memberEmails: normalizeEmailList([...selection.memberEmails, ...shownMemberEmails]),
+      teamEmails: normalizeEmailList([...selection.teamEmails, ...shownTeamEmails]),
+    };
+  }
+
+  const droppedMembers = new Set(shownMemberEmails);
+  const droppedTeams = new Set(shownTeamEmails);
+  return {
+    memberEmails: selection.memberEmails.filter((email) => !droppedMembers.has(email)),
+    teamEmails: selection.teamEmails.filter((email) => !droppedTeams.has(email)),
+  };
 }
 
 export function parseCustomEmails(value: string) {
@@ -69,6 +126,13 @@ export function resolveAudienceEmails(
 ) {
   const byKind = (kind: MailingAudienceKind) => {
     switch (kind) {
+      // "Everyone on file" means account holders *and* their team members, who
+      // are their own records rather than memberships.
+      case "all_users":
+        return [
+          ...sources.recipients.map((recipient) => recipient.email),
+          ...sources.teamMemberEmails,
+        ];
       case "members":
         return sources.recipients
           .filter((recipient) => !String(recipient.cardName || "").toLowerCase().includes("partner"))
@@ -107,6 +171,48 @@ export function resolveAudienceEmails(
     : byKind(draft.audienceKind);
 
   return Array.from(new Set(selected));
+}
+
+/** Hand-picked people always win over the bulk audience, seats included. */
+export function isMemberPickerActive(
+  pickedMemberEmails: string[],
+  pickedTeamMemberEmails: string[],
+) {
+  return pickedMemberEmails.length > 0 || pickedTeamMemberEmails.length > 0;
+}
+
+export type CampaignRecipients = {
+  /** Account holders: picked members, or whatever the bulk audience resolved to. */
+  accountEmails: string[];
+  /** Seats picked from a team dropdown, never double-counted against accounts. */
+  teamEmails: string[];
+  emails: string[];
+};
+
+export function buildCampaignRecipients(input: {
+  audienceEmails: string[];
+  draft: MailingDraft;
+  pickedMemberEmails: string[];
+  pickedTeamMemberEmails: string[];
+}): CampaignRecipients {
+  const usesPicker = isMemberPickerActive(input.pickedMemberEmails, input.pickedTeamMemberEmails);
+  const accountEmails = usesPicker
+    ? normalizeEmailList([
+        ...input.pickedMemberEmails,
+        ...parseCustomEmails(input.draft.customEmails),
+      ])
+    : normalizeEmailList(input.audienceEmails);
+
+  const accountSet = new Set(accountEmails);
+  const teamEmails = normalizeEmailList(input.pickedTeamMemberEmails).filter(
+    (email) => !accountSet.has(email),
+  );
+
+  return {
+    accountEmails,
+    emails: [...accountEmails, ...teamEmails],
+    teamEmails,
+  };
 }
 
 export function renderEmailHtml(body: string) {

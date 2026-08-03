@@ -52,15 +52,17 @@ import {
   listEmailHistory,
   listEventRegistrantAudienceEmails,
   listMailingRecipients,
+  listTeamMemberAudienceEmails,
   sendEmailCampaign,
 } from "../server/mailing.repository";
 import {
+  buildCampaignRecipients,
   emptyMailingDraft,
   emptyApplicationStatusEmails,
   getEmailLogRecipientCount,
+  isMemberPickerActive,
   mailingTemplates,
   normalizeRecipients,
-  parseCustomEmails,
   renderEmailHtml,
   resolveAudienceEmails,
 } from "../server/mailing.service";
@@ -85,11 +87,13 @@ export function AdminMailingPage() {
     Record<ApplicationAudienceStatus, string[]>
   >(emptyApplicationStatusEmails);
   const [eventRegistrantEmails, setEventRegistrantEmails] = useState<string[]>([]);
+  const [teamMemberEmails, setTeamMemberEmails] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [history, setHistory] = useState<EmailLog[]>([]);
   const [historySearch, setHistorySearch] = useState("");
   const [selectedEmail, setSelectedEmail] = useState<EmailLog | null>(null);
   const [pickedMemberEmails, setPickedMemberEmails] = useState<string[]>([]);
+  const [pickedTeamMemberEmails, setPickedTeamMemberEmails] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [composeMode, setComposeMode] = useState<ComposeMode>("closed");
@@ -102,7 +106,7 @@ export function AdminMailingPage() {
     [recipients],
   );
 
-  const useMemberPicker = pickedMemberEmails.length > 0;
+  const useMemberPicker = isMemberPickerActive(pickedMemberEmails, pickedTeamMemberEmails);
 
   const resolvedAudienceEmails = useMemo(
     () =>
@@ -111,22 +115,25 @@ export function AdminMailingPage() {
           applicationStatusEmails,
           eventRegistrantEmails,
           recipients,
-          teamMemberEmails: [],
+          teamMemberEmails,
         },
         draft,
       ),
-    [applicationStatusEmails, draft, eventRegistrantEmails, recipients],
+    [applicationStatusEmails, draft, eventRegistrantEmails, recipients, teamMemberEmails],
   );
 
-  const finalEmails = useMemo(() => {
-    if (useMemberPicker) {
-      const combined = new Set([...pickedMemberEmails]);
-      const extra = parseCustomEmails(draft.customEmails);
-      extra.forEach((email) => combined.add(email));
-      return Array.from(combined);
-    }
-    return resolvedAudienceEmails;
-  }, [useMemberPicker, pickedMemberEmails, draft.customEmails, resolvedAudienceEmails]);
+  const campaign = useMemo(
+    () =>
+      buildCampaignRecipients({
+        audienceEmails: resolvedAudienceEmails,
+        draft,
+        pickedMemberEmails,
+        pickedTeamMemberEmails,
+      }),
+    [draft, pickedMemberEmails, pickedTeamMemberEmails, resolvedAudienceEmails],
+  );
+
+  const finalEmails = campaign.emails;
 
   // Landing data only: the recipient picker + campaign history that the page actually
   // renders. The status/event audience emails are computed lazily when the compose sheet
@@ -169,10 +176,12 @@ export function AdminMailingPage() {
   };
 
   const loadAudiences = async () => {
-    const [applicationAudienceResult, eventAudienceResult] = await Promise.allSettled([
-      listApplicationAudienceEmails(),
-      listEventRegistrantAudienceEmails(),
-    ] as const);
+    const [applicationAudienceResult, eventAudienceResult, teamAudienceResult] =
+      await Promise.allSettled([
+        listApplicationAudienceEmails(),
+        listEventRegistrantAudienceEmails(),
+        listTeamMemberAudienceEmails(),
+      ] as const);
 
     setApplicationStatusEmails(
       applicationAudienceResult.status === "fulfilled"
@@ -182,6 +191,7 @@ export function AdminMailingPage() {
     setEventRegistrantEmails(
       eventAudienceResult.status === "fulfilled" ? eventAudienceResult.value : [],
     );
+    setTeamMemberEmails(teamAudienceResult.status === "fulfilled" ? teamAudienceResult.value : []);
   };
 
   const ensureAudiences = () => {
@@ -228,6 +238,7 @@ export function AdminMailingPage() {
   const resetDraft = () => {
     setDraft(emptyMailingDraft);
     setPickedMemberEmails([]);
+    setPickedTeamMemberEmails([]);
     window.localStorage.removeItem(DRAFT_STORAGE_KEY);
   };
 
@@ -240,7 +251,10 @@ export function AdminMailingPage() {
       toast.error("Choose at least one recipient.");
       return;
     }
-    if (!window.confirm(`Send this email to ${finalEmails.length} recipient(s)?`)) return;
+    const teamNote = campaign.teamEmails.length
+      ? `, including ${campaign.teamEmails.length} team member(s)`
+      : "";
+    if (!window.confirm(`Send this email to ${finalEmails.length} recipient(s)${teamNote}?`)) return;
 
     setIsSending(true);
     try {
@@ -491,15 +505,31 @@ export function AdminMailingPage() {
                       Choose members
                     </h3>
                     <p className="mt-1 text-xs text-[#6C7F95]">
-                      Click a member card to include them. Picked members override the bulk audience.
+                      Click a member card to include them. Business and Partner accounts open a Team
+                      dropdown where each team member can be picked. Picked people override the bulk
+                      audience.
                     </p>
                   </div>
                 </header>
                 <MailingMemberPicker
                   onChange={setPickedMemberEmails}
+                  onTeamChange={setPickedTeamMemberEmails}
                   recipients={recipients}
                   selectedEmails={pickedMemberEmails}
+                  selectedTeamEmails={pickedTeamMemberEmails}
                 />
+                {campaign.teamEmails.length > 0 ? (
+                  <p className="mt-4 rounded-2xl border border-[#D7E5F4] bg-[#F8FBFF] px-4 py-2.5 text-xs text-[#55708D]">
+                    <span className="font-semibold tabular-nums text-[#10203B]">
+                      {campaign.accountEmails.length.toLocaleString("en-US")}
+                    </span>{" "}
+                    account{campaign.accountEmails.length === 1 ? "" : "s"} +{" "}
+                    <span className="font-semibold tabular-nums text-[#10203B]">
+                      {campaign.teamEmails.length.toLocaleString("en-US")}
+                    </span>{" "}
+                    team member{campaign.teamEmails.length === 1 ? "" : "s"}.
+                  </p>
+                ) : null}
               </section>
 
               <section
@@ -534,6 +564,7 @@ export function AdminMailingPage() {
                         <SelectItem value="all_users">All users</SelectItem>
                         <SelectItem value="members">Members</SelectItem>
                         <SelectItem value="partners">Partners</SelectItem>
+                        <SelectItem value="team_members">Team members</SelectItem>
                         <SelectItem value="event_registrants">Event registrants</SelectItem>
                         <SelectItem value="application_pending">Applications: pending</SelectItem>
                         <SelectItem value="application_approved">Applications: approved</SelectItem>
@@ -583,7 +614,11 @@ export function AdminMailingPage() {
                     <span className="font-semibold tabular-nums text-[#10203B]">
                       {resolvedAudienceEmails.length}
                     </span>{" "}
-                    recipient{resolvedAudienceEmails.length === 1 ? "" : "s"}.
+                    recipient{resolvedAudienceEmails.length === 1 ? "" : "s"}
+                    {campaign.teamEmails.length > 0
+                      ? `, plus ${campaign.teamEmails.length} team member${campaign.teamEmails.length === 1 ? "" : "s"}`
+                      : ""}
+                    .
                   </p>
                 ) : null}
               </section>
