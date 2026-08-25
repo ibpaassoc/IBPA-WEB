@@ -67,6 +67,15 @@ import {
   registerDashboardEvent,
   unregisterDashboardEvent,
 } from "../features/events/server/event.service";
+import { upsertCanonicalApplication } from "../features/applications/server/application.repository";
+import {
+  MEMBERSHIP_ANNUAL_AMOUNTS,
+  MEMBERSHIP_APPLICANT_TYPES,
+  calculateMembershipBalance,
+  getMembershipChangeDetails,
+  isMembershipChangeApplicationData,
+  normalizeMembershipCategory,
+} from "../features/memberships/server/membership-change";
 
 export const dashboardRouter = Router();
 export const cardsRouter = Router();
@@ -375,6 +384,176 @@ async function listPaymentsByUserId(
     .where(eq(corePayments.userId, userId))
     .orderBy(desc(corePayments.paidAt), desc(corePayments.createdAt));
 }
+
+const OPEN_MEMBERSHIP_CHANGE_STATUSES = new Set([
+  "SUBMITTED",
+  "UNDER_REVIEW",
+  "APPROVED",
+  "PAYMENT_SENT",
+]);
+
+function toMembershipChangeResponse(application: typeof coreApplications.$inferSelect | null) {
+  if (!application || !isMembershipChangeApplicationData(application.applicationData)) return null;
+  const data = getApplicationData(application);
+  const change = getMembershipChangeDetails(data.membershipChange);
+  if (!change) return null;
+
+  return {
+    id: application.id,
+    status: application.status,
+    fromCategory: change.fromCategory,
+    toCategory: change.toCategory,
+    oldAmount: change.oldAmount,
+    newAmount: change.newAmount,
+    balanceDue: change.balanceDue,
+    reason: change.reason,
+    submittedAt: change.submittedAt || application.createdAt,
+    paymentLink: application.status === "PAYMENT_SENT" ? application.paymentLink : null,
+  };
+}
+
+async function findLatestMembershipChange(
+  db: ReturnType<typeof requireDb>,
+  userId: string,
+) {
+  const applications = await db
+    .select()
+    .from(coreApplications)
+    .where(and(eq(coreApplications.userId, userId), eq(coreApplications.type, "MEMBER")))
+    .orderBy(desc(coreApplications.createdAt));
+
+  return applications.find((item: typeof coreApplications.$inferSelect) =>
+    isMembershipChangeApplicationData(item.applicationData),
+  ) ?? null;
+}
+
+dashboardRouter.get("/membership-change", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(auth.userId, auth.sessionClaims);
+    if (!access?.canonicalUser || !access.membership) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+    if (isTeamMemberAccess(access.accessType) || access.application?.type === "PARTNER") {
+      return res.status(403).json({
+        error: "Membership changes are available to individual and business members only.",
+      });
+    }
+
+    const currentCategory = normalizeMembershipCategory(access.membership.type);
+    if (!currentCategory) {
+      return res.status(422).json({ error: "Your current membership category cannot be changed online." });
+    }
+
+    const latestRequest = await findLatestMembershipChange(access.db, access.canonicalUser.id);
+    return res.json({
+      currentMembership: {
+        id: access.membership.id,
+        category: currentCategory,
+        amount: MEMBERSHIP_ANNUAL_AMOUNTS[currentCategory],
+        expiresAt: access.membership.expiresAt,
+      },
+      latestRequest: toMembershipChangeResponse(latestRequest),
+    });
+  } catch (error) {
+    console.error("[Dashboard membership change] Failed to load", error);
+    return res.status(500).json({ error: "Unable to load membership options right now." });
+  }
+});
+
+dashboardRouter.post("/membership-change", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  if (!auth.userId) return res.status(401).json({ error: "Unauthorized" });
+
+  const requestedCategory = normalizeMembershipCategory(req.body?.membershipCategory);
+  const reason = trimValue(req.body?.reason, 1200);
+  if (!requestedCategory) {
+    return res.status(400).json({ error: "Select a valid membership category." });
+  }
+  if (reason.length < 10) {
+    return res.status(400).json({ error: "Tell us briefly why this membership is the right fit (at least 10 characters)." });
+  }
+
+  try {
+    const access = await requireDashboardAccess(auth.userId, auth.sessionClaims);
+    if (!access?.canonicalUser || !access.membership) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+    if (isTeamMemberAccess(access.accessType) || access.application?.type === "PARTNER") {
+      return res.status(403).json({
+        error: "Membership changes are available to individual and business members only.",
+      });
+    }
+
+    const currentCategory = normalizeMembershipCategory(access.membership.type);
+    if (!currentCategory) {
+      return res.status(422).json({ error: "Your current membership category cannot be changed online." });
+    }
+    if (currentCategory === requestedCategory) {
+      return res.status(409).json({ error: `You already have the ${currentCategory} membership.` });
+    }
+
+    const latestRequest = await findLatestMembershipChange(access.db, access.canonicalUser.id);
+    if (latestRequest && OPEN_MEMBERSHIP_CHANGE_STATUSES.has(latestRequest.status)) {
+      return res.status(409).json({
+        error: "You already have a membership change under review.",
+        request: toMembershipChangeResponse(latestRequest),
+      });
+    }
+
+    const balance = calculateMembershipBalance(currentCategory, requestedCategory);
+    if (!balance) {
+      return res.status(400).json({ error: "Unable to calculate this membership change." });
+    }
+
+    const now = new Date();
+    const requestId = crypto.randomUUID();
+    const paymentToken = crypto.randomUUID();
+    const fullName = access.application?.fullName
+      || [access.profile?.firstName, access.profile?.lastName].filter(Boolean).join(" ")
+      || access.canonicalUser.email;
+    const membershipChange = {
+      previousMembershipId: access.membership.id,
+      previousApplicationId: access.application?.id ?? null,
+      fromCategory: currentCategory,
+      toCategory: requestedCategory,
+      oldAmount: balance.oldAmount,
+      newAmount: balance.newAmount,
+      balanceDue: balance.balanceDue,
+      reason,
+      submittedAt: now.toISOString(),
+    };
+
+    const created = await upsertCanonicalApplication(access.db, {
+      id: requestId,
+      userId: access.canonicalUser.id,
+      type: "MEMBER",
+      packageName: requestedCategory,
+      status: "SUBMITTED",
+      fullName,
+      email: access.canonicalUser.email,
+      phone: access.application?.phone ?? access.profile?.phone ?? null,
+      paymentLink: `/payment-link/${paymentToken}`,
+      applicationData: {
+        applicationKind: "MEMBERSHIP_CHANGE",
+        isMembershipChange: true,
+        membershipCategory: requestedCategory,
+        applicantType: MEMBERSHIP_APPLICANT_TYPES[requestedCategory],
+        membershipChange,
+      },
+      applicationFiles: [],
+      approvedAt: null,
+      createdAt: now,
+    });
+
+    return res.status(201).json({ request: toMembershipChangeResponse(created.record) });
+  } catch (error) {
+    console.error("[Dashboard membership change] Failed to submit", error);
+    return res.status(500).json({ error: "Unable to submit your membership change right now." });
+  }
+});
 
 async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unknown): Promise<DashboardAccessContext | null> {
   const session = await ensureSessionUser(clerkUserId, sessionClaims);

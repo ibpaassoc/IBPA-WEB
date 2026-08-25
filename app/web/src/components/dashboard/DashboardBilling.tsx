@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CreditCard, LifeBuoy } from "lucide-react";
+import { ArrowUpRight, CreditCard, LifeBuoy } from "lucide-react";
 
 import {
   dashboardPrimaryButtonClassName,
@@ -63,6 +63,13 @@ export function DashboardBilling({
           title={t.dashboard.billing.title}
           action={
             <div className="flex flex-wrap gap-3">
+              {!isPartnerOwner ? (
+                <Link href="/dashboard/membership/change" className={dashboardPrimaryButtonClassName}>
+                  Switch membership
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              ) : null}
+
               <Link href="/membership" className={dashboardPrimaryButtonClassName}>
                 {t.dashboard.billing.renew}
               </Link>
