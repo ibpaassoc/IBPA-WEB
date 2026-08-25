@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Router } from "express";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { requireDb } from "../lib/db";
 import {
   coreApplications,
@@ -722,6 +722,7 @@ async function buildAdminOrderRows(db: ReturnType<typeof requireDb>) {
       packageName: coreApplications.packageName,
       status: coreApplications.status,
       createdAt: coreApplications.createdAt,
+      applicationKind: sql<string | null>`${coreApplications.applicationData} ->> 'applicationKind'`,
       stripeSessionId: corePayments.stripeSessionId,
       certificateNumber: coreCertificates.certificateNumber,
     })
@@ -742,7 +743,13 @@ async function buildAdminOrderRows(db: ReturnType<typeof requireDb>) {
     checkoutUrl: null,
     createdAt: row.createdAt,
     certificateNumber: row.certificateNumber ?? null,
-  }));
+    applicationKind: row.applicationKind ?? null,
+  })).sort((left: any, right: any) => {
+    const leftPriority = left.applicationKind === "MEMBERSHIP_CHANGE" ? 1 : 0;
+    const rightPriority = right.applicationKind === "MEMBERSHIP_CHANGE" ? 1 : 0;
+    return rightPriority - leftPriority
+      || new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  });
 }
 
 ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
@@ -962,6 +969,7 @@ ordersRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, r
       membershipCategory: application.packageName,
       applicantType: MEMBERSHIP_APPLICANT_TYPES[(application.packageName || "Professional") as keyof typeof MEMBERSHIP_PRICE_KEYS] || "Individual",
       applicationPayload: application.applicationData,
+      applicationKind: asRecord(application.applicationData).applicationKind ?? null,
       status: mapCanonicalStatusToLegacy(application.status),
       stripeSessionId: payment?.stripeSessionId ?? null,
       createdAt: application.createdAt,

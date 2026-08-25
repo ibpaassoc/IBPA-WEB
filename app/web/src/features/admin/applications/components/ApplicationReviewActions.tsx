@@ -53,7 +53,7 @@ export function ApplicationReviewActions({
   const [requestedChanges, setRequestedChanges] = useState("");
   const isBusy = Boolean(busyAction);
   const memberStatus = memberApplication?.status;
-  const canReview = record.kind === "member" && (memberStatus === "pending" || memberStatus === "review");
+  const canReview = record.kind === "member" && !record.isMembershipChange && (memberStatus === "pending" || memberStatus === "review");
   const isAlreadyInReview = memberStatus === "review";
   const canApprove =
     record.kind === "partner" || memberStatus === "pending" || memberStatus === "review";
@@ -80,7 +80,7 @@ export function ApplicationReviewActions({
             ) : (
               <CheckCircle2 data-icon="inline-start" />
             )}
-            Approve application
+            {record.isMembershipChange ? "Approve membership change" : "Approve application"}
           </Button>
         ) : (
           <p className="rounded-2xl border border-dashed border-[#CFE0F3] bg-white px-4 py-3 text-sm text-[#6C7F95]">

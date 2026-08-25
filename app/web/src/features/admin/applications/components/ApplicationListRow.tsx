@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronDown, Mail, Users } from "lucide-react";
+import { ArrowRight, ChevronDown, Mail, Repeat2, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -45,7 +45,9 @@ export function ApplicationListRow({
         "overflow-hidden rounded-[24px] border bg-white shadow-[0_18px_45px_rgba(15,46,83,0.06)] transition-all duration-200",
         isActive
           ? "border-[#1F5D8F] ring-4 ring-[#1F5D8F]/10"
-          : "border-[#D7E5F4]",
+          : record.isMembershipChange
+            ? "border-[#9BC4DD] bg-[linear-gradient(90deg,#F3FAFF_0%,#FFFFFF_48%)] shadow-[0_18px_50px_rgba(31,93,143,0.11)]"
+            : "border-[#D7E5F4]",
       )}
     >
       <div className="relative flex min-w-0 items-center gap-3 px-4 py-3.5 sm:gap-4">
@@ -65,9 +67,15 @@ export function ApplicationListRow({
             <p className="pointer-events-none min-w-0 truncate text-sm font-semibold text-[#10203B]">
               {record.applicantName}
             </p>
-            <span className="pointer-events-none hidden shrink-0 rounded-full border border-[#D7E5F4] bg-[#F6FAFF] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#55708D] sm:inline">
-              {record.kind === "member" ? record.applicantType : "Partner"}
-            </span>
+            {record.isMembershipChange ? (
+              <span className="pointer-events-none inline-flex shrink-0 items-center gap-1 rounded-full border border-[#8CB8D4] bg-[#E4F2FB] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1F5D8F]">
+                <Repeat2 className="size-3" /> Change request
+              </span>
+            ) : (
+              <span className="pointer-events-none hidden shrink-0 rounded-full border border-[#D7E5F4] bg-[#F6FAFF] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#55708D] sm:inline">
+                {record.kind === "member" ? record.applicantType : "Partner"}
+              </span>
+            )}
 
             {hasTeam ? (
               <button
@@ -92,6 +100,11 @@ export function ApplicationListRow({
             <Mail className="size-3 shrink-0 text-[#8AA2BD]" />
             <span className="truncate">{record.applicantEmail}</span>
           </p>
+          {record.isMembershipChange ? (
+            <p className="pointer-events-none mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4C7D9D]">
+              Priority review · requested {record.membershipPackage}
+            </p>
+          ) : null}
         </div>
 
         <div className="pointer-events-none relative z-[1] hidden shrink-0 flex-col items-end gap-1 sm:flex">

@@ -1,6 +1,6 @@
 "use client";
 
-import { UploadCloud } from "lucide-react";
+import { ArrowRight, Repeat2, UploadCloud } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { applicationSectionTitles } from "@/lib/application-fields";
@@ -114,6 +114,63 @@ function FieldList({ sections }: { sections: ApplicationFieldSection[] }) {
   );
 }
 
+function formatMoney(cents: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
+
+function MembershipChangeCard({ record }: { record: AdminApplicationRecord }) {
+  const change = record.membershipChange;
+  if (!change) {
+    return (
+      <section className="rounded-[24px] border border-[#9BC4DD] bg-[#F2F9FE] p-5 text-sm text-[#315F84]">
+        This record is a membership change, not a new-member application.
+      </section>
+    );
+  }
+
+  return (
+    <section className="overflow-hidden rounded-[26px] border border-[#94BDD8] bg-white shadow-[0_20px_55px_rgba(31,93,143,0.12)]">
+      <div className="bg-[linear-gradient(135deg,#10203B_0%,#285D86_100%)] px-5 py-5 text-white sm:px-6">
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[#C8E2F3]">
+          <Repeat2 className="size-4" /> Priority membership change
+        </div>
+        <h3 className="mt-2 text-xl font-semibold tracking-[-0.02em]">This is not a new application.</h3>
+        <p className="mt-1 text-sm leading-6 text-white/65">Review the member's current status, requested status, and difference-only balance.</p>
+      </div>
+
+      <div className="grid gap-3 p-5 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:p-6">
+        <div className="rounded-[20px] border border-[#D7E5F4] bg-[#F8FBFF] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8AA2BD]">Current membership</p>
+          <p className="mt-2 text-xl font-semibold text-[#10203B]">{change.fromCategory}</p>
+          <p className="mt-1 text-sm text-[#6C7F95]">{formatMoney(change.oldAmount)}</p>
+        </div>
+        <ArrowRight className="mx-auto hidden size-5 text-[#4C7D9D] sm:block" />
+        <div className="rounded-[20px] border border-[#A8CAE0] bg-[#EEF7FD] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#4C7D9D]">Requested membership</p>
+          <p className="mt-2 text-xl font-semibold text-[#10203B]">{change.toCategory}</p>
+          <p className="mt-1 text-sm text-[#55708D]">{formatMoney(change.newAmount)}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 border-t border-[#D7E5F4] bg-[#F8FBFF] px-5 py-5 sm:grid-cols-[minmax(0,1fr)_180px] sm:px-6">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8AA2BD]">Member's reason</p>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#10203B]">{change.reason || "No reason provided."}</p>
+        </div>
+        <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 sm:text-right">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Balance after approval</p>
+          <p className="mt-1 text-2xl font-semibold text-emerald-950">{formatMoney(change.balanceDue)}</p>
+          <p className="mt-1 text-[11px] text-emerald-700/75">New price minus old price</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function ApplicationDetailsPanel({
   isLoading,
   layout = "card",
@@ -180,6 +237,7 @@ export function ApplicationDetailsPanel({
   const memberContent =
     record.kind === "member" && memberApplication ? (
       <div className="space-y-5">
+        {record.isMembershipChange ? <MembershipChangeCard record={record} /> : null}
         {showMembershipSummary && membershipSections.length ? (
           <div className={showMembershipSummary === "mobile" ? "xl:hidden" : undefined}>
             <PanelCard title="Membership">
@@ -188,13 +246,17 @@ export function ApplicationDetailsPanel({
           </div>
         ) : null}
 
-        <PanelCard title="Personal information">
-          <FieldList sections={personalSections} />
-        </PanelCard>
+        {!record.isMembershipChange ? (
+          <>
+            <PanelCard title="Personal information">
+              <FieldList sections={personalSections} />
+            </PanelCard>
 
-        <PanelCard title="Professional information">
-          <FieldList sections={professionalSections} />
-        </PanelCard>
+            <PanelCard title="Professional information">
+              <FieldList sections={professionalSections} />
+            </PanelCard>
+          </>
+        ) : null}
       </div>
     ) : null;
 

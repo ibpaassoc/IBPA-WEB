@@ -13,6 +13,7 @@ import type {
   ApplicationFileGroup,
   ApplicationQueueResponse,
   MemberApplicationDetail,
+  MembershipChangeSummary,
   OrderStatus,
   PartnerApplicationDetail,
   PartnerApplicationStatus,
@@ -60,6 +61,35 @@ function payloadOf(application: MemberApplicationDetail) {
     : {};
 }
 
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+export function getMembershipChangeSummary(application: MemberApplicationDetail): MembershipChangeSummary | null {
+  const payload = payloadOf(application);
+  const marker = application.applicationKind || payload.applicationKind;
+  if (marker !== "MEMBERSHIP_CHANGE") return null;
+
+  const value = payload.membershipChange;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const change = value as Record<string, unknown>;
+  const fromCategory = typeof change.fromCategory === "string" ? change.fromCategory : "";
+  const toCategory = typeof change.toCategory === "string" ? change.toCategory : application.membershipCategory || "";
+  if (!fromCategory || !toCategory) return null;
+
+  return {
+    previousMembershipId: typeof change.previousMembershipId === "string" ? change.previousMembershipId : "",
+    previousApplicationId: typeof change.previousApplicationId === "string" ? change.previousApplicationId : null,
+    fromCategory,
+    toCategory,
+    oldAmount: numberValue(change.oldAmount),
+    newAmount: numberValue(change.newAmount),
+    balanceDue: numberValue(change.balanceDue),
+    reason: typeof change.reason === "string" ? change.reason : "",
+    submittedAt: typeof change.submittedAt === "string" ? change.submittedAt : application.createdAt,
+  };
+}
+
 export function getMemberPaymentStatus(application: MemberApplicationDetail): {
   status: AdminApplicationPaymentStatus;
   label: string;
@@ -97,6 +127,9 @@ export function getPartnerPaymentStatus(status: PartnerPaymentStatus): {
 export function toMemberApplicationRecord(application: MemberApplicationDetail): AdminApplicationRecord {
   const payment = getMemberPaymentStatus(application);
   const payload = payloadOf(application);
+  const membershipChange = getMembershipChangeSummary(application);
+  const isMembershipChange = application.applicationKind === "MEMBERSHIP_CHANGE"
+    || payload.applicationKind === "MEMBERSHIP_CHANGE";
 
   return {
     applicantEmail: application.email,
@@ -106,6 +139,8 @@ export function toMemberApplicationRecord(application: MemberApplicationDetail):
       (typeof payload.applicantType === "string" ? payload.applicantType : "Member"),
     id: application.id,
     kind: "member",
+    isMembershipChange,
+    membershipChange,
     membershipPackage: application.membershipCategory || "Not selected",
     paymentStatus: payment.status,
     paymentStatusLabel: payment.label,
@@ -127,6 +162,8 @@ export function toPartnerApplicationRecord(application: PartnerApplicationDetail
     applicantType: "Partner",
     id: application.id,
     kind: "partner",
+    isMembershipChange: false,
+    membershipChange: null,
     membershipPackage: application.requestedTier || "Partner",
     paymentStatus: payment.status,
     paymentStatusLabel: payment.label,
@@ -141,8 +178,9 @@ export function toPartnerApplicationRecord(application: PartnerApplicationDetail
 
 export function isTeamApplication(record: AdminApplicationRecord) {
   return (
-    record.kind === "partner" ||
+    !record.isMembershipChange && (record.kind === "partner" ||
     getMembershipCategory(record.membershipPackage) === "Business"
+    )
   );
 }
 
@@ -162,16 +200,23 @@ export function handleTeamControlClick(
   onToggleTeam?.(record);
 }
 
+export function sortApplicationQueue(records: AdminApplicationRecord[]) {
+  return [...records].sort((left, right) => {
+    const priority = Number(Boolean(right.isMembershipChange)) - Number(Boolean(left.isMembershipChange));
+    return priority || new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+  });
+}
+
 export async function listApplicationQueue(params: { q?: string } = {}): Promise<ApplicationQueueResponse> {
   const [members, partners] = await Promise.all([
     listMemberApplications({ limit: 100, q: params.q }),
     listPartnerApplications({ limit: 100, q: params.q }),
   ]);
 
-  const records = [
+  const records = sortApplicationQueue([
     ...(Array.isArray(members.items) ? members.items.map(toMemberApplicationRecord) : []),
     ...(Array.isArray(partners.items) ? partners.items.map(toPartnerApplicationRecord) : []),
-  ].sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime());
+  ]);
 
   return {
     hasMoreMembers: Boolean(members.hasMore),
