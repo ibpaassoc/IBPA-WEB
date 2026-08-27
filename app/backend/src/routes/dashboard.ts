@@ -385,6 +385,21 @@ async function listPaymentsByUserId(
     .orderBy(desc(corePayments.paidAt), desc(corePayments.createdAt));
 }
 
+async function findApplicationForMembership(
+  db: ReturnType<typeof requireDb>,
+  membership: typeof coreMemberships.$inferSelect,
+  userId: string,
+  email: string,
+) {
+  const [linkedApplication] = await db
+    .select()
+    .from(coreApplications)
+    .where(eq(coreApplications.id, membership.id))
+    .limit(1);
+
+  return linkedApplication ?? findLatestApplicationByUser(db, userId, email);
+}
+
 const OPEN_MEMBERSHIP_CHANGE_STATUSES = new Set([
   "SUBMITTED",
   "UNDER_REVIEW",
@@ -574,7 +589,7 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
 
     if (membership) {
       const [application, payment, certificate] = await Promise.all([
-        findLatestApplicationByUser(db, canonicalUser.id, canonicalUser.email),
+        findApplicationForMembership(db, membership, canonicalUser.id, canonicalUser.email),
         db.select().from(corePayments).where(eq(corePayments.id, membership.id)).limit(1).then((rows: typeof corePayments.$inferSelect[]) => rows[0] ?? null),
         db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, membership.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
       ]);
@@ -699,7 +714,7 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
   }
 
   const [application, payment, certificate] = await Promise.all([
-    findLatestApplicationByUser(db, ownerUser.id, ownerUser.email),
+    findApplicationForMembership(db, membership, ownerUser.id, ownerUser.email),
     db.select().from(corePayments).where(eq(corePayments.id, membership.id)).limit(1).then((rows: typeof corePayments.$inferSelect[]) => rows[0] ?? null),
     db.select().from(coreCertificates).where(eq(coreCertificates.membershipId, membership.id)).limit(1).then((rows: typeof coreCertificates.$inferSelect[]) => rows[0] ?? null),
   ]);
@@ -711,6 +726,10 @@ async function requireDashboardAccess(clerkUserId: string, sessionClaims?: unkno
     membershipType: membership.type,
     hasTeam: true,
   });
+
+  if (!ownerKind) {
+    return null;
+  }
 
   return {
     db,

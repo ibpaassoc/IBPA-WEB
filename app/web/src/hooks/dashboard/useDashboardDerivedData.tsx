@@ -333,6 +333,7 @@ export function useDashboardDerivedData({
 
   const billingEntries = billingHistory.map((entry) => ({
     id: entry.id,
+    type: entry.type,
     date: new Date(entry.paidAt || entry.createdAt).toLocaleDateString(localeCode, {
       month: "short",
       day: "numeric",

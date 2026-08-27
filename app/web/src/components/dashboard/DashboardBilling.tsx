@@ -14,6 +14,7 @@ import { useI18n } from "@/lib/i18n";
 
 type BillingEntry = {
   id: string;
+  type?: string;
   date: string;
   amount: string;
   status: string;
@@ -129,7 +130,7 @@ export function DashboardBilling({
 
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-slate-950">
-                            {paymentTitle}
+                            {entry.type === "membership_change" ? "Membership change balance" : paymentTitle}
                           </p>
                           <p className="mt-1 text-sm text-slate-500">
                             {entry.date}

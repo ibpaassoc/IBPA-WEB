@@ -245,15 +245,15 @@ export function AdminApplicationsPage() {
                 ...current,
                 certificateNumber: result.certificateNumber ?? current.certificateNumber,
                 checkoutUrl: result.checkoutUrl ?? current.checkoutUrl,
-                status: "approved",
+                status: result.activated ? "paid" : "approved",
               }
             : current,
         );
-        toast.success(
-          selectedApplication.isMembershipChange
-            ? "Membership change approved."
-            : "Member application approved.",
-        );
+        toast.success(selectedApplication.isMembershipChange
+          ? result.activated
+            ? "Membership change approved and activated — no balance was due."
+            : `Membership change approved. ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((result.balanceDue || 0) / 100)} payment link sent.`
+          : "Member application approved.");
       } else {
         await approvePartnerApplication(selectedApplication.id, selectedPartnerTier);
         toast.success("Partner application approved and payment link sent.");
