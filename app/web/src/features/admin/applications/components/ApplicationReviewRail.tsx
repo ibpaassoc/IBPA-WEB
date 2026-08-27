@@ -112,9 +112,19 @@ export function ApplicationReviewRail({
       {record.kind === "member" && memberApplication ? (
         <RailCard title="Membership">
           <div className="space-y-4">
-            <SummaryFields sections={membershipSections} />
+            {record.isMembershipChange && record.membershipChange ? (
+              <div className="rounded-[20px] border border-[#9BC4DD] bg-[#EEF7FD] p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#4C7D9D]">Requested change</p>
+                <p className="mt-2 text-sm font-semibold text-[#10203B]">
+                  {record.membershipChange.fromCategory} → {record.membershipChange.toCategory}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#55708D]">The requested package is locked to keep the reviewed balance accurate.</p>
+              </div>
+            ) : (
+              <SummaryFields sections={membershipSections} />
+            )}
 
-            <FieldGroup>
+            {!record.isMembershipChange ? <FieldGroup>
               <Field>
                 <FieldLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6C7F95]">
                   Membership package
@@ -137,9 +147,9 @@ export function ApplicationReviewRail({
                   </SelectContent>
                 </Select>
               </Field>
-            </FieldGroup>
+            </FieldGroup> : null}
 
-            <Button
+            {!record.isMembershipChange ? <Button
               className="h-11 w-full rounded-2xl border-[#D7E5F4] bg-white text-[#1F5D8F] hover:bg-[#EEF6FF]"
               disabled={busyAction === "membership"}
               onClick={onSaveMembershipCategory}
@@ -150,7 +160,7 @@ export function ApplicationReviewRail({
                 <Loader2 className="animate-spin" data-icon="inline-start" />
               ) : null}
               Save membership package
-            </Button>
+            </Button> : null}
 
             {memberApplication.certificateNumber ? (
               <AdminStatusBadge tone="success">

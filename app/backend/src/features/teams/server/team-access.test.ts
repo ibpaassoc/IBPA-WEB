@@ -46,6 +46,16 @@ test("legacy teams retain partner access when classification is incomplete", () 
   assert.equal(resolveTeamOwnerKind({ role: "MEMBER", hasTeam: true }), "partner");
 });
 
+test("historical team rows do not preserve access after a member leaves Business", () => {
+  assert.equal(resolveTeamOwnerKind({
+    role: "MEMBER",
+    applicationType: "MEMBER",
+    packageName: "Professional",
+    membershipType: "Professional",
+    hasTeam: true,
+  }), null);
+});
+
 test("owner and member dashboard access follows the owner category", () => {
   assert.equal(getTeamOwnerAccessType("partner"), "partner_owner");
   assert.equal(getTeamOwnerAccessType("business"), "business_owner");

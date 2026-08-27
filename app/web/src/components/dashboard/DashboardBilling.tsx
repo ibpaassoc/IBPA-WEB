@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CreditCard, LifeBuoy } from "lucide-react";
+import { ArrowUpRight, CreditCard, LifeBuoy } from "lucide-react";
 
 import {
   dashboardPrimaryButtonClassName,
@@ -14,6 +14,7 @@ import { useI18n } from "@/lib/i18n";
 
 type BillingEntry = {
   id: string;
+  type?: string;
   date: string;
   amount: string;
   status: string;
@@ -63,6 +64,13 @@ export function DashboardBilling({
           title={t.dashboard.billing.title}
           action={
             <div className="flex flex-wrap gap-3">
+              {!isPartnerOwner ? (
+                <Link href="/dashboard/membership/change" className={dashboardPrimaryButtonClassName}>
+                  Switch membership
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              ) : null}
+
               <Link href="/membership" className={dashboardPrimaryButtonClassName}>
                 {t.dashboard.billing.renew}
               </Link>
@@ -122,7 +130,7 @@ export function DashboardBilling({
 
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-slate-950">
-                            {paymentTitle}
+                            {entry.type === "membership_change" ? "Membership change balance" : paymentTitle}
                           </p>
                           <p className="mt-1 text-sm text-slate-500">
                             {entry.date}

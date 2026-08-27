@@ -37,7 +37,21 @@ export type AdminApplicationRecord = {
   paymentStatusLabel: string;
   paymentStatusTone: AdminStatusTone;
   submittedAt: string;
+  isMembershipChange?: boolean;
+  membershipChange?: MembershipChangeSummary | null;
   raw: AdminOrder | AdminPartnerApplication;
+};
+
+export type MembershipChangeSummary = {
+  previousMembershipId: string;
+  previousApplicationId: string | null;
+  fromCategory: string;
+  toCategory: string;
+  oldAmount: number;
+  newAmount: number;
+  balanceDue: number;
+  reason: string;
+  submittedAt: string;
 };
 
 export type MemberApplicationDetail = AdminOrder;

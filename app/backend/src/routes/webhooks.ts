@@ -32,6 +32,8 @@ import {
   INCLUDED_TEAM_SEATS,
   isBusinessOwnerMembershipType,
 } from "../features/teams/server/team-access";
+import { activateMembershipChange } from "../features/memberships/server/membership-change-activation";
+import { getMembershipChangeDetails, isMembershipChangeApplicationData } from "../features/memberships/server/membership-change";
 
 export const webhooksRouter = Router();
 
@@ -339,6 +341,47 @@ async function handleMemberCheckoutSession(session: Stripe.Checkout.Session) {
   }
 }
 
+async function handleMembershipChangeCheckoutSession(session: Stripe.Checkout.Session) {
+  const applicationId = session.metadata?.applicationId || session.metadata?.orderId;
+  if (!applicationId) return;
+
+  const db = requireDb();
+  const [application] = await db
+    .select()
+    .from(coreApplications)
+    .where(eq(coreApplications.id, applicationId))
+    .limit(1);
+  if (!application || !isMembershipChangeApplicationData(application.applicationData)) return;
+
+  const change = getMembershipChangeDetails(asRecord(application.applicationData).membershipChange);
+  if (!change) return;
+
+  await activateMembershipChange(db, {
+    application,
+    stripeSessionId: session.id,
+    paidAt: new Date(),
+  });
+
+  try {
+    await sendEmailOrThrow({
+      from: PAYMENTS_SENDER,
+      to: application.email,
+      replyTo: PAYMENTS_REPLY_TO,
+      subject: "Your IBPA membership change is complete",
+      html: `<div style="font-family: Arial, sans-serif; padding: 20px;"><p>Hello ${escapeHtml(application.fullName || "there")},</p><p>Your payment was received and your membership has changed from <strong>${escapeHtml(change.fromCategory)}</strong> to <strong>${escapeHtml(change.toCategory)}</strong>.</p><p>Your existing dashboard access and membership expiry date are preserved.</p></div>`,
+    });
+    await sendAdminPaymentReceivedEmail({
+      applicationId,
+      email: application.email,
+      name: application.fullName,
+      membershipCategory: application.packageName,
+      stripeSessionId: session.id,
+    });
+  } catch (error) {
+    console.error("[Stripe Webhook] Failed to send membership-change emails", error);
+  }
+}
+
 async function handlePartnerApplicationCheckoutSession(session: Stripe.Checkout.Session) {
   const applicationId = session.metadata?.partnerApplicationId || session.metadata?.partner_application_id;
   if (!applicationId) {
@@ -405,7 +448,9 @@ webhooksRouter.post("/stripe", bodyParser.raw({ type: "*/*" }), async (req, res)
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        if (session.metadata?.orderKind === "membership") {
+        if (session.metadata?.orderKind === "membership_change") {
+          await handleMembershipChangeCheckoutSession(session);
+        } else if (session.metadata?.orderKind === "membership") {
           await handleMemberCheckoutSession(session);
         } else if (session.metadata?.orderKind === "partner_application") {
           await handlePartnerApplicationCheckoutSession(session);

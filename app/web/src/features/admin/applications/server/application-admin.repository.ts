@@ -61,7 +61,13 @@ export async function getPartnerApplication(id: string) {
 }
 
 export async function approveMemberApplication(orderId: string) {
-  return requestJson<{ certificateNumber?: string; checkoutUrl?: string | null }>(
+  return requestJson<{
+    certificateNumber?: string;
+    checkoutUrl?: string | null;
+    paymentRequired?: boolean;
+    activated?: boolean;
+    balanceDue?: number | null;
+  }>(
     "/api/admin/approve",
     {
       body: JSON.stringify({ orderId }),

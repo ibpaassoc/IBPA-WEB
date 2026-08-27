@@ -47,6 +47,12 @@ export function resolveTeamOwnerKind(input: {
     return "business";
   }
 
+  // A member who moved away from Business can retain historical team rows,
+  // but those rows must not keep granting owner or seat access.
+  if (applicationType === "member") {
+    return null;
+  }
+
   // Preserve access for legacy partner teams whose source classification is
   // incomplete. Business Owner records are identified above before this fallback.
   return input.hasTeam ? "partner" : null;

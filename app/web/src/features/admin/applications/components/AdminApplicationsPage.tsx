@@ -148,6 +148,10 @@ export function AdminApplicationsPage() {
     () => filterApplicationRecords(applications, filters),
     [applications, filters],
   );
+  const membershipChangeTotal = useMemo(
+    () => applications.filter((record) => record.isMembershipChange).length,
+    [applications],
+  );
 
   const toggleTeam = (record: AdminApplicationRecord) => {
     const key = selectedKey(record);
@@ -241,11 +245,15 @@ export function AdminApplicationsPage() {
                 ...current,
                 certificateNumber: result.certificateNumber ?? current.certificateNumber,
                 checkoutUrl: result.checkoutUrl ?? current.checkoutUrl,
-                status: "approved",
+                status: result.activated ? "paid" : "approved",
               }
             : current,
         );
-        toast.success("Member application approved.");
+        toast.success(selectedApplication.isMembershipChange
+          ? result.activated
+            ? "Membership change approved and activated — no balance was due."
+            : `Membership change approved. ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((result.balanceDue || 0) / 100)} payment link sent.`
+          : "Member application approved.");
       } else {
         await approvePartnerApplication(selectedApplication.id, selectedPartnerTier);
         toast.success("Partner application approved and payment link sent.");
@@ -439,7 +447,13 @@ export function AdminApplicationsPage() {
         eyebrow="Admin workspace"
         title="Applications"
       >
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminMetricCard
+            active={membershipChangeTotal > 0}
+            hint="Pinned to the top of the queue"
+            label="Priority changes"
+            value={membershipChangeTotal}
+          />
           <AdminMetricCard active label="Members in queue" value={memberTotal} />
           <AdminMetricCard label="Partners in queue" value={partnerTotal} />
           <AdminMetricCard
@@ -573,7 +587,9 @@ export function AdminApplicationsPage() {
         eyebrow={
           selectedApplication
             ? selectedApplication.kind === "member"
-              ? "Member application"
+              ? selectedApplication.isMembershipChange
+                ? "Priority membership change"
+                : "Member application"
               : "Partner application"
             : undefined
         }

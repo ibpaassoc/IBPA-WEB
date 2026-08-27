@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Router } from "express";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { requireDb } from "../lib/db";
 import {
   coreApplications,
@@ -34,6 +34,12 @@ import {
   INCLUDED_TEAM_SEATS,
   isBusinessOwnerMembershipType,
 } from "../features/teams/server/team-access";
+import {
+  calculateMembershipBalance,
+  getMembershipChangeDetails,
+  isMembershipChangeApplicationData,
+} from "../features/memberships/server/membership-change";
+import { activateMembershipChange } from "../features/memberships/server/membership-change-activation";
 import {
   isUuid,
   listAdminTeamMembersByOwnerOrder,
@@ -137,6 +143,14 @@ function getSuccessUrl(secureToken: string) {
     throw new Error("DASHBOARD_URL or FRONTEND_URL is not configured");
   }
   return `${frontendUrl.replace(/\/$/, "")}/success?token=${encodeURIComponent(secureToken)}&session_id={CHECKOUT_SESSION_ID}`;
+}
+
+function getMembershipChangeSuccessUrl(secureToken: string) {
+  const frontendUrl = process.env.DASHBOARD_URL || process.env.FRONTEND_URL;
+  if (!frontendUrl) {
+    throw new Error("DASHBOARD_URL or FRONTEND_URL is not configured");
+  }
+  return `${frontendUrl.replace(/\/$/, "")}/dashboard/membership/change/success?token=${encodeURIComponent(secureToken)}&session_id={CHECKOUT_SESSION_ID}`;
 }
 
 function getMembershipPriceId(category?: string | null) {
@@ -442,6 +456,42 @@ async function sendApprovalEmail(params: { email: string; name: string; certific
   });
 }
 
+async function sendMembershipChangeApprovalEmail(params: {
+  email: string;
+  name: string;
+  fromCategory: string;
+  toCategory: string;
+  balanceDue: number;
+  checkoutUrl?: string | null;
+  paymentLinkUrl?: string | null;
+  activated?: boolean;
+}) {
+  const formattedBalance = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(params.balanceDue / 100);
+  return sendEmailOrThrow({
+    from: APPLICATIONS_SENDER,
+    to: params.email,
+    replyTo: APPLICATIONS_REPLY_TO,
+    subject: params.activated
+      ? "Your IBPA membership change is complete"
+      : "Your IBPA membership change has been approved",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; border: 1px solid #dbe7f2; border-radius: 20px; color: #10203b;">
+        <p>Hello ${escapeHtml(params.name || "there")},</p>
+        <h2 style="margin: 12px 0;">${params.activated ? "Membership changed" : "Change approved"}</h2>
+        <p>Your request to move from <strong>${escapeHtml(params.fromCategory)}</strong> to <strong>${escapeHtml(params.toCategory)}</strong> has been approved.</p>
+        ${params.activated
+          ? `<p>There was no additional balance. Your new membership is active now.</p>`
+          : `<p>Only the difference between the memberships is due: <strong>${escapeHtml(formattedBalance)}</strong>.</p>
+             <p style="margin: 28px 0;"><a href="${escapeHtml(params.checkoutUrl || "#")}" style="display:inline-block;background:#10203b;color:#fff;padding:14px 22px;border-radius:12px;text-decoration:none;font-weight:bold;">Pay membership difference</a></p>
+             ${params.paymentLinkUrl ? `<p><a href="${escapeHtml(params.paymentLinkUrl)}">Need a fresh payment link?</a></p>` : ""}`}
+      </div>
+    `,
+  });
+}
+
 async function sendAdminPaymentLinkSentEmail(params: { email: string; name: string; orderId: string; membershipCategory?: string | null; checkoutUrl?: string | null; }) {
   return sendEmailOrThrow({
     from: PAYMENTS_SENDER,
@@ -556,6 +606,82 @@ async function createMembershipCheckoutSession(params: { application: typeof cor
     throw new Error("This order has already been paid.");
   }
 
+  if (isMembershipChangeApplicationData(application.applicationData)) {
+    const change = getMembershipChangeDetails(asRecord(application.applicationData).membershipChange);
+    if (!change) throw new Error("The membership change details are invalid.");
+    const recalculated = calculateMembershipBalance(change.fromCategory, change.toCategory);
+    if (!recalculated || recalculated.balanceDue !== change.balanceDue) {
+      throw new Error("The membership difference could not be verified.");
+    }
+
+    const token = getApplicationPaymentToken(application) || crypto.randomUUID();
+    const paymentLinkUrl = getPaymentLinkUrl(token);
+    if (change.balanceDue === 0) {
+      const activated = await activateMembershipChange(requireDb(), { application, paidAt: new Date() });
+      return {
+        session: null,
+        certificateNumber: activated.certificateNumber,
+        paymentLinkUrl: null,
+        membershipChange: change,
+        activated: true,
+      };
+    }
+
+    const metadata = {
+      orderId: application.id,
+      orderKind: "membership_change",
+      applicationId: application.id,
+      applicantEmail: application.email,
+      fromMembership: change.fromCategory,
+      toMembership: change.toCategory,
+      balanceDue: String(change.balanceDue),
+      environment: process.env.NODE_ENV || "development",
+    };
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      customer_email: application.email,
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          unit_amount: change.balanceDue,
+          product_data: {
+            name: `IBPA membership change: ${change.fromCategory} to ${change.toCategory}`,
+            description: "Difference between current and requested annual membership",
+          },
+        },
+        quantity: 1,
+      }],
+      mode: "payment",
+      success_url: getMembershipChangeSuccessUrl(token),
+      cancel_url: `${process.env.DASHBOARD_URL || process.env.FRONTEND_URL}/dashboard/membership/change`,
+      metadata,
+    });
+
+    const db = requireDb();
+    await upsertCanonicalPayment(db, {
+      id: application.id,
+      userId: application.userId ?? payment?.userId ?? null,
+      type: "membership_change",
+      stripeSessionId: session.id,
+      amount: change.balanceDue,
+      status: "PENDING",
+      createdAt: payment?.createdAt ?? application.createdAt,
+      paidAt: null,
+    });
+    await db.update(coreApplications).set({
+      status: "PAYMENT_SENT",
+      paymentLink: `/payment-link/${token}`,
+    }).where(eq(coreApplications.id, application.id));
+
+    return {
+      session,
+      certificateNumber: getApplicationCertificateNumber(application) || "",
+      paymentLinkUrl,
+      membershipChange: change,
+      activated: false,
+    };
+  }
+
   const certificateNumber = await ensureCertificateNumber(application);
   const token = getApplicationPaymentToken(application) || crypto.randomUUID();
   const paymentLinkUrl = getPaymentLinkUrl(token);
@@ -608,6 +734,8 @@ async function createMembershipCheckoutSession(params: { application: typeof cor
     session,
     certificateNumber,
     paymentLinkUrl,
+    membershipChange: null,
+    activated: false,
   };
 }
 
@@ -722,6 +850,7 @@ async function buildAdminOrderRows(db: ReturnType<typeof requireDb>) {
       packageName: coreApplications.packageName,
       status: coreApplications.status,
       createdAt: coreApplications.createdAt,
+      applicationKind: sql<string | null>`${coreApplications.applicationData} ->> 'applicationKind'`,
       stripeSessionId: corePayments.stripeSessionId,
       certificateNumber: coreCertificates.certificateNumber,
     })
@@ -742,7 +871,13 @@ async function buildAdminOrderRows(db: ReturnType<typeof requireDb>) {
     checkoutUrl: null,
     createdAt: row.createdAt,
     certificateNumber: row.certificateNumber ?? null,
-  }));
+    applicationKind: row.applicationKind ?? null,
+  })).sort((left: any, right: any) => {
+    const leftPriority = left.applicationKind === "MEMBERSHIP_CHANGE" ? 1 : 0;
+    const rightPriority = right.applicationKind === "MEMBERSHIP_CHANGE" ? 1 : 0;
+    return rightPriority - leftPriority
+      || new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  });
 }
 
 ordersRouter.get("/", adminClerkMiddleware, requireAdminAccess, async (req, res) => {
@@ -962,6 +1097,7 @@ ordersRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, r
       membershipCategory: application.packageName,
       applicantType: MEMBERSHIP_APPLICANT_TYPES[(application.packageName || "Professional") as keyof typeof MEMBERSHIP_PRICE_KEYS] || "Individual",
       applicationPayload: application.applicationData,
+      applicationKind: asRecord(application.applicationData).applicationKind ?? null,
       status: mapCanonicalStatusToLegacy(application.status),
       stripeSessionId: payment?.stripeSessionId ?? null,
       createdAt: application.createdAt,
@@ -1310,37 +1446,63 @@ ordersRouter.post("/admin/approve", adminClerkMiddleware, requireAdminAccess, as
       return res.status(404).json({ error: "Order not found" });
     }
 
-    const { session, certificateNumber, paymentLinkUrl } = await createMembershipCheckoutSession({ application, payment });
+    const checkout = await createMembershipCheckoutSession({ application, payment });
+    const { session, certificateNumber, paymentLinkUrl, membershipChange, activated } = checkout;
     try {
-      await sendApprovalEmail({
-        email: application.email,
-        name: application.fullName,
-        certificateNumber,
-        checkoutUrl: session.url,
-        paymentLinkUrl,
-      });
+      if (membershipChange) {
+        await sendMembershipChangeApprovalEmail({
+          email: application.email,
+          name: application.fullName,
+          fromCategory: membershipChange.fromCategory,
+          toCategory: membershipChange.toCategory,
+          balanceDue: membershipChange.balanceDue,
+          checkoutUrl: session?.url,
+          paymentLinkUrl,
+          activated,
+        });
+      } else {
+        await sendApprovalEmail({
+          email: application.email,
+          name: application.fullName,
+          certificateNumber,
+          checkoutUrl: session?.url,
+          paymentLinkUrl,
+        });
+      }
     } catch (emailError) {
       console.error("Applicant approval email failed", emailError);
-      return res.status(502).json({
-        error:
-          "The application was approved, but the approval email could not be delivered. Verify email delivery and use Resend Payment Link.",
-        code: "APPROVAL_EMAIL_FAILED",
-      });
+      if (!activated) {
+        return res.status(502).json({
+          error:
+            "The application was approved, but the approval email could not be delivered. Verify email delivery and use Resend Payment Link.",
+          code: "APPROVAL_EMAIL_FAILED",
+        });
+      }
     }
 
     try {
-      await sendAdminPaymentLinkSentEmail({
-        email: application.email,
-        name: application.fullName,
-        orderId: application.id,
-        membershipCategory: application.packageName,
-        checkoutUrl: session.url,
-      });
+      if (session) {
+        await sendAdminPaymentLinkSentEmail({
+          email: application.email,
+          name: application.fullName,
+          orderId: application.id,
+          membershipCategory: application.packageName,
+          checkoutUrl: session.url,
+        });
+      }
     } catch (emailError) {
       console.error("Admin approval notification email failed", emailError);
     }
 
-    return res.json({ success: true, certificateNumber, checkoutUrl: session.url, paymentLinkUrl });
+    return res.json({
+      success: true,
+      certificateNumber,
+      checkoutUrl: session?.url ?? null,
+      paymentLinkUrl,
+      paymentRequired: Boolean(session),
+      activated,
+      balanceDue: membershipChange?.balanceDue ?? null,
+    });
   } catch (error) {
     console.error("Failed to approve order", error);
     return res.status(500).json({ error: "Failed to approve order" });
@@ -1381,27 +1543,42 @@ ordersRouter.post("/payment-link", async (req, res) => {
       return res.status(409).json({ error: "Payment link can only be regenerated after approval." });
     }
 
-    const { session, certificateNumber, paymentLinkUrl } = await createMembershipCheckoutSession({ application, payment });
+    const { session, certificateNumber, paymentLinkUrl, membershipChange, activated } = await createMembershipCheckoutSession({ application, payment });
     try {
-      await sendApprovalEmail({
-        email: application.email,
-        name: application.fullName,
-        certificateNumber,
-        checkoutUrl: session.url,
-        paymentLinkUrl,
-      });
-      await sendAdminPaymentLinkSentEmail({
-        email: application.email,
-        name: application.fullName,
-        orderId: application.id,
-        membershipCategory: application.packageName,
-        checkoutUrl: session.url,
-      });
+      if (membershipChange) {
+        await sendMembershipChangeApprovalEmail({
+          email: application.email,
+          name: application.fullName,
+          fromCategory: membershipChange.fromCategory,
+          toCategory: membershipChange.toCategory,
+          balanceDue: membershipChange.balanceDue,
+          checkoutUrl: session?.url,
+          paymentLinkUrl,
+          activated,
+        });
+      } else {
+        await sendApprovalEmail({
+          email: application.email,
+          name: application.fullName,
+          certificateNumber,
+          checkoutUrl: session?.url,
+          paymentLinkUrl,
+        });
+      }
+      if (session) {
+        await sendAdminPaymentLinkSentEmail({
+          email: application.email,
+          name: application.fullName,
+          orderId: application.id,
+          membershipCategory: application.packageName,
+          checkoutUrl: session.url,
+        });
+      }
     } catch (emailError) {
       console.error("[Payment Link] Failed to send fresh approval email", emailError);
     }
 
-    return res.json({ success: true, checkoutUrl: session.url, paymentLinkUrl, certificateNumber });
+    return res.json({ success: true, checkoutUrl: session?.url ?? null, paymentLinkUrl, certificateNumber, activated });
   } catch (error) {
     console.error("[Payment Link] Failed to regenerate payment link", error);
     return res.status(500).json({ error: "Failed to regenerate payment link" });
@@ -1545,15 +1722,28 @@ ordersRouter.post("/:id/resend-payment-link", adminClerkMiddleware, requireAdmin
       return res.status(409).json({ error: "This application has already been paid." });
     }
 
-    const { session, certificateNumber, paymentLinkUrl } = await createMembershipCheckoutSession({ application, payment });
+    const { session, certificateNumber, paymentLinkUrl, membershipChange, activated } = await createMembershipCheckoutSession({ application, payment });
     try {
-      await sendApprovalEmail({
-        email: application.email,
-        name: application.fullName,
-        certificateNumber,
-        checkoutUrl: session.url,
-        paymentLinkUrl,
-      });
+      if (membershipChange) {
+        await sendMembershipChangeApprovalEmail({
+          email: application.email,
+          name: application.fullName,
+          fromCategory: membershipChange.fromCategory,
+          toCategory: membershipChange.toCategory,
+          balanceDue: membershipChange.balanceDue,
+          checkoutUrl: session?.url,
+          paymentLinkUrl,
+          activated,
+        });
+      } else {
+        await sendApprovalEmail({
+          email: application.email,
+          name: application.fullName,
+          certificateNumber,
+          checkoutUrl: session?.url,
+          paymentLinkUrl,
+        });
+      }
     } catch (emailError) {
       console.error("[Admin] Failed to send fresh payment link email", emailError);
       return res.status(502).json({
@@ -1564,18 +1754,20 @@ ordersRouter.post("/:id/resend-payment-link", adminClerkMiddleware, requireAdmin
     }
 
     try {
-      await sendAdminPaymentLinkSentEmail({
-        email: application.email,
-        name: application.fullName,
-        orderId: application.id,
-        membershipCategory: application.packageName,
-        checkoutUrl: session.url,
-      });
+      if (session) {
+        await sendAdminPaymentLinkSentEmail({
+          email: application.email,
+          name: application.fullName,
+          orderId: application.id,
+          membershipCategory: application.packageName,
+          checkoutUrl: session.url,
+        });
+      }
     } catch (emailError) {
       console.error("[Admin] Payment-link notification email failed", emailError);
     }
 
-    return res.json({ success: true, checkoutUrl: session.url, paymentLinkUrl, certificateNumber });
+    return res.json({ success: true, checkoutUrl: session?.url ?? null, paymentLinkUrl, certificateNumber, activated });
   } catch (error) {
     console.error("Failed to resend payment link", error);
     return res.status(500).json({ error: "Failed to resend payment link" });
@@ -1610,19 +1802,45 @@ ordersRouter.get("/verify/:token", async (req, res) => {
       const isPaidSession = session.status === "complete"
         && (session.payment_status === "paid" || session.payment_status === "no_payment_required");
 
-      if (sessionOrderId === application.id && sessionOrderKind === "membership" && isPaidSession) {
-        await markApplicationPaid({
-          application,
-          stripeSessionId: session.id,
-          subscriptionId: typeof session.subscription === "string" ? session.subscription : null,
-        });
+      if (
+        sessionOrderId === application.id
+        && (sessionOrderKind === "membership" || sessionOrderKind === "membership_change")
+        && isPaidSession
+      ) {
+        if (sessionOrderKind === "membership_change") {
+          await activateMembershipChange(db, {
+            application,
+            stripeSessionId: session.id,
+            paidAt: new Date(),
+          });
+        } else {
+          await markApplicationPaid({
+            application,
+            stripeSessionId: session.id,
+            subscriptionId: typeof session.subscription === "string" ? session.subscription : null,
+          });
+        }
 
         try {
-          await sendDashboardActivationEmail({
-            email: application.email,
-            name: application.fullName,
-            secureToken: token,
-          });
+          if (sessionOrderKind === "membership_change") {
+            const change = getMembershipChangeDetails(asRecord(application.applicationData).membershipChange);
+            if (change) {
+              await sendMembershipChangeApprovalEmail({
+                email: application.email,
+                name: application.fullName,
+                fromCategory: change.fromCategory,
+                toCategory: change.toCategory,
+                balanceDue: change.balanceDue,
+                activated: true,
+              });
+            }
+          } else {
+            await sendDashboardActivationEmail({
+              email: application.email,
+              name: application.fullName,
+              secureToken: token,
+            });
+          }
           await sendAdminPaymentReceivedEmail({
             email: application.email,
             name: application.fullName,

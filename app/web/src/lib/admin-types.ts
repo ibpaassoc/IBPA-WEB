@@ -11,6 +11,7 @@ export type AdminOrder = {
   membershipCategory?: string | null;
   applicantType?: string | null;
   applicationPayload?: ApplicationPayload;
+  applicationKind?: string | null;
   status: OrderStatus;
   stripeSessionId?: string | null;
   checkoutUrl?: string | null;
