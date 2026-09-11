@@ -173,6 +173,20 @@ export async function listZoomRecordings(input: {
   };
 }
 
+export async function getZoomMeetingRecordings(meetingUuid: string) {
+  // Zoom requires UUIDs containing reserved characters to be encoded twice.
+  const encodedUuid = encodeURIComponent(encodeURIComponent(meetingUuid));
+  const response = await zoomFetch(
+    `${ZOOM_API_ORIGIN}/meetings/${encodedUuid}/recordings`,
+  );
+
+  if (!response.ok) {
+    throw new Error(await readZoomError(response));
+  }
+
+  return (await response.json()) as ZoomRecordingMeeting;
+}
+
 export async function openZoomRecordingDownload(downloadUrl: string) {
   let parsed: URL;
   try {
