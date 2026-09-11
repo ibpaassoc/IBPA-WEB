@@ -52,3 +52,27 @@ export type WebinarImportOption = {
   recordingStart: string | null;
   recordingEnd: string | null;
 };
+
+export type WebinarStoredObject = {
+  contentLength: number | null;
+  contentType: string | null;
+  etag: string | null;
+  lastModified: string | null;
+  metadata?: Record<string, string>;
+};
+
+export type WebinarSubtitleTrack = WebinarStoredObject & {
+  language: SubtitleLanguage;
+  exists: boolean;
+};
+
+export type AdminWebinarDetail = AdminWebinar & {
+  storage: { video: WebinarStoredObject | null };
+  tracks: WebinarSubtitleTrack[];
+};
+
+export type WebinarSubtitleDocument = {
+  language: SubtitleLanguage;
+  etag: string | null;
+  text: string;
+};

@@ -175,6 +175,7 @@ export async function headR2Object(key: string) {
       contentType: result.ContentType ?? null,
       etag: normalizeEtag(result.ETag),
       lastModified: result.LastModified?.toISOString() ?? null,
+      metadata: result.Metadata || {},
     };
   } catch (error) {
     if (isMissingObjectError(error)) return null;

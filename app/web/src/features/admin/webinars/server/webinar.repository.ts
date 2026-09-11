@@ -1,8 +1,11 @@
 import { requestJson } from "../../shared/utils/admin-request";
 import type {
+  AdminWebinarDetail,
   AdminWebinar,
+  SubtitleLanguage,
   WebinarImportOption,
   WebinarListResponse,
+  WebinarSubtitleDocument,
 } from "../types/webinar.types";
 
 export async function listWebinars(search: string, signal?: AbortSignal) {
@@ -48,5 +51,62 @@ export async function importWebinarRecording(id: string, recordingFileId: string
       method: "POST",
     },
     "Could not start the webinar import.",
+  );
+}
+
+export async function getWebinar(id: string, signal?: AbortSignal) {
+  return requestJson<AdminWebinarDetail>(
+    `/api/admin/webinars/${encodeURIComponent(id)}`,
+    { cache: "no-store", signal },
+    "Could not load the webinar.",
+  );
+}
+
+export async function getWebinarPlayback(id: string, signal?: AbortSignal) {
+  return requestJson<{ url: string; expiresIn: number }>(
+    `/api/admin/webinars/${encodeURIComponent(id)}/playback`,
+    { cache: "no-store", signal },
+    "Could not prepare video playback.",
+  );
+}
+
+export async function getWebinarSubtitle(
+  id: string,
+  language: SubtitleLanguage,
+  signal?: AbortSignal,
+) {
+  return requestJson<WebinarSubtitleDocument>(
+    `/api/admin/webinars/${encodeURIComponent(id)}/subtitles?language=${language}`,
+    { cache: "no-store", signal },
+    "Could not load the subtitle track.",
+  );
+}
+
+export async function saveWebinarSubtitle(input: {
+  id: string;
+  language: SubtitleLanguage;
+  vtt: string;
+  expectedEtag: string | null;
+}) {
+  return requestJson<{ key: string; etag: string | null }>(
+    `/api/admin/webinars/${encodeURIComponent(input.id)}/subtitles`,
+    {
+      body: JSON.stringify({
+        language: input.language,
+        vtt: input.vtt,
+        expectedEtag: input.expectedEtag,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    },
+    "Could not save subtitles.",
+  );
+}
+
+export async function createEnglishTestTrack(id: string) {
+  return requestJson<{ outcome: "created"; key: string; etag: string | null }>(
+    `/api/admin/webinars/${encodeURIComponent(id)}/translate-english`,
+    { body: "{}", headers: { "Content-Type": "application/json" }, method: "POST" },
+    "Could not create the English test track.",
   );
 }
