@@ -22,6 +22,9 @@
     "test:profile-sync": "tsx scripts/test-application-profile-sync.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1131.0",
+    "@aws-sdk/lib-storage": "^3.1131.0",
+    "@aws-sdk/s3-request-presigner": "^3.1131.0",
     "@clerk/express": "^2.0.4",
     "@clerk/nextjs": "^7.4.3",
     "@neondatabase/serverless": "^1.0.2",
