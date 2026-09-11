@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Mail,
   Newspaper,
+  Video,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -44,6 +45,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       { href: "/admin/events", label: "Events", icon: CalendarDays },
       { href: "/admin/articles", label: "Articles", icon: Newspaper },
+      { href: "/admin/webinars", label: "Webinars", icon: Video },
       { href: "/admin/mailing", label: "Mailing", icon: Mail },
     ],
   },

@@ -63,6 +63,48 @@
   mix-blend-mode: multiply;
 }
 
+/* Every admin-owned scroll surface inherits the same visible scrollbar. */
+.admin-theme,
+.admin-theme * {
+  scrollbar-color: #9fb7d5 #eef5ff;
+  scrollbar-width: thin;
+}
+
+.admin-theme::-webkit-scrollbar,
+.admin-theme *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.admin-theme::-webkit-scrollbar-track,
+.admin-theme *::-webkit-scrollbar-track {
+  background: #eef5ff;
+}
+
+.admin-theme::-webkit-scrollbar-thumb,
+.admin-theme *::-webkit-scrollbar-thumb {
+  border: 2px solid #eef5ff;
+  border-radius: 999px;
+  background: #9fb7d5;
+}
+
+.admin-theme::-webkit-scrollbar-thumb:hover,
+.admin-theme *::-webkit-scrollbar-thumb:hover {
+  background: #7899be;
+}
+
+.admin-theme::-webkit-scrollbar-thumb:active,
+.admin-theme *::-webkit-scrollbar-thumb:active {
+  background: #55708f;
+}
+
+@media (forced-colors: active) {
+  .admin-theme,
+  .admin-theme * {
+    scrollbar-color: auto;
+  }
+}
+
 /* Sheet inner panels: subtle one-shot fade-in, used by AdminSheet rails / main */
 @keyframes adminSheetIn {
   from { opacity: 0; transform: translate3d(8px, 0, 0); }
