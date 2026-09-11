@@ -41,10 +41,13 @@ export type ResolvedContentImage = ContentImageMetadata & {
 export function toContentImagePayload(
   metadata?: ContentImageMetadata | null,
 ): ContentImageMetadata | null {
-  if (!metadata?.url?.trim()) return null;
+  if (!metadata) return null;
+
+  const url = trimmedString(metadata.url);
+  if (!url) return null;
 
   return {
-    url: metadata.url.trim(),
+    url,
     key: metadata.key ?? null,
     originalWidth: finitePositive(metadata.originalWidth),
     originalHeight: finitePositive(metadata.originalHeight),
@@ -61,7 +64,7 @@ export function toContentImagePayload(
       metadata.focalPoint.y <= 1
         ? { ...metadata.focalPoint }
         : null,
-    alt: metadata.alt?.trim() || null,
+    alt: trimmedString(metadata.alt) || null,
     version: finitePositive(metadata.version),
   };
 }
@@ -84,6 +87,10 @@ export function getContentImageAspectValue(
   originalAspect = 16 / 9,
 ) {
   return aspect === "original" ? originalAspect : aspectValues[aspect];
+}
+
+function trimmedString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function finitePositive(value: unknown): number | null {
@@ -132,7 +139,7 @@ export function resolveContentImage({
   legacyAspect?: number | null;
   alt: string;
 }): ResolvedContentImage | null {
-  const url = metadata?.url?.trim() || legacyUrl?.trim();
+  const url = trimmedString(metadata?.url) || trimmedString(legacyUrl);
   if (!url) return null;
 
   const width = finitePositive(metadata?.originalWidth);
@@ -150,7 +157,7 @@ export function resolveContentImage({
   return {
     ...metadata,
     url,
-    alt: metadata?.alt?.trim() || alt,
+    alt: trimmedString(metadata?.alt) || alt,
     aspect: metadataAspect || matchedLegacyAspect || "original",
     crop: normalizeImageCrop(metadata?.crop),
     originalWidth: width,
