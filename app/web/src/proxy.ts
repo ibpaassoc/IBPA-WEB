@@ -52,11 +52,11 @@ export default clerkMiddleware(async (auth, req) => {
   // router retry as a full navigation (where the Clerk handshake can refresh
   // an expired session) instead of yanking the admin to the sign-in page.
   if (unauthenticatedAdminPageAction(req.headers) === "redirect-to-sign-in") {
-    return authObject.redirectToSignIn();
+    return authObject.redirectToSignIn({ returnBackUrl: req.url });
   }
 
   return adminAuthErrorResponse("unauthenticated");
-});
+}, { signInUrl: "/sign-in" });
 
 export const config = {
   matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
