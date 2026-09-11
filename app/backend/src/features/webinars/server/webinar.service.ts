@@ -10,7 +10,8 @@ import {
 } from "./r2-storage";
 import {
   getZoomMeetingRecordings,
-  listZoomRecordings,
+  listZoomUserRecordings,
+  listZoomUsers,
   openZoomRecordingDownload,
   type ZoomRecordingFile,
   type ZoomRecordingMeeting,
@@ -32,7 +33,8 @@ import {
 } from "./webinar.types";
 import { parseWebinarVtt, serializeWebinarVtt } from "./webinar-vtt";
 
-const MAX_SYNC_PAGES = 50;
+const MAX_USER_PAGES = 50;
+const MAX_RECORDING_PAGES_PER_USER = 50;
 const MAX_VTT_BYTES = 4 * 1024 * 1024;
 const STALE_IMPORT_MS = 6 * 60 * 60 * 1000;
 const activeImports = new Set<string>();
@@ -117,46 +119,90 @@ export async function syncZoomWebinars(input: { from: string; to: string }) {
   }
 
   const db = requireDb();
-  let token: string | null = null;
+  let userToken: string | null = null;
+  let userPages = 0;
+  let usersScanned = 0;
   let pages = 0;
   let created = 0;
   let updated = 0;
   let discovered = 0;
 
-  do {
-    const page = await listZoomRecordings({
-      from: input.from,
-      to: input.to,
-      pageSize: 100,
-      nextPageToken: token,
-    });
-    pages += 1;
-    discovered += page.meetings.length;
+  let truncated = false;
 
-    for (const meeting of page.meetings) {
-      const recordedAt = new Date(
-        meeting.start_time || `${input.from}T00:00:00Z`,
+  do {
+    const userPage = await listZoomUsers({
+      pageSize: 300,
+      nextPageToken: userToken,
+    });
+    userPages += 1;
+    usersScanned += userPage.users.length;
+
+    for (const user of userPage.users) {
+      let recordingToken: string | null = null;
+      let userRecordingPages = 0;
+
+      do {
+        const page = await listZoomUserRecordings({
+          userId: user.id,
+          from: input.from,
+          to: input.to,
+          pageSize: 300,
+          nextPageToken: recordingToken,
+        });
+        pages += 1;
+        userRecordingPages += 1;
+        discovered += page.meetings.length;
+
+        for (const meeting of page.meetings) {
+          const normalizedMeeting = {
+            ...meeting,
+            host_id: meeting.host_id || user.id,
+            host_email: meeting.host_email || user.email,
+          };
+          const recordedAt = new Date(
+            meeting.start_time || `${input.from}T00:00:00Z`,
+          );
+          const result = await upsertAvailableWebinar(db, {
+            title: meeting.topic?.trim() || "Untitled Zoom recording",
+            zoomMeetingId: String(meeting.id),
+            zoomMeetingUuid: meeting.uuid,
+            recordedAt: Number.isNaN(recordedAt.getTime()) ? from : recordedAt,
+            durationSeconds: Math.max(
+              0,
+              Math.round(Number(meeting.duration || 0) * 60),
+            ),
+            transcriptAvailable: (meeting.recording_files || []).some(
+              isTranscript,
+            ),
+            zoomMetadata: toZoomMetadata(normalizedMeeting),
+          });
+          if (result.created) created += 1;
+          else updated += 1;
+        }
+
+        recordingToken = page.next_page_token || null;
+      } while (
+        recordingToken &&
+        userRecordingPages < MAX_RECORDING_PAGES_PER_USER
       );
-      const result = await upsertAvailableWebinar(db, {
-        title: meeting.topic?.trim() || "Untitled Zoom recording",
-        zoomMeetingId: String(meeting.id),
-        zoomMeetingUuid: meeting.uuid,
-        recordedAt: Number.isNaN(recordedAt.getTime()) ? from : recordedAt,
-        durationSeconds: Math.max(
-          0,
-          Math.round(Number(meeting.duration || 0) * 60),
-        ),
-        transcriptAvailable: (meeting.recording_files || []).some(isTranscript),
-        zoomMetadata: toZoomMetadata(meeting),
-      });
-      if (result.created) created += 1;
-      else updated += 1;
+
+      if (recordingToken) truncated = true;
     }
 
-    token = page.next_page_token || null;
-  } while (token && pages < MAX_SYNC_PAGES);
+    userToken = userPage.next_page_token || null;
+  } while (userToken && userPages < MAX_USER_PAGES);
 
-  return { created, discovered, pages, updated, truncated: Boolean(token) };
+  if (userToken) truncated = true;
+
+  return {
+    created,
+    discovered,
+    pages,
+    updated,
+    truncated,
+    userPages,
+    usersScanned,
+  };
 }
 
 export async function getWebinarList(input: {

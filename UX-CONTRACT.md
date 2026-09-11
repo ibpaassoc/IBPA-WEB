@@ -16,8 +16,11 @@
 | Admin shell/navigation | `app/web/src/features/admin/shared/components/AdminShell.tsx`                        | Canonical workspace shell                               |
 | Runtime visual system  | `app/web/src/styles/theme.css`, `app/web/src/styles/index.css`, shared UI primitives | Canonical runtime tokens and controls                   |
 | Webinar lifecycle      | `app/backend/src/features/webinars/server/webinar.service.ts`                        | Import, storage, playback, subtitle, and retry behavior |
+| Zoom recording access  | Standard `/users` and `/users/{userId}/recordings` APIs                              | Account-admin access without master/subaccount APIs     |
 
 `DESIGN.md` records visual intent. Existing CSS and shared components remain the runtime source of truth; new feature values must follow that mapping rather than introducing a parallel theme.
+
+The Zoom Server-to-Server OAuth app owns these granular admin scopes: `user:read:list_users:admin`, `cloud_recording:read:list_user_recordings:admin`, and `cloud_recording:read:list_recording_files:admin`. Scope changes require reactivation before the backend requests a new token.
 
 ## Canonical UI Map
 

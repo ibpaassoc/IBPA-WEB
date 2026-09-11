@@ -40,6 +40,20 @@ export type ZoomRecordingPage = {
   meetings: ZoomRecordingMeeting[];
 };
 
+export type ZoomUser = {
+  id: string;
+  email?: string;
+  status?: string;
+};
+
+export type ZoomUserPage = {
+  next_page_token?: string;
+  page_count: number;
+  page_size: number;
+  total_records: number;
+  users: ZoomUser[];
+};
+
 type ZoomCredentials = {
   accountId: string;
   clientId: string;
@@ -72,10 +86,14 @@ async function readZoomError(response: Response) {
 
   try {
     const data = (await response.json()) as {
+      code?: number;
       message?: string;
       reason?: string;
     };
-    return data.message || data.reason || fallback;
+    const message = data.message || data.reason || fallback;
+    return data.code === 4711
+      ? `${message} Update the Zoom Server-to-Server OAuth scopes and reactivate the app.`
+      : message;
   } catch {
     return fallback;
   }
@@ -141,15 +159,41 @@ async function zoomFetch(url: string | URL, init: RequestInit = {}) {
   return response;
 }
 
-export async function listZoomRecordings(input: {
+export async function listZoomUsers(input: {
+  pageSize?: number;
+  nextPageToken?: string | null;
+}) {
+  const url = new URL(`${ZOOM_API_ORIGIN}/users`);
+  url.searchParams.set("status", "active");
+  url.searchParams.set(
+    "page_size",
+    String(Math.min(Math.max(input.pageSize || 30, 1), 300)),
+  );
+  if (input.nextPageToken) {
+    url.searchParams.set("next_page_token", input.nextPageToken);
+  }
+
+  const response = await zoomFetch(url);
+  if (!response.ok) {
+    throw new Error(await readZoomError(response));
+  }
+
+  const payload = (await response.json()) as ZoomUserPage;
+  return {
+    ...payload,
+    users: Array.isArray(payload.users) ? payload.users : [],
+  };
+}
+
+export async function listZoomUserRecordings(input: {
+  userId: string;
   from: string;
   to: string;
   pageSize?: number;
   nextPageToken?: string | null;
 }) {
-  const { accountId } = getZoomCredentials();
   const url = new URL(
-    `${ZOOM_API_ORIGIN}/accounts/${encodeURIComponent(accountId)}/recordings`,
+    `${ZOOM_API_ORIGIN}/users/${encodeURIComponent(input.userId)}/recordings`,
   );
   url.searchParams.set("from", input.from);
   url.searchParams.set("to", input.to);
