@@ -74,12 +74,6 @@ export function DashboardWebinars() {
         <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#21466D]">
           {copy.eyebrow}
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#10203B]">
-          {copy.title}
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          {copy.description}
-        </p>
       </div>
 
       {state.status === "loading" ? (
@@ -211,10 +205,6 @@ export function DashboardWebinars() {
                         </dd>
                       </div>
                     </dl>
-                    <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#10203B]">
-                      {copy.watch}
-                      <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5 motion-reduce:transition-none" />
-                    </span>
                   </div>
                 </Link>
               </li>

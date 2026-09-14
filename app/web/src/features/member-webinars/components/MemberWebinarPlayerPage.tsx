@@ -308,45 +308,6 @@ export function MemberWebinarPlayerPage({ webinarId }: { webinarId: string }) {
           }
           videoRef={videoRef}
         />
-
-        <SectionCard className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <p
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#10203B]"
-            id="subtitle-choice-label"
-          >
-            <Captions aria-hidden className="h-4 w-4 text-[#4C7D9D]" />{" "}
-            {copy.subtitleTrack}
-          </p>
-          {languages.length ? (
-            <div
-              aria-labelledby="subtitle-choice-label"
-              className="flex flex-wrap gap-2"
-              role="radiogroup"
-            >
-              {trackChoices.map((choice) => (
-                <button
-                  aria-checked={track === choice}
-                  className={getDashboardFilterButtonClassName(
-                    track === choice,
-                  )}
-                  key={choice}
-                  onClick={() => setChosenTrack(choice)}
-                  role="radio"
-                  type="button"
-                >
-                  {trackLabel(choice)}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">{copy.noSubtitles}</p>
-          )}
-          {subtitleError && track !== "off" ? (
-            <p className="text-sm text-amber-700 sm:ml-auto" role="status">
-              {copy.subtitleLoadError}
-            </p>
-          ) : null}
-        </SectionCard>
       </div>
     </main>
   );
