@@ -157,20 +157,21 @@ function DiffText({
         if (segment.kind === "equal" || !highlight) {
           return <span key={index}>{segment.text}</span>;
         }
-        return segment.kind === "removed" ? (
-          <del
-            className="rounded-[4px] bg-[#FDE7E7] px-0.5 text-[#8F241E] decoration-[#D9534F]/70 decoration-1"
-            key={index}
-          >
-            {segment.text}
-          </del>
-        ) : (
-          <ins
-            className="rounded-[4px] bg-[#DDF3E6] px-0.5 text-[#145C3B] no-underline shadow-[inset_0_-1.5px_0_#2F9E68]"
-            key={index}
-          >
-            {segment.text}
-          </ins>
+        const word = segment.text.trimEnd();
+        const trailing = segment.text.slice(word.length);
+        return (
+          <span key={index}>
+            {segment.kind === "removed" ? (
+              <del className="rounded-[4px] bg-[#FDE7E7] px-0.5 text-[#8F241E] decoration-[#D9534F]/70 decoration-1">
+                {word}
+              </del>
+            ) : (
+              <ins className="rounded-[4px] bg-[#DDF3E6] px-0.5 text-[#145C3B] no-underline shadow-[inset_0_-1.5px_0_#2F9E68]">
+                {word}
+              </ins>
+            )}
+            {trailing}
+          </span>
         );
       })}
     </>
