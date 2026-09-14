@@ -41,6 +41,8 @@ type SubtitleEditorProps = {
   onSave: () => void;
   onSeek: (time: number) => void;
   onOpenHistory: () => void;
+  /** Shown when a save was rejected because a newer revision exists. */
+  onReloadLatest?: () => void;
   dirty: boolean;
 };
 
@@ -55,6 +57,7 @@ export function SubtitleEditor({
   lineage,
   onChange,
   onOpenHistory,
+  onReloadLatest,
   onSave,
   onSeek,
   revision,
@@ -225,10 +228,20 @@ export function SubtitleEditor({
 
       {error ? (
         <div
-          className="border-b border-[#F2C7C7] bg-[#FFF5F5] px-5 py-3 text-sm text-[#8F241E]"
+          className="flex flex-col gap-2 border-b border-[#F2C7C7] bg-[#FFF5F5] px-5 py-3 text-sm text-[#8F241E] sm:flex-row sm:items-center sm:justify-between"
           role="alert"
         >
-          {error}
+          <span>{error}</span>
+          {onReloadLatest ? (
+            <Button
+              className="h-8 shrink-0 rounded-xl border-[#F2C7C7] bg-white text-[#8F241E] hover:bg-[#FFF0F0]"
+              onClick={onReloadLatest}
+              type="button"
+              variant="outline"
+            >
+              Reload latest revision
+            </Button>
+          ) : null}
         </div>
       ) : null}
 

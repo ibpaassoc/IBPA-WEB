@@ -144,6 +144,7 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [subtitleError, setSubtitleError] = useState<string | null>(null);
+  const [saveConflict, setSaveConflict] = useState(false);
   const [pendingNavigation, setPendingNavigation] =
     useState<PendingNavigation>(null);
   // Content already in the editor after a save; skip refetching it.
@@ -300,6 +301,16 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     setCues(nextCues);
     setDirty(true);
     setSubtitleError(null);
+    setSaveConflict(false);
+  };
+
+  /** Discards local edits and loads the version's newest revision. */
+  const reloadLatestRevision = async () => {
+    setSaveConflict(false);
+    setSubtitleError(null);
+    setDirty(false);
+    await loadDetail({ silent: true });
+    setContentReloadKey((key) => key + 1);
   };
 
   const handleSeek = (time: number) => {
@@ -345,6 +356,7 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
           ? saveError.message
           : "Could not save subtitles.";
       setSubtitleError(message);
+      setSaveConflict(message.includes("changed after you opened it"));
       toast.error(message);
     } finally {
       setIsSaving(false);
@@ -610,7 +622,11 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
                 <Button
                   aria-label="Refresh webinar workspace"
                   className="size-8 rounded-full"
-                  onClick={() => void loadDetail()}
+                  onClick={() => {
+                    void loadDetail();
+                    // Unsaved edits are never replaced by a refresh.
+                    if (!dirty) setContentReloadKey((key) => key + 1);
+                  }}
                   size="icon"
                   type="button"
                   variant="outline"
@@ -792,6 +808,9 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
                 }
                 onChange={handleCueChange}
                 onOpenHistory={requestHistory}
+                onReloadLatest={
+                  saveConflict ? () => void reloadLatestRevision() : undefined
+                }
                 onSave={() => void saveSubtitles()}
                 onSeek={handleSeek}
                 revision={selectedRevision}
