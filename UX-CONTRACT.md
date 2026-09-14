@@ -17,6 +17,9 @@
 | Runtime visual system  | `app/web/src/styles/theme.css`, `app/web/src/styles/index.css`, shared UI primitives | Canonical runtime tokens and controls                   |
 | Webinar lifecycle      | `app/backend/src/features/webinars/server/webinar.service.ts`                        | Import, storage, playback, subtitle, and retry behavior |
 | Zoom recording access  | Standard `/users` and `/users/{userId}/recordings` APIs                              | Account-admin access without master/subaccount APIs     |
+| Subtitle versions      | `app/backend/src/features/webinars/server/webinar-subtitle-state.ts`                 | Version registry, lineage, revisions, member tracks     |
+| Subtitle AI jobs       | `app/backend/src/features/webinars/server/webinar-subtitle-jobs.service.ts`          | AssemblyAI transcripts, Claude translations, retries    |
+| Member webinar access  | `app/backend/src/features/webinars/server/webinar-access.ts`                         | Canonical publication and member access rule            |
 
 `DESIGN.md` records visual intent. Existing CSS and shared components remain the runtime source of truth; new feature values must follow that mapping rather than introducing a parallel theme.
 
@@ -31,7 +34,7 @@ The Zoom Server-to-Server OAuth app owns these granular admin scopes: `user:read
 | Form           | Application-owned validation              | feature form plus authenticated backend route                                 | search / bounded editor save        | `noValidate`, server error mapping, duplicate-submit prevention |
 | Scrollbar      | Admin workspace baseline                  | `app/web/src/styles/index.css` under `.admin-theme`                           | stable-gutter table/editor surfaces | standards and WebKit computed-style review                      |
 | Toast          | Sonner                                    | existing admin toast provider and `sonner` calls                              | success / error                     | live-region and duplicate-action review                         |
-| CRUD           | Feature repository plus authenticated API | `app/web/src/features/admin/webinars` and `app/backend/src/features/webinars` | import / edit / test-track create   | unit, type, build, and authenticated browser flow               |
+| CRUD           | Feature repository plus authenticated API | `app/web/src/features/admin/webinars` and `app/backend/src/features/webinars` | import / version edit / publish     | unit, type, build, and authenticated browser flow               |
 
 ## Dataset and navigation behavior
 
@@ -40,6 +43,9 @@ The Zoom Server-to-Server OAuth app owns these granular admin scopes: `user:read
 - Loading, empty, no-results, provider-error, retry, range-total, and long-running import states are distinct.
 - Tables are semantic and scroll horizontally on narrow viewports without imposing viewport height on the shared shell.
 - Navigating away from dirty subtitles requires an app-owned confirmation dialog. Saving stays in the webinar workspace.
+- Subtitle versions never overwrite each other: Zoom `SOURCE`, `RU_AI`, `RU_MANUAL`, `EN_AI`, and `EN_MANUAL` live in the webinar record's `subtitle_versions` JSONB with lineage and revision history; cue text is immutable R2 revision objects.
+- The workspace navigator reads Source → Russian → English; each language chooses at most one member track. Compare mode aligns same-language versions by timestamp and highlights word-level differences.
+- Members see only published, imported webinars their account may watch (`canViewerWatchWebinar`); drafts return 404 and ineligible published webinars return 403 on every member endpoint.
 
 ## Async and resilience
 
@@ -48,8 +54,11 @@ The Zoom Server-to-Server OAuth app owns these granular admin scopes: `user:read
 | Sync Zoom                 | Disable Sync Zoom and preserve filters                       | Refresh the first page and announce counts          | Inline error with Retry; previous data remains readable                      |
 | Import recording          | Disable the selected webinar action and poll lifecycle state | Webinar becomes Imported and opens in its workspace | Failed state retains a concise provider error and offers deterministic retry |
 | Load playback             | Reserve the 16:9 player                                      | Use one temporary private R2 URL                    | Player explains that video is unavailable and allows page refresh            |
-| Save subtitles            | Keep editor geometry stable and disable duplicate save       | Refresh ETag and clear dirty state                  | A version conflict blocks overwrite and requires reloading the newer track   |
-| Create English test track | Disable translation action                                   | Select the new timestamp-preserving test track      | Keep Russian track intact and show an actionable error                       |
+| Save subtitles            | Keep editor geometry stable and disable duplicate save       | Append a revision, or create a manual version from Source/AI and select it | A newer revision blocks overwrite; "Reload latest revision" discards local edits |
+| Restore revision          | Disable restore controls                                     | Append a restore revision and reload cues           | Nothing is deleted; conflicts ask for a reload                               |
+| Generate AI Russian       | Confirm dialog, then a processing version with polling       | New RU_AI version; Source and member track unchanged | Failed/interrupted versions keep the provider error and offer Retry          |
+| Translate to English      | Source chosen with radio cards; processing version with progress | New EN_AI version with pinned source lineage     | Failed/interrupted versions keep the error and offer Retry                   |
+| Publish / edit access     | Disable submit while saving                                  | Draft ↔ Published, access saved with actor/time     | Validation errors stay inline; publishing never requires subtitles           |
 
 - Imports are pessimistic, atomically claimed in the database, and use deterministic R2 object keys.
 - Stale list/search requests are aborted. Detail polling is silent and does not erase local edits.
