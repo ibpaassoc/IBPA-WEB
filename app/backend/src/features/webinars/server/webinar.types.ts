@@ -27,6 +27,8 @@ export type StoredZoomFile = Pick<
 >;
 
 export type WebinarZoomMetadata = {
+  /** Meeting topic from the latest Zoom sync; tells admin renames apart. */
+  topic?: string | null;
   hostId?: string;
   hostEmail?: string;
   timezone?: string;

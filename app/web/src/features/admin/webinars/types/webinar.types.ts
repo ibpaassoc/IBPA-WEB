@@ -10,6 +10,8 @@ export type WebinarZoomFile = {
 };
 
 export type WebinarZoomMetadata = {
+  /** Meeting topic from the latest Zoom sync. */
+  topic?: string | null;
   hostEmail?: string;
   hostId?: string;
   timezone?: string;

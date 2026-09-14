@@ -56,3 +56,18 @@ export function getWebinarMp4Size(webinar: AdminWebinar) {
 export function webinarStatusLabel(status: WebinarStatus) {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
+
+export const MAX_WEBINAR_TITLE_LENGTH = 255;
+
+/** Mirrors the backend rule: collapse whitespace, required, at most 255 characters. */
+export function normalizeWebinarTitle(value: string) {
+  const title = value.replace(/\s+/g, " ").trim();
+  if (!title) return { title, error: "Enter a webinar title." };
+  if (title.length > MAX_WEBINAR_TITLE_LENGTH) {
+    return {
+      title,
+      error: `Keep the title under ${MAX_WEBINAR_TITLE_LENGTH} characters.`,
+    };
+  }
+  return { title, error: null };
+}

@@ -4,6 +4,7 @@ import {
   toPublicationResponse,
   unpublishWebinar,
   updateWebinarAccess,
+  updateWebinarTitle,
   getWebinarDetail,
   getWebinarImportOptions,
   getWebinarList,
@@ -19,6 +20,7 @@ import {
 } from "../features/webinars/server/webinar-subtitles.service";
 import { isSubtitleTrackLanguage } from "../features/webinars/server/webinar-subtitle-state";
 import { validateWebinarAccessInput } from "../features/webinars/server/webinar-access";
+import { validateWebinarTitle } from "../features/webinars/server/webinar-title";
 import {
   retrySubtitleVersion,
   startEnglishTranslation,
@@ -398,6 +400,19 @@ webinarsRouter.put("/:id/access", async (req, res) => {
     return res.json(toPublicationResponse(result.webinar));
   } catch (error) {
     return sendWebinarError(res, error, "Failed to save access settings.");
+  }
+});
+
+webinarsRouter.patch("/:id", async (req, res) => {
+  const title = validateWebinarTitle(req.body?.title);
+  if (!title.ok) return res.status(400).json({ error: title.error });
+  try {
+    const result = await updateWebinarTitle(single(req.params.id) || "", title.value);
+    return result
+      ? res.json(result)
+      : res.status(404).json({ error: "Webinar not found." });
+  } catch (error) {
+    return sendWebinarError(res, error, "Failed to rename the webinar.");
   }
 });
 

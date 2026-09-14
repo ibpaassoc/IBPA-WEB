@@ -4,6 +4,7 @@
 import {
   ArrowLeft,
   CalendarDays,
+  Check,
   CircleAlert,
   Clock3,
   Cloud,
@@ -24,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +46,7 @@ import {
   setMemberSubtitleTrack,
   unpublishWebinar,
   updateWebinarAccess,
+  updateWebinarTitle,
   type WebinarAccessInput,
 } from "../server/webinar.repository";
 import type {
@@ -70,6 +73,8 @@ import { describeAccess } from "../utils/webinar-access";
 import {
   formatDuration,
   formatWebinarDate,
+  MAX_WEBINAR_TITLE_LENGTH,
+  normalizeWebinarTitle,
   webinarStatusLabel,
 } from "../utils/webinar-formatters";
 import { SubtitleCompareView } from "./SubtitleCompareView";
@@ -133,6 +138,8 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     "edit",
   );
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [accessDialog, setAccessDialog] = useState<"publish" | "edit" | null>(
     null,
@@ -409,6 +416,33 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     }
   };
 
+  const cancelTitleEdit = () => {
+    setTitleDraft(null);
+    setTitleError(null);
+  };
+
+  const saveTitle = async () => {
+    if (titleDraft === null || !detail) return;
+    const { title, error: validationError } = normalizeWebinarTitle(titleDraft);
+    if (validationError) {
+      setTitleError(validationError);
+      return;
+    }
+    if (title === detail.title) {
+      cancelTitleEdit();
+      return;
+    }
+    const saved = await runAction(
+      "title",
+      async () => {
+        await updateWebinarTitle(webinarId, title);
+        return "Title saved.";
+      },
+      "Could not save the webinar title.",
+    );
+    if (saved) cancelTitleEdit();
+  };
+
   const startRussianTranscript = async () => {
     const started = await runAction(
       "generate",
@@ -585,9 +619,94 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
               <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8AA2BD]">
                 Media workspace
               </p>
-              <h1 className="mt-2 max-w-4xl text-2xl font-semibold tracking-[-0.03em] text-[#0B1F44] lg:text-3xl">
-                {detail.title}
-              </h1>
+              {titleDraft !== null ? (
+                <form
+                  className="mt-2 flex max-w-4xl flex-col gap-2 sm:flex-row sm:items-start"
+                  noValidate
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveTitle();
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      aria-describedby="webinar-title-hint"
+                      aria-invalid={Boolean(titleError)}
+                      aria-label="Webinar title"
+                      autoFocus
+                      className="h-12 rounded-2xl border-[#D4E0F0] bg-[#F8FBFF] px-4 text-lg font-semibold text-[#0B1F44] focus-visible:border-[#21466D]"
+                      disabled={busyAction === "title"}
+                      maxLength={MAX_WEBINAR_TITLE_LENGTH}
+                      onChange={(event) => {
+                        setTitleDraft(event.target.value);
+                        setTitleError(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") cancelTitleEdit();
+                      }}
+                      value={titleDraft}
+                    />
+                    <p
+                      className={`mt-1.5 text-xs ${titleError ? "font-semibold text-[#B42318]" : "text-[#6C7F95]"}`}
+                      id="webinar-title-hint"
+                      role={titleError ? "alert" : undefined}
+                    >
+                      {titleError ||
+                        "Shown to members in the dashboard. Zoom sync keeps this name."}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      aria-busy={busyAction === "title"}
+                      className="h-12 min-w-28 rounded-2xl bg-[#21466D] text-white hover:bg-[#0B1F44]"
+                      disabled={busyAction === "title"}
+                      type="submit"
+                    >
+                      {busyAction === "title" ? (
+                        <LoaderCircle className="motion-safe:animate-spin" />
+                      ) : (
+                        <Check />
+                      )}
+                      {busyAction === "title" ? "Saving…" : "Save title"}
+                    </Button>
+                    <Button
+                      className="h-12 rounded-2xl bg-white text-[#21466D]"
+                      disabled={busyAction === "title"}
+                      onClick={cancelTitleEdit}
+                      type="button"
+                      variant="outline"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="mt-2 flex max-w-4xl items-start gap-2">
+                  <h1 className="min-w-0 text-2xl font-semibold tracking-[-0.03em] text-[#0B1F44] lg:text-3xl">
+                    {detail.title}
+                  </h1>
+                  <Button
+                    aria-label="Edit webinar title"
+                    className="mt-0.5 size-8 shrink-0 rounded-xl text-[#55708F] hover:bg-[#EEF6FF] hover:text-[#21466D] lg:mt-1"
+                    onClick={() => {
+                      setTitleDraft(detail.title);
+                      setTitleError(null);
+                    }}
+                    size="icon"
+                    title="Edit title"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <PencilLine />
+                  </Button>
+                </div>
+              )}
+              {detail.zoomMetadata.topic &&
+              detail.zoomMetadata.topic !== detail.title ? (
+                <p className="mt-1.5 text-xs text-[#8AA2BD]">
+                  Zoom topic: {detail.zoomMetadata.topic}
+                </p>
+              ) : null}
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#6C7F95]">
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays className="size-4" />{" "}

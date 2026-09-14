@@ -14,6 +14,7 @@ import {
 import { requireDb } from "@/lib/db";
 import { coreWebinars } from "@/lib/schema";
 import type { WebinarStatus, WebinarZoomMetadata } from "./webinar.types";
+import { resolveSyncedTitle } from "./webinar-title";
 
 type DbClient = ReturnType<typeof requireDb>;
 
@@ -92,7 +93,12 @@ export async function upsertAvailableWebinar(
     const [updated] = await db
       .update(coreWebinars)
       .set({
-        title: input.title,
+        title: resolveSyncedTitle({
+          currentTitle: existing.title,
+          previousTopic: (existing.zoomMetadata as WebinarZoomMetadata | null)
+            ?.topic,
+          incomingTitle: input.title,
+        }),
         zoomMeetingId: input.zoomMeetingId,
         recordedAt: input.recordedAt,
         durationSeconds: input.durationSeconds,
@@ -138,6 +144,7 @@ export async function updateWebinar(
   db: DbClient,
   id: string,
   values: Partial<{
+    title: string;
     status: WebinarStatus;
     transcriptStatus: "AVAILABLE" | "IMPORTED" | "NOT_AVAILABLE" | "FAILED";
     zoomRecordingFileId: string | null;

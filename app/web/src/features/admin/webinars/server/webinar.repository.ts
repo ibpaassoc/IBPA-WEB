@@ -226,3 +226,15 @@ export async function updateWebinarAccess(id: string, access: WebinarAccessInput
     "Could not save access settings.",
   );
 }
+
+export async function updateWebinarTitle(id: string, title: string) {
+  return requestJson<AdminWebinar>(
+    `/api/admin/webinars/${encodeURIComponent(id)}`,
+    {
+      body: JSON.stringify({ title }),
+      headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+    },
+    "Could not save the webinar title.",
+  );
+}

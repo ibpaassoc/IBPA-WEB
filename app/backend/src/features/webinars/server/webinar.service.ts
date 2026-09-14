@@ -37,6 +37,7 @@ import {
   type WebinarSubtitleState,
 } from "./webinar-subtitle-state";
 import { resumeInterruptedSubtitleJobs } from "./webinar-subtitle-jobs.service";
+import { zoomTopicTitle } from "./webinar-title";
 import {
   membershipCategoryOptions,
   normalizeWebinarAccessSettings,
@@ -83,6 +84,7 @@ function safeZoomFiles(meeting: ZoomRecordingMeeting) {
 function toZoomMetadata(meeting: ZoomRecordingMeeting): WebinarZoomMetadata {
   const transcript = (meeting.recording_files || []).find(isTranscript);
   return {
+    topic: zoomTopicTitle(meeting.topic),
     hostId: meeting.host_id,
     hostEmail: meeting.host_email,
     timezone: meeting.timezone,
@@ -172,7 +174,7 @@ export async function syncZoomWebinars(input: { from: string; to: string }) {
             meeting.start_time || `${input.from}T00:00:00Z`,
           );
           const result = await upsertAvailableWebinar(db, {
-            title: meeting.topic?.trim() || "Untitled Zoom recording",
+            title: zoomTopicTitle(meeting.topic),
             zoomMeetingId: String(meeting.id),
             zoomMeetingUuid: meeting.uuid,
             recordedAt: Number.isNaN(recordedAt.getTime()) ? from : recordedAt,
@@ -548,4 +550,21 @@ export function toPublicationResponse(webinar: CoreWebinar | null) {
         access: normalizeWebinarAccessSettings(webinar.accessSettings),
       }
     : null;
+}
+
+/** Renames a webinar for admins and members; later Zoom syncs keep the name. */
+export async function updateWebinarTitle(id: string, title: string) {
+  const db = requireDb();
+  const webinar = await findWebinarById(db, id);
+  if (!webinar) return null;
+  const metadata = (webinar.zoomMetadata || {}) as WebinarZoomMetadata;
+  const updated = await updateWebinar(db, id, {
+    title,
+    // Rows synced before topics were stored: remember the Zoom title being
+    // replaced so the next sync recognizes this rename.
+    ...(typeof metadata.topic === "string"
+      ? {}
+      : { zoomMetadata: { ...metadata, topic: webinar.title } }),
+  });
+  return updated ? toAdminWebinar(updated) : null;
 }
