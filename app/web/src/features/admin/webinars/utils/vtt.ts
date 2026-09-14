@@ -6,16 +6,22 @@ export type VttCue = {
   text: string;
 };
 
-const TIMING_LINE = /^(\d{2,}:\d{2}:\d{2}\.\d{3}|\d{2}:\d{2}\.\d{3})\s+-->\s+(\d{2,}:\d{2}:\d{2}\.\d{3}|\d{2}:\d{2}\.\d{3})(?:\s+(.*))?$/;
+const TIMING_LINE =
+  /^(\d{2,}:\d{2}:\d{2}\.\d{3}|\d{2}:\d{2}\.\d{3})\s+-->\s+(\d{2,}:\d{2}:\d{2}\.\d{3}|\d{2}:\d{2}\.\d{3})(?:\s+(.*))?$/;
 
 export function parseVtt(source: string): VttCue[] {
-  const normalized = source.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
-  if (!normalized.startsWith("WEBVTT")) throw new Error("Subtitle file is not valid WebVTT.");
+  const normalized = source
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+  if (!normalized.startsWith("WEBVTT"))
+    throw new Error("Subtitle file is not valid WebVTT.");
 
   const cues: VttCue[] = [];
   for (const block of normalized.split(/\n{2,}/).slice(1)) {
     const lines = block.split("\n");
-    if (!lines.length || /^(NOTE|STYLE|REGION)(?:\s|$)/.test(lines[0])) continue;
+    if (!lines.length || /^(NOTE|STYLE|REGION)(?:\s|$)/.test(lines[0]))
+      continue;
     let timingIndex = 0;
     let id = "";
     if (!TIMING_LINE.test(lines[0])) {
@@ -49,7 +55,13 @@ export function timecodeToSeconds(value: string) {
   const secondsPart = Number(parts.pop());
   const minutes = Number(parts.pop());
   const hours = Number(parts.pop() || 0);
-  if (![hours, minutes, secondsPart].every(Number.isFinite) || minutes < 0 || minutes >= 60 || secondsPart < 0 || secondsPart >= 60) {
+  if (
+    ![hours, minutes, secondsPart].every(Number.isFinite) ||
+    minutes < 0 ||
+    minutes >= 60 ||
+    secondsPart < 0 ||
+    secondsPart >= 60
+  ) {
     return Number.NaN;
   }
   return hours * 3600 + minutes * 60 + secondsPart;
@@ -79,6 +91,27 @@ export function validateVttCues(cues: VttCue[]) {
 
 export function findActiveCueIndex(cues: VttCue[], currentTime: number) {
   return cues.findIndex(
-    (cue) => currentTime >= timecodeToSeconds(cue.start) && currentTime < timecodeToSeconds(cue.end),
+    (cue) =>
+      currentTime >= timecodeToSeconds(cue.start) &&
+      currentTime < timecodeToSeconds(cue.end),
   );
+}
+
+export type FrameCueIndex = { cues: VttCue[]; index: number };
+
+/**
+ * The cue to display. A per-frame index is only trusted for the exact cue list
+ * it was computed from: after switching tracks mid-playback it may point past
+ * the end of the new list, so fall back to the last known playback time.
+ */
+export function visibleCueIndex(input: {
+  cues: VttCue[];
+  currentTime: number;
+  frame: FrameCueIndex | null;
+}) {
+  const index =
+    input.frame && input.frame.cues === input.cues
+      ? input.frame.index
+      : findActiveCueIndex(input.cues, input.currentTime);
+  return index >= 0 && index < input.cues.length ? index : -1;
 }

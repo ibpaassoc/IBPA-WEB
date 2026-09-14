@@ -25,7 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { findActiveCueIndex, type VttCue } from "../utils/vtt";
+import {
+  findActiveCueIndex,
+  visibleCueIndex,
+  type FrameCueIndex,
+  type VttCue,
+} from "../utils/vtt";
 import { formatDuration } from "../utils/webinar-formatters";
 
 export type WebinarPlayerTrack = { id: string; label: string };
@@ -103,12 +108,8 @@ export function WebinarPlayer({
   const [muted, setMuted] = useState(false);
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [playingCueIndex, setPlayingCueIndex] = useState(-1);
+  const [frameCue, setFrameCue] = useState<FrameCueIndex | null>(null);
   const labels = { ...defaultLabels, ...labelOverrides };
-  const pausedCueIndex = useMemo(
-    () => findActiveCueIndex(cues, currentTime),
-    [cues, currentTime],
-  );
 
   // timeupdate fires only ~4×/s; while playing, follow the video clock per
   // frame so captions switch exactly on their timestamps. State changes only
@@ -120,7 +121,11 @@ export function WebinarPlayer({
       const video = videoRef.current;
       if (video) {
         const index = findActiveCueIndex(cues, video.currentTime);
-        setPlayingCueIndex((current) => (current === index ? current : index));
+        setFrameCue((current) =>
+          current?.cues === cues && current.index === index
+            ? current
+            : { cues, index },
+        );
       }
       frame = window.requestAnimationFrame(tick);
     };
@@ -128,11 +133,18 @@ export function WebinarPlayer({
     return () => window.cancelAnimationFrame(frame);
   }, [cues, isPlaying, videoRef]);
 
-  const activeCueIndex = captionsEnabled
-    ? isPlaying
-      ? playingCueIndex
-      : pausedCueIndex
-    : -1;
+  const activeCueIndex = useMemo(
+    () =>
+      captionsEnabled
+        ? visibleCueIndex({
+            cues,
+            currentTime,
+            frame: isPlaying ? frameCue : null,
+          })
+        : -1,
+    [captionsEnabled, cues, currentTime, frameCue, isPlaying],
+  );
+  const activeCue = activeCueIndex >= 0 ? cues[activeCueIndex] : null;
 
   const togglePlayback = async () => {
     const video = videoRef.current;
@@ -222,13 +234,13 @@ export function WebinarPlayer({
         </div>
       )}
 
-      {captionsEnabled && activeCueIndex >= 0 ? (
+      {activeCue ? (
         <div
           className="pointer-events-none absolute inset-x-6 bottom-20 flex justify-center"
           aria-live="off"
         >
           <p className="max-w-3xl whitespace-pre-line rounded-xl bg-[#071529]/88 px-4 py-2 text-center text-[clamp(14px,2vw,20px)] font-medium leading-relaxed text-white shadow-lg backdrop-blur-md">
-            {cues[activeCueIndex].text}
+            {activeCue.text}
           </p>
         </div>
       ) : null}
