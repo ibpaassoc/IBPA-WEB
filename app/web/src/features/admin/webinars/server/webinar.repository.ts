@@ -2,7 +2,7 @@ import { requestJson } from "../../shared/utils/admin-request";
 import type {
   AdminWebinarDetail,
   AdminWebinar,
-  SubtitleLanguage,
+  SubtitleTrackLanguage,
   WebinarImportOption,
   WebinarListResponse,
   WebinarSubtitleDocument,
@@ -55,9 +55,11 @@ export async function importWebinarRecording(id: string, recordingFileId: string
 }
 
 export async function getWebinar(id: string, signal?: AbortSignal) {
+  // Always fresh: subtitle jobs update this record in the background, so the
+  // shared admin read cache must not serve it (a signal opts out of caching).
   return requestJson<AdminWebinarDetail>(
     `/api/admin/webinars/${encodeURIComponent(id)}`,
-    { cache: "no-store", signal },
+    { cache: "no-store", signal: signal ?? new AbortController().signal },
     "Could not load the webinar.",
   );
 }
@@ -70,44 +72,82 @@ export async function getWebinarPlayback(id: string, signal?: AbortSignal) {
   );
 }
 
-export async function getWebinarSubtitle(
+export async function getSubtitleVersionContent(
   id: string,
-  language: SubtitleLanguage,
-  signal?: AbortSignal,
+  versionId: string,
+  options: { revisionId?: string | null; signal?: AbortSignal } = {},
 ) {
+  const search = options.revisionId
+    ? `?revisionId=${encodeURIComponent(options.revisionId)}`
+    : "";
   return requestJson<WebinarSubtitleDocument>(
-    `/api/admin/webinars/${encodeURIComponent(id)}/subtitles?language=${language}`,
-    { cache: "no-store", signal },
-    "Could not load the subtitle track.",
+    `/api/admin/webinars/${encodeURIComponent(id)}/subtitle-versions/${encodeURIComponent(versionId)}/content${search}`,
+    { cache: "no-store", signal: options.signal ?? new AbortController().signal },
+    "Could not load the subtitle version.",
   );
 }
 
-export async function saveWebinarSubtitle(input: {
+export async function saveSubtitleRevision(input: {
   id: string;
-  language: SubtitleLanguage;
+  versionId: string;
   vtt: string;
-  expectedEtag: string | null;
+  expectedRevisionId: string | null;
 }) {
-  return requestJson<{ key: string; etag: string | null }>(
-    `/api/admin/webinars/${encodeURIComponent(input.id)}/subtitles`,
+  return requestJson<{
+    outcome: "saved";
+    versionId: string;
+    revisionId: string;
+    createdVersion: boolean;
+  }>(
+    `/api/admin/webinars/${encodeURIComponent(input.id)}/subtitle-versions/${encodeURIComponent(input.versionId)}/revisions`,
     {
       body: JSON.stringify({
-        language: input.language,
         vtt: input.vtt,
-        expectedEtag: input.expectedEtag,
+        expectedRevisionId: input.expectedRevisionId,
       }),
       headers: { "Content-Type": "application/json" },
-      method: "PUT",
+      method: "POST",
     },
     "Could not save subtitles.",
   );
 }
 
-export async function createEnglishTestTrack(id: string) {
-  return requestJson<{ outcome: "created"; key: string; etag: string | null }>(
-    `/api/admin/webinars/${encodeURIComponent(id)}/translate-english`,
-    { body: "{}", headers: { "Content-Type": "application/json" }, method: "POST" },
-    "Could not create the English test track.",
+export async function restoreSubtitleRevision(input: {
+  id: string;
+  versionId: string;
+  revisionId: string;
+  expectedRevisionId: string | null;
+}) {
+  return requestJson<{ outcome: "saved"; revisionId: string }>(
+    `/api/admin/webinars/${encodeURIComponent(input.id)}/subtitle-versions/${encodeURIComponent(input.versionId)}/restore`,
+    {
+      body: JSON.stringify({
+        revisionId: input.revisionId,
+        expectedRevisionId: input.expectedRevisionId,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
+    "Could not restore the revision.",
+  );
+}
+
+export async function setMemberSubtitleTrack(input: {
+  id: string;
+  language: SubtitleTrackLanguage;
+  versionId: string | null;
+}) {
+  return requestJson<{
+    outcome: "saved";
+    activeVersionIds: Record<SubtitleTrackLanguage, string | null>;
+  }>(
+    `/api/admin/webinars/${encodeURIComponent(input.id)}/subtitle-tracks`,
+    {
+      body: JSON.stringify({ language: input.language, versionId: input.versionId }),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    },
+    "Could not update the member subtitle track.",
   );
 }
 

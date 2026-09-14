@@ -1,11 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { requireDb } from "@/lib/db";
 import type { CoreWebinar } from "@/lib/schema";
 import {
   createPresignedR2GetUrl,
-  getTextFromR2,
   headR2Object,
-  putTextToR2,
   uploadStreamToR2,
 } from "./r2-storage";
 import {
@@ -24,14 +21,11 @@ import {
   upsertAvailableWebinar,
 } from "./webinar.repository";
 import {
-  subtitleLanguages,
   transcriptStatuses,
   webinarStatuses,
-  type SubtitleLanguage,
   type WebinarStatus,
   type WebinarZoomMetadata,
 } from "./webinar.types";
-import { parseWebinarVtt, serializeWebinarVtt } from "./webinar-vtt";
 import {
   ensureWebinarSubtitleState,
   registerImportedSourceSubtitles,
@@ -49,7 +43,6 @@ import {
 
 const MAX_USER_PAGES = 50;
 const MAX_RECORDING_PAGES_PER_USER = 50;
-const MAX_VTT_BYTES = 4 * 1024 * 1024;
 const STALE_IMPORT_MS = 6 * 60 * 60 * 1000;
 const activeImports = new Set<string>();
 
@@ -281,25 +274,12 @@ export async function getWebinarDetail(id: string) {
   if (!found) return null;
   const { webinar: record, state } = await ensureWebinarSubtitleState(found);
   resumeInterruptedSubtitleJobs(record.id, state);
-  const [video, tracks] = await Promise.all([
-    record.videoR2Key ? headR2Object(record.videoR2Key) : Promise.resolve(null),
-    Promise.all(
-      subtitleLanguages.map(async (language) => ({
-        language,
-        object: await headR2Object(subtitleKey(record.id, language)),
-      })),
-    ),
-  ]);
+  const video = record.videoR2Key ? await headR2Object(record.videoR2Key) : null;
   return {
     ...toAdminWebinar(record, state),
     subtitles: state,
     membershipCategories: membershipCategoryOptions,
     storage: { video },
-    tracks: tracks.map(({ language, object }) => ({
-      language,
-      ...object,
-      exists: Boolean(object),
-    })),
   };
 }
 
@@ -498,70 +478,9 @@ export async function getWebinarPlayback(id: string) {
   };
 }
 
-export async function getWebinarSubtitle(
-  id: string,
-  language: SubtitleLanguage,
-) {
-  const webinar = await findWebinarById(requireDb(), id);
-  if (!webinar) return { outcome: "not-found" as const };
-  const object = await getTextFromR2(subtitleKey(id, language));
-  return object
-    ? { outcome: "ok" as const, language, ...object }
-    : { outcome: "missing" as const };
-}
-
-export async function saveWebinarSubtitle(input: {
-  id: string;
-  language: SubtitleLanguage;
-  vtt: string;
-  expectedEtag?: string | null;
-}) {
-  const webinar = await findWebinarById(requireDb(), input.id);
-  if (!webinar) return null;
-  if (Buffer.byteLength(input.vtt, "utf8") > MAX_VTT_BYTES) {
-    throw new Error("Subtitle files must be smaller than 4 MB.");
-  }
-  parseWebinarVtt(input.vtt);
-  return putTextToR2({
-    key: subtitleKey(input.id, input.language),
-    text: input.vtt,
-    expectedEtag: input.expectedEtag,
-  });
-}
-
-export async function createEnglishTestTrack(id: string) {
-  const webinar = await findWebinarById(requireDb(), id);
-  if (!webinar) return { outcome: "not-found" as const };
-  const [russian, english] = await Promise.all([
-    getTextFromR2(subtitleKey(id, "ru")),
-    headR2Object(subtitleKey(id, "en")),
-  ]);
-  if (!russian) return { outcome: "missing-source" as const };
-  if (english) return { outcome: "exists" as const };
-
-  const copiedCues = parseWebinarVtt(russian.text).map((cue) => ({
-    ...cue,
-    id: cue.id || randomUUID(),
-  }));
-  const result = await putTextToR2({
-    key: subtitleKey(id, "en"),
-    text: serializeWebinarVtt(copiedCues),
-    metadata: { source: "ru", translation: "test-copy" },
-    requireAbsent: true,
-  });
-  return { outcome: "created" as const, ...result };
-}
-
-export function isSubtitleLanguage(value: unknown): value is SubtitleLanguage {
-  return subtitleLanguages.includes(value as SubtitleLanguage);
-}
-
 export function isTranscriptStatus(value: unknown) {
   return transcriptStatuses.includes(
     value as (typeof transcriptStatuses)[number],
   );
 }
 
-function subtitleKey(webinarId: string, language: SubtitleLanguage) {
-  return legacySubtitleKey(webinarId, language);
-}

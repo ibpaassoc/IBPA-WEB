@@ -2,6 +2,9 @@
 
 import {
   Captions,
+  CircleAlert,
+  GitBranch,
+  History,
   LoaderCircle,
   Plus,
   Save,
@@ -14,18 +17,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { SubtitleLanguage } from "../types/webinar.types";
+import type { SubtitleRevision, SubtitleVersion } from "../types/webinar.types";
+import { isManualKind, languageName } from "../utils/subtitle-versions";
 import {
   secondsToTimecode,
   timecodeToSeconds,
   type VttCue,
 } from "../utils/vtt";
-
-const languageNames: Record<SubtitleLanguage, string> = {
-  ru: "Original",
-  en: "English",
-  uk: "Ukrainian",
-};
 
 type SubtitleEditorProps = {
   activeCueIndex: number;
@@ -34,10 +32,14 @@ type SubtitleEditorProps = {
   error: string | null;
   isLoading: boolean;
   isSaving: boolean;
-  language: SubtitleLanguage | null;
+  version: SubtitleVersion | null;
+  versionLabel: string;
+  lineage: string;
+  revision: SubtitleRevision | null;
   onChange: (cues: VttCue[]) => void;
   onSave: () => void;
   onSeek: (time: number) => void;
+  onOpenHistory: () => void;
   dirty: boolean;
 };
 
@@ -49,10 +51,14 @@ export function SubtitleEditor({
   error,
   isLoading,
   isSaving,
-  language,
+  lineage,
   onChange,
+  onOpenHistory,
   onSave,
   onSeek,
+  revision,
+  version,
+  versionLabel,
 }: SubtitleEditorProps) {
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -102,33 +108,42 @@ export function SubtitleEditor({
     );
   };
 
-  if (!language) {
+  if (!version) {
     return (
       <section className="flex min-h-96 flex-col items-center justify-center rounded-[28px] border border-[#D4E0F0] bg-white p-8 text-center shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
         <Captions className="size-8 text-[#8AA2BD]" />
         <h2 className="mt-4 text-lg font-semibold text-[#0B1F44]">
-          No transcript available
+          No subtitles yet
         </h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-[#6C7F95]">
-          This recording was imported without a Zoom VTT. Transcript generation
-          is not available in this version.
+          This recording has no Zoom transcript. Generate a Russian AI
+          transcript to start editing subtitles.
         </p>
       </section>
     );
   }
 
+  const manual = isManualKind(version.kind);
+  const isReady = version.status === "READY" && Boolean(revision);
+
   return (
     <section className="overflow-hidden rounded-[28px] border border-[#D4E0F0] bg-white shadow-[0_18px_45px_rgba(15,46,83,0.06)]">
       <div className="flex flex-col gap-4 border-b border-[#D4E0F0] p-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8AA2BD]">
-            Subtitle timeline
+            Subtitle timeline · {languageName[version.language]}
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-[#0B1F44]">
-            {languageNames[language]} cues
+          <h2 className="mt-1 truncate text-lg font-semibold text-[#0B1F44]">
+            {versionLabel}
           </h2>
-          <p className="mt-1 text-xs text-[#6C7F95]">
-            {cues.length} timestamped cues
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#6C7F95]">
+            <span className="tabular-nums">{cues.length} cues</span>
+            {revision ? (
+              <span className="tabular-nums">· Revision {revision.number}</span>
+            ) : null}
+            <span className="inline-flex items-center gap-1 font-mono text-[10px] text-[#55708F]">
+              <GitBranch aria-hidden className="size-3" /> {lineage}
+            </span>
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -160,8 +175,19 @@ export function SubtitleEditor({
               </button>
             ) : null}
           </div>
+          {manual && version.revisions.length > 1 ? (
+            <Button
+              className="h-10 rounded-2xl text-[#21466D]"
+              onClick={onOpenHistory}
+              type="button"
+              variant="outline"
+            >
+              <History data-icon="inline-start" /> History
+            </Button>
+          ) : null}
           <Button
             className="h-10 rounded-2xl text-[#21466D]"
+            disabled={!isReady}
             onClick={addCue}
             type="button"
             variant="outline"
@@ -171,7 +197,7 @@ export function SubtitleEditor({
           <Button
             aria-busy={isSaving}
             className="h-10 min-w-32 rounded-2xl bg-[#21466D] text-white hover:bg-[#0B1F44]"
-            disabled={!dirty || isSaving}
+            disabled={!dirty || isSaving || !isReady}
             onClick={onSave}
             type="button"
           >
@@ -180,10 +206,21 @@ export function SubtitleEditor({
             ) : (
               <Save />
             )}
-            {isSaving ? "Saving…" : "Save subtitles"}
+            {isSaving
+              ? "Saving…"
+              : manual
+                ? "Save revision"
+                : "Save as manual correction"}
           </Button>
         </div>
       </div>
+
+      {isReady && !manual ? (
+        <p className="border-b border-[#D4E0F0] bg-[#F5F9FF] px-5 py-2.5 text-xs leading-5 text-[#315F8A]">
+          Saving creates a new Manual {languageName[version.language]} version.{" "}
+          {versionLabel} stays unchanged.
+        </p>
+      ) : null}
 
       {error ? (
         <div
@@ -194,7 +231,25 @@ export function SubtitleEditor({
         </div>
       ) : null}
 
-      {isLoading ? (
+      {version.status !== "READY" || !revision ? (
+        <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
+          {version.status === "PROCESSING" ? (
+            <LoaderCircle className="size-7 text-[#21466D] motion-safe:animate-spin" />
+          ) : (
+            <CircleAlert className="size-7 text-[#B42318]" />
+          )}
+          <p className="mt-3 font-semibold text-[#0B1F44]">
+            {version.status === "PROCESSING"
+              ? "This version is still being generated"
+              : "This version has no subtitles"}
+          </p>
+          <p className="mt-1 max-w-md text-sm leading-6 text-[#6C7F95]">
+            {version.status === "PROCESSING"
+              ? "Cues appear here when the job finishes. You can keep working with other versions."
+              : version.error || "Retry the job from the subtitle navigator."}
+          </p>
+        </div>
+      ) : isLoading ? (
         <div
           className="flex min-h-80 items-center justify-center text-sm text-[#55708F]"
           role="status"
@@ -263,6 +318,14 @@ export function SubtitleEditor({
                     onChange={(event) =>
                       updateCue(index, { text: event.target.value })
                     }
+                    onFocus={() => {
+                      // Jump the video to this cue unless it is already playing it.
+                      const start = timecodeToSeconds(cue.start);
+                      const end = timecodeToSeconds(cue.end);
+                      if (!(currentTime >= start && currentTime < end)) {
+                        onSeek(start);
+                      }
+                    }}
                     value={cue.text}
                   />
                   <Button

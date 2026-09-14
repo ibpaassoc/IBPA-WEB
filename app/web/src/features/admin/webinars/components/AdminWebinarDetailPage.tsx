@@ -24,17 +24,21 @@ import {
 } from "@/components/ui/dialog";
 import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
 import {
-  createEnglishTestTrack,
+  getSubtitleVersionContent,
   getWebinar,
   getWebinarPlayback,
-  getWebinarSubtitle,
-  saveWebinarSubtitle,
+  restoreSubtitleRevision,
+  saveSubtitleRevision,
 } from "../server/webinar.repository";
-import type {
-  AdminWebinarDetail,
-  SubtitleLanguage,
-  WebinarStatus,
-} from "../types/webinar.types";
+import type { AdminWebinarDetail, WebinarStatus } from "../types/webinar.types";
+import {
+  currentRevision,
+  findVersion,
+  isReadyVersion,
+  languageName,
+  lineageLabel,
+  versionName,
+} from "../utils/subtitle-versions";
 import {
   findActiveCueIndex,
   parseVtt,
@@ -48,6 +52,7 @@ import {
   webinarStatusLabel,
 } from "../utils/webinar-formatters";
 import { SubtitleEditor } from "./SubtitleEditor";
+import { SubtitleRevisionHistory } from "./SubtitleRevisionHistory";
 import { WebinarPlayer } from "./WebinarPlayer";
 import { WebinarSidePanel } from "./WebinarSidePanel";
 
@@ -62,27 +67,46 @@ const statusTone: Record<
 };
 
 type PendingNavigation =
-  { type: "back" } | { type: "track"; language: SubtitleLanguage } | null;
+  | { type: "back" }
+  | { type: "version"; versionId: string }
+  | { type: "history" }
+  | null;
+
+function pickInitialVersion(detail: AdminWebinarDetail) {
+  const state = detail.subtitles;
+  const active = findVersion(state, state.activeVersionIds.ru);
+  if (active) return active.id;
+  return (
+    state.versions.find((version) => isReadyVersion(version))?.id ||
+    state.versions[0]?.id ||
+    null
+  );
+}
 
 export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [detail, setDetail] = useState<AdminWebinarDetail | null>(null);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
-  const [selectedLanguage, setSelectedLanguage] =
-    useState<SubtitleLanguage | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
+    null,
+  );
   const [cues, setCues] = useState<VttCue[]>([]);
-  const [etag, setEtag] = useState<string | null>(null);
+  const [loadedRevisionId, setLoadedRevisionId] = useState<string | null>(null);
+  const [contentReloadKey, setContentReloadKey] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubtitleLoading, setIsSubtitleLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isTranslating, setIsTranslating] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [subtitleError, setSubtitleError] = useState<string | null>(null);
   const [pendingNavigation, setPendingNavigation] =
     useState<PendingNavigation>(null);
+  // Content already in the editor after a save; skip refetching it.
+  const skipContentLoadRef = useRef<string | null>(null);
 
   const loadDetail = useCallback(
     async ({
@@ -94,18 +118,13 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
         const nextDetail = await getWebinar(webinarId, signal);
         setDetail(nextDetail);
         setError(null);
-
-        const existingTracks = nextDetail.tracks
-          .filter((track) => track.exists)
-          .map((track) => track.language);
-        setSelectedLanguage((current) =>
-          current && existingTracks.includes(current)
+        setSelectedVersionId((current) =>
+          current && findVersion(nextDetail.subtitles, current)
             ? current
-            : existingTracks.includes("ru")
-              ? "ru"
-              : existingTracks[0] || null,
+            : pickInitialVersion(nextDetail),
         );
 
+        if (silent) return nextDetail;
         if (nextDetail.status === "IMPORTED" && nextDetail.videoR2Key) {
           try {
             const playback = await getWebinarPlayback(webinarId, signal);
@@ -123,6 +142,7 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
         } else {
           setPlaybackUrl(null);
         }
+        return nextDetail;
       } catch (loadError) {
         if (!signal?.aborted) {
           setError(
@@ -131,6 +151,7 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
               : "Could not load the webinar.",
           );
         }
+        return null;
       } finally {
         if (!signal?.aborted) setIsLoading(false);
       }
@@ -144,32 +165,48 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     return () => controller.abort();
   }, [loadDetail]);
 
-  useEffect(() => {
-    if (detail?.status !== "IMPORTING") return;
-    const interval = window.setInterval(
-      () => void loadDetail({ silent: true }),
-      4_000,
-    );
-    return () => window.clearInterval(interval);
-  }, [detail?.status, loadDetail]);
+  const hasProcessingVersion = Boolean(
+    detail?.subtitles.versions.some((version) => version.status === "PROCESSING"),
+  );
 
   useEffect(() => {
-    if (!selectedLanguage) {
+    if (detail?.status !== "IMPORTING" && !hasProcessingVersion) return;
+    const interval = window.setInterval(
+      () =>
+        void loadDetail({ silent: detail?.status !== "IMPORTING" }),
+      detail?.status === "IMPORTING" ? 4_000 : 8_000,
+    );
+    return () => window.clearInterval(interval);
+  }, [detail?.status, hasProcessingVersion, loadDetail]);
+
+  const selectedVersion = findVersion(detail?.subtitles, selectedVersionId);
+  const selectedRevision = currentRevision(selectedVersion);
+  const selectedRevisionId = selectedRevision?.id ?? null;
+  const selectedReady = isReadyVersion(selectedVersion);
+
+  useEffect(() => {
+    if (!selectedVersionId || !selectedReady || !selectedRevisionId) {
       setCues([]);
-      setEtag(null);
+      setLoadedRevisionId(null);
       setDirty(false);
+      return;
+    }
+    if (skipContentLoadRef.current === `${selectedVersionId}:${selectedRevisionId}`) {
+      skipContentLoadRef.current = null;
       return;
     }
     const controller = new AbortController();
     setIsSubtitleLoading(true);
     setSubtitleError(null);
-    void getWebinarSubtitle(webinarId, selectedLanguage, controller.signal)
+    void getSubtitleVersionContent(webinarId, selectedVersionId, {
+      signal: controller.signal,
+    })
       .then((document) => {
         setCues(parseVtt(document.text));
-        setEtag(document.etag);
+        setLoadedRevisionId(document.revisionId);
         setDirty(false);
       })
-      .catch((subtitleLoadError) => {
+      .catch((subtitleLoadError: unknown) => {
         if (!controller.signal.aborted) {
           setCues([]);
           setSubtitleError(
@@ -183,7 +220,10 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
         if (!controller.signal.aborted) setIsSubtitleLoading(false);
       });
     return () => controller.abort();
-  }, [selectedLanguage, webinarId]);
+    // Background refreshes must not reload the editor; only an explicit
+    // version switch, restore, or reload does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVersionId, selectedReady, contentReloadKey, webinarId]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -199,12 +239,16 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     () => findActiveCueIndex(cues, currentTime),
     [cues, currentTime],
   );
-  const availableLanguages = useMemo(
+
+  const playerTracks = useMemo(
     () =>
-      detail?.tracks
-        .filter((track) => track.exists)
-        .map((track) => track.language) || [],
-    [detail?.tracks],
+      (detail?.subtitles.versions || [])
+        .filter((version) => isReadyVersion(version))
+        .map((version) => ({
+          id: version.id,
+          label: `${languageName[version.language]} · ${versionName(detail!.subtitles, version)}`,
+        })),
+    [detail],
   );
 
   const handleCueChange = (nextCues: VttCue[]) => {
@@ -220,7 +264,7 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
   };
 
   const saveSubtitles = async () => {
-    if (!selectedLanguage) return;
+    if (!selectedVersion || !detail) return;
     const validationError = validateVttCues(cues);
     if (validationError) {
       setSubtitleError(validationError);
@@ -229,16 +273,27 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     setIsSaving(true);
     setSubtitleError(null);
     try {
-      const result = await saveWebinarSubtitle({
+      const result = await saveSubtitleRevision({
         id: webinarId,
-        language: selectedLanguage,
+        versionId: selectedVersion.id,
         vtt: serializeVtt(cues),
-        expectedEtag: etag,
+        expectedRevisionId: loadedRevisionId,
       });
-      setEtag(result.etag);
+      if (result.createdVersion) {
+        skipContentLoadRef.current = `${result.versionId}:${result.revisionId}`;
+      }
+      setLoadedRevisionId(result.revisionId);
       setDirty(false);
-      toast.success("Subtitles saved.");
-      await loadDetail({ silent: true });
+      const refreshed = await loadDetail({ silent: true });
+      if (result.createdVersion) {
+        setSelectedVersionId(result.versionId);
+        const created = findVersion(refreshed?.subtitles, result.versionId);
+        toast.success(
+          `Saved as ${created ? versionName(refreshed!.subtitles, created) : "a manual correction"}. ${versionName(detail.subtitles, selectedVersion)} is unchanged.`,
+        );
+      } else {
+        toast.success("Revision saved.");
+      }
     } catch (saveError) {
       const message =
         saveError instanceof Error
@@ -251,25 +306,28 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     }
   };
 
-  const translateEnglish = async () => {
-    setIsTranslating(true);
-    setSubtitleError(null);
+  const restoreRevision = async (revisionId: string) => {
+    if (!selectedVersion) return;
+    setIsRestoring(true);
     try {
-      await createEnglishTestTrack(webinarId);
+      await restoreSubtitleRevision({
+        id: webinarId,
+        versionId: selectedVersion.id,
+        revisionId,
+        expectedRevisionId: selectedRevisionId,
+      });
       await loadDetail({ silent: true });
-      setSelectedLanguage("en");
-      toast.success(
-        "English test track created with the original Russian text.",
+      setContentReloadKey((key) => key + 1);
+      setHistoryOpen(false);
+      toast.success("Revision restored.");
+    } catch (restoreError) {
+      toast.error(
+        restoreError instanceof Error
+          ? restoreError.message
+          : "Could not restore the revision.",
       );
-    } catch (translationError) {
-      const message =
-        translationError instanceof Error
-          ? translationError.message
-          : "Could not create the English track.";
-      setSubtitleError(message);
-      toast.error(message);
     } finally {
-      setIsTranslating(false);
+      setIsRestoring(false);
     }
   };
 
@@ -278,10 +336,15 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     else router.push("/admin/webinars");
   };
 
-  const requestLanguage = (language: SubtitleLanguage) => {
-    if (language === selectedLanguage) return;
-    if (dirty) setPendingNavigation({ type: "track", language });
-    else setSelectedLanguage(language);
+  const requestVersion = (versionId: string) => {
+    if (versionId === selectedVersionId) return;
+    if (dirty) setPendingNavigation({ type: "version", versionId });
+    else setSelectedVersionId(versionId);
+  };
+
+  const requestHistory = () => {
+    if (dirty) setPendingNavigation({ type: "history" });
+    else setHistoryOpen(true);
   };
 
   const discardAndContinue = () => {
@@ -289,7 +352,11 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     setDirty(false);
     setPendingNavigation(null);
     if (pending?.type === "back") router.push("/admin/webinars");
-    if (pending?.type === "track") setSelectedLanguage(pending.language);
+    if (pending?.type === "version") setSelectedVersionId(pending.versionId);
+    if (pending?.type === "history") {
+      setContentReloadKey((key) => key + 1);
+      setHistoryOpen(true);
+    }
   };
 
   if (isLoading && !detail) {
@@ -325,6 +392,10 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
       </div>
     );
   }
+
+  const selectedName = selectedVersion
+    ? versionName(detail.subtitles, selectedVersion)
+    : "";
 
   return (
     <>
@@ -367,18 +438,6 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
                 <Cloud className="size-3" /> R2{" "}
                 {detail.storage.video ? "Stored" : "Pending"}
               </AdminStatusBadge>
-              <AdminStatusBadge
-                tone={
-                  detail.transcriptStatus === "IMPORTED"
-                    ? "success"
-                    : detail.transcriptStatus === "FAILED"
-                      ? "danger"
-                      : "neutral"
-                }
-              >
-                Transcript{" "}
-                {detail.transcriptStatus.replaceAll("_", " ").toLowerCase()}
-              </AdminStatusBadge>
               <Button
                 aria-label="Refresh webinar workspace"
                 className="size-8 rounded-full"
@@ -403,11 +462,11 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
 
         <WebinarPlayer
           cues={cues}
-          languages={availableLanguages}
-          onLanguageChange={requestLanguage}
           onTimeChange={setCurrentTime}
-          selectedLanguage={selectedLanguage}
+          onTrackChange={requestVersion}
+          selectedTrackId={selectedReady ? selectedVersionId : null}
           source={playbackUrl}
+          tracks={playerTracks}
           videoRef={videoRef}
         />
 
@@ -420,20 +479,33 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
             error={subtitleError}
             isLoading={isSubtitleLoading}
             isSaving={isSaving}
-            language={selectedLanguage}
+            lineage={
+              selectedVersion ? lineageLabel(detail.subtitles, selectedVersion) : ""
+            }
             onChange={handleCueChange}
+            onOpenHistory={requestHistory}
             onSave={() => void saveSubtitles()}
             onSeek={handleSeek}
+            revision={selectedRevision}
+            version={selectedVersion}
+            versionLabel={selectedName}
           />
           <WebinarSidePanel
             detail={detail}
-            isTranslating={isTranslating}
-            onSelectLanguage={requestLanguage}
-            onTranslateEnglish={() => void translateEnglish()}
-            selectedLanguage={selectedLanguage}
+            onSelectVersion={requestVersion}
+            selectedVersionId={selectedVersionId}
           />
         </div>
       </div>
+
+      <SubtitleRevisionHistory
+        isRestoring={isRestoring}
+        onOpenChange={setHistoryOpen}
+        onRestore={(revisionId) => void restoreRevision(revisionId)}
+        open={historyOpen}
+        version={selectedVersion}
+        versionLabel={selectedName}
+      />
 
       <Dialog
         open={Boolean(pendingNavigation)}
@@ -444,7 +516,7 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
             Discard subtitle changes?
           </DialogTitle>
           <DialogDescription className="text-sm leading-6 text-[#6C7F95]">
-            This track has edits that have not been saved to R2. Discarding them
+            This version has edits that have not been saved. Discarding them
             cannot be undone.
           </DialogDescription>
           <div className="mt-2 flex justify-end gap-2">

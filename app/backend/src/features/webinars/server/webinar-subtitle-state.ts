@@ -571,3 +571,186 @@ export function buildLegacySubtitleState(input: {
 
   return state;
 }
+
+export type StoredRevisionObject = {
+  storageKey: string;
+  etag: string | null;
+  cueCount: number;
+  byteSize: number;
+};
+
+export type ManualSavePlan =
+  | { outcome: "not-found" }
+  | { outcome: "not-editable" }
+  | { outcome: "conflict"; currentRevisionId: string | null }
+  | {
+      outcome: "saved";
+      state: WebinarSubtitleState;
+      versionId: string;
+      revisionId: string;
+      createdVersion: boolean;
+    };
+
+/**
+ * Manual edits never overwrite a version:
+ * - Editing a manual version appends an EDIT revision (optimistic concurrency
+ *   on the revision the editor opened).
+ * - Editing SOURCE or an AI version creates a new manual version whose first
+ *   revision is a BASELINE pointing at the untouched original, followed by the
+ *   admin's EDIT. Restoring revision 1 therefore returns to the original text.
+ */
+export function planManualSave(
+  state: WebinarSubtitleState,
+  input: {
+    versionId: string;
+    expectedRevisionId: string | null;
+    object: StoredRevisionObject;
+    revisionId: string;
+    manualVersionId: string;
+    baselineRevisionId: string;
+    actor: string | null;
+    now: Date;
+  },
+): ManualSavePlan {
+  const base = findSubtitleVersion(state, input.versionId);
+  if (!base) return { outcome: "not-found" };
+  const current = getCurrentRevision(base);
+  if (base.status !== "READY" || !current) return { outcome: "not-editable" };
+  if (current.id !== input.expectedRevisionId) {
+    return { outcome: "conflict", currentRevisionId: current.id };
+  }
+
+  const edit = {
+    id: input.revisionId,
+    kind: "EDIT" as const,
+    ...input.object,
+    note: "Manual edit",
+    restoredFromRevisionId: null,
+    createdBy: input.actor,
+    now: input.now,
+  };
+
+  if (isManualKind(base.kind)) {
+    return {
+      outcome: "saved",
+      state: replaceSubtitleVersion(state, appendSubtitleRevision(base, edit)),
+      versionId: base.id,
+      revisionId: input.revisionId,
+      createdVersion: false,
+    };
+  }
+
+  let manual = createSubtitleVersion({
+    id: input.manualVersionId,
+    kind: manualKindFor(base.language),
+    origin: {
+      type: "MANUAL_EDIT",
+      sourceVersionId: base.id,
+      sourceRevisionId: current.id,
+      sourceKind: base.kind,
+    },
+    status: "READY",
+    createdBy: input.actor,
+    now: input.now,
+  });
+  manual = appendSubtitleRevision(manual, {
+    id: input.baselineRevisionId,
+    kind: "BASELINE",
+    storageKey: current.storageKey,
+    etag: current.etag,
+    cueCount: current.cueCount,
+    byteSize: current.byteSize,
+    note: "Starting point before manual corrections",
+    restoredFromRevisionId: current.id,
+    createdBy: input.actor,
+    now: input.now,
+  });
+  manual = appendSubtitleRevision(manual, edit);
+
+  return {
+    outcome: "saved",
+    state: replaceSubtitleVersion(state, manual),
+    versionId: manual.id,
+    revisionId: input.revisionId,
+    createdVersion: true,
+  };
+}
+
+export type RestorePlan =
+  | { outcome: "not-found" }
+  | { outcome: "not-restorable" }
+  | { outcome: "conflict"; currentRevisionId: string | null }
+  | { outcome: "saved"; state: WebinarSubtitleState; revisionId: string };
+
+/** Restore appends a RESTORE revision that reuses the earlier revision's object. */
+export function planRevisionRestore(
+  state: WebinarSubtitleState,
+  input: {
+    versionId: string;
+    revisionId: string;
+    expectedRevisionId: string | null;
+    newRevisionId: string;
+    actor: string | null;
+    now: Date;
+  },
+): RestorePlan {
+  const version = findSubtitleVersion(state, input.versionId);
+  if (!version) return { outcome: "not-found" };
+  const target = version.revisions.find((item) => item.id === input.revisionId);
+  if (!target) return { outcome: "not-found" };
+  if (!isManualKind(version.kind) || version.status !== "READY") {
+    return { outcome: "not-restorable" };
+  }
+  if (version.currentRevisionId !== input.expectedRevisionId) {
+    return { outcome: "conflict", currentRevisionId: version.currentRevisionId };
+  }
+  if (target.id === version.currentRevisionId) return { outcome: "not-restorable" };
+
+  const restored = appendSubtitleRevision(version, {
+    id: input.newRevisionId,
+    kind: "RESTORE",
+    storageKey: target.storageKey,
+    etag: target.etag,
+    cueCount: target.cueCount,
+    byteSize: target.byteSize,
+    note: `Restored revision ${target.number}`,
+    restoredFromRevisionId: target.id,
+    createdBy: input.actor,
+    now: input.now,
+  });
+  return {
+    outcome: "saved",
+    state: replaceSubtitleVersion(state, restored),
+    revisionId: input.newRevisionId,
+  };
+}
+
+export type ActiveTrackPlan =
+  | { outcome: "invalid" }
+  | { outcome: "saved"; state: WebinarSubtitleState };
+
+/** Chooses the version members see for a language; null hides that language. */
+export function planActiveVersion(
+  state: WebinarSubtitleState,
+  language: SubtitleTrackLanguage,
+  versionId: string | null,
+): ActiveTrackPlan {
+  if (versionId !== null) {
+    const version = findSubtitleVersion(state, versionId);
+    if (
+      !version ||
+      version.language !== language ||
+      version.status !== "READY" ||
+      !getCurrentRevision(version)
+    ) {
+      return { outcome: "invalid" };
+    }
+  }
+  return {
+    outcome: "saved",
+    state: {
+      ...state,
+      activeVersionIds: { ...state.activeVersionIds, [language]: versionId },
+    },
+  };
+}

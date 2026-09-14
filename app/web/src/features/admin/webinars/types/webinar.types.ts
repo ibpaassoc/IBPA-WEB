@@ -1,6 +1,5 @@
 export type WebinarStatus = "AVAILABLE" | "IMPORTING" | "IMPORTED" | "FAILED";
 export type TranscriptStatus = "AVAILABLE" | "IMPORTED" | "NOT_AVAILABLE" | "FAILED";
-export type SubtitleLanguage = "ru" | "en" | "uk";
 
 export type WebinarZoomFile = {
   id: string;
@@ -159,14 +158,8 @@ export type WebinarStoredObject = {
   metadata?: Record<string, string>;
 };
 
-export type WebinarSubtitleTrack = WebinarStoredObject & {
-  language: SubtitleLanguage;
-  exists: boolean;
-};
-
 export type AdminWebinarDetail = AdminWebinar & {
   storage: { video: WebinarStoredObject | null };
-  tracks: WebinarSubtitleTrack[];
   subtitles: WebinarSubtitleState;
   membershipCategories: Array<{
     value: MembershipCategory;
@@ -175,7 +168,8 @@ export type AdminWebinarDetail = AdminWebinar & {
 };
 
 export type WebinarSubtitleDocument = {
-  language: SubtitleLanguage;
+  versionId: string;
+  revisionId: string;
   etag: string | null;
   text: string;
 };

@@ -1,10 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { requireDb } from "@/lib/db";
-import {
-  createPresignedR2GetUrl,
-  getTextFromR2,
-  putTextToR2,
-} from "./r2-storage";
+import { createPresignedR2GetUrl, getTextFromR2 } from "./r2-storage";
 import { findWebinarById } from "./webinar.repository";
 import {
   appendSubtitleRevision,
@@ -14,7 +10,6 @@ import {
   isEnglishTranslationSource,
   isSubtitleJobStale,
   replaceSubtitleVersion,
-  subtitleRevisionKey,
   withSubtitleJob,
   withSubtitleJobFailure,
   withSubtitleJobHeartbeat,
@@ -23,8 +18,8 @@ import {
   type WebinarSubtitleState,
 } from "./webinar-subtitle-state";
 import {
-  countVttCues,
   mutateWebinarSubtitleState,
+  writeSubtitleRevisionObject,
 } from "./webinar-subtitles.service";
 import {
   assertTranscriptionConfigured,
@@ -56,33 +51,6 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
-}
-
-/** Writes an immutable revision object; keys are unique per revision id. */
-export async function writeSubtitleRevisionObject(input: {
-  webinarId: string;
-  versionId: string;
-  revisionId: string;
-  vtt: string;
-  metadata?: Record<string, string>;
-}) {
-  const storageKey = subtitleRevisionKey(
-    input.webinarId,
-    input.versionId,
-    input.revisionId,
-  );
-  const result = await putTextToR2({
-    key: storageKey,
-    text: input.vtt,
-    metadata: input.metadata,
-    requireAbsent: true,
-  });
-  return {
-    storageKey,
-    etag: result.etag,
-    cueCount: countVttCues(input.vtt),
-    byteSize: Buffer.byteLength(input.vtt, "utf8"),
-  };
 }
 
 export async function updateSubtitleVersion(

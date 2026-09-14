@@ -1,16 +1,19 @@
 import { Router, type Request, type Response } from "express";
 import {
-  createEnglishTestTrack,
   getWebinarDetail,
   getWebinarImportOptions,
   getWebinarList,
   getWebinarPlayback,
-  getWebinarSubtitle,
-  isSubtitleLanguage,
-  saveWebinarSubtitle,
   startWebinarImport,
   syncZoomWebinars,
 } from "../features/webinars/server/webinar.service";
+import {
+  getSubtitleVersionContent,
+  restoreSubtitleRevision,
+  saveManualSubtitleRevision,
+  setActiveSubtitleVersion,
+} from "../features/webinars/server/webinar-subtitles.service";
+import { isSubtitleTrackLanguage } from "../features/webinars/server/webinar-subtitle-state";
 import {
   retrySubtitleVersion,
   startEnglishTranslation,
@@ -145,80 +148,119 @@ webinarsRouter.get("/:id/playback", async (req, res) => {
   }
 });
 
-webinarsRouter.get("/:id/subtitles", async (req, res) => {
-  const language = single(req.query.language);
-  if (!isSubtitleLanguage(language)) {
-    return res
-      .status(400)
-      .json({ error: "Subtitle language must be ru, en, or uk." });
-  }
-  try {
-    const result = await getWebinarSubtitle(
-      single(req.params.id) || "",
-      language,
-    );
-    if (result.outcome === "not-found")
-      return res.status(404).json({ error: "Webinar not found." });
-    if (result.outcome === "missing")
-      return res.status(404).json({ error: "Subtitle track not found." });
-    return res.set("Cache-Control", "private, no-store").json(result);
-  } catch (error) {
-    return sendWebinarError(res, error, "Failed to load subtitles.");
-  }
-});
-
-webinarsRouter.put("/:id/subtitles", async (req, res) => {
-  const language = req.body?.language;
-  if (!isSubtitleLanguage(language) || typeof req.body?.vtt !== "string") {
-    return res
-      .status(400)
-      .json({
-        error: "A valid subtitle language and VTT document are required.",
+webinarsRouter.get(
+  "/:id/subtitle-versions/:versionId/content",
+  async (req, res) => {
+    try {
+      const result = await getSubtitleVersionContent({
+        webinarId: single(req.params.id) || "",
+        versionId: single(req.params.versionId) || "",
+        revisionId: single(req.query.revisionId),
       });
-  }
-  try {
-    const result = await saveWebinarSubtitle({
-      id: single(req.params.id) || "",
-      language,
-      vtt: req.body.vtt,
-      expectedEtag:
-        typeof req.body.expectedEtag === "string"
-          ? req.body.expectedEtag
-          : null,
-    });
-    return result
-      ? res.json(result)
-      : res.status(404).json({ error: "Webinar not found." });
-  } catch (error) {
-    return sendWebinarError(res, error, "Failed to save subtitles.");
-  }
-});
+      if (result.outcome === "not-found")
+        return res.status(404).json({ error: "Webinar not found." });
+      if (result.outcome === "missing")
+        return res.status(404).json({ error: "Subtitle version not found." });
+      return res.set("Cache-Control", "private, no-store").json(result);
+    } catch (error) {
+      return sendWebinarError(res, error, "Failed to load subtitles.");
+    }
+  },
+);
 
-webinarsRouter.post("/:id/translate-english", async (req, res) => {
+webinarsRouter.post(
+  "/:id/subtitle-versions/:versionId/revisions",
+  async (req, res) => {
+    if (typeof req.body?.vtt !== "string") {
+      return res.status(400).json({ error: "A WebVTT document is required." });
+    }
+    try {
+      const result = await saveManualSubtitleRevision({
+        webinarId: single(req.params.id) || "",
+        versionId: single(req.params.versionId) || "",
+        vtt: req.body.vtt,
+        expectedRevisionId:
+          typeof req.body.expectedRevisionId === "string"
+            ? req.body.expectedRevisionId
+            : null,
+        actor: adminActor(req),
+      });
+      if (result.outcome === "not-found")
+        return res.status(404).json({ error: "Webinar not found." });
+      if (result.outcome === "missing")
+        return res.status(404).json({ error: "Subtitle version not found." });
+      if (result.outcome === "not-editable") {
+        return res.status(409).json({
+          error: "This version is still processing or has no subtitles to edit.",
+        });
+      }
+      return res.status(result.createdVersion ? 201 : 200).json(result);
+    } catch (error) {
+      return sendWebinarError(res, error, "Failed to save subtitles.");
+    }
+  },
+);
+
+webinarsRouter.post(
+  "/:id/subtitle-versions/:versionId/restore",
+  async (req, res) => {
+    const revisionId =
+      typeof req.body?.revisionId === "string" ? req.body.revisionId : "";
+    if (!revisionId) {
+      return res.status(400).json({ error: "Choose a revision to restore." });
+    }
+    try {
+      const result = await restoreSubtitleRevision({
+        webinarId: single(req.params.id) || "",
+        versionId: single(req.params.versionId) || "",
+        revisionId,
+        expectedRevisionId:
+          typeof req.body.expectedRevisionId === "string"
+            ? req.body.expectedRevisionId
+            : null,
+        actor: adminActor(req),
+      });
+      if (result.outcome === "not-found")
+        return res.status(404).json({ error: "Subtitle revision not found." });
+      if (result.outcome === "not-restorable") {
+        return res.status(409).json({
+          error: "Only an earlier revision of a manual version can be restored.",
+        });
+      }
+      return res.json(result);
+    } catch (error) {
+      return sendWebinarError(res, error, "Failed to restore the revision.");
+    }
+  },
+);
+
+webinarsRouter.put("/:id/subtitle-tracks", async (req, res) => {
+  const language = req.body?.language;
+  const versionId = req.body?.versionId;
+  if (
+    !isSubtitleTrackLanguage(language) ||
+    !(versionId === null || typeof versionId === "string")
+  ) {
+    return res.status(400).json({
+      error: "A subtitle language (ru or en) and a version id or null are required.",
+    });
+  }
   try {
-    const result = await createEnglishTestTrack(single(req.params.id) || "");
+    const result = await setActiveSubtitleVersion({
+      webinarId: single(req.params.id) || "",
+      language,
+      versionId,
+    });
     if (result.outcome === "not-found")
       return res.status(404).json({ error: "Webinar not found." });
-    if (result.outcome === "missing-source") {
-      return res
-        .status(409)
-        .json({ error: "A Russian subtitle track is required first." });
+    if (result.outcome === "invalid") {
+      return res.status(409).json({
+        error: "Only a ready version in the same language can be shown to members.",
+      });
     }
-    if (result.outcome === "exists") {
-      return res
-        .status(409)
-        .json({
-          error:
-            "English subtitles already exist. Edit the current track instead.",
-        });
-    }
-    return res.status(201).json(result);
+    return res.json(result);
   } catch (error) {
-    return sendWebinarError(
-      res,
-      error,
-      "Failed to create the English test track.",
-    );
+    return sendWebinarError(res, error, "Failed to update the member track.");
   }
 });
 

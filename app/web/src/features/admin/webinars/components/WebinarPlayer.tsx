@@ -19,33 +19,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SubtitleLanguage } from "../types/webinar.types";
 import { findActiveCueIndex, type VttCue } from "../utils/vtt";
 import { formatDuration } from "../utils/webinar-formatters";
 
-const languageLabels: Record<SubtitleLanguage, string> = {
-  ru: "Original",
-  en: "English",
-  uk: "Ukrainian",
-};
+export type WebinarPlayerTrack = { id: string; label: string };
 
 type WebinarPlayerProps = {
   source: string | null;
   cues: VttCue[];
-  languages: SubtitleLanguage[];
-  selectedLanguage: SubtitleLanguage | null;
-  onLanguageChange: (language: SubtitleLanguage) => void;
+  tracks: WebinarPlayerTrack[];
+  selectedTrackId: string | null;
+  onTrackChange: (trackId: string) => void;
   onTimeChange: (time: number) => void;
   videoRef: MutableRefObject<HTMLVideoElement | null>;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  trackSelectLabel?: string;
 };
 
 export function WebinarPlayer({
   cues,
-  languages,
-  onLanguageChange,
+  emptyDescription = "Import a completed Zoom MP4 from the webinar library to enable playback.",
+  emptyTitle = "Video is not in R2 yet",
   onTimeChange,
-  selectedLanguage,
+  onTrackChange,
+  selectedTrackId,
   source,
+  trackSelectLabel = "Subtitle track",
+  tracks,
   videoRef,
 }: WebinarPlayerProps) {
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -143,11 +144,8 @@ export function WebinarPlayer({
       ) : (
         <div className="flex size-full flex-col items-center justify-center px-6 text-center text-white/65">
           <Play className="mb-3 size-8" />
-          <p className="font-semibold text-white">Video is not in R2 yet</p>
-          <p className="mt-1 max-w-md text-sm leading-6">
-            Import a completed Zoom MP4 from the webinar library to enable
-            playback.
-          </p>
+          <p className="font-semibold text-white">{emptyTitle}</p>
+          <p className="mt-1 max-w-md text-sm leading-6">{emptyDescription}</p>
         </div>
       )}
 
@@ -222,16 +220,14 @@ export function WebinarPlayer({
             value={muted ? 0 : volume}
           />
           <div className="ml-auto flex items-center gap-1">
-            {languages.length ? (
+            {tracks.length ? (
               <AdminSelect
-                onValueChange={(value) =>
-                  onLanguageChange(value as SubtitleLanguage)
-                }
-                value={selectedLanguage || undefined}
+                onValueChange={onTrackChange}
+                value={selectedTrackId || undefined}
               >
                 <SelectTrigger
-                  aria-label="Subtitle language"
-                  className="h-8 w-28 rounded-xl border-white/15 bg-white/10 text-xs text-white hover:bg-white/15"
+                  aria-label={trackSelectLabel}
+                  className="h-8 w-32 rounded-xl border-white/15 bg-white/10 text-xs text-white hover:bg-white/15 sm:w-44"
                 >
                   <SelectValue placeholder="Subtitles" />
                 </SelectTrigger>
@@ -239,9 +235,9 @@ export function WebinarPlayer({
                   position="popper"
                   className="min-w-[var(--radix-select-trigger-width)] rounded-xl border-[#D4E0F0]"
                 >
-                  {languages.map((language) => (
-                    <SelectItem key={language} value={language}>
-                      {languageLabels[language]}
+                  {tracks.map((track) => (
+                    <SelectItem key={track.id} value={track.id}>
+                      {track.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -253,7 +249,7 @@ export function WebinarPlayer({
               }
               aria-pressed={captionsEnabled}
               className="size-9 rounded-full text-white/80 hover:bg-white/10 hover:text-white"
-              disabled={!languages.length}
+              disabled={!tracks.length}
               onClick={() => setCaptionsEnabled((value) => !value)}
               size="icon"
               type="button"

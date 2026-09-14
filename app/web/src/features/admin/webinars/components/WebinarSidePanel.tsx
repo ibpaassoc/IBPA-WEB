@@ -1,49 +1,37 @@
 "use client";
 
-import {
-  Check,
-  Cloud,
-  FileText,
-  Languages,
-  LoaderCircle,
-  Video,
-} from "lucide-react";
+import { Check, Cloud, FileText, Video } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
-import type {
-  AdminWebinarDetail,
-  SubtitleLanguage,
-} from "../types/webinar.types";
+import type { AdminWebinarDetail } from "../types/webinar.types";
+import {
+  isVersionActive,
+  lineageLabel,
+  versionName,
+} from "../utils/subtitle-versions";
 import {
   formatFileSize,
   getWebinarMp4Types,
 } from "../utils/webinar-formatters";
 
-const trackLabels: Record<SubtitleLanguage, { name: string; detail: string }> =
-  {
-    ru: { name: "Original", detail: "Zoom transcript · Russian" },
-    en: { name: "English", detail: "Editable English track" },
-    uk: { name: "Ukrainian", detail: "Editable Ukrainian track" },
-  };
+const statusTone = {
+  READY: "success",
+  PROCESSING: "neutral",
+  FAILED: "danger",
+} as const;
 
 type WebinarSidePanelProps = {
   detail: AdminWebinarDetail;
-  isTranslating: boolean;
-  onSelectLanguage: (language: SubtitleLanguage) => void;
-  onTranslateEnglish: () => void;
-  selectedLanguage: SubtitleLanguage | null;
+  onSelectVersion: (versionId: string) => void;
+  selectedVersionId: string | null;
 };
 
 export function WebinarSidePanel({
   detail,
-  isTranslating,
-  onSelectLanguage,
-  onTranslateEnglish,
-  selectedLanguage,
+  onSelectVersion,
+  selectedVersionId,
 }: WebinarSidePanelProps) {
-  const russian = detail.tracks.find((track) => track.language === "ru");
-  const english = detail.tracks.find((track) => track.language === "en");
+  const state = detail.subtitles;
   const mp4Types = getWebinarMp4Types(detail);
 
   return (
@@ -51,96 +39,68 @@ export function WebinarSidePanel({
       <section className="rounded-[24px] border border-[#D4E0F0] bg-white p-4 shadow-[0_14px_35px_rgba(15,46,83,0.05)]">
         <div className="flex items-center gap-2">
           <FileText className="size-4 text-[#21466D]" />
-          <h2 className="font-semibold text-[#0B1F44]">Subtitle tracks</h2>
+          <h2 className="font-semibold text-[#0B1F44]">Subtitle versions</h2>
         </div>
         <div className="mt-4 space-y-2">
-          {detail.tracks.map((track) => {
-            const selected = selectedLanguage === track.language;
-            const isTest =
-              track.language === "en" &&
-              track.metadata?.translation === "test-copy";
-            return (
-              <button
-                aria-pressed={selected}
-                className={`flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#21466D] focus-visible:ring-offset-2 ${
-                  track.exists
-                    ? selected
-                      ? "cursor-pointer border-[#7EA8CF] bg-[#EEF6FF]"
-                      : "cursor-pointer border-[#E1EAF4] bg-[#FBFDFF] hover:border-[#B9CEE3]"
-                    : "cursor-not-allowed border-[#E8EEF5] bg-[#F8FAFC] opacity-65"
-                }`}
-                disabled={!track.exists}
-                key={track.language}
-                onClick={() => onSelectLanguage(track.language)}
-                type="button"
-              >
-                <span
-                  className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl ${selected ? "bg-[#21466D] text-white" : "bg-white text-[#55708F]"}`}
+          {state.versions.length ? (
+            state.versions.map((version) => {
+              const selected = selectedVersionId === version.id;
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={`flex w-full cursor-pointer items-start gap-3 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#21466D] focus-visible:ring-offset-2 ${
+                    selected
+                      ? "border-[#7EA8CF] bg-[#EEF6FF]"
+                      : "border-[#E1EAF4] bg-[#FBFDFF] hover:border-[#B9CEE3]"
+                  }`}
+                  key={version.id}
+                  onClick={() => onSelectVersion(version.id)}
+                  type="button"
                 >
-                  {selected ? (
-                    <Check className="size-3.5" />
-                  ) : (
-                    <FileText className="size-3.5" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-sm font-semibold text-[#0B1F44]">
-                      {trackLabels[track.language].name}
+                  <span
+                    className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl ${selected ? "bg-[#21466D] text-white" : "bg-white text-[#55708F]"}`}
+                  >
+                    {selected ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <FileText className="size-3.5" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-semibold text-[#0B1F44]">
+                        {versionName(state, version)}
+                      </span>
+                      {version.status !== "READY" ? (
+                        <AdminStatusBadge
+                          className="px-1.5 py-0 text-[9px]"
+                          tone={statusTone[version.status]}
+                        >
+                          {version.status === "PROCESSING" ? "Processing" : "Failed"}
+                        </AdminStatusBadge>
+                      ) : null}
+                      {isVersionActive(state, version) ? (
+                        <AdminStatusBadge
+                          className="px-1.5 py-0 text-[9px]"
+                          tone="success"
+                        >
+                          Members
+                        </AdminStatusBadge>
+                      ) : null}
                     </span>
-                    {isTest ? (
-                      <AdminStatusBadge
-                        className="px-1.5 py-0 text-[9px]"
-                        tone="warning"
-                      >
-                        Test copy
-                      </AdminStatusBadge>
-                    ) : null}
+                    <span className="mt-0.5 block font-mono text-[10px] leading-4 text-[#6C7F95]">
+                      {lineageLabel(state, version)}
+                    </span>
                   </span>
-                  <span className="mt-0.5 block text-[11px] leading-4 text-[#6C7F95]">
-                    {track.exists
-                      ? trackLabels[track.language].detail
-                      : "Not created"}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="rounded-[24px] border border-[#D4E0F0] bg-white p-4 shadow-[0_14px_35px_rgba(15,46,83,0.05)]">
-        <div className="flex items-center gap-2">
-          <Languages className="size-4 text-[#21466D]" />
-          <h2 className="font-semibold text-[#0B1F44]">Translation</h2>
-        </div>
-        <p className="mt-2 text-xs leading-5 text-[#6C7F95]">
-          Test mode copies the Russian cue text into a new English track while
-          preserving every timestamp.
-        </p>
-        <Button
-          aria-busy={isTranslating}
-          className="mt-4 h-10 w-full rounded-2xl bg-[#21466D] text-white hover:bg-[#0B1F44]"
-          disabled={!russian?.exists || english?.exists || isTranslating}
-          onClick={onTranslateEnglish}
-          type="button"
-        >
-          {isTranslating ? (
-            <LoaderCircle className="motion-safe:animate-spin" />
+                </button>
+              );
+            })
           ) : (
-            <Languages />
+            <p className="rounded-2xl border border-dashed border-[#D4E0F0] bg-[#F8FBFF] px-3 py-4 text-center text-xs leading-5 text-[#6C7F95]">
+              No subtitle versions yet.
+            </p>
           )}
-          {english?.exists
-            ? "English track exists"
-            : isTranslating
-              ? "Creating test track…"
-              : "Translate to English"}
-        </Button>
-        {!russian?.exists ? (
-          <p className="mt-2 text-xs text-[#B42318]">
-            A Russian <code>ru.vtt</code> track is required.
-          </p>
-        ) : null}
+        </div>
       </section>
 
       <section className="rounded-[24px] border border-[#D4E0F0] bg-white p-4 shadow-[0_14px_35px_rgba(15,46,83,0.05)]">
