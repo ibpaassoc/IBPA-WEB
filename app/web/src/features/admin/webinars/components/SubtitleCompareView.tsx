@@ -40,6 +40,7 @@ import {
   versionName,
 } from "../utils/subtitle-versions";
 import { parseVtt, type VttCue } from "../utils/vtt";
+import { scrollWithinContainer } from "../utils/scroll-within";
 import { formatDuration } from "../utils/webinar-formatters";
 
 type SubtitleCompareViewProps = {
@@ -192,6 +193,7 @@ export function SubtitleCompareView({
   const [contents, setContents] = useState<Record<string, VttCue[]>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const readyVersions = state.versions.filter((version) =>
     isReadyVersion(version),
@@ -267,12 +269,7 @@ export function SubtitleCompareView({
 
   useEffect(() => {
     if (!activeRow) return;
-    rowRefs.current.get(activeRow.id)?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-      block: "nearest",
-    });
+    scrollWithinContainer(listRef.current, rowRefs.current.get(activeRow.id));
   }, [activeRow]);
 
   const jumpToDifference = (direction: 1 | -1) => {
@@ -288,7 +285,11 @@ export function SubtitleCompareView({
             .find((row) => row.start < currentTime - epsilon) ??
           changed[changed.length - 1]);
     onSeek(target.start);
-    rowRefs.current.get(target.id)?.scrollIntoView({ block: "center" });
+    scrollWithinContainer(
+      listRef.current,
+      rowRefs.current.get(target.id),
+      "center",
+    );
   };
 
   const chooseLeft = (leftId: string) => {
@@ -593,7 +594,10 @@ export function SubtitleCompareView({
           </p>
         </div>
       ) : (
-        <div className="max-h-[680px] overflow-y-auto [scrollbar-gutter:stable]">
+        <div
+          className="max-h-[680px] overflow-y-auto [scrollbar-gutter:stable]"
+          ref={listRef}
+        >
           {visibleRows.map((row) => {
             const active = row.id === activeRow?.id;
             const statusLabel = rowStatusLabel[row.status];

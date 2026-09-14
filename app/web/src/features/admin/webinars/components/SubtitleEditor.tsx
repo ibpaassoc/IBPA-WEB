@@ -24,6 +24,7 @@ import {
   timecodeToSeconds,
   type VttCue,
 } from "../utils/vtt";
+import { scrollWithinContainer } from "../utils/scroll-within";
 
 type SubtitleEditorProps = {
   activeCueIndex: number;
@@ -63,6 +64,7 @@ export function SubtitleEditor({
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement | null>(null);
   const cueRefs = useRef(new Map<string, HTMLDivElement>());
+  const listRef = useRef<HTMLDivElement | null>(null);
   const visibleCues = useMemo(() => {
     const normalized = search.trim().toLocaleLowerCase();
     if (!normalized) return cues.map((cue, index) => ({ cue, index }));
@@ -74,12 +76,7 @@ export function SubtitleEditor({
   useEffect(() => {
     if (activeCueIndex < 0 || search) return;
     const cue = cues[activeCueIndex];
-    cueRefs.current.get(cue?.id || "")?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-      block: "nearest",
-    });
+    scrollWithinContainer(listRef.current, cueRefs.current.get(cue?.id || ""));
   }, [activeCueIndex, cues, search]);
 
   const updateCue = (index: number, values: Partial<VttCue>) => {
@@ -104,7 +101,11 @@ export function SubtitleEditor({
     onChange(nextCues);
     setSearch("");
     window.requestAnimationFrame(() =>
-      cueRefs.current.get(next.id)?.scrollIntoView({ block: "center" }),
+      scrollWithinContainer(
+        listRef.current,
+        cueRefs.current.get(next.id),
+        "center",
+      ),
     );
   };
 
@@ -270,7 +271,10 @@ export function SubtitleEditor({
           </button>
         </div>
       ) : (
-        <div className="max-h-[680px] overflow-y-auto p-3 [scrollbar-gutter:stable] sm:p-4">
+        <div
+          ref={listRef}
+          className="max-h-[680px] overflow-y-auto p-3 [scrollbar-gutter:stable] sm:p-4"
+        >
           <div className="space-y-2">
             {visibleCues.map(({ cue, index }) => {
               const active = index === activeCueIndex;

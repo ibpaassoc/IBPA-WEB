@@ -26,13 +26,21 @@ import {
 } from "@/components/ui/dialog";
 import { AdminStatusBadge } from "../../shared/components/AdminStatusBadge";
 import {
+  generateEnglishTranslation,
+  generateRussianTranscript,
   getSubtitleVersionContent,
   getWebinar,
   getWebinarPlayback,
   restoreSubtitleRevision,
+  retrySubtitleVersion,
   saveSubtitleRevision,
+  setMemberSubtitleTrack,
 } from "../server/webinar.repository";
-import type { AdminWebinarDetail, WebinarStatus } from "../types/webinar.types";
+import type {
+  AdminWebinarDetail,
+  SubtitleTrackLanguage,
+  WebinarStatus,
+} from "../types/webinar.types";
 import {
   currentRevision,
   findVersion,
@@ -55,7 +63,12 @@ import {
 } from "../utils/webinar-formatters";
 import { SubtitleCompareView } from "./SubtitleCompareView";
 import { SubtitleEditor } from "./SubtitleEditor";
+import {
+  GenerateRussianDialog,
+  TranslateEnglishDialog,
+} from "./SubtitleJobDialogs";
 import { SubtitleRevisionHistory } from "./SubtitleRevisionHistory";
+import { SubtitleTranslationNavigator } from "./SubtitleTranslationNavigator";
 import { WebinarPlayer } from "./WebinarPlayer";
 import { WebinarSidePanel } from "./WebinarSidePanel";
 
@@ -106,6 +119,12 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<"edit" | "compare">(
     "edit",
+  );
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [translateOpen, setTranslateOpen] = useState(false);
+  const [translateSourceId, setTranslateSourceId] = useState<string | null>(
+    null,
   );
   const [error, setError] = useState<string | null>(null);
   const [subtitleError, setSubtitleError] = useState<string | null>(null);
@@ -341,6 +360,88 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
     }
   };
 
+  const runAction = async (
+    key: string,
+    action: () => Promise<string>,
+    fallback: string,
+  ) => {
+    setBusyAction(key);
+    try {
+      const message = await action();
+      await loadDetail({ silent: true });
+      toast.success(message);
+      return true;
+    } catch (actionError) {
+      toast.error(
+        actionError instanceof Error ? actionError.message : fallback,
+      );
+      return false;
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const startRussianTranscript = async () => {
+    const started = await runAction(
+      "generate",
+      async () => {
+        const result = await generateRussianTranscript(webinarId);
+        return result.outcome === "started"
+          ? "AI Russian transcript started. It appears under Russian when ready."
+          : "An AI Russian transcript is already being generated.";
+      },
+      "Could not start the Russian AI transcript.",
+    );
+    if (started) setGenerateOpen(false);
+  };
+
+  const startEnglishTranslation = async (sourceVersionId: string) => {
+    const source = findVersion(detail?.subtitles, sourceVersionId);
+    const started = await runAction(
+      "translate",
+      async () => {
+        const result = await generateEnglishTranslation(
+          webinarId,
+          sourceVersionId,
+        );
+        const from = source
+          ? versionName(detail!.subtitles, source)
+          : "the source";
+        return result.outcome === "started"
+          ? `English translation from ${from} started.`
+          : `An English translation from ${from} is already running.`;
+      },
+      "Could not start the English translation.",
+    );
+    if (started) setTranslateOpen(false);
+  };
+
+  const retryVersion = (versionId: string) =>
+    runAction(
+      `retry:${versionId}`,
+      async () => {
+        await retrySubtitleVersion(webinarId, versionId);
+        return "Job restarted.";
+      },
+      "Could not retry the subtitle job.",
+    );
+
+  const updateMemberTrack = (
+    language: SubtitleTrackLanguage,
+    versionId: string | null,
+  ) =>
+    runAction(
+      `track:${language}`,
+      async () => {
+        await setMemberSubtitleTrack({ id: webinarId, language, versionId });
+        const version = findVersion(detail?.subtitles, versionId);
+        return version
+          ? `Members now see ${versionName(detail!.subtitles, version)} for ${languageName[language]}.`
+          : `${languageName[language]} subtitles are hidden from members.`;
+      },
+      "Could not update the member subtitle track.",
+    );
+
   const requestBack = () => {
     if (dirty) setPendingNavigation({ type: "back" });
     else router.push("/admin/webinars");
@@ -470,18 +571,54 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
           ) : null}
         </header>
 
-        <WebinarPlayer
-          cues={cues}
-          onTimeChange={setCurrentTime}
-          onTrackChange={requestVersion}
-          selectedTrackId={selectedReady ? selectedVersionId : null}
-          source={playbackUrl}
-          tracks={playerTracks}
-          videoRef={videoRef}
-        />
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0 xl:col-start-1">
+            <WebinarPlayer
+              cues={cues}
+              onTimeChange={setCurrentTime}
+              onTrackChange={requestVersion}
+              selectedTrackId={selectedReady ? selectedVersionId : null}
+              source={playbackUrl}
+              tracks={playerTracks}
+              videoRef={videoRef}
+            />
+          </div>
 
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0 space-y-3">
+          <div className="min-w-0 space-y-4 xl:sticky xl:top-6 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto xl:[scrollbar-gutter:stable]">
+            <SubtitleTranslationNavigator
+              busyAction={busyAction}
+              canGenerateRussian={
+                detail.status === "IMPORTED" && Boolean(detail.videoR2Key)
+              }
+              onCompare={(versionId) => {
+                requestVersion(versionId);
+                setWorkspaceMode("compare");
+              }}
+              onEdit={(versionId) => {
+                setWorkspaceMode("edit");
+                requestVersion(versionId);
+              }}
+              onGenerateRussian={() => setGenerateOpen(true)}
+              onHistory={requestHistory}
+              onRetry={(versionId) => void retryVersion(versionId)}
+              onSelect={requestVersion}
+              onSetMemberTrack={(language, versionId) =>
+                void updateMemberTrack(language, versionId)
+              }
+              onTranslate={(sourceVersionId) => {
+                setTranslateSourceId(sourceVersionId);
+                setTranslateOpen(true);
+              }}
+              selectedVersionId={selectedVersionId}
+              state={detail.subtitles}
+              workspaceMode={workspaceMode}
+            />
+            <div className="hidden xl:block">
+              <WebinarSidePanel detail={detail} />
+            </div>
+          </div>
+
+          <div className="min-w-0 space-y-3 xl:col-start-1">
             <div
               aria-label="Subtitle workspace mode"
               className="inline-flex rounded-2xl border border-[#D4E0F0] bg-white p-1 shadow-[0_8px_20px_rgba(15,46,83,0.05)]"
@@ -548,13 +685,30 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
               />
             )}
           </div>
-          <WebinarSidePanel
-            detail={detail}
-            onSelectVersion={requestVersion}
-            selectedVersionId={selectedVersionId}
-          />
+
+          <div className="min-w-0 xl:hidden">
+            <WebinarSidePanel detail={detail} />
+          </div>
         </div>
       </div>
+
+      <GenerateRussianDialog
+        isStarting={busyAction === "generate"}
+        onConfirm={() => void startRussianTranscript()}
+        onOpenChange={setGenerateOpen}
+        open={generateOpen}
+      />
+
+      <TranslateEnglishDialog
+        initialSourceId={translateSourceId}
+        isStarting={busyAction === "translate"}
+        onConfirm={(sourceVersionId) =>
+          void startEnglishTranslation(sourceVersionId)
+        }
+        onOpenChange={setTranslateOpen}
+        open={translateOpen}
+        state={detail.subtitles}
+      />
 
       <SubtitleRevisionHistory
         isRestoring={isRestoring}
