@@ -8,9 +8,15 @@ import {
   Clock3,
   Cloud,
   Columns2,
+  EyeOff,
+  FilePen,
+  Globe,
   LoaderCircle,
+  Lock,
   PencilLine,
   RefreshCw,
+  Send,
+  Users,
   Video,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -31,10 +37,14 @@ import {
   getSubtitleVersionContent,
   getWebinar,
   getWebinarPlayback,
+  publishWebinar,
   restoreSubtitleRevision,
   retrySubtitleVersion,
   saveSubtitleRevision,
   setMemberSubtitleTrack,
+  unpublishWebinar,
+  updateWebinarAccess,
+  type WebinarAccessInput,
 } from "../server/webinar.repository";
 import type {
   AdminWebinarDetail,
@@ -56,6 +66,7 @@ import {
   validateVttCues,
   type VttCue,
 } from "../utils/vtt";
+import { describeAccess } from "../utils/webinar-access";
 import {
   formatDuration,
   formatWebinarDate,
@@ -69,6 +80,7 @@ import {
 } from "./SubtitleJobDialogs";
 import { SubtitleRevisionHistory } from "./SubtitleRevisionHistory";
 import { SubtitleTranslationNavigator } from "./SubtitleTranslationNavigator";
+import { WebinarAccessDialog } from "./WebinarAccessDialog";
 import { WebinarPlayer } from "./WebinarPlayer";
 import { WebinarSidePanel } from "./WebinarSidePanel";
 
@@ -122,6 +134,10 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
   );
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [accessDialog, setAccessDialog] = useState<"publish" | "edit" | null>(
+    null,
+  );
+  const [unpublishOpen, setUnpublishOpen] = useState(false);
   const [translateOpen, setTranslateOpen] = useState(false);
   const [translateSourceId, setTranslateSourceId] = useState<string | null>(
     null,
@@ -442,6 +458,37 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
       "Could not update the member subtitle track.",
     );
 
+  const submitAccess = async (access: WebinarAccessInput) => {
+    const publishing = accessDialog === "publish";
+    const saved = await runAction(
+      "publication",
+      async () => {
+        if (publishing) {
+          await publishWebinar(webinarId, access);
+          return "Webinar published. Eligible members can watch it now.";
+        }
+        await updateWebinarAccess(webinarId, access);
+        return "Access settings saved.";
+      },
+      publishing
+        ? "Could not publish the webinar."
+        : "Could not save access settings.",
+    );
+    if (saved) setAccessDialog(null);
+  };
+
+  const confirmUnpublish = async () => {
+    const done = await runAction(
+      "publication",
+      async () => {
+        await unpublishWebinar(webinarId);
+        return "Webinar moved to draft. Members no longer see it.";
+      },
+      "Could not move the webinar to draft.",
+    );
+    if (done) setUnpublishOpen(false);
+  };
+
   const requestBack = () => {
     if (dirty) setPendingNavigation({ type: "back" });
     else router.push("/admin/webinars");
@@ -507,6 +554,8 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
   const selectedName = selectedVersion
     ? versionName(detail.subtitles, selectedVersion)
     : "";
+  const isPublished = detail.publicationStatus === "PUBLISHED";
+  const canPublish = detail.status === "IMPORTED" && Boolean(detail.videoR2Key);
 
   return (
     <>
@@ -538,29 +587,95 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
                 </span>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <AdminStatusBadge tone={statusTone[detail.status]}>
-                <Video className="size-3" /> Zoom{" "}
-                {webinarStatusLabel(detail.status)}
-              </AdminStatusBadge>
-              <AdminStatusBadge
-                tone={detail.storage.video ? "success" : "neutral"}
-              >
-                <Cloud className="size-3" /> R2{" "}
-                {detail.storage.video ? "Stored" : "Pending"}
-              </AdminStatusBadge>
-              <Button
-                aria-label="Refresh webinar workspace"
-                className="size-8 rounded-full"
-                onClick={() => void loadDetail()}
-                size="icon"
-                type="button"
-                variant="outline"
-              >
-                <RefreshCw />
-              </Button>
+            <div className="flex flex-col items-start gap-3 xl:shrink-0 xl:items-end">
+              <div className="flex flex-wrap items-center gap-2">
+                <AdminStatusBadge tone={statusTone[detail.status]}>
+                  <Video className="size-3" /> Zoom{" "}
+                  {webinarStatusLabel(detail.status)}
+                </AdminStatusBadge>
+                <AdminStatusBadge
+                  tone={detail.storage.video ? "success" : "neutral"}
+                >
+                  <Cloud className="size-3" /> R2{" "}
+                  {detail.storage.video ? "Stored" : "Pending"}
+                </AdminStatusBadge>
+                <AdminStatusBadge tone={isPublished ? "success" : "neutral"}>
+                  {isPublished ? (
+                    <Globe className="size-3" />
+                  ) : (
+                    <FilePen className="size-3" />
+                  )}
+                  {isPublished ? "Published" : "Draft"}
+                </AdminStatusBadge>
+                <Button
+                  aria-label="Refresh webinar workspace"
+                  className="size-8 rounded-full"
+                  onClick={() => void loadDetail()}
+                  size="icon"
+                  type="button"
+                  variant="outline"
+                >
+                  <RefreshCw />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {isPublished ? (
+                  <>
+                    <Button
+                      className="h-10 rounded-2xl bg-white text-[#21466D]"
+                      onClick={() => setAccessDialog("edit")}
+                      type="button"
+                      variant="outline"
+                    >
+                      <Lock data-icon="inline-start" /> Access settings
+                    </Button>
+                    <Button
+                      className="h-10 rounded-2xl text-[#55708F] hover:text-[#0B1F44]"
+                      onClick={() => setUnpublishOpen(true)}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <EyeOff data-icon="inline-start" /> Move to draft
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    className="h-10 min-w-44 rounded-2xl bg-[#21466D] text-white hover:bg-[#0B1F44]"
+                    disabled={!canPublish}
+                    onClick={() => setAccessDialog("publish")}
+                    title={
+                      canPublish
+                        ? undefined
+                        : "Import the recording before publishing"
+                    }
+                    type="button"
+                  >
+                    <Send data-icon="inline-start" /> Publish webinar
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
+          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[#E8EEF5] pt-3 text-xs text-[#55708F]">
+            <Users className="size-3.5 text-[#21466D]" />
+            {isPublished ? (
+              <>
+                <span className="font-semibold text-[#0B1F44]">
+                  {describeAccess(detail.access, detail.membershipCategories)}
+                </span>
+                {detail.publishedAt ? (
+                  <span>
+                    · Published {formatWebinarDate(detail.publishedAt)}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <span>
+                Draft · Members cannot see this webinar until it is published.
+                Subtitles are not required to publish.
+              </span>
+            )}
+          </p>
           {error ? (
             <div
               className="mt-4 rounded-2xl border border-[#F2C7C7] bg-[#FFF5F5] px-4 py-3 text-sm text-[#8F241E]"
@@ -691,6 +806,56 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
           </div>
         </div>
       </div>
+
+      <WebinarAccessDialog
+        access={detail.access}
+        isSaving={busyAction === "publication"}
+        membershipCategories={detail.membershipCategories}
+        mode={accessDialog === "publish" ? "publish" : "edit"}
+        onOpenChange={(open) => !open && setAccessDialog(null)}
+        onSubmit={(access) => void submitAccess(access)}
+        open={Boolean(accessDialog)}
+        subtitles={detail.subtitles}
+      />
+
+      <Dialog
+        open={unpublishOpen}
+        onOpenChange={(open) => !open && setUnpublishOpen(false)}
+      >
+        <DialogContent className="max-w-md rounded-[24px] border border-[#D4E0F0] p-6">
+          <DialogTitle className="text-lg font-semibold text-[#0B1F44]">
+            Move this webinar to draft?
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-[#6C7F95]">
+            Members lose access immediately. Subtitles, translations, and access
+            settings are kept, so you can publish again later.
+          </DialogDescription>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button
+              className="h-10 rounded-xl"
+              onClick={() => setUnpublishOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              Keep published
+            </Button>
+            <Button
+              aria-busy={busyAction === "publication"}
+              className="h-10 rounded-xl bg-[#21466D] text-white hover:bg-[#0B1F44]"
+              disabled={busyAction === "publication"}
+              onClick={() => void confirmUnpublish()}
+              type="button"
+            >
+              {busyAction === "publication" ? (
+                <LoaderCircle className="motion-safe:animate-spin" />
+              ) : (
+                <EyeOff />
+              )}
+              Move to draft
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <GenerateRussianDialog
         isStarting={busyAction === "generate"}

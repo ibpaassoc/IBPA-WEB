@@ -181,6 +181,23 @@ export async function compareAndSetSubtitleState(
   return record ?? null;
 }
 
+export async function updateWebinarPublication(
+  db: DbClient,
+  id: string,
+  values: {
+    publicationStatus?: "DRAFT" | "PUBLISHED";
+    publishedAt?: Date | null;
+    accessSettings?: Record<string, unknown>;
+  },
+) {
+  const [record] = await db
+    .update(coreWebinars)
+    .set({ ...values, updatedAt: new Date() })
+    .where(eq(coreWebinars.id, id))
+    .returning();
+  return record ?? null;
+}
+
 export async function claimWebinarImport(
   db: DbClient,
   input: {

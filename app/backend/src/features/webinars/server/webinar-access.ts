@@ -74,3 +74,43 @@ export function normalizeWebinarAccessSettings(
     updatedBy: typeof value.updatedBy === "string" ? value.updatedBy : null,
   };
 }
+
+export type WebinarAccessValidation =
+  | { ok: true; value: Omit<WebinarAccessSettings, "updatedAt" | "updatedBy"> }
+  | { ok: false; error: string };
+
+/** Strict validation for admin input; unlike normalization it never guesses. */
+export function validateWebinarAccessInput(raw: unknown): WebinarAccessValidation {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { ok: false, error: "Access settings are required." };
+  }
+  const value = raw as Record<string, unknown>;
+  if (!webinarAudiences.includes(value.audience as WebinarAudience)) {
+    return {
+      ok: false,
+      error: "Choose who can watch: all members, individuals only, or specific membership types.",
+    };
+  }
+  if (typeof value.allowTeamMembers !== "boolean") {
+    return { ok: false, error: "Choose whether team members can watch." };
+  }
+  const audience = value.audience as WebinarAudience;
+  const requested = Array.isArray(value.membershipTypes) ? value.membershipTypes : [];
+  const membershipTypes = uniqueCategories(requested);
+  if (audience === "MEMBERSHIP_TYPES") {
+    if (!membershipTypes.length || membershipTypes.length !== requested.length) {
+      return {
+        ok: false,
+        error: "Select at least one valid membership type.",
+      };
+    }
+  }
+  return {
+    ok: true,
+    value: {
+      audience,
+      membershipTypes: audience === "MEMBERSHIP_TYPES" ? membershipTypes : [],
+      allowTeamMembers: value.allowTeamMembers,
+    },
+  };
+}

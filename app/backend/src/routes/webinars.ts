@@ -1,5 +1,9 @@
 import { Router, type Request, type Response } from "express";
 import {
+  publishWebinar,
+  toPublicationResponse,
+  unpublishWebinar,
+  updateWebinarAccess,
   getWebinarDetail,
   getWebinarImportOptions,
   getWebinarList,
@@ -14,6 +18,7 @@ import {
   setActiveSubtitleVersion,
 } from "../features/webinars/server/webinar-subtitles.service";
 import { isSubtitleTrackLanguage } from "../features/webinars/server/webinar-subtitle-state";
+import { validateWebinarAccessInput } from "../features/webinars/server/webinar-access";
 import {
   retrySubtitleVersion,
   startEnglishTranslation,
@@ -343,6 +348,56 @@ webinarsRouter.post("/:id/subtitle-versions/:versionId/retry", async (req, res) 
     return res.status(202).json(result);
   } catch (error) {
     return sendWebinarError(res, error, "Failed to retry the subtitle job.");
+  }
+});
+
+webinarsRouter.post("/:id/publish", async (req, res) => {
+  const access = validateWebinarAccessInput(req.body?.access);
+  if (!access.ok) return res.status(400).json({ error: access.error });
+  try {
+    const result = await publishWebinar({
+      id: single(req.params.id) || "",
+      access: access.value,
+      actor: adminActor(req),
+    });
+    if (result.outcome === "not-found")
+      return res.status(404).json({ error: "Webinar not found." });
+    if (result.outcome === "no-video") {
+      return res.status(409).json({
+        error: "Import the recording before publishing this webinar.",
+      });
+    }
+    return res.json(toPublicationResponse(result.webinar));
+  } catch (error) {
+    return sendWebinarError(res, error, "Failed to publish the webinar.");
+  }
+});
+
+webinarsRouter.post("/:id/unpublish", async (req, res) => {
+  try {
+    const result = await unpublishWebinar(single(req.params.id) || "");
+    if (result.outcome === "not-found")
+      return res.status(404).json({ error: "Webinar not found." });
+    return res.json(toPublicationResponse(result.webinar));
+  } catch (error) {
+    return sendWebinarError(res, error, "Failed to move the webinar to draft.");
+  }
+});
+
+webinarsRouter.put("/:id/access", async (req, res) => {
+  const access = validateWebinarAccessInput(req.body?.access);
+  if (!access.ok) return res.status(400).json({ error: access.error });
+  try {
+    const result = await updateWebinarAccess({
+      id: single(req.params.id) || "",
+      access: access.value,
+      actor: adminActor(req),
+    });
+    if (result.outcome === "not-found")
+      return res.status(404).json({ error: "Webinar not found." });
+    return res.json(toPublicationResponse(result.webinar));
+  } catch (error) {
+    return sendWebinarError(res, error, "Failed to save access settings.");
   }
 });
 

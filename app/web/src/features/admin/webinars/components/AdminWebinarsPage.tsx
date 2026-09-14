@@ -606,6 +606,20 @@ export function AdminWebinarsPage() {
                             ) : null}
                             {webinarStatusLabel(webinar.status)}
                           </AdminStatusBadge>
+                          {webinar.status === "IMPORTED" ? (
+                            <AdminStatusBadge
+                              className="mt-1.5"
+                              tone={
+                                webinar.publicationStatus === "PUBLISHED"
+                                  ? "success"
+                                  : "neutral"
+                              }
+                            >
+                              {webinar.publicationStatus === "PUBLISHED"
+                                ? "Published"
+                                : "Draft"}
+                            </AdminStatusBadge>
+                          ) : null}
                           {webinar.status === "FAILED" &&
                           webinar.zoomMetadata.importError ? (
                             <p className="mt-1.5 max-w-56 text-xs leading-4 text-[#B42318]">

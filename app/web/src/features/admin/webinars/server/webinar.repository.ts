@@ -3,8 +3,10 @@ import type {
   AdminWebinarDetail,
   AdminWebinar,
   SubtitleTrackLanguage,
+  WebinarAccessSettings,
   WebinarImportOption,
   WebinarListResponse,
+  WebinarPublicationStatus,
   WebinarSubtitleDocument,
 } from "../types/webinar.types";
 
@@ -179,5 +181,48 @@ export async function generateEnglishTranslation(
       method: "POST",
     },
     "Could not start the English translation.",
+  );
+}
+
+export type WebinarAccessInput = Pick<
+  WebinarAccessSettings,
+  "audience" | "membershipTypes" | "allowTeamMembers"
+>;
+
+type PublicationResponse = {
+  publicationStatus: WebinarPublicationStatus;
+  publishedAt: string | null;
+  access: WebinarAccessSettings;
+};
+
+export async function publishWebinar(id: string, access: WebinarAccessInput) {
+  return requestJson<PublicationResponse>(
+    `/api/admin/webinars/${encodeURIComponent(id)}/publish`,
+    {
+      body: JSON.stringify({ access }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
+    "Could not publish the webinar.",
+  );
+}
+
+export async function unpublishWebinar(id: string) {
+  return requestJson<PublicationResponse>(
+    `/api/admin/webinars/${encodeURIComponent(id)}/unpublish`,
+    { body: "{}", headers: { "Content-Type": "application/json" }, method: "POST" },
+    "Could not move the webinar to draft.",
+  );
+}
+
+export async function updateWebinarAccess(id: string, access: WebinarAccessInput) {
+  return requestJson<PublicationResponse>(
+    `/api/admin/webinars/${encodeURIComponent(id)}/access`,
+    {
+      body: JSON.stringify({ access }),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    },
+    "Could not save access settings.",
   );
 }

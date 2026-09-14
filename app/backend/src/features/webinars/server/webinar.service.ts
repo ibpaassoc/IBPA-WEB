@@ -18,6 +18,7 @@ import {
   findWebinarById,
   listWebinars,
   updateWebinar,
+  updateWebinarPublication,
   upsertAvailableWebinar,
 } from "./webinar.repository";
 import {
@@ -39,6 +40,7 @@ import { resumeInterruptedSubtitleJobs } from "./webinar-subtitle-jobs.service";
 import {
   membershipCategoryOptions,
   normalizeWebinarAccessSettings,
+  type WebinarAccessSettings,
 } from "./webinar-access";
 
 const MAX_USER_PAGES = 50;
@@ -484,3 +486,66 @@ export function isTranscriptStatus(value: unknown) {
   );
 }
 
+type AccessInput = Omit<WebinarAccessSettings, "updatedAt" | "updatedBy">;
+
+function stampAccess(access: AccessInput, actor: string | null): WebinarAccessSettings {
+  return { ...access, updatedAt: new Date().toISOString(), updatedBy: actor };
+}
+
+/**
+ * Publishing needs an imported video but never subtitles; subtitle work and
+ * access changes continue after publication.
+ */
+export async function publishWebinar(input: {
+  id: string;
+  access: AccessInput;
+  actor: string | null;
+}) {
+  const db = requireDb();
+  const webinar = await findWebinarById(db, input.id);
+  if (!webinar) return { outcome: "not-found" as const };
+  if (webinar.status !== "IMPORTED" || !webinar.videoR2Key) {
+    return { outcome: "no-video" as const };
+  }
+  const updated = await updateWebinarPublication(db, input.id, {
+    publicationStatus: "PUBLISHED",
+    publishedAt: webinar.publishedAt ?? new Date(),
+    accessSettings: stampAccess(input.access, input.actor),
+  });
+  return { outcome: "published" as const, webinar: updated };
+}
+
+export async function unpublishWebinar(id: string) {
+  const db = requireDb();
+  const webinar = await findWebinarById(db, id);
+  if (!webinar) return { outcome: "not-found" as const };
+  const updated = await updateWebinarPublication(db, id, {
+    publicationStatus: "DRAFT",
+    publishedAt: null,
+  });
+  return { outcome: "unpublished" as const, webinar: updated };
+}
+
+export async function updateWebinarAccess(input: {
+  id: string;
+  access: AccessInput;
+  actor: string | null;
+}) {
+  const db = requireDb();
+  const webinar = await findWebinarById(db, input.id);
+  if (!webinar) return { outcome: "not-found" as const };
+  const updated = await updateWebinarPublication(db, input.id, {
+    accessSettings: stampAccess(input.access, input.actor),
+  });
+  return { outcome: "saved" as const, webinar: updated };
+}
+
+export function toPublicationResponse(webinar: CoreWebinar | null) {
+  return webinar
+    ? {
+        publicationStatus: webinar.publicationStatus,
+        publishedAt: webinar.publishedAt,
+        access: normalizeWebinarAccessSettings(webinar.accessSettings),
+      }
+    : null;
+}
