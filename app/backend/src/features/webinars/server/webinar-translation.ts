@@ -27,7 +27,7 @@ function getConfig() {
   const apiKey = process.env.DEEPL_API_KEY?.trim();
   if (!apiKey) {
     const error = new Error(
-      "AI translation is not configured. Set DEEPL_API_KEY on the backend.",
+      "AI translation is not configured. Set DEEPL_API_KEY in the backend environment and restart the backend.",
     );
     Object.assign(error, { code: "PROVIDER_NOT_CONFIGURED" });
     throw error;

@@ -19,7 +19,7 @@ function getConfig() {
   const apiKey = process.env.ASSEMBLYAI_API_KEY?.trim();
   if (!apiKey) {
     const error = new Error(
-      "AI transcription is not configured. Set ASSEMBLYAI_API_KEY on the backend.",
+      "AI transcription is not configured. Set ASSEMBLYAI_API_KEY in the backend environment and restart the backend.",
     );
     Object.assign(error, { code: "PROVIDER_NOT_CONFIGURED" });
     throw error;
