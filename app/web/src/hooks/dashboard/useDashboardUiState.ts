@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import type { SupportMode, TabType } from "@/components/dashboard/dashboard-types";
 
 export function useDashboardUiState() {
-  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
+  // Pages outside the tab shell (e.g. the webinar player) link back with
+  // ?tab=webinars. The dashboard renders a loader until Clerk is ready, so the
+  // client-only initial value never causes a hydration mismatch.
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("tab") === "webinars"
+      ? "webinars"
+      : "dashboard",
+  );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [eventRegistrationFilter, setEventRegistrationFilter] = useState<

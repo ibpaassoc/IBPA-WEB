@@ -754,3 +754,17 @@ export function planActiveVersion(
     },
   };
 }
+
+/**
+ * Tracks members may watch: the version chosen per language, at its current
+ * revision. Edits and restores show up without republishing the webinar.
+ */
+export function memberSubtitleTracks(state: WebinarSubtitleState) {
+  return subtitleTrackLanguages.flatMap((language) => {
+    const versionId = state.activeVersionIds[language];
+    const version = versionId ? findSubtitleVersion(state, versionId) : null;
+    const revision = version ? getCurrentRevision(version) : null;
+    if (!version || version.status !== "READY" || !revision) return [];
+    return [{ language, versionId: version.id, revision }];
+  });
+}

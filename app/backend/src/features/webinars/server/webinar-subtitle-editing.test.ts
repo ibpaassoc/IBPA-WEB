@@ -6,6 +6,7 @@ import {
   emptySubtitleState,
   findSubtitleVersion,
   getCurrentRevision,
+  memberSubtitleTracks,
   planActiveVersion,
   planManualSave,
   planRevisionRestore,
@@ -160,4 +161,32 @@ test("the member track per language accepts only ready versions of that language
 
   const hidden = planActiveVersion(state, "en", null);
   assert.equal(hidden.outcome === "saved" && hidden.state.activeVersionIds.en, null);
+});
+
+test("members get one track per selected language at its latest revision", () => {
+  let state = withVersion(emptySubtitleState(), "source", "SOURCE");
+  state = withVersion(state, "manual", "RU_MANUAL", ["m1", "m2"]);
+  state = withVersion(state, "en-ai", "EN_AI");
+  assert.deepEqual(memberSubtitleTracks(state), []);
+
+  state = { ...state, activeVersionIds: { ru: "manual", en: null } };
+  assert.deepEqual(
+    memberSubtitleTracks(state).map((track) => [track.language, track.versionId, track.revision.id]),
+    [["ru", "manual", "m2"]],
+  );
+
+  // A later manual save is served immediately, without republishing.
+  const saved = planManualSave(state, {
+    versionId: "manual",
+    expectedRevisionId: "m2",
+    object,
+    revisionId: "m3",
+    manualVersionId: "unused",
+    baselineRevisionId: "unused",
+    actor: null,
+    now,
+  });
+  assert.equal(saved.outcome, "saved");
+  if (saved.outcome !== "saved") return;
+  assert.equal(memberSubtitleTracks(saved.state)[0].revision.id, "m3");
 });

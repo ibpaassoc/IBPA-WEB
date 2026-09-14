@@ -233,6 +233,21 @@ export type DashboardDictionary = {
     memberPromo: string;
     memberPerk: (membership: string) => string;
   };
+  webinars: {
+    navLabel: string;
+    eyebrow: string;
+    title: string;
+    description: string;
+    watch: string;
+    duration: string;
+    subtitles: string;
+    noSubtitles: string;
+    languageNames: { ru: string; en: string };
+    emptyTitle: string;
+    emptyDescription: string;
+    loadError: string;
+    retry: string;
+  };
   support: {
     eyebrow: string;
     title: string;
@@ -677,6 +692,23 @@ export const dashboardDictionaries = {
       memberPromo: "Member promo available",
       memberPerk: (membership) =>
         `${membership.replace(" Membership", "")} member perk`,
+    },
+    webinars: {
+      navLabel: "Webinars",
+      eyebrow: "Webinars & masterclasses",
+      title: "Recorded sessions",
+      description:
+        "Watch IBPA webinars and masterclasses included in your membership, with subtitles where available.",
+      watch: "Watch",
+      duration: "Duration",
+      subtitles: "Subtitles",
+      noSubtitles: "No subtitles",
+      languageNames: { ru: "Russian", en: "English" },
+      emptyTitle: "No webinars available yet",
+      emptyDescription:
+        "Recorded webinars included in your membership will appear here as soon as they are published.",
+      loadError: "Webinars could not be loaded right now.",
+      retry: "Try again",
     },
     support: {
       eyebrow: "Support",
@@ -1239,6 +1271,23 @@ export const dashboardDictionaries = {
       memberPromo: "Доступен бонус для участников",
       memberPerk: (membership) =>
         `Преимущество для ${membership.replace(" членство", "").toLowerCase()}`,
+    },
+    webinars: {
+      navLabel: "Вебинары",
+      eyebrow: "Вебинары и мастер-классы",
+      title: "Записи эфиров",
+      description:
+        "Смотрите вебинары и мастер-классы IBPA, доступные по вашему членству, с субтитрами там, где они есть.",
+      watch: "Смотреть",
+      duration: "Длительность",
+      subtitles: "Субтитры",
+      noSubtitles: "Без субтитров",
+      languageNames: { ru: "Русский", en: "Английский" },
+      emptyTitle: "Пока нет доступных вебинаров",
+      emptyDescription:
+        "Записи вебинаров, доступные по вашему членству, появятся здесь сразу после публикации.",
+      loadError: "Не удалось загрузить вебинары.",
+      retry: "Повторить",
     },
     support: {
       eyebrow: "Поддержка",
@@ -1803,6 +1852,23 @@ export const dashboardDictionaries = {
       memberPromo: "Доступна перевага для учасників",
       memberPerk: (membership) =>
         `Перевага для ${membership.replace(" членство", "").toLowerCase()}`,
+    },
+    webinars: {
+      navLabel: "Вебінари",
+      eyebrow: "Вебінари та майстер-класи",
+      title: "Записи ефірів",
+      description:
+        "Дивіться вебінари та майстер-класи IBPA, доступні за вашим членством, із субтитрами там, де вони є.",
+      watch: "Дивитися",
+      duration: "Тривалість",
+      subtitles: "Субтитри",
+      noSubtitles: "Без субтитрів",
+      languageNames: { ru: "Російська", en: "Англійська" },
+      emptyTitle: "Поки немає доступних вебінарів",
+      emptyDescription:
+        "Записи вебінарів, доступні за вашим членством, з'являться тут одразу після публікації.",
+      loadError: "Не вдалося завантажити вебінари.",
+      retry: "Спробувати ще",
     },
     support: {
       eyebrow: "Підтримка",
