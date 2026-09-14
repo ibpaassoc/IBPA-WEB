@@ -9,7 +9,13 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useMemo, useRef, useState, type MutableRefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +30,38 @@ import { formatDuration } from "../utils/webinar-formatters";
 
 export type WebinarPlayerTrack = { id: string; label: string };
 
+export type WebinarPlayerLabels = {
+  play: string;
+  pause: string;
+  mute: string;
+  unmute: string;
+  volume: string;
+  position: string;
+  subtitlesOn: string;
+  subtitlesOff: string;
+  fullscreen: string;
+  playbackError: string;
+  loadError: string;
+  fullscreenError: string;
+};
+
+const defaultLabels: WebinarPlayerLabels = {
+  play: "Play video",
+  pause: "Pause video",
+  mute: "Mute video",
+  unmute: "Unmute video",
+  volume: "Video volume",
+  position: "Video position",
+  subtitlesOn: "Turn subtitles on",
+  subtitlesOff: "Turn subtitles off",
+  fullscreen: "Enter fullscreen",
+  playbackError:
+    "Playback could not start. Refresh the page to request a new private URL.",
+  loadError:
+    "The private video could not be loaded. Refresh to request a new playback URL.",
+  fullscreenError: "Fullscreen is unavailable in this browser window.",
+};
+
 type WebinarPlayerProps = {
   source: string | null;
   cues: VttCue[];
@@ -35,14 +73,22 @@ type WebinarPlayerProps = {
   emptyTitle?: string;
   emptyDescription?: string;
   trackSelectLabel?: string;
+  labels?: Partial<WebinarPlayerLabels>;
+  /** Seek here once the current source has loaded (e.g. after re-signing a URL). */
+  resumeAt?: number | null;
+  /** Called when the source fails; return true if a replacement is being fetched. */
+  onSourceError?: () => boolean;
 };
 
 export function WebinarPlayer({
   cues,
   emptyDescription = "Import a completed Zoom MP4 from the webinar library to enable playback.",
   emptyTitle = "Video is not in R2 yet",
+  labels: labelOverrides,
+  onSourceError,
   onTimeChange,
   onTrackChange,
+  resumeAt,
   selectedTrackId,
   source,
   trackSelectLabel = "Subtitle track",
@@ -57,10 +103,36 @@ export function WebinarPlayer({
   const [muted, setMuted] = useState(false);
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const activeCueIndex = useMemo(
-    () => (captionsEnabled ? findActiveCueIndex(cues, currentTime) : -1),
-    [captionsEnabled, cues, currentTime],
+  const [playingCueIndex, setPlayingCueIndex] = useState(-1);
+  const labels = { ...defaultLabels, ...labelOverrides };
+  const pausedCueIndex = useMemo(
+    () => findActiveCueIndex(cues, currentTime),
+    [cues, currentTime],
   );
+
+  // timeupdate fires only ~4×/s; while playing, follow the video clock per
+  // frame so captions switch exactly on their timestamps. State changes only
+  // when the visible cue changes.
+  useEffect(() => {
+    if (!isPlaying) return;
+    let frame = 0;
+    const tick = () => {
+      const video = videoRef.current;
+      if (video) {
+        const index = findActiveCueIndex(cues, video.currentTime);
+        setPlayingCueIndex((current) => (current === index ? current : index));
+      }
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [cues, isPlaying, videoRef]);
+
+  const activeCueIndex = captionsEnabled
+    ? isPlaying
+      ? playingCueIndex
+      : pausedCueIndex
+    : -1;
 
   const togglePlayback = async () => {
     const video = videoRef.current;
@@ -69,9 +141,7 @@ export function WebinarPlayer({
       try {
         await video.play();
       } catch {
-        setMediaError(
-          "Playback could not start. Refresh the page to request a new private URL.",
-        );
+        setMediaError(labels.playbackError);
       }
     } else {
       video.pause();
@@ -103,7 +173,7 @@ export function WebinarPlayer({
     try {
       await frameRef.current?.requestFullscreen();
     } catch {
-      setMediaError("Fullscreen is unavailable in this browser window.");
+      setMediaError(labels.fullscreenError);
     }
   };
 
@@ -124,12 +194,15 @@ export function WebinarPlayer({
             )
           }
           onEnded={() => setIsPlaying(false)}
-          onError={() =>
-            setMediaError(
-              "The private video could not be loaded. Refresh to request a new playback URL.",
-            )
-          }
-          onLoadedMetadata={() => setMediaError(null)}
+          onError={() => {
+            if (!onSourceError?.()) setMediaError(labels.loadError);
+          }}
+          onLoadedMetadata={(event) => {
+            setMediaError(null);
+            if (resumeAt && Number.isFinite(resumeAt)) {
+              event.currentTarget.currentTime = resumeAt;
+            }
+          }}
           onPause={() => setIsPlaying(false)}
           onPlay={() => setIsPlaying(true)}
           onTimeUpdate={(event) => {
@@ -171,7 +244,7 @@ export function WebinarPlayer({
 
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#071529] via-[#071529]/94 to-transparent px-4 pb-3 pt-9 text-white">
         <input
-          aria-label="Video position"
+          aria-label={labels.position}
           className="block h-1.5 w-full cursor-pointer accent-[#7EB6E8]"
           disabled={!source}
           max={duration || 0}
@@ -183,7 +256,7 @@ export function WebinarPlayer({
         />
         <div className="mt-2 flex items-center gap-1.5">
           <Button
-            aria-label={isPlaying ? "Pause video" : "Play video"}
+            aria-label={isPlaying ? labels.pause : labels.play}
             className="size-9 rounded-full border-white/10 bg-white/10 text-white hover:bg-white/20 hover:text-white"
             disabled={!source}
             onClick={() => void togglePlayback()}
@@ -197,7 +270,7 @@ export function WebinarPlayer({
             {formatDuration(currentTime)} / {formatDuration(duration)}
           </span>
           <Button
-            aria-label={muted ? "Unmute video" : "Mute video"}
+            aria-label={muted ? labels.unmute : labels.mute}
             aria-pressed={muted}
             className="size-9 rounded-full text-white/80 hover:bg-white/10 hover:text-white"
             disabled={!source}
@@ -209,7 +282,7 @@ export function WebinarPlayer({
             {muted ? <VolumeX /> : <Volume2 />}
           </Button>
           <input
-            aria-label="Video volume"
+            aria-label={labels.volume}
             className="hidden h-1 w-20 cursor-pointer accent-white sm:block"
             disabled={!source}
             max={1}
@@ -245,7 +318,7 @@ export function WebinarPlayer({
             ) : null}
             <Button
               aria-label={
-                captionsEnabled ? "Turn subtitles off" : "Turn subtitles on"
+                captionsEnabled ? labels.subtitlesOff : labels.subtitlesOn
               }
               aria-pressed={captionsEnabled}
               className="size-9 rounded-full text-white/80 hover:bg-white/10 hover:text-white"
@@ -258,7 +331,7 @@ export function WebinarPlayer({
               {captionsEnabled ? <Captions /> : <CaptionsOff />}
             </Button>
             <Button
-              aria-label="Enter fullscreen"
+              aria-label={labels.fullscreen}
               className="size-9 rounded-full text-white/80 hover:bg-white/10 hover:text-white"
               disabled={!source}
               onClick={() => void enterFullscreen()}

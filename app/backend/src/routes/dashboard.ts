@@ -71,6 +71,8 @@ import { upsertCanonicalApplication } from "../features/applications/server/appl
 import type { WebinarViewer } from "../features/webinars/server/webinar-access";
 import {
   getMemberWebinar,
+  getMemberWebinarPlayback,
+  getMemberWebinarSubtitles,
   listMemberWebinars,
 } from "../features/webinars/server/webinar-member.service";
 import {
@@ -1212,6 +1214,64 @@ dashboardRouter.get("/webinars/:id", clerkMiddleware(clerkOptions), async (req, 
     return res.status(500).json({ error: "Failed to fetch the webinar" });
   }
 });
+
+dashboardRouter.get("/webinars/:id/playback", clerkMiddleware(clerkOptions), async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth.userId;
+  if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+    if (!access) {
+      return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+    }
+
+    const result = await getMemberWebinarPlayback(
+      trimValue(req.params.id, 80),
+      getWebinarViewer(access),
+      access.db,
+    );
+    if (result.outcome === "not-found") return res.status(404).json(WEBINAR_NOT_FOUND_ERROR);
+    if (result.outcome === "forbidden") return res.status(403).json(WEBINAR_ACCESS_DENIED_ERROR);
+    return res.set("Cache-Control", "private, no-store").json(result.playback);
+  } catch (error) {
+    console.error("[Dashboard /webinars/:id/playback GET] Error:", error);
+    return res.status(500).json({ error: "Failed to prepare webinar playback" });
+  }
+});
+
+dashboardRouter.get(
+  "/webinars/:id/subtitles/:language",
+  clerkMiddleware(clerkOptions),
+  async (req, res) => {
+    const auth = getAuth(req);
+    const clerkUserId = auth.userId;
+    if (!clerkUserId) return res.status(401).json({ error: "Unauthorized" });
+
+    try {
+      const access = await requireDashboardAccess(clerkUserId, auth.sessionClaims);
+      if (!access) {
+        return res.status(403).json(DASHBOARD_ACCESS_ERROR);
+      }
+
+      const result = await getMemberWebinarSubtitles(
+        trimValue(req.params.id, 80),
+        trimValue(req.params.language, 8),
+        getWebinarViewer(access),
+        access.db,
+      );
+      if (result.outcome === "not-found") return res.status(404).json(WEBINAR_NOT_FOUND_ERROR);
+      if (result.outcome === "forbidden") return res.status(403).json(WEBINAR_ACCESS_DENIED_ERROR);
+      if (result.outcome === "missing") {
+        return res.status(404).json({ error: "Subtitles are not available in this language.", code: "SUBTITLES_NOT_FOUND" });
+      }
+      return res.set("Cache-Control", "private, no-store").json(result.subtitles);
+    } catch (error) {
+      console.error("[Dashboard /webinars/:id/subtitles GET] Error:", error);
+      return res.status(500).json({ error: "Failed to load subtitles" });
+    }
+  },
+);
 
 dashboardRouter.post("/events/:id/register", clerkMiddleware(clerkOptions), async (req, res) => {
   const auth = getAuth(req);
