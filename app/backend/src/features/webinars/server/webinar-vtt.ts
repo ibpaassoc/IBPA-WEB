@@ -49,3 +49,16 @@ export function serializeWebinarVtt(cues: WebinarVttCue[]) {
   });
   return `WEBVTT\n\n${blocks.join("\n\n")}\n`;
 }
+
+/** Drops empty cues and renumbers ids so generated tracks are editor-ready. */
+export function normalizeGeneratedVtt(source: string) {
+  const cues = parseWebinarVtt(source)
+    .map((cue) => ({ ...cue, text: cue.text.trim() }))
+    .filter((cue) => cue.text);
+  if (!cues.length) {
+    throw new Error("No speech was recognized in this recording.");
+  }
+  return serializeWebinarVtt(
+    cues.map((cue, index) => ({ ...cue, id: String(index + 1) })),
+  );
+}

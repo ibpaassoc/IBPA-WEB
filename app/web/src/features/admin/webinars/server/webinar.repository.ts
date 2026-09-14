@@ -110,3 +110,19 @@ export async function createEnglishTestTrack(id: string) {
     "Could not create the English test track.",
   );
 }
+
+export async function generateRussianTranscript(id: string) {
+  return requestJson<{ outcome: "started" | "in-progress"; versionId: string }>(
+    `/api/admin/webinars/${encodeURIComponent(id)}/subtitle-versions/russian-ai`,
+    { body: "{}", headers: { "Content-Type": "application/json" }, method: "POST" },
+    "Could not start the Russian AI transcript.",
+  );
+}
+
+export async function retrySubtitleVersion(id: string, versionId: string) {
+  return requestJson<{ outcome: "started"; versionId: string }>(
+    `/api/admin/webinars/${encodeURIComponent(id)}/subtitle-versions/${encodeURIComponent(versionId)}/retry`,
+    { body: "{}", headers: { "Content-Type": "application/json" }, method: "POST" },
+    "Could not retry the subtitle job.",
+  );
+}

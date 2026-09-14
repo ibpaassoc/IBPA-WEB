@@ -397,6 +397,59 @@ export function replaceSubtitleVersion(
   };
 }
 
+/** Background jobs refresh `heartbeatAt`; a silent job is treated as interrupted. */
+export const SUBTITLE_JOB_STALE_MS = 5 * 60 * 1000;
+
+export function isSubtitleJobStale(version: SubtitleVersion, now: Date) {
+  if (version.status !== "PROCESSING" || !version.job) return false;
+  const heartbeat = new Date(version.job.heartbeatAt || version.job.startedAt);
+  return (
+    Number.isNaN(heartbeat.getTime()) ||
+    now.getTime() - heartbeat.getTime() > SUBTITLE_JOB_STALE_MS
+  );
+}
+
+export function withSubtitleJob(
+  version: SubtitleVersion,
+  job: SubtitleJob,
+  now: Date,
+): SubtitleVersion {
+  return {
+    ...version,
+    status: "PROCESSING",
+    error: null,
+    job,
+    updatedAt: now.toISOString(),
+  };
+}
+
+export function withSubtitleJobHeartbeat(
+  version: SubtitleVersion,
+  now: Date,
+  patch: Partial<Pick<SubtitleJob, "providerJobId" | "progress">> = {},
+): SubtitleVersion {
+  if (version.status !== "PROCESSING" || !version.job) return version;
+  return {
+    ...version,
+    job: { ...version.job, ...patch, heartbeatAt: now.toISOString() },
+  };
+}
+
+export function withSubtitleJobFailure(
+  version: SubtitleVersion,
+  message: string,
+  now: Date,
+): SubtitleVersion {
+  return {
+    ...version,
+    // A version that already has revisions keeps serving its last good state.
+    status: version.revisions.length ? "READY" : "FAILED",
+    error: message.slice(0, 500),
+    job: null,
+    updatedAt: now.toISOString(),
+  };
+}
+
 export type LegacyTrackObject = {
   storageKey: string;
   etag: string | null;

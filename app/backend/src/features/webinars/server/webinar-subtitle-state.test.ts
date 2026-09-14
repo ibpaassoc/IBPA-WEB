@@ -7,9 +7,13 @@ import {
   emptySubtitleState,
   getCurrentRevision,
   isInitializedSubtitleState,
+  isSubtitleJobStale,
   legacySubtitleKey,
   normalizeSubtitleState,
   subtitleRevisionKey,
+  withSubtitleJob,
+  withSubtitleJobFailure,
+  withSubtitleJobHeartbeat,
   type LegacyTrackObject,
 } from "./webinar-subtitle-state";
 
@@ -144,4 +148,62 @@ test("normalization drops malformed entries and dangling active selections", () 
   // An English version cannot be the active Russian track.
   assert.equal(state.activeVersionIds.ru, null);
   assert.equal(state.activeVersionIds.en, "ok");
+});
+
+test("stale AI jobs are detected from their heartbeat", () => {
+  const started = new Date("2026-09-14T10:00:00.000Z");
+  const version = withSubtitleJob(
+    createSubtitleVersion({
+      kind: "RU_AI",
+      origin: { type: "AI_TRANSCRIPTION", provider: "assemblyai" },
+      status: "PROCESSING",
+      createdBy: null,
+      now: started,
+    }),
+    {
+      type: "TRANSCRIPTION",
+      provider: "assemblyai",
+      providerJobId: null,
+      startedAt: started.toISOString(),
+      heartbeatAt: started.toISOString(),
+      progress: null,
+    },
+    started,
+  );
+  assert.equal(isSubtitleJobStale(version, new Date("2026-09-14T10:04:00.000Z")), false);
+  assert.equal(isSubtitleJobStale(version, new Date("2026-09-14T10:06:00.000Z")), true);
+
+  const beat = withSubtitleJobHeartbeat(version, new Date("2026-09-14T10:05:30.000Z"), {
+    providerJobId: "job-1",
+  });
+  assert.equal(beat.job?.providerJobId, "job-1");
+  assert.equal(isSubtitleJobStale(beat, new Date("2026-09-14T10:06:00.000Z")), false);
+});
+
+test("a failed AI job without output is FAILED; one with earlier revisions stays READY", () => {
+  const created = createSubtitleVersion({
+    kind: "RU_AI",
+    origin: { type: "AI_TRANSCRIPTION" },
+    status: "PROCESSING",
+    createdBy: null,
+    now,
+  });
+  const failed = withSubtitleJobFailure(created, "Provider error", now);
+  assert.equal(failed.status, "FAILED");
+  assert.equal(failed.error, "Provider error");
+  assert.equal(failed.job, null);
+
+  const withRevision = appendSubtitleRevision(created, {
+    id: "r1",
+    kind: "INITIAL",
+    storageKey: "k",
+    etag: null,
+    cueCount: 1,
+    byteSize: 10,
+    note: "",
+    restoredFromRevisionId: null,
+    createdBy: null,
+    now,
+  });
+  assert.equal(withSubtitleJobFailure(withRevision, "later failure", now).status, "READY");
 });

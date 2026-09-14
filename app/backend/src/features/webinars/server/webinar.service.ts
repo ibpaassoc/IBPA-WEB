@@ -41,6 +41,7 @@ import {
   normalizeSubtitleState,
   type WebinarSubtitleState,
 } from "./webinar-subtitle-state";
+import { resumeInterruptedSubtitleJobs } from "./webinar-subtitle-jobs.service";
 import {
   membershipCategoryOptions,
   normalizeWebinarAccessSettings,
@@ -279,6 +280,7 @@ export async function getWebinarDetail(id: string) {
   const found = await findWebinarById(requireDb(), id);
   if (!found) return null;
   const { webinar: record, state } = await ensureWebinarSubtitleState(found);
+  resumeInterruptedSubtitleJobs(record.id, state);
   const [video, tracks] = await Promise.all([
     record.videoR2Key ? headR2Object(record.videoR2Key) : Promise.resolve(null),
     Promise.all(

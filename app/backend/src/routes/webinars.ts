@@ -1,4 +1,4 @@
-import { Router, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import {
   createEnglishTestTrack,
   getWebinarDetail,
@@ -11,6 +11,10 @@ import {
   startWebinarImport,
   syncZoomWebinars,
 } from "../features/webinars/server/webinar.service";
+import {
+  retryRussianTranscript,
+  startRussianTranscript,
+} from "../features/webinars/server/webinar-subtitle-jobs.service";
 
 export const webinarsRouter = Router();
 
@@ -18,6 +22,12 @@ function single(value: unknown) {
   if (typeof value === "string") return value;
   if (Array.isArray(value) && typeof value[0] === "string") return value[0];
   return null;
+}
+
+/** Admin email forwarded by the authenticated Next proxy; used for audit labels only. */
+function adminActor(req: Request) {
+  const email = req.header("x-admin-user-email")?.trim().toLowerCase();
+  return email ? email.slice(0, 255) : null;
 }
 
 function sendWebinarError(res: Response, error: unknown, fallback: string) {
@@ -208,6 +218,55 @@ webinarsRouter.post("/:id/translate-english", async (req, res) => {
       error,
       "Failed to create the English test track.",
     );
+  }
+});
+
+webinarsRouter.post("/:id/subtitle-versions/russian-ai", async (req, res) => {
+  try {
+    const result = await startRussianTranscript(
+      single(req.params.id) || "",
+      adminActor(req),
+    );
+    if (result.outcome === "not-found")
+      return res.status(404).json({ error: "Webinar not found." });
+    if (result.outcome === "no-video") {
+      return res.status(409).json({
+        error: "Import the recording before generating an AI transcript.",
+      });
+    }
+    return res
+      .status(result.outcome === "started" ? 202 : 200)
+      .json(result);
+  } catch (error) {
+    return sendWebinarError(
+      res,
+      error,
+      "Failed to start the Russian AI transcript.",
+    );
+  }
+});
+
+webinarsRouter.post("/:id/subtitle-versions/:versionId/retry", async (req, res) => {
+  try {
+    const result = await retryRussianTranscript(
+      single(req.params.id) || "",
+      single(req.params.versionId) || "",
+    );
+    if (result.outcome === "not-found")
+      return res.status(404).json({ error: "Webinar not found." });
+    if (result.outcome === "no-video") {
+      return res.status(409).json({
+        error: "Import the recording before generating an AI transcript.",
+      });
+    }
+    if (result.outcome === "not-retryable") {
+      return res.status(409).json({
+        error: "Only a failed or interrupted AI version can be retried.",
+      });
+    }
+    return res.status(202).json(result);
+  } catch (error) {
+    return sendWebinarError(res, error, "Failed to retry the subtitle job.");
   }
 });
 
