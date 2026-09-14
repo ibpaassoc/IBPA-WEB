@@ -153,6 +153,34 @@ export async function updateWebinar(
   return record ?? null;
 }
 
+/**
+ * Compare-and-set write of the subtitle registry. The Neon HTTP driver has no
+ * interactive transactions, so concurrent writers (a finishing AI job and an
+ * admin save) are serialized by the `stateVersion` counter inside the JSONB.
+ * `updated_at` is intentionally untouched: the import lifecycle uses it to
+ * detect stale imports.
+ */
+export async function compareAndSetSubtitleState(
+  db: DbClient,
+  input: {
+    id: string;
+    expectedStateVersion: number;
+    state: Record<string, unknown>;
+  },
+) {
+  const [record] = await db
+    .update(coreWebinars)
+    .set({ subtitleVersions: input.state })
+    .where(
+      and(
+        eq(coreWebinars.id, input.id),
+        sql`coalesce((${coreWebinars.subtitleVersions}->>'stateVersion')::int, 0) = ${input.expectedStateVersion}`,
+      ),
+    )
+    .returning();
+  return record ?? null;
+}
+
 export async function claimWebinarImport(
   db: DbClient,
   input: {

@@ -19,6 +19,7 @@
     "repair:payments": "tsx scripts/repair-application-payment-state.ts",
     "backfill:profiles": "tsx scripts/backfill-paid-application-profiles.ts",
     "backfill:team-credentials": "tsx scripts/backfill-team-member-credentials.ts",
+    "migrate:webinar-subtitles": "tsx scripts/migrate-webinar-subtitle-versions.ts",
     "test:profile-sync": "tsx scripts/test-application-profile-sync.ts"
   },
   "dependencies": {

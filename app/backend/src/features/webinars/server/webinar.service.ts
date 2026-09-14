@@ -32,6 +32,19 @@ import {
   type WebinarZoomMetadata,
 } from "./webinar.types";
 import { parseWebinarVtt, serializeWebinarVtt } from "./webinar-vtt";
+import {
+  ensureWebinarSubtitleState,
+  registerImportedSourceSubtitles,
+} from "./webinar-subtitles.service";
+import {
+  legacySubtitleKey,
+  normalizeSubtitleState,
+  type WebinarSubtitleState,
+} from "./webinar-subtitle-state";
+import {
+  membershipCategoryOptions,
+  normalizeWebinarAccessSettings,
+} from "./webinar-access";
 
 const MAX_USER_PAGES = 50;
 const MAX_RECORDING_PAGES_PER_USER = 50;
@@ -205,6 +218,30 @@ export async function syncZoomWebinars(input: { from: string; to: string }) {
   };
 }
 
+function subtitleSummary(state: WebinarSubtitleState) {
+  return {
+    versionCount: state.versions.length,
+    processingCount: state.versions.filter(
+      (version) => version.status === "PROCESSING",
+    ).length,
+    activeLanguages: (["ru", "en"] as const).filter(
+      (language) => state.activeVersionIds[language],
+    ),
+  };
+}
+
+/** Admin response shape: raw JSONB columns are replaced by normalized views. */
+function toAdminWebinar(record: CoreWebinar, state?: WebinarSubtitleState) {
+  const { subtitleVersions, accessSettings, ...rest } = record;
+  return {
+    ...rest,
+    access: normalizeWebinarAccessSettings(accessSettings),
+    subtitleSummary: subtitleSummary(
+      state ?? normalizeSubtitleState(subtitleVersions),
+    ),
+  };
+}
+
 export async function getWebinarList(input: {
   from?: string | null;
   to?: string | null;
@@ -231,6 +268,7 @@ export async function getWebinarList(input: {
   });
   return {
     ...result,
+    items: result.items.map((item: CoreWebinar) => toAdminWebinar(item)),
     page,
     pageCount: Math.max(1, Math.ceil(result.total / pageSize)),
     pageSize,
@@ -238,8 +276,9 @@ export async function getWebinarList(input: {
 }
 
 export async function getWebinarDetail(id: string) {
-  const record = await findWebinarById(requireDb(), id);
-  if (!record) return null;
+  const found = await findWebinarById(requireDb(), id);
+  if (!found) return null;
+  const { webinar: record, state } = await ensureWebinarSubtitleState(found);
   const [video, tracks] = await Promise.all([
     record.videoR2Key ? headR2Object(record.videoR2Key) : Promise.resolve(null),
     Promise.all(
@@ -250,7 +289,9 @@ export async function getWebinarDetail(id: string) {
     ),
   ]);
   return {
-    ...record,
+    ...toAdminWebinar(record, state),
+    subtitles: state,
+    membershipCategories: membershipCategoryOptions,
     storage: { video },
     tracks: tracks.map(({ language, object }) => ({
       language,
@@ -384,7 +425,7 @@ async function runWebinarImport(
           transcript.download_url,
         );
         await uploadStreamToR2({
-          key: subtitleKey(webinar.id, "ru"),
+          key: legacySubtitleKey(webinar.id, "ru"),
           body: transcriptResponse.body!,
           contentLength:
             Number(
@@ -415,6 +456,22 @@ async function runWebinarImport(
       videoR2Key: videoKey,
       zoomMetadata: { ...metadata, importError: null },
     });
+
+    if (transcriptStatus === "IMPORTED" && transcript) {
+      try {
+        await registerImportedSourceSubtitles({
+          webinarId: webinar.id,
+          storageKey: legacySubtitleKey(webinar.id, "ru"),
+          zoomRecordingFileId: transcript.id,
+        });
+      } catch (error) {
+        // The transcript stays in R2; opening the webinar registers it lazily.
+        console.error("[Webinar import] Source subtitle registration failed", {
+          webinarId: webinar.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Recording import failed.";
@@ -504,5 +561,5 @@ export function isTranscriptStatus(value: unknown) {
 }
 
 function subtitleKey(webinarId: string, language: SubtitleLanguage) {
-  return `webinars/${webinarId}/subtitles/${language}.vtt`;
+  return legacySubtitleKey(webinarId, language);
 }

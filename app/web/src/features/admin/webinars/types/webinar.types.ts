@@ -21,6 +21,96 @@ export type WebinarZoomMetadata = {
   transcriptLanguage?: "ru";
 };
 
+export type SubtitleVersionKind =
+  | "SOURCE"
+  | "RU_AI"
+  | "RU_MANUAL"
+  | "EN_AI"
+  | "EN_MANUAL";
+export type SubtitleTrackLanguage = "ru" | "en";
+export type SubtitleVersionStatus = "READY" | "PROCESSING" | "FAILED";
+export type SubtitleOriginType =
+  | "ZOOM_IMPORT"
+  | "AI_TRANSCRIPTION"
+  | "AI_TRANSLATION"
+  | "MANUAL_EDIT"
+  | "LEGACY_TRACK";
+
+export type SubtitleRevision = {
+  id: string;
+  number: number;
+  kind: "INITIAL" | "BASELINE" | "EDIT" | "RESTORE";
+  storageKey: string;
+  etag: string | null;
+  cueCount: number;
+  byteSize: number;
+  note: string;
+  restoredFromRevisionId: string | null;
+  createdAt: string;
+  createdBy: string | null;
+};
+
+export type SubtitleVersion = {
+  id: string;
+  kind: SubtitleVersionKind;
+  language: SubtitleTrackLanguage;
+  status: SubtitleVersionStatus;
+  error: string | null;
+  origin: {
+    type: SubtitleOriginType;
+    sourceVersionId: string | null;
+    sourceRevisionId: string | null;
+    sourceKind: SubtitleVersionKind | null;
+    provider: string | null;
+    model: string | null;
+  };
+  currentRevisionId: string | null;
+  revisions: SubtitleRevision[];
+  job: {
+    type: "TRANSCRIPTION" | "TRANSLATION";
+    provider: string;
+    providerJobId: string | null;
+    startedAt: string;
+    heartbeatAt: string;
+    progress: { completed: number; total: number } | null;
+  } | null;
+  createdAt: string;
+  createdBy: string | null;
+  updatedAt: string;
+};
+
+export type WebinarSubtitleState = {
+  schemaVersion: 1;
+  stateVersion: number;
+  versions: SubtitleVersion[];
+  activeVersionIds: Record<SubtitleTrackLanguage, string | null>;
+  legacyTracks: Array<{
+    language: string;
+    storageKey: string;
+    etag: string | null;
+    lastModified: string | null;
+    registeredVersionId: string | null;
+  }>;
+  migratedAt: string | null;
+};
+
+export type WebinarPublicationStatus = "DRAFT" | "PUBLISHED";
+export type WebinarAudience = "ALL_MEMBERS" | "INDIVIDUALS" | "MEMBERSHIP_TYPES";
+export type MembershipCategory =
+  | "Specialist"
+  | "Professional"
+  | "Trainer"
+  | "Business"
+  | "Brand";
+
+export type WebinarAccessSettings = {
+  audience: WebinarAudience;
+  membershipTypes: MembershipCategory[];
+  allowTeamMembers: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+};
+
 export type AdminWebinar = {
   id: string;
   title: string;
@@ -33,6 +123,14 @@ export type AdminWebinar = {
   status: WebinarStatus;
   transcriptStatus: TranscriptStatus;
   zoomMetadata: WebinarZoomMetadata;
+  publicationStatus: WebinarPublicationStatus;
+  publishedAt: string | null;
+  access: WebinarAccessSettings;
+  subtitleSummary: {
+    versionCount: number;
+    processingCount: number;
+    activeLanguages: SubtitleTrackLanguage[];
+  };
   createdAt: string;
   updatedAt: string;
 };
@@ -69,6 +167,11 @@ export type WebinarSubtitleTrack = WebinarStoredObject & {
 export type AdminWebinarDetail = AdminWebinar & {
   storage: { video: WebinarStoredObject | null };
   tracks: WebinarSubtitleTrack[];
+  subtitles: WebinarSubtitleState;
+  membershipCategories: Array<{
+    value: MembershipCategory;
+    applicantType: string;
+  }>;
 };
 
 export type WebinarSubtitleDocument = {

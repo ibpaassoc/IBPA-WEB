@@ -222,6 +222,13 @@ export const coreWebinars = ibpa.table("webinars", {
   status: varchar("status", { length: 24 }).notNull().default("AVAILABLE"),
   transcriptStatus: varchar("transcript_status", { length: 32 }).notNull().default("NOT_AVAILABLE"),
   zoomMetadata: jsonb("zoom_metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  // Member-facing lifecycle, independent of the Zoom import `status`.
+  publicationStatus: varchar("publication_status", { length: 24 }).notNull().default("DRAFT"),
+  publishedAt: timestamp("published_at"),
+  // Subtitle version registry, lineage, revision history, and active tracks.
+  subtitleVersions: jsonb("subtitle_versions").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  // Who can watch once published (audience, membership types, team members).
+  accessSettings: jsonb("access_settings").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [
@@ -229,6 +236,7 @@ export const coreWebinars = ibpa.table("webinars", {
   uniqueIndex("ibpa_webinars_zoom_recording_file_id_uidx").on(table.zoomRecordingFileId),
   index("ibpa_webinars_recorded_at_idx").on(table.recordedAt),
   index("ibpa_webinars_status_idx").on(table.status),
+  index("ibpa_webinars_publication_status_idx").on(table.publicationStatus, table.recordedAt),
 ]);
 
 export const corePartners = ibpa.table("partners", {
