@@ -397,6 +397,18 @@ export function replaceSubtitleVersion(
   };
 }
 
+/**
+ * English translations may start from any ready Russian-language version
+ * (Zoom SOURCE, AI Russian, or a manual Russian correction); the admin picks.
+ */
+export function isEnglishTranslationSource(version: SubtitleVersion) {
+  return (
+    version.language === "ru" &&
+    version.status === "READY" &&
+    Boolean(getCurrentRevision(version))
+  );
+}
+
 /** Background jobs refresh `heartbeatAt`; a silent job is treated as interrupted. */
 export const SUBTITLE_JOB_STALE_MS = 5 * 60 * 1000;
 

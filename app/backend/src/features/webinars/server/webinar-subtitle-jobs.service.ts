@@ -1,11 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { requireDb } from "@/lib/db";
-import { createPresignedR2GetUrl, putTextToR2 } from "./r2-storage";
+import {
+  createPresignedR2GetUrl,
+  getTextFromR2,
+  putTextToR2,
+} from "./r2-storage";
 import { findWebinarById } from "./webinar.repository";
 import {
   appendSubtitleRevision,
   createSubtitleVersion,
   findSubtitleVersion,
+  getCurrentRevision,
+  isEnglishTranslationSource,
   isSubtitleJobStale,
   replaceSubtitleVersion,
   subtitleRevisionKey,
@@ -27,7 +33,17 @@ import {
   submitRussianTranscription,
   TRANSCRIPTION_PROVIDER,
 } from "./webinar-transcription";
-import { normalizeGeneratedVtt } from "./webinar-vtt";
+import {
+  assertTranslationConfigured,
+  translateCuesToEnglish,
+  TRANSLATION_MODEL,
+  TRANSLATION_PROVIDER,
+} from "./webinar-translation";
+import {
+  normalizeGeneratedVtt,
+  parseWebinarVtt,
+  serializeWebinarVtt,
+} from "./webinar-vtt";
 
 const activeJobs = new Set<string>();
 const POLL_INTERVAL_MS = 15_000;
@@ -383,4 +399,231 @@ export async function retryRussianTranscript(
     submitAndPollTranscription(webinarId, versionId, videoKey),
   );
   return { outcome: "started" as const, versionId };
+}
+
+function translationJob(now: Date): SubtitleJob {
+  return {
+    type: "TRANSLATION",
+    provider: TRANSLATION_PROVIDER,
+    providerJobId: null,
+    startedAt: now.toISOString(),
+    heartbeatAt: now.toISOString(),
+    progress: null,
+  };
+}
+
+/**
+ * Creates an EN_AI version translated from the Russian version the admin
+ * chose. The source revision is pinned at start, so later edits to the source
+ * never change what this translation claims to be based on.
+ */
+export async function startEnglishTranslation(
+  webinarId: string,
+  sourceVersionId: string,
+  actor: string | null,
+) {
+  assertTranslationConfigured();
+  const now = new Date();
+  const versionId = randomUUID();
+
+  type Claim =
+    | { outcome: "invalid-source" }
+    | { outcome: "in-progress"; versionId: string }
+    | { outcome: "started"; versionId: string; storageKey: string };
+
+  const claim = await mutateWebinarSubtitleState<Claim>(webinarId, ({ state }) => {
+    const source = findSubtitleVersion(state, sourceVersionId);
+    const sourceRevision = source ? getCurrentRevision(source) : null;
+    if (!source || !sourceRevision || !isEnglishTranslationSource(source)) {
+      return { abort: { outcome: "invalid-source" } };
+    }
+    const running = state.versions.find(
+      (version) =>
+        version.kind === "EN_AI" &&
+        version.status === "PROCESSING" &&
+        version.origin.sourceVersionId === source.id &&
+        !isSubtitleJobStale(version, now),
+    );
+    if (running) return { abort: { outcome: "in-progress", versionId: running.id } };
+
+    const version = withSubtitleJob(
+      createSubtitleVersion({
+        id: versionId,
+        kind: "EN_AI",
+        origin: {
+          type: "AI_TRANSLATION",
+          sourceVersionId: source.id,
+          sourceRevisionId: sourceRevision.id,
+          sourceKind: source.kind,
+          provider: TRANSLATION_PROVIDER,
+          model: TRANSLATION_MODEL,
+        },
+        status: "PROCESSING",
+        createdBy: actor,
+        now,
+      }),
+      translationJob(now),
+      now,
+    );
+    return {
+      state: replaceSubtitleVersion(state, version),
+      result: {
+        outcome: "started",
+        versionId,
+        storageKey: sourceRevision.storageKey,
+      },
+    };
+  });
+
+  if (claim.outcome === "not-found") return { outcome: "not-found" as const };
+  const result = claim.result;
+  if (result.outcome !== "started") return result;
+
+  runSubtitleJob(versionId, () =>
+    runEnglishTranslation(webinarId, versionId, result.storageKey),
+  );
+  return { outcome: "started" as const, versionId };
+}
+
+async function runEnglishTranslation(
+  webinarId: string,
+  versionId: string,
+  sourceStorageKey: string,
+) {
+  // Batches can take a while; keep the heartbeat fresh between them.
+  const heartbeat = setInterval(() => {
+    void updateSubtitleVersion(webinarId, versionId, (version) =>
+      version.status === "PROCESSING"
+        ? withSubtitleJobHeartbeat(version, new Date())
+        : null,
+    ).catch(() => undefined);
+  }, HEARTBEAT_INTERVAL_MS);
+  try {
+    const source = await getTextFromR2(sourceStorageKey);
+    if (!source) throw new Error("The source subtitle file is missing from storage.");
+    const cues = parseWebinarVtt(source.text);
+    const translatable = cues
+      .map((cue, index) => ({ id: `c${index}`, text: cue.text.trim() }))
+      .filter((cue) => cue.text);
+    if (!translatable.length) throw new Error("The source version has no subtitle text.");
+
+    const translated = await translateCuesToEnglish(
+      translatable,
+      async (completed, total) => {
+        const beat = await updateSubtitleVersion(webinarId, versionId, (version) =>
+          version.status === "PROCESSING"
+            ? withSubtitleJobHeartbeat(version, new Date(), {
+                progress: { completed, total },
+              })
+            : null,
+        );
+        if (beat.outcome !== "saved") {
+          throw new Error("The translation was cancelled.");
+        }
+      },
+    );
+
+    // Same timings, settings, and ids as the source; only the text changes.
+    const vtt = serializeWebinarVtt(
+      cues
+        .map((cue, index) => ({
+          ...cue,
+          text: translated.get(`c${index}`) ?? "",
+        }))
+        .filter((cue) => cue.text),
+    );
+    const revisionId = randomUUID();
+    const object = await writeSubtitleRevisionObject({
+      webinarId,
+      versionId,
+      revisionId,
+      vtt,
+      metadata: {
+        kind: "EN_AI",
+        provider: TRANSLATION_PROVIDER,
+        model: TRANSLATION_MODEL,
+      },
+    });
+    await updateSubtitleVersion(webinarId, versionId, (version) =>
+      version.status === "PROCESSING"
+        ? appendSubtitleRevision(version, {
+            id: revisionId,
+            kind: "INITIAL",
+            ...object,
+            note: "AI English translation",
+            restoredFromRevisionId: null,
+            createdBy: version.createdBy,
+            now: new Date(),
+          })
+        : null,
+    );
+  } catch (error) {
+    await failSubtitleJob(
+      webinarId,
+      versionId,
+      error,
+      "The English translation could not be generated.",
+    );
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+async function retryEnglishTranslation(webinarId: string, versionId: string) {
+  assertTranslationConfigured();
+  const now = new Date();
+  let sourceStorageKey: string | null = null;
+  const claimed = await mutateWebinarSubtitleState<boolean>(webinarId, ({ state }) => {
+    const version = findSubtitleVersion(state, versionId);
+    if (
+      !version ||
+      version.kind !== "EN_AI" ||
+      version.revisions.length ||
+      !(version.status === "FAILED" || isSubtitleJobStale(version, now))
+    ) {
+      return { abort: false };
+    }
+    const source = version.origin.sourceVersionId
+      ? findSubtitleVersion(state, version.origin.sourceVersionId)
+      : null;
+    const revision = source?.revisions.find(
+      (item) => item.id === version.origin.sourceRevisionId,
+    );
+    if (!revision) return { abort: false };
+    sourceStorageKey = revision.storageKey;
+    return {
+      state: replaceSubtitleVersion(
+        state,
+        withSubtitleJob(version, translationJob(now), now),
+      ),
+      result: true,
+    };
+  });
+  if (claimed.outcome === "not-found") return { outcome: "not-found" as const };
+  if (claimed.outcome !== "saved" || !sourceStorageKey) {
+    return { outcome: "not-retryable" as const };
+  }
+  const storageKey: string = sourceStorageKey;
+  runSubtitleJob(versionId, () =>
+    runEnglishTranslation(webinarId, versionId, storageKey),
+  );
+  return { outcome: "started" as const, versionId };
+}
+
+/** Retries a failed or interrupted AI version with its original inputs. */
+export async function retrySubtitleVersion(webinarId: string, versionId: string) {
+  const record = await findWebinarById(requireDb(), webinarId);
+  if (!record) return { outcome: "not-found" as const };
+  const kind = normalizeSubtitleKindOf(record.subtitleVersions, versionId);
+  if (kind === "RU_AI") return retryRussianTranscript(webinarId, versionId);
+  if (kind === "EN_AI") return retryEnglishTranslation(webinarId, versionId);
+  return { outcome: "not-retryable" as const };
+}
+
+function normalizeSubtitleKindOf(raw: unknown, versionId: string) {
+  const versions = (raw as { versions?: Array<{ id?: unknown; kind?: unknown }> } | null)
+    ?.versions;
+  return Array.isArray(versions)
+    ? versions.find((version) => version.id === versionId)?.kind ?? null
+    : null;
 }

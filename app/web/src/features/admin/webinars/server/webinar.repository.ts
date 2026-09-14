@@ -126,3 +126,18 @@ export async function retrySubtitleVersion(id: string, versionId: string) {
     "Could not retry the subtitle job.",
   );
 }
+
+export async function generateEnglishTranslation(
+  id: string,
+  sourceVersionId: string,
+) {
+  return requestJson<{ outcome: "started" | "in-progress"; versionId: string }>(
+    `/api/admin/webinars/${encodeURIComponent(id)}/subtitle-versions/english-ai`,
+    {
+      body: JSON.stringify({ sourceVersionId }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
+    "Could not start the English translation.",
+  );
+}

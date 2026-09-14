@@ -23,6 +23,7 @@
     "test:profile-sync": "tsx scripts/test-application-profile-sync.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "@aws-sdk/client-s3": "^3.1131.0",
     "@aws-sdk/lib-storage": "^3.1131.0",
     "@aws-sdk/s3-request-presigner": "^3.1131.0",
@@ -43,7 +44,8 @@
     "react-dom": "19.2.3",
     "resend": "^6.9.3",
     "stripe": "^20.4.1",
-    "svix": "^1.88.0"
+    "svix": "^1.88.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

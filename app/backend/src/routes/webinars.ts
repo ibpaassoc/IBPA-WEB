@@ -12,7 +12,8 @@ import {
   syncZoomWebinars,
 } from "../features/webinars/server/webinar.service";
 import {
-  retryRussianTranscript,
+  retrySubtitleVersion,
+  startEnglishTranslation,
   startRussianTranscript,
 } from "../features/webinars/server/webinar-subtitle-jobs.service";
 
@@ -246,9 +247,42 @@ webinarsRouter.post("/:id/subtitle-versions/russian-ai", async (req, res) => {
   }
 });
 
+webinarsRouter.post("/:id/subtitle-versions/english-ai", async (req, res) => {
+  const sourceVersionId =
+    typeof req.body?.sourceVersionId === "string" ? req.body.sourceVersionId : "";
+  if (!sourceVersionId) {
+    return res
+      .status(400)
+      .json({ error: "Choose which Russian version to translate." });
+  }
+  try {
+    const result = await startEnglishTranslation(
+      single(req.params.id) || "",
+      sourceVersionId,
+      adminActor(req),
+    );
+    if (result.outcome === "not-found")
+      return res.status(404).json({ error: "Webinar not found." });
+    if (result.outcome === "invalid-source") {
+      return res.status(409).json({
+        error: "The selected source must be a ready Russian subtitle version.",
+      });
+    }
+    return res
+      .status(result.outcome === "started" ? 202 : 200)
+      .json(result);
+  } catch (error) {
+    return sendWebinarError(
+      res,
+      error,
+      "Failed to start the English translation.",
+    );
+  }
+});
+
 webinarsRouter.post("/:id/subtitle-versions/:versionId/retry", async (req, res) => {
   try {
-    const result = await retryRussianTranscript(
+    const result = await retrySubtitleVersion(
       single(req.params.id) || "",
       single(req.params.versionId) || "",
     );
