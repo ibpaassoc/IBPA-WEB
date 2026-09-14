@@ -1,10 +1,20 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { SupportMode, TabType } from "@/components/dashboard/dashboard-types";
+import type {
+  SupportMode,
+  TabType,
+} from "@/components/dashboard/dashboard-types";
 
 export function useDashboardUiState() {
-  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
+  // Pages outside the tab shell (e.g. the webinar player) link back with
+  // ?tab=webinars. Search params are available during SSR too, so the initial
+  // tab is identical on server and client.
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    searchParams?.get("tab") === "webinars" ? "webinars" : "dashboard",
+  );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [eventRegistrationFilter, setEventRegistrationFilter] = useState<
@@ -18,7 +28,9 @@ export function useDashboardUiState() {
     const previousOverflow = document.body.style.overflow;
 
     document.body.style.overflow =
-      isMobileMenuOpen || isNotificationsOpen ? "hidden" : previousOverflow || "";
+      isMobileMenuOpen || isNotificationsOpen
+        ? "hidden"
+        : previousOverflow || "";
 
     return () => {
       document.body.style.overflow = previousOverflow;

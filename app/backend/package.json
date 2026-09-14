@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/dev-server.ts",
+    "dev": "tsx watch --include .env src/dev-server.ts",
     "build": "tsc",
     "start": "tsx src/dev-server.ts",
     "lint": "eslint .",
@@ -19,9 +19,13 @@
     "repair:payments": "tsx scripts/repair-application-payment-state.ts",
     "backfill:profiles": "tsx scripts/backfill-paid-application-profiles.ts",
     "backfill:team-credentials": "tsx scripts/backfill-team-member-credentials.ts",
+    "migrate:webinar-subtitles": "tsx scripts/migrate-webinar-subtitle-versions.ts",
     "test:profile-sync": "tsx scripts/test-application-profile-sync.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1131.0",
+    "@aws-sdk/lib-storage": "^3.1131.0",
+    "@aws-sdk/s3-request-presigner": "^3.1131.0",
     "@clerk/express": "^2.0.4",
     "@clerk/nextjs": "^7.4.3",
     "@neondatabase/serverless": "^1.0.2",

@@ -127,6 +127,20 @@
       "when": 1784665200000,
       "tag": "0017_add_admin_certificates",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789156800000,
+      "tag": "0018_add_webinars",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789243200000,
+      "tag": "0019_webinar_subtitle_versions_and_access",
+      "breakpoints": true
     }
   ]
 }

@@ -233,6 +233,45 @@ export type DashboardDictionary = {
     memberPromo: string;
     memberPerk: (membership: string) => string;
   };
+  webinars: {
+    navLabel: string;
+    eyebrow: string;
+    title: string;
+    description: string;
+    watch: string;
+    duration: string;
+    subtitles: string;
+    noSubtitles: string;
+    languageNames: { ru: string; en: string };
+    emptyTitle: string;
+    emptyDescription: string;
+    loadError: string;
+    retry: string;
+    backToWebinars: string;
+    subtitlesOff: string;
+    subtitleTrack: string;
+    subtitleLoadError: string;
+    notFoundTitle: string;
+    notFoundDescription: string;
+    accessDeniedTitle: string;
+    accessDeniedDescription: string;
+    videoUnavailableTitle: string;
+    videoUnavailableDescription: string;
+    player: {
+      play: string;
+      pause: string;
+      mute: string;
+      unmute: string;
+      volume: string;
+      position: string;
+      subtitlesOn: string;
+      subtitlesOff: string;
+      fullscreen: string;
+      playbackError: string;
+      loadError: string;
+      fullscreenError: string;
+    };
+  };
   support: {
     eyebrow: string;
     title: string;
@@ -677,6 +716,49 @@ export const dashboardDictionaries = {
       memberPromo: "Member promo available",
       memberPerk: (membership) =>
         `${membership.replace(" Membership", "")} member perk`,
+    },
+    webinars: {
+      navLabel: "Webinars",
+      eyebrow: "Webinars & masterclasses",
+      title: "Recorded sessions",
+      description:
+        "Watch IBPA webinars and masterclasses included in your membership, with subtitles where available.",
+      watch: "Watch",
+      duration: "Duration",
+      subtitles: "Subtitles",
+      noSubtitles: "No subtitles",
+      languageNames: { ru: "Russian", en: "English" },
+      emptyTitle: "No webinars available yet",
+      emptyDescription:
+        "Recorded webinars included in your membership will appear here as soon as they are published.",
+      loadError: "Webinars could not be loaded right now.",
+      retry: "Try again",
+      backToWebinars: "Back to webinars",
+      subtitlesOff: "Off",
+      subtitleTrack: "Subtitles",
+      subtitleLoadError: "Subtitles could not be loaded. The video is still available.",
+      notFoundTitle: "Webinar not available",
+      notFoundDescription:
+        "This webinar may have been unpublished or the link is incorrect.",
+      accessDeniedTitle: "Not included in your membership",
+      accessDeniedDescription:
+        "This webinar is available to a different membership group. Contact IBPA support if you think you should have access.",
+      videoUnavailableTitle: "Video is unavailable",
+      videoUnavailableDescription: "Refresh the page to try again.",
+      player: {
+        play: "Play video",
+        pause: "Pause video",
+        mute: "Mute",
+        unmute: "Unmute",
+        volume: "Volume",
+        position: "Playback position",
+        subtitlesOn: "Show subtitles",
+        subtitlesOff: "Hide subtitles",
+        fullscreen: "Fullscreen",
+        playbackError: "Playback could not start. Refresh the page to try again.",
+        loadError: "The video could not be loaded. Refresh the page to try again.",
+        fullscreenError: "Fullscreen is not available in this browser window.",
+      },
     },
     support: {
       eyebrow: "Support",
@@ -1239,6 +1321,49 @@ export const dashboardDictionaries = {
       memberPromo: "Доступен бонус для участников",
       memberPerk: (membership) =>
         `Преимущество для ${membership.replace(" членство", "").toLowerCase()}`,
+    },
+    webinars: {
+      navLabel: "Вебинары",
+      eyebrow: "Вебинары и мастер-классы",
+      title: "Записи эфиров",
+      description:
+        "Смотрите вебинары и мастер-классы IBPA, доступные по вашему членству, с субтитрами там, где они есть.",
+      watch: "Смотреть",
+      duration: "Длительность",
+      subtitles: "Субтитры",
+      noSubtitles: "Без субтитров",
+      languageNames: { ru: "Русский", en: "Английский" },
+      emptyTitle: "Пока нет доступных вебинаров",
+      emptyDescription:
+        "Записи вебинаров, доступные по вашему членству, появятся здесь сразу после публикации.",
+      loadError: "Не удалось загрузить вебинары.",
+      retry: "Повторить",
+      backToWebinars: "К вебинарам",
+      subtitlesOff: "Выкл.",
+      subtitleTrack: "Субтитры",
+      subtitleLoadError: "Не удалось загрузить субтитры. Видео по-прежнему доступно.",
+      notFoundTitle: "Вебинар недоступен",
+      notFoundDescription:
+        "Возможно, вебинар снят с публикации или ссылка указана неверно.",
+      accessDeniedTitle: "Не входит в ваше членство",
+      accessDeniedDescription:
+        "Этот вебинар доступен другой группе участников. Если вы считаете, что доступ должен быть, свяжитесь с поддержкой IBPA.",
+      videoUnavailableTitle: "Видео недоступно",
+      videoUnavailableDescription: "Обновите страницу, чтобы попробовать снова.",
+      player: {
+        play: "Воспроизвести",
+        pause: "Пауза",
+        mute: "Выключить звук",
+        unmute: "Включить звук",
+        volume: "Громкость",
+        position: "Позиция воспроизведения",
+        subtitlesOn: "Показать субтитры",
+        subtitlesOff: "Скрыть субтитры",
+        fullscreen: "Во весь экран",
+        playbackError: "Не удалось начать воспроизведение. Обновите страницу.",
+        loadError: "Не удалось загрузить видео. Обновите страницу.",
+        fullscreenError: "Полноэкранный режим недоступен в этом окне браузера.",
+      },
     },
     support: {
       eyebrow: "Поддержка",
@@ -1803,6 +1928,49 @@ export const dashboardDictionaries = {
       memberPromo: "Доступна перевага для учасників",
       memberPerk: (membership) =>
         `Перевага для ${membership.replace(" членство", "").toLowerCase()}`,
+    },
+    webinars: {
+      navLabel: "Вебінари",
+      eyebrow: "Вебінари та майстер-класи",
+      title: "Записи ефірів",
+      description:
+        "Дивіться вебінари та майстер-класи IBPA, доступні за вашим членством, із субтитрами там, де вони є.",
+      watch: "Дивитися",
+      duration: "Тривалість",
+      subtitles: "Субтитри",
+      noSubtitles: "Без субтитрів",
+      languageNames: { ru: "Російська", en: "Англійська" },
+      emptyTitle: "Поки немає доступних вебінарів",
+      emptyDescription:
+        "Записи вебінарів, доступні за вашим членством, з'являться тут одразу після публікації.",
+      loadError: "Не вдалося завантажити вебінари.",
+      retry: "Спробувати ще",
+      backToWebinars: "До вебінарів",
+      subtitlesOff: "Вимк.",
+      subtitleTrack: "Субтитри",
+      subtitleLoadError: "Не вдалося завантажити субтитри. Відео й надалі доступне.",
+      notFoundTitle: "Вебінар недоступний",
+      notFoundDescription:
+        "Можливо, вебінар знято з публікації або посилання неправильне.",
+      accessDeniedTitle: "Не входить у ваше членство",
+      accessDeniedDescription:
+        "Цей вебінар доступний іншій групі учасників. Якщо ви вважаєте, що доступ має бути, зверніться до підтримки IBPA.",
+      videoUnavailableTitle: "Відео недоступне",
+      videoUnavailableDescription: "Оновіть сторінку, щоб спробувати знову.",
+      player: {
+        play: "Відтворити",
+        pause: "Пауза",
+        mute: "Вимкнути звук",
+        unmute: "Увімкнути звук",
+        volume: "Гучність",
+        position: "Позиція відтворення",
+        subtitlesOn: "Показати субтитри",
+        subtitlesOff: "Сховати субтитри",
+        fullscreen: "На весь екран",
+        playbackError: "Не вдалося почати відтворення. Оновіть сторінку.",
+        loadError: "Не вдалося завантажити відео. Оновіть сторінку.",
+        fullscreenError: "Повноекранний режим недоступний у цьому вікні браузера.",
+      },
     },
     support: {
       eyebrow: "Підтримка",

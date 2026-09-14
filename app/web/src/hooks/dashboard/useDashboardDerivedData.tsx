@@ -13,6 +13,7 @@ import {
   User,
   UserPlus,
   Users,
+  Video,
 } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
@@ -517,6 +518,11 @@ export function useDashboardDerivedData({
       accent: hasNewEvents ? (
         <span className="h-2.5 w-2.5 rounded-full bg-current" />
       ) : null,
+    },
+    {
+      key: "webinars" as const,
+      label: dashboard.webinars.navLabel,
+      icon: <Video className="h-4 w-4" />,
     },
     {
       key: "directory" as const,

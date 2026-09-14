@@ -21,6 +21,7 @@ import { DashboardBilling } from "./DashboardBilling";
 import { DashboardEvents } from "./DashboardEvents";
 import { DashboardSupport } from "./DashboardSupport";
 import { DashboardAccountSettings } from "./DashboardAccountSettings";
+import { DashboardWebinars } from "@/features/member-webinars/components/DashboardWebinars";
 import { UnderDevelopmentPage } from "@/shared/components/UnderDevelopment";
 import { useI18n } from "@/lib/i18n";
 
@@ -234,6 +235,9 @@ export function DashboardContent(props: Props) {
           unregisterDashboardEvent={unregisterDashboardEvent}
         />
       );
+
+    case "webinars":
+      return <DashboardWebinars />;
 
     case "directory":
       return <DashboardDirectory directoryMembers={directoryMembers} />;

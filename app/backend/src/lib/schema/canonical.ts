@@ -210,6 +210,35 @@ export const coreArticles = ibpa.table("articles", {
   index("ibpa_articles_created_at_idx").on(table.createdAt),
 ]);
 
+export const coreWebinars = ibpa.table("webinars", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: varchar("title", { length: 255 }).notNull(),
+  zoomMeetingId: varchar("zoom_meeting_id", { length: 80 }).notNull(),
+  zoomMeetingUuid: text("zoom_meeting_uuid").notNull(),
+  zoomRecordingFileId: varchar("zoom_recording_file_id", { length: 255 }),
+  recordedAt: timestamp("recorded_at").notNull(),
+  durationSeconds: integer("duration_seconds").notNull().default(0),
+  videoR2Key: text("video_r2_key"),
+  status: varchar("status", { length: 24 }).notNull().default("AVAILABLE"),
+  transcriptStatus: varchar("transcript_status", { length: 32 }).notNull().default("NOT_AVAILABLE"),
+  zoomMetadata: jsonb("zoom_metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  // Member-facing lifecycle, independent of the Zoom import `status`.
+  publicationStatus: varchar("publication_status", { length: 24 }).notNull().default("DRAFT"),
+  publishedAt: timestamp("published_at"),
+  // Subtitle version registry, lineage, revision history, and active tracks.
+  subtitleVersions: jsonb("subtitle_versions").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  // Who can watch once published (audience, membership types, team members).
+  accessSettings: jsonb("access_settings").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("ibpa_webinars_zoom_meeting_uuid_uidx").on(table.zoomMeetingUuid),
+  uniqueIndex("ibpa_webinars_zoom_recording_file_id_uidx").on(table.zoomRecordingFileId),
+  index("ibpa_webinars_recorded_at_idx").on(table.recordedAt),
+  index("ibpa_webinars_status_idx").on(table.status),
+  index("ibpa_webinars_publication_status_idx").on(table.publicationStatus, table.recordedAt),
+]);
+
 export const corePartners = ibpa.table("partners", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title", { length: 255 }).notNull(),
@@ -301,6 +330,7 @@ export type CoreAdminCertificate = typeof coreAdminCertificates.$inferSelect;
 export type CoreEvent = typeof coreEvents.$inferSelect;
 export type CoreEventRegistration = typeof coreEventRegistrations.$inferSelect;
 export type CoreArticle = typeof coreArticles.$inferSelect;
+export type CoreWebinar = typeof coreWebinars.$inferSelect;
 export type CorePartner = typeof corePartners.$inferSelect;
 export type CoreNotification = typeof coreNotifications.$inferSelect;
 export type CoreTeam = typeof coreTeams.$inferSelect;

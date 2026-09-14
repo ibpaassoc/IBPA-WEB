@@ -126,6 +126,7 @@ export type TabType =
   | "certificates"
   | "billing"
   | "events"
+  | "webinars"
   | "directory"
   | "support"
   | "accountSettings"
