@@ -18,7 +18,7 @@
 | Webinar lifecycle      | `app/backend/src/features/webinars/server/webinar.service.ts`                        | Import, storage, playback, subtitle, and retry behavior |
 | Zoom recording access  | Standard `/users` and `/users/{userId}/recordings` APIs                              | Account-admin access without master/subaccount APIs     |
 | Subtitle versions      | `app/backend/src/features/webinars/server/webinar-subtitle-state.ts`                 | Version registry, lineage, revisions, member tracks     |
-| Subtitle AI jobs       | `app/backend/src/features/webinars/server/webinar-subtitle-jobs.service.ts`          | AssemblyAI transcripts, Claude translations, retries    |
+| Subtitle AI jobs       | `app/backend/src/features/webinars/server/webinar-subtitle-jobs.service.ts`          | AssemblyAI transcripts, DeepL translations, retries     |
 | Member webinar access  | `app/backend/src/features/webinars/server/webinar-access.ts`                         | Canonical publication and member access rule            |
 
 `DESIGN.md` records visual intent. Existing CSS and shared components remain the runtime source of truth; new feature values must follow that mapping rather than introducing a parallel theme.

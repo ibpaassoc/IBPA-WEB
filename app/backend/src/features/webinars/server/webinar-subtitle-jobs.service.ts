@@ -30,6 +30,8 @@ import {
 } from "./webinar-transcription";
 import {
   assertTranslationConfigured,
+  assertTranslationQuota,
+  countTranslationCharacters,
   translateCuesToEnglish,
   TRANSLATION_MODEL,
   TRANSLATION_PROVIDER,
@@ -474,6 +476,7 @@ async function runEnglishTranslation(
       .map((cue, index) => ({ id: `c${index}`, text: cue.text.trim() }))
       .filter((cue) => cue.text);
     if (!translatable.length) throw new Error("The source version has no subtitle text.");
+    await assertTranslationQuota(countTranslationCharacters(translatable));
 
     const translated = await translateCuesToEnglish(
       translatable,

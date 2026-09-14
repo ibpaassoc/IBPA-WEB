@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  countTranslationCharacters,
+  planTranslationBatches,
   translateCuesToEnglish,
   type BatchTranslator,
   type TranslatableCue,
@@ -62,7 +64,7 @@ function cues(count: number): TranslatableCue[] {
   }));
 }
 
-test("translates every cue in ordered batches with prior context", async () => {
+test("translates every cue in ordered batches with preceding source context", async () => {
   const calls: Array<{ ids: string[]; context: string[] }> = [];
   const translator: BatchTranslator = async (batch, context) => {
     calls.push({ ids: batch.map((cue) => cue.id), context: context.map((cue) => cue.text) });
@@ -80,10 +82,26 @@ test("translates every cue in ordered batches with prior context", async () => {
 
   assert.equal(result.size, 130);
   assert.equal(result.get("c129"), "Line 129");
-  assert.deepEqual(progress, [60, 120, 130]);
+  assert.deepEqual(progress, [50, 100, 130]);
   assert.equal(calls[0].context.length, 0);
-  // The second batch sees the last translated cues of the first batch.
-  assert.deepEqual(calls[1].context.slice(-2), ["Line 58", "Line 59"]);
+  // DeepL context must be in the source language: the preceding Russian cues.
+  assert.deepEqual(calls[1].context.slice(-2), ["Реплика 48", "Реплика 49"]);
+  assert.equal(calls[1].context.length, 6);
+});
+
+test("batches respect DeepL's request size as well as the cue count", () => {
+  const long = Array.from({ length: 30 }, (_, index) => ({
+    id: `c${index}`,
+    text: "ж".repeat(4000),
+  }));
+  const batches = planTranslationBatches(long);
+  assert.ok(batches.length > 1);
+  for (const batch of batches) {
+    const bytes = batch.reduce((total, cue) => total + Buffer.byteLength(cue.text, "utf8"), 0);
+    assert.ok(bytes <= 100 * 1024, `batch of ${bytes} bytes`);
+  }
+  assert.equal(batches.flat().length, 30);
+  assert.equal(countTranslationCharacters(long.slice(0, 2)), 8000);
 });
 
 test("retries missing cues once and fails loudly if they are still missing", async () => {
