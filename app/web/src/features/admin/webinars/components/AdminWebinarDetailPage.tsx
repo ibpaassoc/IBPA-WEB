@@ -7,7 +7,9 @@ import {
   CircleAlert,
   Clock3,
   Cloud,
+  Columns2,
   LoaderCircle,
+  PencilLine,
   RefreshCw,
   Video,
 } from "lucide-react";
@@ -51,6 +53,7 @@ import {
   formatWebinarDate,
   webinarStatusLabel,
 } from "../utils/webinar-formatters";
+import { SubtitleCompareView } from "./SubtitleCompareView";
 import { SubtitleEditor } from "./SubtitleEditor";
 import { SubtitleRevisionHistory } from "./SubtitleRevisionHistory";
 import { WebinarPlayer } from "./WebinarPlayer";
@@ -101,6 +104,9 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState<"edit" | "compare">(
+    "edit",
+  );
   const [error, setError] = useState<string | null>(null);
   const [subtitleError, setSubtitleError] = useState<string | null>(null);
   const [pendingNavigation, setPendingNavigation] =
@@ -166,14 +172,15 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
   }, [loadDetail]);
 
   const hasProcessingVersion = Boolean(
-    detail?.subtitles.versions.some((version) => version.status === "PROCESSING"),
+    detail?.subtitles.versions.some(
+      (version) => version.status === "PROCESSING",
+    ),
   );
 
   useEffect(() => {
     if (detail?.status !== "IMPORTING" && !hasProcessingVersion) return;
     const interval = window.setInterval(
-      () =>
-        void loadDetail({ silent: detail?.status !== "IMPORTING" }),
+      () => void loadDetail({ silent: detail?.status !== "IMPORTING" }),
       detail?.status === "IMPORTING" ? 4_000 : 8_000,
     );
     return () => window.clearInterval(interval);
@@ -191,7 +198,10 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
       setDirty(false);
       return;
     }
-    if (skipContentLoadRef.current === `${selectedVersionId}:${selectedRevisionId}`) {
+    if (
+      skipContentLoadRef.current ===
+      `${selectedVersionId}:${selectedRevisionId}`
+    ) {
       skipContentLoadRef.current = null;
       return;
     }
@@ -471,25 +481,73 @@ export function AdminWebinarDetailPage({ webinarId }: { webinarId: string }) {
         />
 
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <SubtitleEditor
-            activeCueIndex={activeCueIndex}
-            cues={cues}
-            currentTime={currentTime}
-            dirty={dirty}
-            error={subtitleError}
-            isLoading={isSubtitleLoading}
-            isSaving={isSaving}
-            lineage={
-              selectedVersion ? lineageLabel(detail.subtitles, selectedVersion) : ""
-            }
-            onChange={handleCueChange}
-            onOpenHistory={requestHistory}
-            onSave={() => void saveSubtitles()}
-            onSeek={handleSeek}
-            revision={selectedRevision}
-            version={selectedVersion}
-            versionLabel={selectedName}
-          />
+          <div className="min-w-0 space-y-3">
+            <div
+              aria-label="Subtitle workspace mode"
+              className="inline-flex rounded-2xl border border-[#D4E0F0] bg-white p-1 shadow-[0_8px_20px_rgba(15,46,83,0.05)]"
+              role="tablist"
+            >
+              {(
+                [
+                  { key: "edit", label: "Edit", icon: PencilLine },
+                  { key: "compare", label: "Compare", icon: Columns2 },
+                ] as const
+              ).map((mode) => {
+                const selected = workspaceMode === mode.key;
+                return (
+                  <button
+                    aria-selected={selected}
+                    className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#21466D] ${
+                      selected
+                        ? "bg-[#21466D] text-white"
+                        : "text-[#315F8A] hover:bg-[#EEF6FF]"
+                    }`}
+                    key={mode.key}
+                    onClick={() => setWorkspaceMode(mode.key)}
+                    role="tab"
+                    type="button"
+                  >
+                    <mode.icon className="size-4" /> {mode.label}
+                  </button>
+                );
+              })}
+            </div>
+            {workspaceMode === "compare" ? (
+              <SubtitleCompareView
+                currentTime={currentTime}
+                focusVersionId={selectedVersionId}
+                onOpenInEditor={(versionId) => {
+                  setWorkspaceMode("edit");
+                  requestVersion(versionId);
+                }}
+                onSeek={handleSeek}
+                state={detail.subtitles}
+                webinarId={webinarId}
+              />
+            ) : (
+              <SubtitleEditor
+                activeCueIndex={activeCueIndex}
+                cues={cues}
+                currentTime={currentTime}
+                dirty={dirty}
+                error={subtitleError}
+                isLoading={isSubtitleLoading}
+                isSaving={isSaving}
+                lineage={
+                  selectedVersion
+                    ? lineageLabel(detail.subtitles, selectedVersion)
+                    : ""
+                }
+                onChange={handleCueChange}
+                onOpenHistory={requestHistory}
+                onSave={() => void saveSubtitles()}
+                onSeek={handleSeek}
+                revision={selectedRevision}
+                version={selectedVersion}
+                versionLabel={selectedName}
+              />
+            )}
+          </div>
           <WebinarSidePanel
             detail={detail}
             onSelectVersion={requestVersion}
