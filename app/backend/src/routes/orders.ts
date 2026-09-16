@@ -46,6 +46,13 @@ import {
   listAllMailableTeamMemberEmails,
 } from "../features/teams/server/admin-team.service";
 import {
+  describePromoCodeDiscount,
+  findRedeemablePromoCode,
+  listPromoCodes,
+  normalizePromoCodeInput,
+  resolveStripeCouponId,
+} from "../features/site-settings/server/promo-code.service";
+import {
   AdminCertificateError,
   createAdminCertificate,
   listAdminCertificates,
@@ -388,6 +395,96 @@ function getApplicationCertificateNumber(application: typeof coreApplications.$i
   return typeof certificateNumber === "string" && certificateNumber.trim() ? certificateNumber.trim() : null;
 }
 
+/** The promo code an applicant entered on their application, if any. */
+function getApplicationPromoCode(application: typeof coreApplications.$inferSelect | null) {
+  return normalizePromoCodeInput(asRecord(application?.applicationData).promoCode) || null;
+}
+
+/**
+ * Keep only a promo code that can still be redeemed. Applicants type the code
+ * on the form, but nothing is discounted until an administrator approves the
+ * application, so an unknown or disabled code is simply not stored.
+ */
+async function normalizeSubmittedPromoCode(db: ReturnType<typeof requireDb>, value: unknown) {
+  if (!normalizePromoCodeInput(value)) {
+    return null;
+  }
+
+  try {
+    const promoCode = await findRedeemablePromoCode(db, value);
+    return promoCode?.code ?? null;
+  } catch (error) {
+    console.error("[Promo codes] Failed to verify submitted code", error);
+    return null;
+  }
+}
+
+/**
+ * What an administrator needs to know about an applicant's promo code before
+ * approving: the code itself, and whether it will still discount the invoice.
+ */
+async function describeApplicationPromoCode(application: typeof coreApplications.$inferSelect) {
+  const code = getApplicationPromoCode(application);
+  if (!code) {
+    return null;
+  }
+
+  const applied = asRecord(asRecord(application.applicationData).promoCodeApplied);
+  const appliedAt = typeof applied.appliedAt === "string" ? applied.appliedAt : null;
+
+  try {
+    const promoCode = (await listPromoCodes(requireDb())).find((item) => item.code === code);
+
+    if (!promoCode) {
+      return { code, label: null, status: "removed" as const, appliedAt, message: null };
+    }
+    if (!promoCode.enabled) {
+      return { code, label: promoCode.label, status: "disabled" as const, appliedAt, message: null };
+    }
+
+    const discount = await describePromoCodeDiscount(promoCode);
+    if (discount.status !== "linked") {
+      return {
+        code,
+        label: promoCode.label,
+        status: "unconfigured" as const,
+        appliedAt,
+        message: discount.message,
+      };
+    }
+
+    return { code, label: promoCode.label, status: "active" as const, appliedAt, message: null };
+  } catch (error) {
+    console.error("[Promo codes] Failed to describe application code", error);
+    return { code, label: null, status: "unknown" as const, appliedAt, message: null };
+  }
+}
+
+/**
+ * Resolve the Stripe coupon for an approved application. Re-checked at
+ * approval time so a code an administrator has since turned off stops
+ * discounting, and a code that was added later still applies.
+ */
+async function resolveApplicationDiscount(application: typeof coreApplications.$inferSelect) {
+  const code = getApplicationPromoCode(application);
+  if (!code) {
+    return null;
+  }
+
+  try {
+    const promoCode = await findRedeemablePromoCode(requireDb(), code);
+    const couponId = promoCode ? resolveStripeCouponId(promoCode) : null;
+    if (!promoCode || !couponId) {
+      return { code, couponId: null, label: null, applied: false };
+    }
+
+    return { code: promoCode.code, couponId, label: promoCode.label, applied: true };
+  } catch (error) {
+    console.error("[Promo codes] Failed to resolve discount for application", error);
+    return { code, couponId: null, label: null, applied: false };
+  }
+}
+
 function toVerificationResponse(application: typeof coreApplications.$inferSelect, payment: typeof corePayments.$inferSelect | null) {
   return {
     id: application.id,
@@ -624,6 +721,7 @@ async function createMembershipCheckoutSession(params: { application: typeof cor
         paymentLinkUrl: null,
         membershipChange: change,
         activated: true,
+        discount: null,
       };
     }
 
@@ -679,6 +777,7 @@ async function createMembershipCheckoutSession(params: { application: typeof cor
       paymentLinkUrl,
       membershipChange: change,
       activated: false,
+      discount: null,
     };
   }
 
@@ -686,6 +785,7 @@ async function createMembershipCheckoutSession(params: { application: typeof cor
   const token = getApplicationPaymentToken(application) || crypto.randomUUID();
   const paymentLinkUrl = getPaymentLinkUrl(token);
   const priceId = getMembershipPriceId(application.packageName);
+  const discount = await resolveApplicationDiscount(application);
   const metadata = {
     orderId: application.id,
     orderKind: "membership",
@@ -693,6 +793,7 @@ async function createMembershipCheckoutSession(params: { application: typeof cor
     applicationId: application.id,
     applicantEmail: application.email,
     applicationType: application.packageName || "membership",
+    ...(discount?.applied ? { promoCode: discount.code } : {}),
     environment: process.env.NODE_ENV || "development",
   };
 
@@ -703,6 +804,9 @@ async function createMembershipCheckoutSession(params: { application: typeof cor
     mode: "subscription",
     success_url: getSuccessUrl(token),
     cancel_url: `${process.env.DASHBOARD_URL || process.env.FRONTEND_URL}/`,
+    ...(discount?.applied && discount.couponId
+      ? { discounts: [{ coupon: discount.couponId }] }
+      : {}),
     subscription_data: { metadata },
     metadata,
   });
@@ -726,6 +830,9 @@ async function createMembershipCheckoutSession(params: { application: typeof cor
       applicationData: {
         ...asRecord(application.applicationData),
         certificateNumber,
+        promoCodeApplied: discount?.applied
+          ? { code: discount.code, appliedAt: new Date().toISOString() }
+          : null,
       },
     })
     .where(eq(coreApplications.id, application.id));
@@ -736,6 +843,7 @@ async function createMembershipCheckoutSession(params: { application: typeof cor
     paymentLinkUrl,
     membershipChange: null,
     activated: false,
+    discount,
   };
 }
 
@@ -1046,6 +1154,10 @@ ordersRouter.patch("/review-edit", async (req, res) => {
       membershipCategory: membershipPackage,
       accountType: "member",
       applicantType: MEMBERSHIP_APPLICANT_TYPES[membershipPackage],
+      promoCode: await normalizeSubmittedPromoCode(
+        db,
+        (applicationData as Record<string, unknown>).promoCode ?? existingPayload.promoCode,
+      ),
       additionalReview: {
         ...asRecord(existingPayload.additionalReview),
         editToken: null,
@@ -1102,6 +1214,7 @@ ordersRouter.get("/:id", adminClerkMiddleware, requireAdminAccess, async (req, r
       stripeSessionId: payment?.stripeSessionId ?? null,
       createdAt: application.createdAt,
       certificateNumber: certificate?.certificateNumber ?? getApplicationCertificateNumber(application),
+      promoCode: await describeApplicationPromoCode(application),
     });
   } catch (error) {
     console.error("Failed to fetch order detail", error);
@@ -1220,6 +1333,7 @@ ordersRouter.post("/", async (req, res) => {
       membershipCategory: membershipPackage,
       accountType: "member",
       applicantType: MEMBERSHIP_APPLICANT_TYPES[membershipPackage],
+      promoCode: await normalizeSubmittedPromoCode(db, (application as Record<string, unknown>).promoCode),
     };
 
     const applicantPhone =
@@ -1502,6 +1616,7 @@ ordersRouter.post("/admin/approve", adminClerkMiddleware, requireAdminAccess, as
       paymentRequired: Boolean(session),
       activated,
       balanceDue: membershipChange?.balanceDue ?? null,
+      promoCode: checkout.discount,
     });
   } catch (error) {
     console.error("Failed to approve order", error);
