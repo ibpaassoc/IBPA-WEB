@@ -8,6 +8,7 @@ import { contentRouter } from "./routes/content";
 import { contactRouter } from "./routes/contact";
 import { membersRouter } from "./routes/members";
 import { partnerApplicationsRouter } from "./routes/partner-applications";
+import { promoCodesRouter } from "./routes/promo-codes";
 import { webinarsRouter } from "./routes/webinars";
 import { adminClerkMiddleware, requireAdminAccess } from "./services/admin";
 
@@ -74,6 +75,7 @@ app.use("/api/content", contentRouter);
 app.use("/api/contact", contactRouter);
 app.use("/api/members", membersRouter);
 app.use("/api/partner-applications", partnerApplicationsRouter);
+app.use("/api/promo-codes", promoCodesRouter);
 
 // JSON error handler. Without this, an error thrown by middleware (Clerk auth
 // failures, body-parser rejects, unexpected route throws) falls through to
