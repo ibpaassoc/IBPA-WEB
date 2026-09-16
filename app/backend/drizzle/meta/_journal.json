@@ -141,6 +141,13 @@
       "when": 1789243200000,
       "tag": "0019_webinar_subtitle_versions_and_access",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789329600000,
+      "tag": "0020_add_site_settings",
+      "breakpoints": true
     }
   ]
 }

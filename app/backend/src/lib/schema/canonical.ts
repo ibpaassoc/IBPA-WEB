@@ -309,6 +309,21 @@ export const coreFiles = ibpa.table("files", {
   index("ibpa_files_type_idx").on(table.type),
 ]);
 
+/**
+ * Generic key/value store for operational site configuration: promo codes,
+ * integration key *references* (never secret values), and other general data
+ * an administrator owns. One row per settings key; the shape of `value` is
+ * defined by the feature that owns the key.
+ */
+export const coreSiteSettings = ibpa.table("site_settings", {
+  key: varchar("key", { length: 120 }).primaryKey(),
+  value: jsonb("value").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  description: text("description"),
+  updatedBy: varchar("updated_by", { length: 255 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const coreStripeWebhookEvents = ibpa.table("stripe_webhook_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   stripeEventId: text("stripe_event_id").notNull(),
@@ -337,3 +352,4 @@ export type CoreTeam = typeof coreTeams.$inferSelect;
 export type CoreTeamMember = typeof coreTeamMembers.$inferSelect;
 export type CoreFile = typeof coreFiles.$inferSelect;
 export type CoreStripeWebhookEvent = typeof coreStripeWebhookEvents.$inferSelect;
+export type CoreSiteSetting = typeof coreSiteSettings.$inferSelect;

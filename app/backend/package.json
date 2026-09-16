@@ -12,6 +12,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:foundation": "tsx scripts/run-sql-migration.ts 0007_domain_refactor_foundation",
     "db:migrate:drop-public": "tsx scripts/run-sql-migration.ts 0008_cutover_add_partners_and_drop_legacy",
+    "db:migrate:site-settings": "tsx scripts/run-sql-migration.ts 0020_add_site_settings",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "migrate:public-data": "tsx scripts/import-public-data-to-ibpa.ts",
