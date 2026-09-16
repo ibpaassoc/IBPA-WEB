@@ -194,6 +194,7 @@ type FormData = {
   additionalDocumentationConsent: boolean;
   legalName: string;
   signature: string;
+  promoCode: string;
 };
 
 const STEPS = [
@@ -500,10 +501,12 @@ export default function ApplyPage() {
       brandMemberBenefits: [],
       specialization: [],
       hasLicense: "Yes",
+      promoCode: "",
     },
   });
 
   const selectedCategory = watch("membershipCategory");
+  const promoCode = watch("promoCode") || "";
   const watchedSpecializations = watch("specialization");
   const selectedSpecializations = Array.isArray(watchedSpecializations) ? watchedSpecializations : [];
   const hasOtherSpecialization = selectedSpecializations.includes("Other");
@@ -1416,6 +1419,11 @@ export default function ApplyPage() {
                 selectedCategory={selectedCategory}
                 register={register}
                 renderFieldError={renderFieldError}
+                promoCode={promoCode}
+                onPromoCodeApplied={(code) =>
+                  setValue("promoCode", code, { shouldDirty: true })
+                }
+                onPromoCodeCleared={() => setValue("promoCode", "", { shouldDirty: true })}
               />
             )}
           </AnimatePresence>

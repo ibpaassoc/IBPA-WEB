@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, Ticket } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -20,6 +20,7 @@ import { buildMemberApplicationSections } from "../server/application-admin.serv
 import type {
   AdminApplicationRecord,
   ApplicationFieldSection,
+  ApplicationPromoCode,
   MemberApplicationDetail,
   PartnerApplicationDetail,
 } from "../types/application-admin.types";
@@ -81,6 +82,74 @@ function SummaryFields({ sections }: { sections: ApplicationFieldSection[] }) {
   );
 }
 
+const promoCodeCopy: Record<
+  ApplicationPromoCode["status"],
+  { tone: "success" | "warning" | "danger" | "neutral"; badge: string; note: string }
+> = {
+  active: {
+    badge: "Will apply",
+    note: "The linked Stripe coupon is attached to the invoice when you approve this application.",
+    tone: "success",
+  },
+  disabled: {
+    badge: "Turned off",
+    note: "This code is turned off, so approving will not discount the invoice. Turn it back on in Promo codes first.",
+    tone: "warning",
+  },
+  unconfigured: {
+    badge: "Coupon unavailable",
+    note: "Stripe will not accept this code's coupon, so approving will not discount the invoice. Check it in Promo codes.",
+    tone: "danger",
+  },
+  removed: {
+    badge: "Deleted",
+    note: "This code no longer exists, so approving will not discount the invoice.",
+    tone: "danger",
+  },
+  unknown: {
+    badge: "Unavailable",
+    note: "The promo code settings could not be read. Check Promo codes before approving.",
+    tone: "neutral",
+  },
+};
+
+function PromoCodeSummary({ promoCode }: { promoCode: ApplicationPromoCode }) {
+  const copy = promoCodeCopy[promoCode.status] ?? promoCodeCopy.unknown;
+  const isApplied = Boolean(promoCode.appliedAt);
+
+  return (
+    <div className="rounded-[20px] border border-dashed border-[#C4D8EE] bg-[#F8FBFF] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6C7F95]">
+          <Ticket className="size-3.5 text-[#1F5D8F]" />
+          Promo code
+        </p>
+        <AdminStatusBadge tone={isApplied ? "success" : copy.tone}>
+          {isApplied ? "Applied" : copy.badge}
+        </AdminStatusBadge>
+      </div>
+
+      <p className="mt-2 break-all text-sm font-bold uppercase tracking-[0.18em] text-[#10203B]">
+        {promoCode.code}
+      </p>
+
+      {promoCode.label ? (
+        <p className="mt-1 text-xs text-[#55708D]">{promoCode.label}</p>
+      ) : null}
+
+      <p className="mt-2 text-xs leading-5 text-[#6C7F95]">
+        {isApplied ? "The discount is already on this applicant's checkout session." : copy.note}
+      </p>
+
+      {!isApplied && promoCode.status === "unconfigured" && promoCode.message ? (
+        <p className="mt-1.5 break-words text-xs leading-5 text-[#8B4A44]">
+          {promoCode.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function ApplicationReviewRail({
   busyAction,
   memberApplication,
@@ -123,6 +192,10 @@ export function ApplicationReviewRail({
             ) : (
               <SummaryFields sections={membershipSections} />
             )}
+
+            {memberApplication.promoCode ? (
+              <PromoCodeSummary promoCode={memberApplication.promoCode} />
+            ) : null}
 
             {!record.isMembershipChange ? <FieldGroup>
               <Field>

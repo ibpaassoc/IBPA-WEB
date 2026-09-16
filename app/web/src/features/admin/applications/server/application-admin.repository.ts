@@ -67,6 +67,7 @@ export async function approveMemberApplication(orderId: string) {
     paymentRequired?: boolean;
     activated?: boolean;
     balanceDue?: number | null;
+    promoCode?: { code: string; label: string | null; applied: boolean } | null;
   }>(
     "/api/admin/approve",
     {

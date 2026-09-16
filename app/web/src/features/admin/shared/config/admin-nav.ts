@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Mail,
   Newspaper,
+  TicketPercent,
   Video,
   Users,
   type LucideIcon,
@@ -50,7 +51,10 @@ export const adminNavGroups: AdminNavGroup[] = [
     ],
   },
   {
-    items: [{ href: "/admin/payments", label: "Finance", icon: CreditCard }],
+    items: [
+      { href: "/admin/payments", label: "Finance", icon: CreditCard },
+      { href: "/admin/promo-codes", label: "Promo codes", icon: TicketPercent },
+    ],
   },
 ];
 

@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import type { UseFormRegister } from "react-hook-form";
 import type { MembershipCategory } from "@/lib/membership";
+import { PromoCodeField } from "./PromoCodeField";
 
 type ConfirmStepProps = {
   isRu: boolean;
@@ -16,6 +17,9 @@ type ConfirmStepProps = {
   selectedCategory: MembershipCategory;
   register: UseFormRegister<any>;
   renderFieldError: (field: any) => ReactNode;
+  promoCode: string;
+  onPromoCodeApplied: (code: string) => void;
+  onPromoCodeCleared: () => void;
 };
 
 export function ConfirmStep({
@@ -29,6 +33,9 @@ export function ConfirmStep({
   selectedCategory,
   register,
   renderFieldError,
+  promoCode,
+  onPromoCodeApplied,
+  onPromoCodeCleared,
 }: ConfirmStepProps) {
   const t = (en: string, ru: string, uk: string) => (isRu ? ru : isUk ? uk : en);
   const isOrganization = selectedCategory === "Business" || selectedCategory === "Brand";
@@ -64,6 +71,15 @@ export function ConfirmStep({
           <p>{selectedPrice}</p>
         </div>
       </div>
+
+      <PromoCodeField
+        editorialClassName={editorialClassName}
+        isRu={isRu}
+        isUk={isUk}
+        onApplied={onPromoCodeApplied}
+        onCleared={onPromoCodeCleared}
+        value={promoCode}
+      />
 
       <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
         <label className="flex items-start gap-3 text-sm text-slate-700">

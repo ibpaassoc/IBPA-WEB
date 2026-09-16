@@ -253,7 +253,15 @@ export function AdminApplicationsPage() {
           ? result.activated
             ? "Membership change approved and activated — no balance was due."
             : `Membership change approved. ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((result.balanceDue || 0) / 100)} payment link sent.`
-          : "Member application approved.");
+          : result.promoCode?.applied
+            ? `Member application approved. Promo code ${result.promoCode.code} applied to the invoice.`
+            : "Member application approved.");
+
+        if (result.promoCode && !result.promoCode.applied) {
+          toast.warning(
+            `Promo code ${result.promoCode.code} was not applied — it is turned off or has no Stripe coupon.`,
+          );
+        }
       } else {
         await approvePartnerApplication(selectedApplication.id, selectedPartnerTier);
         toast.success("Partner application approved and payment link sent.");
