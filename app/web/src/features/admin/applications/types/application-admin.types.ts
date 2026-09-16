@@ -81,6 +81,7 @@ export type ApplicationQueueResponse = {
 };
 
 export type { ApplicationAdditionalFile };
+export type { ApplicationPromoCode } from "../../shared/types/admin.types";
 export type { OrderStatus, PartnerApplicationStatus, PartnerPaymentStatus };
 export type {
   AdminOrder,

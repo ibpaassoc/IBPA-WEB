@@ -38,6 +38,7 @@ export type {
   AdminPartnerApplicationsResponse,
   AdminPartnerApplicationsSummary,
   ApplicationAdditionalFile,
+  ApplicationPromoCode,
   ApplicationPayload,
   OrderStatus,
   PartnerApplicationStatus,

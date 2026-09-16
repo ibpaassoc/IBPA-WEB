@@ -18,6 +18,25 @@ export type AdminOrder = {
   secureToken?: string;
   createdAt: string;
   certificateNumber?: string | null;
+  promoCode?: ApplicationPromoCode | null;
+};
+
+/** Promo code an applicant entered, and whether it still discounts on approval. */
+export type ApplicationPromoCode = {
+  code: string;
+  label: string | null;
+  /**
+   * active — will discount the invoice on approval.
+   * disabled — an administrator turned the code off.
+   * unconfigured — no Stripe coupon is linked to the code.
+   * removed — the code no longer exists.
+   * unknown — the promo code settings could not be read.
+   */
+  status: "active" | "disabled" | "unconfigured" | "removed" | "unknown";
+  /** When the discount was attached to a checkout session, if it has been. */
+  appliedAt?: string | null;
+  /** Stripe's own explanation when the linked coupon cannot be used. */
+  message?: string | null;
 };
 
 export type ApplicationAdditionalFile = {
