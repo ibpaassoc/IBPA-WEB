@@ -1,6 +1,9 @@
 const INSTAGRAM_HANDLE_PATTERN = /^@?[A-Za-z0-9._]{1,30}$/;
 const INSTAGRAM_URL_PATTERN = /^(?:https?:\/\/)?(?:www\.|m\.)?instagram\.com\/@?[A-Za-z0-9._]{1,30}\/?(?:[?#].*)?$/i;
 
+// Business and Brand proof documents are checked with their other category files.
+const PROOF_DOCUMENT_PACKAGES = new Set(["Professional", "Trainer"]);
+
 const INSTAGRAM_FIELD_BY_PACKAGE: Record<string, string> = {
   Business: "businessInstagram",
   Brand: "brandInstagram",
@@ -37,6 +40,10 @@ export function validateApplicationRequirements(
   const profilePhotoField = membershipPackage === "Business" ? "businessProfilePhotoFiles" : "profilePhotoFiles";
   if (!hasFiles(payload[profilePhotoField], 1)) {
     return "A profile photo is required.";
+  }
+
+  if (PROOF_DOCUMENT_PACKAGES.has(membershipPackage) && !hasFiles(payload.credentialProofFiles, 1)) {
+    return "Upload at least one proof document, such as a certificate, license, or proof of education.";
   }
 
   return null;

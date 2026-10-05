@@ -430,6 +430,10 @@ export function getTrainerFileGroups(application: MemberApplicationDetail): Appl
 
   return [
     {
+      files: fileListFromPayload(payload, "credentialProofFiles"),
+      title: getApplicationFieldLabel("credentialProofFiles"),
+    },
+    {
       files: fileListFromPayload(payload, "trainerEducationPlanFiles"),
       title: getApplicationFieldLabel("trainerEducationPlanFiles"),
     },

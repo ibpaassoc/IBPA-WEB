@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { ApplicationFileUploadField } from "@/components/forms/ApplicationFileUploadField";
 import { ProfilePhotoUploadField } from "@/components/forms/ProfilePhotoUploadField";
 import { countryOptions } from "@/constants/countries";
 import { cyrillicDisplay, cyrillicEditorial } from "@/lib/cyrillic-fonts";
@@ -43,6 +44,7 @@ import { OrganizationApplicationStep } from "./components/OrganizationApplicatio
 
 type FormData = {
   profilePhotoFiles: string[];
+  credentialProofFiles: string[];
   portfolioImages: string[];
   trainerEducationPlanFiles: string[];
   trainerCertificateFiles: string[];
@@ -245,6 +247,7 @@ const ConfirmStep = dynamic(
 
 const fieldLabels: Partial<Record<keyof FormData, { en: string; ru: string; uk: string }>> = {
   profilePhotoFiles: { en: "Profile photo", ru: "Фото профиля", uk: "Фото профілю" },
+  credentialProofFiles: { en: "Proof documents", ru: "Подтверждающие документы", uk: "Підтверджувальні документи" },
   portfolioImages: { en: "Portfolio images", ru: "Фото работ", uk: "Фото робіт" },
   trainerEducationPlanFiles: { en: "Education Plan / Методичка", ru: "Методичка / план обучения", uk: "Методичка / план навчання" },
   trainerCertificateFiles: { en: "Certificate", ru: "Сертификат", uk: "Сертифікат" },
@@ -401,6 +404,10 @@ function requiresLicenseNumber(category: MembershipCategory) {
   return category !== "Specialist";
 }
 
+function requiresProofDocuments(category: MembershipCategory) {
+  return category !== "Specialist";
+}
+
 function includesSubcategorySection(category: MembershipCategory) {
   return category !== "Business" && category !== "Brand";
 }
@@ -422,7 +429,9 @@ function getStepFields(step: number, category: MembershipCategory): (keyof FormD
         ? ["specialization", "specializationOther", "yearsExperience", "professionalDesc", "workSetting"]
         : ["yearsExperience", "professionalDesc", "workSetting"];
     case 3:
-      return requiresLicenseNumber(category) ? ["educationDesc", "hasLicense", "licenseNumber"] : ["educationDesc", "hasLicense"];
+      return requiresLicenseNumber(category)
+        ? ["educationDesc", "hasLicense", "licenseNumber", "credentialProofFiles"]
+        : ["educationDesc", "hasLicense", "credentialProofFiles"];
     case 4:
       return getCategorySpecificFields(category);
     case 5:
@@ -486,6 +495,7 @@ export default function ApplyPage() {
       membershipCategory: "Specialist",
       applicantType: membershipConfigById.Specialist.applicantType,
       profilePhotoFiles: [],
+      credentialProofFiles: [],
       portfolioImages: [],
       trainerEducationPlanFiles: [],
       trainerCertificateFiles: [],
@@ -552,6 +562,7 @@ export default function ApplyPage() {
         {
           applicantType: membershipConfigById.Specialist.applicantType,
           profilePhotoFiles: [],
+          credentialProofFiles: [],
           portfolioImages: [],
           trainerEducationPlanFiles: [],
           trainerCertificateFiles: [],
@@ -598,6 +609,7 @@ export default function ApplyPage() {
           {
             applicantType: membershipConfigById.Specialist.applicantType,
             profilePhotoFiles: [],
+            credentialProofFiles: [],
             portfolioImages: [],
             trainerEducationPlanFiles: [],
             trainerCertificateFiles: [],
@@ -691,6 +703,7 @@ export default function ApplyPage() {
   }, [reviewToken, submitted, watch]);
 
   const profilePhotoFiles = watch("profilePhotoFiles") || [];
+  const credentialProofFiles = watch("credentialProofFiles") || [];
   const portfolioImages = watch("portfolioImages") || [];
   const trainerEducationPlanFiles = watch("trainerEducationPlanFiles") || [];
   const trainerCertificateFiles = watch("trainerCertificateFiles") || [];
@@ -702,6 +715,20 @@ export default function ApplyPage() {
         selectedCategory === "Business" ||
         (Array.isArray(value) && value.length >= 1) ||
         (isRu ? "Загрузите фото профиля." : isUk ? "Завантажте фото профілю." : "Upload a profile photo."),
+    });
+  }, [isRu, isUk, register, selectedCategory]);
+
+  React.useEffect(() => {
+    register("credentialProofFiles", {
+      validate: (value: string[]) =>
+        !requiresProofDocuments(selectedCategory) ||
+        isOrganizationApplication(selectedCategory) ||
+        (Array.isArray(value) && value.length >= 1) ||
+        (isRu
+          ? "Загрузите хотя бы один подтверждающий документ."
+          : isUk
+            ? "Завантажте принаймні один підтверджувальний документ."
+            : "Upload at least one proof document."),
     });
   }, [isRu, isUk, register, selectedCategory]);
 
@@ -1376,6 +1403,44 @@ export default function ApplyPage() {
                       placeholder="List any additional courses, masterclasses, training, certifications, and professional programs that strengthened your skills"
                     />
                   </div>
+                  <ApplicationFileUploadField
+                    endpoint="applicationDocumentUploader"
+                    label={t("Proof documents", "Подтверждающие документы", "Підтверджувальні документи")}
+                    description={
+                      requiresProofDocuments(selectedCategory)
+                        ? t(
+                            "Upload documents that confirm the training, qualifications, and license you listed above. PDF, DOC, DOCX, or image files, up to 10.",
+                            "Загрузите документы, подтверждающие указанные выше обучение, квалификации и лицензию. PDF, DOC, DOCX или изображения, до 10 файлов.",
+                            "Завантажте документи, що підтверджують зазначені вище навчання, кваліфікації та ліцензію. PDF, DOC, DOCX або зображення, до 10 файлів.",
+                          )
+                        : t(
+                            "Optional for Specialist membership. If you already have documents that confirm your training, add them here. PDF, DOC, DOCX, or image files, up to 10.",
+                            "Необязательно для категории Specialist. Если у вас уже есть документы, подтверждающие обучение, добавьте их здесь. PDF, DOC, DOCX или изображения, до 10 файлов.",
+                            "Необов’язково для категорії Specialist. Якщо у вас уже є документи, що підтверджують навчання, додайте їх тут. PDF, DOC, DOCX або зображення, до 10 файлів.",
+                          )
+                    }
+                    examples={[
+                      t("Certificates", "Сертификаты", "Сертифікати"),
+                      t("Diplomas", "Дипломы", "Дипломи"),
+                      t("Professional licenses", "Профессиональные лицензии", "Професійні ліцензії"),
+                      t("Proof of education", "Подтверждение образования", "Підтвердження освіти"),
+                      t("Course completion records", "Документы о прохождении курсов", "Документи про проходження курсів"),
+                    ]}
+                    value={credentialProofFiles}
+                    onChange={(urls) => {
+                      setValue("credentialProofFiles", urls, {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                        shouldValidate: true,
+                      });
+                    }}
+                    accept=".pdf,.doc,.docx,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    chooseLabel={t("Choose files", "Выбрать файлы", "Обрати файли")}
+                    multiple
+                    maxFiles={10}
+                    required={requiresProofDocuments(selectedCategory)}
+                    error={renderFieldError("credentialProofFiles")}
+                  />
                 </div>
               </motion.div>
             )}

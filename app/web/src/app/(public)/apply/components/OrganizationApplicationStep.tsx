@@ -293,7 +293,7 @@ export function OrganizationApplicationStep({
     name: string,
     fieldLabel: string,
     description: string,
-    options: { imageOnly?: boolean; minFiles?: number; maxFiles?: number } = {},
+    options: { imageOnly?: boolean; minFiles?: number; maxFiles?: number; examples?: string[] } = {},
   ) => (
     <ApplicationFileUploadField
       endpoint={options.imageOnly ? "portfolioUploader" : "applicationDocumentUploader"}
@@ -307,6 +307,7 @@ export function OrganizationApplicationStep({
       minFiles={options.minFiles ?? 1}
       maxFiles={options.maxFiles ?? 10}
       imageOnly={options.imageOnly}
+      examples={options.examples}
       error={renderFieldError(name)}
       dropLabel={t("Drag files here or choose files", "Перетащите файлы сюда или выберите файлы", "Перетягніть файли сюди або оберіть файли")}
       uploadedLabel={t("Uploaded", "Загружено", "Завантажено")}
@@ -370,7 +371,15 @@ export function OrganizationApplicationStep({
           {textArea("professionalExperience", label("professionalExperience"), { placeholder: t("Describe your professional path.", "Опишите свой профессиональный путь.", "Опишіть свій професійний шлях.") })}
           {textArea("professionalEducation", label("professionalEducation"))}
           {textArea("professionalAchievements", label("professionalAchievements"), { placeholder: t("Awards, championships, publications, judging, teaching, speaking, international projects, and brand collaborations.", "Награды, чемпионаты, публикации, судейство, преподавание, выступления, международные проекты и коллаборации.", "Нагороди, чемпіонати, публікації, суддівство, викладання, виступи, міжнародні проєкти та колаборації.") })}
-          {upload("businessProfessionalCertificationFiles", label("businessProfessionalCertificationFiles"), t("Upload diplomas, certificates, and licenses.", "Загрузите дипломы, сертификаты и лицензии.", "Завантажте дипломи, сертифікати та ліцензії."))}
+          {upload("businessProfessionalCertificationFiles", label("businessProfessionalCertificationFiles"), t("Upload documents that confirm the education and qualifications you described above. PDF, DOC, DOCX, or image files, up to 10.", "Загрузите документы, подтверждающие указанные выше образование и квалификации. PDF, DOC, DOCX или изображения, до 10 файлов.", "Завантажте документи, що підтверджують зазначені вище освіту та кваліфікації. PDF, DOC, DOCX або зображення, до 10 файлів."), {
+            examples: [
+              t("Certificates", "Сертификаты", "Сертифікати"),
+              t("Diplomas", "Дипломы", "Дипломи"),
+              t("Professional licenses", "Профессиональные лицензии", "Професійні ліцензії"),
+              t("Proof of education", "Подтверждение образования", "Підтвердження освіти"),
+              t("Course completion records", "Документы о прохождении курсов", "Документи про проходження курсів"),
+            ],
+          })}
         </>;
       case 3:
         return <>
@@ -472,7 +481,14 @@ export function OrganizationApplicationStep({
         </>;
       case 4:
         return <>
-          {upload("brandSupportingDocumentFiles", label("brandSupportingDocumentFiles"), t("Upload company registration, business license, company profile, brand presentation, product catalog, press kit, certificates, awards, marketing materials, brochures, team photos, product photos, or other supporting documents.", "Загрузите регистрацию компании, лицензию, профиль компании, презентацию бренда, каталог, пресс-кит, сертификаты, награды, маркетинговые материалы, брошюры, фото команды, фото продуктов или другие документы.", "Завантажте реєстрацію компанії, ліцензію, профіль компанії, презентацію бренду, каталог, прескіт, сертифікати, нагороди, маркетингові матеріали, брошури, фото команди, фото продуктів або інші документи."))}
+          {upload("brandSupportingDocumentFiles", label("brandSupportingDocumentFiles"), t("Upload documents that confirm the company and its standing. A brand presentation, catalog, press kit, awards, or marketing materials are also welcome. PDF, DOC, DOCX, or image files, up to 10.", "Загрузите документы, подтверждающие компанию и ее статус. Также подойдут презентация бренда, каталог, пресс-кит, награды или маркетинговые материалы. PDF, DOC, DOCX или изображения, до 10 файлов.", "Завантажте документи, що підтверджують компанію та її статус. Також підійдуть презентація бренду, каталог, прескіт, нагороди або маркетингові матеріали. PDF, DOC, DOCX або зображення, до 10 файлів."), {
+            examples: [
+              t("Company registration", "Регистрация компании", "Реєстрація компанії"),
+              t("Business license", "Бизнес-лицензия", "Бізнес-ліцензія"),
+              t("Product certificates", "Сертификаты продукции", "Сертифікати продукції"),
+              t("Company profile", "Профиль компании", "Профіль компанії"),
+            ],
+          })}
           {textArea("brandAdditionalLinks", label("brandAdditionalLinks"), { required: false, placeholder: t("Publications, interviews, media, marketplace, brand videos, or product reviews.", "Публикации, интервью, медиа, маркетплейс, видео бренда или обзоры продуктов.", "Публікації, інтерв’ю, медіа, маркетплейс, відео бренду або огляди продуктів.") })}
           {checkboxGroup("brandMemberBenefits", label("brandMemberBenefits"), benefitOptions)}
           {Array.isArray(valueOf("brandMemberBenefits")) && valueOf("brandMemberBenefits").includes("Other") && field("brandMemberBenefitOther", label("brandMemberBenefitOther"), { className: "md:col-span-2" })}

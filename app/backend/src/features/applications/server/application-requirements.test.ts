@@ -12,11 +12,13 @@ test("accepts Instagram handles and profile links only", () => {
 });
 
 const photo = ["https://cdn.example.com/photo.jpg"];
+const proof = ["https://cdn.example.com/certificate.pdf"];
 
 test("requires Instagram for every membership category", () => {
   for (const membershipPackage of ["Specialist", "Professional", "Trainer"]) {
-    assert.match(validateApplicationRequirements(membershipPackage, { profilePhotoFiles: photo }) ?? "", /Instagram is required/);
-    assert.equal(validateApplicationRequirements(membershipPackage, { instagramLink: "@anna.brows", profilePhotoFiles: photo }), null);
+    const files = { profilePhotoFiles: photo, credentialProofFiles: proof };
+    assert.match(validateApplicationRequirements(membershipPackage, files) ?? "", /Instagram is required/);
+    assert.equal(validateApplicationRequirements(membershipPackage, { instagramLink: "@anna.brows", ...files }), null);
   }
 
   assert.match(
@@ -41,4 +43,15 @@ test("requires a profile photo for every membership category", () => {
     validateApplicationRequirements("Business", { businessInstagram: "@studio", profilePhotoFiles: photo }),
     "A profile photo is required.",
   );
+});
+
+test("requires proof documents above the Specialist level", () => {
+  const base = { instagramLink: "@anna.brows", profilePhotoFiles: photo };
+
+  assert.equal(validateApplicationRequirements("Specialist", base), null);
+  for (const membershipPackage of ["Professional", "Trainer"]) {
+    assert.match(validateApplicationRequirements(membershipPackage, base) ?? "", /proof document/);
+    assert.match(validateApplicationRequirements(membershipPackage, { ...base, credentialProofFiles: [] }) ?? "", /proof document/);
+    assert.equal(validateApplicationRequirements(membershipPackage, { ...base, credentialProofFiles: proof }), null);
+  }
 });
