@@ -6,6 +6,11 @@ const INSTAGRAM_FIELD_BY_PACKAGE: Record<string, string> = {
   Brand: "brandInstagram",
 };
 
+function hasFiles(value: unknown, minimum: number) {
+  return Array.isArray(value)
+    && value.filter((item) => typeof item === "string" && item.trim()).length >= minimum;
+}
+
 /** Accepts an Instagram handle (`@name` or `name`) or a profile link. */
 export function isInstagramProfile(value: unknown) {
   if (typeof value !== "string") {
@@ -27,6 +32,11 @@ export function validateApplicationRequirements(
   const instagramField = INSTAGRAM_FIELD_BY_PACKAGE[membershipPackage] ?? "instagramLink";
   if (!isInstagramProfile(payload[instagramField])) {
     return "Instagram is required. Enter your Instagram handle or profile link.";
+  }
+
+  const profilePhotoField = membershipPackage === "Business" ? "businessProfilePhotoFiles" : "profilePhotoFiles";
+  if (!hasFiles(payload[profilePhotoField], 1)) {
+    return "A profile photo is required.";
   }
 
   return null;

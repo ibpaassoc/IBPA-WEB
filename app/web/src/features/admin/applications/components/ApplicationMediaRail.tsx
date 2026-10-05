@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   getPortfolioImages,
+  getProfilePhoto,
   getTrainerFileGroups,
 } from "../server/application-admin.service";
 import type {
@@ -77,6 +78,7 @@ export function ApplicationMediaRail({
     );
   }
 
+  const profilePhoto = getProfilePhoto(memberApplication);
   const images = getPortfolioImages(memberApplication);
   const visibleImages = images.slice(0, 12);
   const hiddenImagesCount = Math.max(images.length - visibleImages.length, 0);
@@ -84,6 +86,28 @@ export function ApplicationMediaRail({
 
   return (
     <div className="space-y-5">
+      <RailCard title="Profile photo">
+        {profilePhoto ? (
+          <a
+            className="group flex items-center gap-4 rounded-[20px] border border-[#D7E5F4] bg-[#F8FBFF] p-3 transition-colors hover:bg-white"
+            href={profilePhoto}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <img
+              alt="Applicant profile photo"
+              className="size-20 shrink-0 rounded-full border border-[#D7E5F4] bg-[#EEF6FF] object-cover"
+              decoding="async"
+              src={profilePhoto}
+            />
+            <span className="min-w-0 flex-1 truncate text-sm text-[#10203B]">{fileNameOf(profilePhoto)}</span>
+            <ExternalLink className="size-3.5 shrink-0 text-[#8AA2BD]" />
+          </a>
+        ) : (
+          <EmptyHint>No profile photo submitted.</EmptyHint>
+        )}
+      </RailCard>
+
       <RailCard title="Portfolio images">
         {visibleImages.length ? (
           <>

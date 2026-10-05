@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { ProfilePhotoUploadField } from "@/components/forms/ProfilePhotoUploadField";
 import { countryOptions } from "@/constants/countries";
 import { cyrillicDisplay, cyrillicEditorial } from "@/lib/cyrillic-fonts";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
@@ -41,6 +42,7 @@ import {
 import { OrganizationApplicationStep } from "./components/OrganizationApplicationStep";
 
 type FormData = {
+  profilePhotoFiles: string[];
   portfolioImages: string[];
   trainerEducationPlanFiles: string[];
   trainerCertificateFiles: string[];
@@ -242,6 +244,7 @@ const ConfirmStep = dynamic(
 );
 
 const fieldLabels: Partial<Record<keyof FormData, { en: string; ru: string; uk: string }>> = {
+  profilePhotoFiles: { en: "Profile photo", ru: "Фото профиля", uk: "Фото профілю" },
   portfolioImages: { en: "Portfolio images", ru: "Фото работ", uk: "Фото робіт" },
   trainerEducationPlanFiles: { en: "Education Plan / Методичка", ru: "Методичка / план обучения", uk: "Методичка / план навчання" },
   trainerCertificateFiles: { en: "Certificate", ru: "Сертификат", uk: "Сертифікат" },
@@ -412,8 +415,8 @@ function getStepFields(step: number, category: MembershipCategory): (keyof FormD
       return ["membershipCategory"];
     case 1:
       return category === "Specialist" || category === "Professional" || category === "Trainer"
-        ? ["firstName", "lastName", "dateOfBirth", "email", "phone", "citizenship", "city", "country"]
-        : ["firstName", "lastName", "email", "phone", "citizenship", "city", "country"];
+        ? ["firstName", "lastName", "dateOfBirth", "email", "phone", "citizenship", "city", "country", "profilePhotoFiles"]
+        : ["firstName", "lastName", "email", "phone", "citizenship", "city", "country", "profilePhotoFiles"];
     case 2:
       return includesSubcategorySection(category)
         ? ["specialization", "specializationOther", "yearsExperience", "professionalDesc", "workSetting"]
@@ -482,6 +485,7 @@ export default function ApplyPage() {
     defaultValues: {
       membershipCategory: "Specialist",
       applicantType: membershipConfigById.Specialist.applicantType,
+      profilePhotoFiles: [],
       portfolioImages: [],
       trainerEducationPlanFiles: [],
       trainerCertificateFiles: [],
@@ -547,6 +551,7 @@ export default function ApplyPage() {
       reset(
         {
           applicantType: membershipConfigById.Specialist.applicantType,
+          profilePhotoFiles: [],
           portfolioImages: [],
           trainerEducationPlanFiles: [],
           trainerCertificateFiles: [],
@@ -592,6 +597,7 @@ export default function ApplyPage() {
         reset(
           {
             applicantType: membershipConfigById.Specialist.applicantType,
+            profilePhotoFiles: [],
             portfolioImages: [],
             trainerEducationPlanFiles: [],
             trainerCertificateFiles: [],
@@ -684,10 +690,20 @@ export default function ApplyPage() {
     return () => subscription.unsubscribe();
   }, [reviewToken, submitted, watch]);
 
+  const profilePhotoFiles = watch("profilePhotoFiles") || [];
   const portfolioImages = watch("portfolioImages") || [];
   const trainerEducationPlanFiles = watch("trainerEducationPlanFiles") || [];
   const trainerCertificateFiles = watch("trainerCertificateFiles") || [];
   const trainerExperienceProofFiles = watch("trainerExperienceProofFiles") || [];
+
+  React.useEffect(() => {
+    register("profilePhotoFiles", {
+      validate: (value: string[]) =>
+        selectedCategory === "Business" ||
+        (Array.isArray(value) && value.length >= 1) ||
+        (isRu ? "Загрузите фото профиля." : isUk ? "Завантажте фото профілю." : "Upload a profile photo."),
+    });
+  }, [isRu, isUk, register, selectedCategory]);
 
   React.useEffect(() => {
     register("portfolioImages", {
@@ -1173,6 +1189,23 @@ export default function ApplyPage() {
                     <label className="field-label">ZIP / Postal Code</label>
                     <input {...register("zipCode")} className="form-input" placeholder="ZIP / postal code" />
                   </div>
+                  <ProfilePhotoUploadField
+                    label={t("Profile photo", "Фото профиля", "Фото профілю")}
+                    description={t(
+                      "Upload a clear, professional headshot. It represents you to the Membership Review Board and on your member profile.",
+                      "Загрузите четкий профессиональный портрет. Он представляет вас комиссии по отбору и в профиле участника.",
+                      "Завантажте чіткий професійний портрет. Він представляє вас комісії з відбору та в профілі учасника.",
+                    )}
+                    value={profilePhotoFiles}
+                    onChange={(urls) => {
+                      setValue("profilePhotoFiles", urls, {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                        shouldValidate: true,
+                      });
+                    }}
+                    error={renderFieldError("profilePhotoFiles")}
+                  />
                 </div>
               </motion.div>
             )}

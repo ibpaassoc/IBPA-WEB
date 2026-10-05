@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue, UseFormWatch } from "react-hook-form";
 
 import { ApplicationFileUploadField } from "@/components/forms/ApplicationFileUploadField";
+import { ProfilePhotoUploadField } from "@/components/forms/ProfilePhotoUploadField";
 import { countryOptions } from "@/constants/countries";
 import { isInstagramProfile } from "@/lib/instagram";
 import type { MembershipCategory } from "@/lib/membership";
@@ -180,6 +181,7 @@ export function OrganizationApplicationStep({
       requiredFiles("businessPortfolioImages", 5, t("Upload at least 5 portfolio images.", "Загрузите минимум 5 примеров работ.", "Завантажте щонайменше 5 прикладів робіт."));
       requiredFiles("businessClientTestimonialFiles", 5, t("Upload at least 5 client testimonials.", "Загрузите минимум 5 отзывов клиентов.", "Завантажте щонайменше 5 відгуків клієнтів."));
     } else {
+      requiredFiles("profilePhotoFiles", 1, t("Upload the brand logo or a profile photo.", "Загрузите логотип бренда или фото профиля.", "Завантажте логотип бренду або фото профілю."));
       requiredFiles("brandReviewFiles", 5, t("Upload at least 5 reviews.", "Загрузите минимум 5 отзывов.", "Завантажте щонайменше 5 відгуків."));
       requiredFiles("brandProductFiles", 1, t("Upload product photos or a catalog.", "Загрузите фото продуктов или каталог.", "Завантажте фото продуктів або каталог."));
       requiredFiles("brandAchievementDocumentFiles", 5, t("Upload at least 5 achievement documents.", "Загрузите минимум 5 документов о достижениях.", "Завантажте щонайменше 5 документів про досягнення."));
@@ -313,6 +315,21 @@ export function OrganizationApplicationStep({
     />
   );
 
+  const profilePhoto = (name: string, fieldLabel: string, description: string) => (
+    <ProfilePhotoUploadField
+      label={fieldLabel}
+      description={description}
+      value={filesOf(name)}
+      onChange={(urls) => setValue(name, urls, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+      error={renderFieldError(name)}
+      chooseLabel={t("Choose photo", "Выбрать фото", "Обрати фото")}
+      replaceLabel={t("Replace photo", "Заменить фото", "Замінити фото")}
+      removeLabel={t("Remove", "Удалить", "Видалити")}
+      uploadingLabel={t("Uploading...", "Загрузка...", "Завантаження...")}
+      formatHint={t("JPG, PNG, WEBP, or HEIC. One photo, max 16MB.", "JPG, PNG, WEBP или HEIC. Одно фото, до 16 МБ.", "JPG, PNG, WEBP або HEIC. Одне фото, до 16 МБ.")}
+    />
+  );
+
   const countryField = (name: string, fieldLabel: string) => (
     <div className="space-y-2">
       <label className="field-label">{fieldLabel} *</label>
@@ -336,7 +353,7 @@ export function OrganizationApplicationStep({
           {field("city", t("City", "Город", "Місто"))}
           {field("phone", t("Phone number", "Телефон", "Телефон"), { type: "tel" })}
           {field("email", t("Email address", "Email", "Email"), { type: "email" })}
-          {upload("businessProfilePhotoFiles", label("businessProfilePhotoFiles"), t("Upload a professional headshot.", "Загрузите профессиональный портрет.", "Завантажте професійний портрет."), { imageOnly: true, maxFiles: 1 })}
+          {profilePhoto("businessProfilePhotoFiles", label("businessProfilePhotoFiles"), t("Upload a clear, professional headshot. It represents you to the Membership Review Board and on your member profile.", "Загрузите четкий профессиональный портрет. Он представляет вас комиссии по отбору и в профиле участника.", "Завантажте чіткий професійний портрет. Він представляє вас комісії з відбору та в профілі учасника."))}
         </>;
       case 2:
         return <>
@@ -425,6 +442,7 @@ export function OrganizationApplicationStep({
           {valueOf("brandContactPosition") === "Other" && field("brandContactPositionOther", label("brandContactPositionOther"))}
           {field("brandContactEmail", label("brandContactEmail"), { type: "email" })}
           {field("brandContactPhone", label("brandContactPhone"), { type: "tel" })}
+          {profilePhoto("profilePhotoFiles", t("Brand logo / profile photo", "Логотип бренда / фото профиля", "Логотип бренду / фото профілю"), t("Upload the brand logo or a photo that represents the company to the Membership Review Board and on its member profile.", "Загрузите логотип бренда или фото, которое представляет компанию комиссии по отбору и в профиле участника.", "Завантажте логотип бренду або фото, яке представляє компанію комісії з відбору та в профілі учасника."))}
         </>;
       case 2:
         return <>

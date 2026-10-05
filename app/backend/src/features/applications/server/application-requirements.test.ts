@@ -11,13 +11,34 @@ test("accepts Instagram handles and profile links only", () => {
   assert.equal(isInstagramProfile(undefined), false);
 });
 
+const photo = ["https://cdn.example.com/photo.jpg"];
+
 test("requires Instagram for every membership category", () => {
   for (const membershipPackage of ["Specialist", "Professional", "Trainer"]) {
-    assert.match(validateApplicationRequirements(membershipPackage, {}) ?? "", /Instagram is required/);
-    assert.equal(validateApplicationRequirements(membershipPackage, { instagramLink: "@anna.brows" }), null);
+    assert.match(validateApplicationRequirements(membershipPackage, { profilePhotoFiles: photo }) ?? "", /Instagram is required/);
+    assert.equal(validateApplicationRequirements(membershipPackage, { instagramLink: "@anna.brows", profilePhotoFiles: photo }), null);
   }
 
-  assert.match(validateApplicationRequirements("Business", { instagramLink: "@anna.brows" }) ?? "", /Instagram is required/);
-  assert.equal(validateApplicationRequirements("Business", { businessInstagram: "@studio" }), null);
-  assert.equal(validateApplicationRequirements("Brand", { brandInstagram: "instagram.com/brand" }), null);
+  assert.match(
+    validateApplicationRequirements("Business", { instagramLink: "@anna.brows", businessProfilePhotoFiles: photo }) ?? "",
+    /Instagram is required/,
+  );
+  assert.equal(validateApplicationRequirements("Business", { businessInstagram: "@studio", businessProfilePhotoFiles: photo }), null);
+  assert.equal(validateApplicationRequirements("Brand", { brandInstagram: "instagram.com/brand", profilePhotoFiles: photo }), null);
+});
+
+test("requires a profile photo for every membership category", () => {
+  for (const membershipPackage of ["Specialist", "Professional", "Trainer"]) {
+    assert.equal(validateApplicationRequirements(membershipPackage, { instagramLink: "@anna.brows" }), "A profile photo is required.");
+    assert.equal(
+      validateApplicationRequirements(membershipPackage, { instagramLink: "@anna.brows", profilePhotoFiles: [" "] }),
+      "A profile photo is required.",
+    );
+  }
+
+  assert.equal(validateApplicationRequirements("Brand", { brandInstagram: "@brand" }), "A profile photo is required.");
+  assert.equal(
+    validateApplicationRequirements("Business", { businessInstagram: "@studio", profilePhotoFiles: photo }),
+    "A profile photo is required.",
+  );
 });
