@@ -409,11 +409,18 @@ function fileListFromPayload(payload: Record<string, unknown>, key: string) {
     : [];
 }
 
+export function getProfilePhoto(application: MemberApplicationDetail) {
+  const payload = payloadOf(application);
+  return [
+    ...fileListFromPayload(payload, "profilePhotoFiles"),
+    ...fileListFromPayload(payload, "businessProfilePhotoFiles"),
+  ][0] ?? null;
+}
+
 export function getPortfolioImages(application: MemberApplicationDetail) {
   const payload = payloadOf(application);
   return [
     ...fileListFromPayload(payload, "portfolioImages"),
-    ...fileListFromPayload(payload, "businessProfilePhotoFiles"),
     ...fileListFromPayload(payload, "businessPortfolioImages"),
   ];
 }
@@ -422,6 +429,10 @@ export function getTrainerFileGroups(application: MemberApplicationDetail): Appl
   const payload = payloadOf(application);
 
   return [
+    {
+      files: fileListFromPayload(payload, "credentialProofFiles"),
+      title: getApplicationFieldLabel("credentialProofFiles"),
+    },
     {
       files: fileListFromPayload(payload, "trainerEducationPlanFiles"),
       title: getApplicationFieldLabel("trainerEducationPlanFiles"),

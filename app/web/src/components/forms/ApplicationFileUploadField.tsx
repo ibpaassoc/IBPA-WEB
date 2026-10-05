@@ -26,11 +26,14 @@ type ApplicationFileUploadFieldProps = {
   minFiles?: number;
   maxFiles?: number;
   imageOnly?: boolean;
+  required?: boolean;
+  examples?: string[];
   error?: React.ReactNode;
   dropLabel?: string;
   uploadedLabel?: string;
   minimumLabel?: string;
   limitReachedLabel?: string;
+  optionalLabel?: string;
 };
 
 export function ApplicationFileUploadField({
@@ -45,11 +48,14 @@ export function ApplicationFileUploadField({
   minFiles = 1,
   maxFiles = 1,
   imageOnly = false,
+  required = true,
+  examples,
   error,
   dropLabel = "Drag files here or choose files",
   uploadedLabel = "Uploaded",
   minimumLabel = "Minimum",
   limitReachedLabel = "Limit reached",
+  optionalLabel = "Optional",
 }: ApplicationFileUploadFieldProps) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -97,8 +103,20 @@ export function ApplicationFileUploadField({
   return (
     <div className="space-y-4 md:col-span-2">
       <div className="space-y-2">
-        <label className="field-label">{label} *</label>
+        <label className="field-label">{label}{required ? " *" : ""}</label>
         <p className="text-sm text-slate-500">{description}</p>
+        {examples?.length ? (
+          <ul className="flex flex-wrap gap-2 pt-1">
+            {examples.map((example) => (
+              <li
+                key={example}
+                className="rounded-full border border-[#B9D9EB]/60 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#708090]"
+              >
+                {example}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
 
       <div
@@ -138,7 +156,7 @@ export function ApplicationFileUploadField({
           <div className="space-y-1">
             <p className="text-sm font-semibold text-slate-700">{dropLabel}</p>
             <p className="text-xs text-slate-400">
-              {uploadedLabel}: {value.length}/{maxFiles}. {minimumLabel}: {minFiles}.
+              {uploadedLabel}: {value.length}/{maxFiles}. {required ? `${minimumLabel}: ${minFiles}` : optionalLabel}.
             </p>
           </div>
 

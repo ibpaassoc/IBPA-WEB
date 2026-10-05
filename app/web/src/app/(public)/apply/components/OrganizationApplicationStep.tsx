@@ -6,7 +6,9 @@ import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue, UseFormWatch } from "react-hook-form";
 
 import { ApplicationFileUploadField } from "@/components/forms/ApplicationFileUploadField";
+import { ProfilePhotoUploadField } from "@/components/forms/ProfilePhotoUploadField";
 import { countryOptions } from "@/constants/countries";
+import { isInstagramProfile } from "@/lib/instagram";
 import type { MembershipCategory } from "@/lib/membership";
 import { organizationApplicationLabels } from "@/lib/organization-application";
 
@@ -179,6 +181,7 @@ export function OrganizationApplicationStep({
       requiredFiles("businessPortfolioImages", 5, t("Upload at least 5 portfolio images.", "Загрузите минимум 5 примеров работ.", "Завантажте щонайменше 5 прикладів робіт."));
       requiredFiles("businessClientTestimonialFiles", 5, t("Upload at least 5 client testimonials.", "Загрузите минимум 5 отзывов клиентов.", "Завантажте щонайменше 5 відгуків клієнтів."));
     } else {
+      requiredFiles("profilePhotoFiles", 1, t("Upload the brand logo or a profile photo.", "Загрузите логотип бренда или фото профиля.", "Завантажте логотип бренду або фото профілю."));
       requiredFiles("brandReviewFiles", 5, t("Upload at least 5 reviews.", "Загрузите минимум 5 отзывов.", "Завантажте щонайменше 5 відгуків."));
       requiredFiles("brandProductFiles", 1, t("Upload product photos or a catalog.", "Загрузите фото продуктов или каталог.", "Завантажте фото продуктів або каталог."));
       requiredFiles("brandAchievementDocumentFiles", 5, t("Upload at least 5 achievement documents.", "Загрузите минимум 5 документов о достижениях.", "Завантажте щонайменше 5 документів про досягнення."));
@@ -198,6 +201,26 @@ export function OrganizationApplicationStep({
         {...register(name, options.required === false ? {} : { required: true })}
         className="form-input"
         placeholder={options.placeholder}
+      />
+      {renderFieldError(name)}
+    </div>
+  );
+
+  const instagramField = (name: string, fieldLabel: string) => (
+    <div className="space-y-2">
+      <label className="field-label">{fieldLabel} *</label>
+      <input
+        {...register(name, {
+          required: t("Enter the Instagram handle or profile link.", "Укажите Instagram или ссылку на профиль.", "Вкажіть Instagram або посилання на профіль."),
+          validate: (value) =>
+            isInstagramProfile(value) ||
+            t("Enter a valid Instagram handle or profile link.", "Укажите корректный Instagram или ссылку на профиль.", "Вкажіть коректний Instagram або посилання на профіль."),
+        })}
+        className="form-input"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder="@yourname or https://instagram.com/yourname"
       />
       {renderFieldError(name)}
     </div>
@@ -270,7 +293,7 @@ export function OrganizationApplicationStep({
     name: string,
     fieldLabel: string,
     description: string,
-    options: { imageOnly?: boolean; minFiles?: number; maxFiles?: number } = {},
+    options: { imageOnly?: boolean; minFiles?: number; maxFiles?: number; examples?: string[] } = {},
   ) => (
     <ApplicationFileUploadField
       endpoint={options.imageOnly ? "portfolioUploader" : "applicationDocumentUploader"}
@@ -284,11 +307,27 @@ export function OrganizationApplicationStep({
       minFiles={options.minFiles ?? 1}
       maxFiles={options.maxFiles ?? 10}
       imageOnly={options.imageOnly}
+      examples={options.examples}
       error={renderFieldError(name)}
       dropLabel={t("Drag files here or choose files", "Перетащите файлы сюда или выберите файлы", "Перетягніть файли сюди або оберіть файли")}
       uploadedLabel={t("Uploaded", "Загружено", "Завантажено")}
       minimumLabel={t("Minimum", "Минимум", "Мінімум")}
       limitReachedLabel={t("Limit reached", "Достигнут лимит", "Досягнуто ліміту")}
+    />
+  );
+
+  const profilePhoto = (name: string, fieldLabel: string, description: string) => (
+    <ProfilePhotoUploadField
+      label={fieldLabel}
+      description={description}
+      value={filesOf(name)}
+      onChange={(urls) => setValue(name, urls, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+      error={renderFieldError(name)}
+      chooseLabel={t("Choose photo", "Выбрать фото", "Обрати фото")}
+      replaceLabel={t("Replace photo", "Заменить фото", "Замінити фото")}
+      removeLabel={t("Remove", "Удалить", "Видалити")}
+      uploadingLabel={t("Uploading...", "Загрузка...", "Завантаження...")}
+      formatHint={t("JPG, PNG, WEBP, or HEIC. One photo, max 16MB.", "JPG, PNG, WEBP или HEIC. Одно фото, до 16 МБ.", "JPG, PNG, WEBP або HEIC. Одне фото, до 16 МБ.")}
     />
   );
 
@@ -315,7 +354,7 @@ export function OrganizationApplicationStep({
           {field("city", t("City", "Город", "Місто"))}
           {field("phone", t("Phone number", "Телефон", "Телефон"), { type: "tel" })}
           {field("email", t("Email address", "Email", "Email"), { type: "email" })}
-          {upload("businessProfilePhotoFiles", label("businessProfilePhotoFiles"), t("Upload a professional headshot.", "Загрузите профессиональный портрет.", "Завантажте професійний портрет."), { imageOnly: true, maxFiles: 1 })}
+          {profilePhoto("businessProfilePhotoFiles", label("businessProfilePhotoFiles"), t("Upload a clear, professional headshot. It represents you to the Membership Review Board and on your member profile.", "Загрузите четкий профессиональный портрет. Он представляет вас комиссии по отбору и в профиле участника.", "Завантажте чіткий професійний портрет. Він представляє вас комісії з відбору та в профілі учасника."))}
         </>;
       case 2:
         return <>
@@ -332,7 +371,15 @@ export function OrganizationApplicationStep({
           {textArea("professionalExperience", label("professionalExperience"), { placeholder: t("Describe your professional path.", "Опишите свой профессиональный путь.", "Опишіть свій професійний шлях.") })}
           {textArea("professionalEducation", label("professionalEducation"))}
           {textArea("professionalAchievements", label("professionalAchievements"), { placeholder: t("Awards, championships, publications, judging, teaching, speaking, international projects, and brand collaborations.", "Награды, чемпионаты, публикации, судейство, преподавание, выступления, международные проекты и коллаборации.", "Нагороди, чемпіонати, публікації, суддівство, викладання, виступи, міжнародні проєкти та колаборації.") })}
-          {upload("businessProfessionalCertificationFiles", label("businessProfessionalCertificationFiles"), t("Upload diplomas, certificates, and licenses.", "Загрузите дипломы, сертификаты и лицензии.", "Завантажте дипломи, сертифікати та ліцензії."))}
+          {upload("businessProfessionalCertificationFiles", label("businessProfessionalCertificationFiles"), t("Upload documents that confirm the education and qualifications you described above. PDF, DOC, DOCX, or image files, up to 10.", "Загрузите документы, подтверждающие указанные выше образование и квалификации. PDF, DOC, DOCX или изображения, до 10 файлов.", "Завантажте документи, що підтверджують зазначені вище освіту та кваліфікації. PDF, DOC, DOCX або зображення, до 10 файлів."), {
+            examples: [
+              t("Certificates", "Сертификаты", "Сертифікати"),
+              t("Diplomas", "Дипломы", "Дипломи"),
+              t("Professional licenses", "Профессиональные лицензии", "Професійні ліцензії"),
+              t("Proof of education", "Подтверждение образования", "Підтвердження освіти"),
+              t("Course completion records", "Документы о прохождении курсов", "Документи про проходження курсів"),
+            ],
+          })}
         </>;
       case 3:
         return <>
@@ -344,7 +391,7 @@ export function OrganizationApplicationStep({
           {field("businessCity", label("businessCity"))}
           {field("businessAddress", label("businessAddress"), { className: "md:col-span-2" })}
           {field("businessWebsite", label("businessWebsite"), { type: "url" })}
-          {field("businessInstagram", label("businessInstagram"), { type: "url" })}
+          {instagramField("businessInstagram", label("businessInstagram"))}
           {field("businessFacebook", label("businessFacebook"), { type: "url", required: false })}
           {field("businessTikTok", label("businessTikTok"), { type: "url", required: false })}
           {field("businessLinkedIn", label("businessLinkedIn"), { type: "url", required: false })}
@@ -391,7 +438,7 @@ export function OrganizationApplicationStep({
           {field("brandCity", label("brandCity"))}
           {field("brandAddress", label("brandAddress"), { className: "md:col-span-2" })}
           {field("brandWebsite", label("brandWebsite"), { type: "url" })}
-          {field("brandInstagram", label("brandInstagram"), { type: "url" })}
+          {instagramField("brandInstagram", label("brandInstagram"))}
           {field("brandFacebook", label("brandFacebook"), { type: "url", required: false })}
           {field("brandSocialWebsite", label("brandSocialWebsite"), { type: "url" })}
           {field("brandTikTok", label("brandTikTok"), { type: "url", required: false })}
@@ -404,6 +451,7 @@ export function OrganizationApplicationStep({
           {valueOf("brandContactPosition") === "Other" && field("brandContactPositionOther", label("brandContactPositionOther"))}
           {field("brandContactEmail", label("brandContactEmail"), { type: "email" })}
           {field("brandContactPhone", label("brandContactPhone"), { type: "tel" })}
+          {profilePhoto("profilePhotoFiles", t("Brand logo / profile photo", "Логотип бренда / фото профиля", "Логотип бренду / фото профілю"), t("Upload the brand logo or a photo that represents the company to the Membership Review Board and on its member profile.", "Загрузите логотип бренда или фото, которое представляет компанию комиссии по отбору и в профиле участника.", "Завантажте логотип бренду або фото, яке представляє компанію комісії з відбору та в профілі учасника."))}
         </>;
       case 2:
         return <>
@@ -433,7 +481,14 @@ export function OrganizationApplicationStep({
         </>;
       case 4:
         return <>
-          {upload("brandSupportingDocumentFiles", label("brandSupportingDocumentFiles"), t("Upload company registration, business license, company profile, brand presentation, product catalog, press kit, certificates, awards, marketing materials, brochures, team photos, product photos, or other supporting documents.", "Загрузите регистрацию компании, лицензию, профиль компании, презентацию бренда, каталог, пресс-кит, сертификаты, награды, маркетинговые материалы, брошюры, фото команды, фото продуктов или другие документы.", "Завантажте реєстрацію компанії, ліцензію, профіль компанії, презентацію бренду, каталог, прескіт, сертифікати, нагороди, маркетингові матеріали, брошури, фото команди, фото продуктів або інші документи."))}
+          {upload("brandSupportingDocumentFiles", label("brandSupportingDocumentFiles"), t("Upload documents that confirm the company and its standing. A brand presentation, catalog, press kit, awards, or marketing materials are also welcome. PDF, DOC, DOCX, or image files, up to 10.", "Загрузите документы, подтверждающие компанию и ее статус. Также подойдут презентация бренда, каталог, пресс-кит, награды или маркетинговые материалы. PDF, DOC, DOCX или изображения, до 10 файлов.", "Завантажте документи, що підтверджують компанію та її статус. Також підійдуть презентація бренду, каталог, прескіт, нагороди або маркетингові матеріали. PDF, DOC, DOCX або зображення, до 10 файлів."), {
+            examples: [
+              t("Company registration", "Регистрация компании", "Реєстрація компанії"),
+              t("Business license", "Бизнес-лицензия", "Бізнес-ліцензія"),
+              t("Product certificates", "Сертификаты продукции", "Сертифікати продукції"),
+              t("Company profile", "Профиль компании", "Профіль компанії"),
+            ],
+          })}
           {textArea("brandAdditionalLinks", label("brandAdditionalLinks"), { required: false, placeholder: t("Publications, interviews, media, marketplace, brand videos, or product reviews.", "Публикации, интервью, медиа, маркетплейс, видео бренда или обзоры продуктов.", "Публікації, інтерв’ю, медіа, маркетплейс, відео бренду або огляди продуктів.") })}
           {checkboxGroup("brandMemberBenefits", label("brandMemberBenefits"), benefitOptions)}
           {Array.isArray(valueOf("brandMemberBenefits")) && valueOf("brandMemberBenefits").includes("Other") && field("brandMemberBenefitOther", label("brandMemberBenefitOther"), { className: "md:col-span-2" })}

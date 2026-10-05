@@ -116,7 +116,7 @@ const brandStepFields: Record<number, string[]> = {
   1: [
     "brandName", "brandType", "brandTypeOther", "brandYear", "brandRegistrationCountry", "brandCity", "brandAddress", "brandWebsite",
     "brandInstagram", "brandSocialWebsite", "brandPrimaryContact", "brandContactPosition", "brandContactPositionOther",
-    "brandContactEmail", "brandContactPhone",
+    "brandContactEmail", "brandContactPhone", "profilePhotoFiles",
   ],
   2: [
     "brandDescription", "brandMission", "brandValues", "brandProductsServices", "brandReviewFiles", "brandProductCategories",

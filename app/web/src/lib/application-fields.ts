@@ -2,6 +2,8 @@ import { getMembershipCategory, membershipConfigById } from "@/lib/membership";
 import { organizationApplicationLabels } from "@/lib/organization-application";
 
 export const applicationFieldLabels = {
+  profilePhotoFiles: "Profile photo",
+  credentialProofFiles: "Proof documents",
   portfolioImages: "Portfolio images",
   trainerEducationPlanFiles: "Education Plan / Methodology",
   trainerCertificateFiles: "Certificate",

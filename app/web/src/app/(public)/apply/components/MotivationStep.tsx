@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormWatch } from "react-hook-form";
+import { isInstagramProfile } from "@/lib/instagram";
 import type { MembershipCategory } from "@/lib/membership";
 
 type FormData = {
@@ -76,8 +77,20 @@ export function MotivationStep({
 
       <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-2">
-          <label className="field-label">{t("Instagram / social profile", "Instagram / соцсети", "Instagram / соцмережі")} *</label>
-          <input {...register("instagramLink", { required: true })} className="form-input" placeholder="https://instagram.com/..." />
+          <label className="field-label">Instagram *</label>
+          <input
+            {...register("instagramLink", {
+              required: t("Enter your Instagram handle or profile link.", "Укажите ваш Instagram или ссылку на профиль.", "Вкажіть ваш Instagram або посилання на профіль."),
+              validate: (value) =>
+                isInstagramProfile(value) ||
+                t("Enter a valid Instagram handle or profile link.", "Укажите корректный Instagram или ссылку на профиль.", "Вкажіть коректний Instagram або посилання на профіль."),
+            })}
+            className="form-input"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="@yourname or https://instagram.com/yourname"
+          />
           {renderFieldError("instagramLink")}
         </div>
         <div className="space-y-2">
