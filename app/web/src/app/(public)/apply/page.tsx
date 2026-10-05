@@ -305,7 +305,7 @@ const fieldLabels: Partial<Record<keyof FormData, { en: string; ru: string; uk: 
   otherOrganizationName: { en: "Organization name", ru: "Название организации", uk: "Назва організації" },
   otherOrganizationStatus: { en: "Membership status", ru: "Статус членства", uk: "Статус членства" },
   otherOrganizationYears: { en: "Membership years", ru: "Годы членства", uk: "Роки членства" },
-  instagramLink: { en: "Instagram / social profile", ru: "Instagram / соцсети", uk: "Instagram / соцмережі" },
+  instagramLink: { en: "Instagram", ru: "Instagram", uk: "Instagram" },
   websiteLink: { en: "Website link", ru: "Ссылка на сайт", uk: "Посилання на сайт" },
   linkedinLink: { en: "LinkedIn profile", ru: "Профиль LinkedIn", uk: "Профіль LinkedIn" },
   portfolioLink: { en: "Portfolio link", ru: "Ссылка на портфолио", uk: "Посилання на портфоліо" },

@@ -25,6 +25,7 @@ import { adminClerkMiddleware, requireAdminAccess } from "../services/admin";
 import { createRateLimiter, getClientAddress } from "../lib/rate-limit";
 import { ensureCanonicalUser } from "../features/users/server/user.service";
 import { upsertCanonicalApplication, findCanonicalApplicationById, upsertCanonicalApplicationFile, deleteCanonicalApplicationFilesExcept, deleteCanonicalApplicationAggregate, listCanonicalApplicationFileRecords } from "../features/applications/server/application.repository";
+import { validateApplicationRequirements } from "../features/applications/server/application-requirements";
 import { upsertCanonicalPayment } from "../features/payments/server/payment.repository";
 import { upsertCanonicalMembership } from "../features/memberships/server/membership.repository";
 import { upsertCanonicalCertificate } from "../features/certificates/server/certificate.repository";
@@ -1133,6 +1134,13 @@ ordersRouter.patch("/review-edit", async (req, res) => {
   if (organizationValidationError) {
     return res.status(400).json({ error: organizationValidationError });
   }
+  const requirementsError = validateApplicationRequirements(
+    membershipPackage,
+    applicationData as Record<string, unknown>,
+  );
+  if (requirementsError) {
+    return res.status(400).json({ error: requirementsError });
+  }
 
   try {
     const db = requireDb();
@@ -1299,6 +1307,13 @@ ordersRouter.post("/", async (req, res) => {
   );
   if (organizationValidationError) {
     return res.status(400).json({ error: organizationValidationError });
+  }
+  const requirementsError = validateApplicationRequirements(
+    membershipPackage,
+    application as Record<string, unknown>,
+  );
+  if (requirementsError) {
+    return res.status(400).json({ error: requirementsError });
   }
 
   const ipLimit = applicationLimiter.hit(`orders:ip:${clientIp}`);

@@ -7,6 +7,7 @@ import type { UseFormRegister, UseFormSetValue, UseFormWatch } from "react-hook-
 
 import { ApplicationFileUploadField } from "@/components/forms/ApplicationFileUploadField";
 import { countryOptions } from "@/constants/countries";
+import { isInstagramProfile } from "@/lib/instagram";
 import type { MembershipCategory } from "@/lib/membership";
 import { organizationApplicationLabels } from "@/lib/organization-application";
 
@@ -203,6 +204,26 @@ export function OrganizationApplicationStep({
     </div>
   );
 
+  const instagramField = (name: string, fieldLabel: string) => (
+    <div className="space-y-2">
+      <label className="field-label">{fieldLabel} *</label>
+      <input
+        {...register(name, {
+          required: t("Enter the Instagram handle or profile link.", "Укажите Instagram или ссылку на профиль.", "Вкажіть Instagram або посилання на профіль."),
+          validate: (value) =>
+            isInstagramProfile(value) ||
+            t("Enter a valid Instagram handle or profile link.", "Укажите корректный Instagram или ссылку на профиль.", "Вкажіть коректний Instagram або посилання на профіль."),
+        })}
+        className="form-input"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder="@yourname or https://instagram.com/yourname"
+      />
+      {renderFieldError(name)}
+    </div>
+  );
+
   const textArea = (
     name: string,
     fieldLabel: string,
@@ -344,7 +365,7 @@ export function OrganizationApplicationStep({
           {field("businessCity", label("businessCity"))}
           {field("businessAddress", label("businessAddress"), { className: "md:col-span-2" })}
           {field("businessWebsite", label("businessWebsite"), { type: "url" })}
-          {field("businessInstagram", label("businessInstagram"), { type: "url" })}
+          {instagramField("businessInstagram", label("businessInstagram"))}
           {field("businessFacebook", label("businessFacebook"), { type: "url", required: false })}
           {field("businessTikTok", label("businessTikTok"), { type: "url", required: false })}
           {field("businessLinkedIn", label("businessLinkedIn"), { type: "url", required: false })}
@@ -391,7 +412,7 @@ export function OrganizationApplicationStep({
           {field("brandCity", label("brandCity"))}
           {field("brandAddress", label("brandAddress"), { className: "md:col-span-2" })}
           {field("brandWebsite", label("brandWebsite"), { type: "url" })}
-          {field("brandInstagram", label("brandInstagram"), { type: "url" })}
+          {instagramField("brandInstagram", label("brandInstagram"))}
           {field("brandFacebook", label("brandFacebook"), { type: "url", required: false })}
           {field("brandSocialWebsite", label("brandSocialWebsite"), { type: "url" })}
           {field("brandTikTok", label("brandTikTok"), { type: "url", required: false })}
