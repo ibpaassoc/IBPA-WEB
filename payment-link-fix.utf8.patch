@@ -1,0 +1,33 @@
+diff --git a/app/web/src/app/(public)/payment-link/[token]/page.tsx b/app/web/src/app/(public)/payment-link/[token]/page.tsx
+index 1989afa..51e1873 100644
+--- a/app/web/src/app/(public)/payment-link/[token]/page.tsx
++++ b/app/web/src/app/(public)/payment-link/[token]/page.tsx
+@@ -46,6 +46,7 @@ export default async function PaymentLinkPage({ params }: PaymentLinkPageProps)
+ 
+   let title = "Payment link unavailable";
+   let message = "We couldn't generate a fresh payment link.";
++  let checkoutUrl: string | null = null;
+ 
+   try {
+     const backendUrl = getServerBackendUrl();
+@@ -66,7 +67,7 @@ export default async function PaymentLinkPage({ params }: PaymentLinkPageProps)
+     const data = await resp.json().catch(() => ({}));
+ 
+     if (resp.ok && isAllowedStripeCheckoutUrl(data?.checkoutUrl)) {
+-      redirect(data.checkoutUrl);
++      checkoutUrl = data.checkoutUrl;
+     }
+ 
+     if (typeof data?.error === "string" && data.error.trim()) {
+@@ -78,6 +79,11 @@ export default async function PaymentLinkPage({ params }: PaymentLinkPageProps)
+     message = "Please try opening the latest email again, or contact the IBPA team for a fresh payment link.";
+   }
+ 
++  // redirect() throws NEXT_REDIRECT, so it must run outside the try/catch above.
++  if (checkoutUrl) {
++    redirect(checkoutUrl);
++  }
++
+   return (
+     <main className="flex min-h-screen items-center justify-center bg-[#F0F8FF] px-4">
+       <div className="max-w-md rounded-[32px] border border-slate-200 bg-white p-8 text-center shadow-xl">

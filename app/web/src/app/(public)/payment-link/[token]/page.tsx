@@ -46,6 +46,7 @@ export default async function PaymentLinkPage({ params }: PaymentLinkPageProps) 
 
   let title = "Payment link unavailable";
   let message = "We couldn't generate a fresh payment link.";
+  let checkoutUrl: string | null = null;
 
   try {
     const backendUrl = getServerBackendUrl();
@@ -66,7 +67,7 @@ export default async function PaymentLinkPage({ params }: PaymentLinkPageProps) 
     const data = await resp.json().catch(() => ({}));
 
     if (resp.ok && isAllowedStripeCheckoutUrl(data?.checkoutUrl)) {
-      redirect(data.checkoutUrl);
+      checkoutUrl = data.checkoutUrl;
     }
 
     if (typeof data?.error === "string" && data.error.trim()) {
@@ -76,6 +77,11 @@ export default async function PaymentLinkPage({ params }: PaymentLinkPageProps) 
     console.error("[Payment Link] Failed to regenerate checkout session", error);
     title = "Something went wrong";
     message = "Please try opening the latest email again, or contact the IBPA team for a fresh payment link.";
+  }
+
+  // redirect() throws NEXT_REDIRECT, so it must run outside the try/catch above.
+  if (checkoutUrl) {
+    redirect(checkoutUrl);
   }
 
   return (
