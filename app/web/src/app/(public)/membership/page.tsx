@@ -378,7 +378,7 @@ export default function Membership() {
                       {item.step}
                     </div>
                     <div className="space-y-2">
-                      <h4 className={`text-2xl uppercase leading-[0.96] text-slate-900 ${headlineClassName}`}>{item.title}</h4>
+                      <h3 className={`text-2xl uppercase leading-[0.96] text-slate-900 ${headlineClassName}`}>{item.title}</h3>
                       <p className={`text-slate-600 ${bodyClassName}`}>{item.desc}</p>
                     </div>
                   </div>

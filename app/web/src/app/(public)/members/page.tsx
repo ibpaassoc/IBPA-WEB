@@ -46,7 +46,7 @@ export default async function MembersPage() {
   const headlineClassName = `${homeTemplateDisplay.className} font-black tracking-[-0.05em]`;
 
   return (
-    <main className="min-h-screen bg-[#F4F7FB] px-4 py-16 md:px-6 md:py-24">
+    <div className="min-h-screen bg-[#F4F7FB] px-4 py-16 md:px-6 md:py-24">
       <BreadcrumbJsonLd page={PAGE_SEO.members} />
       <div className="mx-auto max-w-7xl">
         <header className="max-w-3xl">
@@ -64,6 +64,6 @@ export default async function MembersPage() {
           <MembersDirectory members={members} locale={locale} />
         </div>
       </div>
-    </main>
+    </div>
   );
 }

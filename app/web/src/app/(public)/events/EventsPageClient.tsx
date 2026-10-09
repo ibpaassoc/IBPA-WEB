@@ -129,6 +129,7 @@ export function EventsPageClient({ initialItems }: EventsPageClientProps) {
                 </>
               }
               titleClassName={headlineClassName}
+              titleAs="h2"
               variant="featured"
             />
           ))}

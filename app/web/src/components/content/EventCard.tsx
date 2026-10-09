@@ -35,6 +35,8 @@ type EventCardProps = {
   footer?: ReactNode;
   className?: string;
   titleClassName?: string;
+  /** Heading level for the title. Use "h2" when the card is a top-level item on its page. */
+  titleAs?: "h2" | "h3";
   imagePriority?: boolean;
   imageSizes?: string;
   imageLabels?: {
@@ -61,6 +63,7 @@ export function EventCard({
   footer,
   className,
   titleClassName,
+  titleAs: TitleTag = "h3",
   imagePriority = false,
   imageSizes = "(min-width: 768px) 42vw, 100vw",
   imageLabels,
@@ -125,7 +128,7 @@ export function EventCard({
             {badges}
           </div>
 
-          <h3
+          <TitleTag
             className={cn(
               "break-words font-semibold leading-[1.08] tracking-[-0.025em] text-[#10203B] [overflow-wrap:anywhere]",
               featured && "text-3xl sm:text-4xl lg:text-5xl",
@@ -136,7 +139,7 @@ export function EventCard({
             )}
           >
             {event.title}
-          </h3>
+          </TitleTag>
 
           {meta.length ? (
             <dl className={cn("grid gap-2.5", !compact && "sm:grid-cols-2")}>
