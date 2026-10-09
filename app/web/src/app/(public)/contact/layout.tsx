@@ -1,3 +1,4 @@
+import { BreadcrumbJsonLd } from "@/components/seo/JsonLd";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { PAGE_SEO } from "@/lib/seo/pages";
 
@@ -8,5 +9,10 @@ export default function ContactLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <>
+      <BreadcrumbJsonLd page={PAGE_SEO.contact} />
+      {children}
+    </>
+  );
 }

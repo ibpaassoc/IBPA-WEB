@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 
+import { BreadcrumbJsonLd } from "@/components/seo/JsonLd";
 import { MembersDirectory } from "@/features/members/components/MembersDirectory";
 import { getAllPublicMembers } from "@/features/members/server/get-members";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
@@ -46,6 +47,7 @@ export default async function MembersPage() {
 
   return (
     <main className="min-h-screen bg-[#F4F7FB] px-4 py-16 md:px-6 md:py-24">
+      <BreadcrumbJsonLd page={PAGE_SEO.members} />
       <div className="mx-auto max-w-7xl">
         <header className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.4em] text-[#72A0C1]">

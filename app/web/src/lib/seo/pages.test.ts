@@ -12,7 +12,7 @@ function displayedTitle(key: string, title: string) {
 }
 
 test("every indexable route has search metadata, and vice versa", () => {
-  const seoPaths = new Set(entries.map(([, page]) => page.path));
+  const seoPaths = new Set<string>(entries.map(([, page]) => page.path));
   const routePaths = new Set(INDEXABLE_ROUTES.map((route) => route.path));
 
   for (const routePath of routePaths) {
