@@ -1,21 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/lib/i18n";
 
 const COOKIE_CONSENT_KEY = "ibpa-cookie-consent";
 
+const subscribeToNothing = () => () => {};
+
+function readHasStoredConsent() {
+  try {
+    return Boolean(window.localStorage.getItem(COOKIE_CONSENT_KEY));
+  } catch {
+    // Storage can be blocked (private mode, strict settings); show the banner.
+    return false;
+  }
+}
+
 export function CookieConsentBanner() {
   const { t } = useI18n();
-  const [isVisible, setIsVisible] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !window.localStorage.getItem(COOKIE_CONSENT_KEY);
-  });
+  // The server snapshot reports "already decided" so the server render and the
+  // first client render are both empty. Reading localStorage during the first
+  // render instead made first-time visitors hydrate a different tree than the
+  // server sent, which forced React to throw the server HTML away and re-render
+  // the whole page on the client.
+  const hasStoredConsent = useSyncExternalStore(subscribeToNothing, readHasStoredConsent, () => true);
+  const [wasDismissed, setWasDismissed] = useState(false);
+  const isVisible = !hasStoredConsent && !wasDismissed;
 
   const handleConsent = (value: "accepted" | "necessary") => {
-    window.localStorage.setItem(COOKIE_CONSENT_KEY, value);
+    try {
+      window.localStorage.setItem(COOKIE_CONSENT_KEY, value);
+    } catch {
+      // The choice still applies for this visit through the cookie below.
+    }
     document.cookie = `ibpa-cookie-consent=${value}; path=/; max-age=31536000; SameSite=Lax`;
-    setIsVisible(false);
+    setWasDismissed(true);
   };
 
   if (!isVisible) {

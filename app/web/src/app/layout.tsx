@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cyrillicDisplay, cyrillicEditorial } from "@/lib/cyrillic-fonts";
-import { getLandingOrigin } from "@/lib/public-urls";
+import { SITE_DISPLAY_NAME } from "@/lib/seo/organization";
+import { DEFAULT_OG_IMAGE, getSeoOrigin } from "@/lib/seo/site";
 import "../styles/index.css";
 import { Inter, Raleway } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -11,22 +12,18 @@ import { Analytics } from "@vercel/analytics/next";
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-sans" });
 const raleway = Raleway({ subsets: ["latin"], weight: ["300", "400", "500", "600"], variable: "--font-raleway" });
 
+// Routes that need to be found in search export their own metadata through
+// `buildPageMetadata` (lib/seo/metadata.ts); this is the fallback for the rest.
 export const metadata: Metadata = {
+  metadataBase: new URL(getSeoOrigin()),
   title: "IBPA - International Beauty Professionals Association",
   description: "Global professional community for beauty industry experts supporting growth, standards, and collaboration.",
-  metadataBase: new URL(getLandingOrigin()),
+  applicationName: "IBPA",
   openGraph: {
     title: "IBPA - International Beauty Professionals Association",
     description: "A global professional community for beauty industry experts.",
-      url: "https://ibpassociations.org",
-    siteName: "IBPA",
-    images: [
-      {
-        url: "@/public/file.svg",
-        width: 1200,
-        height: 630,
-      },
-    ],
+    siteName: SITE_DISPLAY_NAME,
+    images: [DEFAULT_OG_IMAGE],
     locale: "en_US",
     type: "website",
   },
@@ -34,7 +31,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "IBPA - International Beauty Professionals Association",
     description: "Global professional community for beauty industry experts.",
-    images: ["/og-image.png"],
+    images: [DEFAULT_OG_IMAGE.url],
   },
 };
 

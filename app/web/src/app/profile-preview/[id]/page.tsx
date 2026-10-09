@@ -11,6 +11,9 @@ import {
 import { I18nProvider } from "@/lib/i18n";
 import { resolveLocale } from "@/lib/locale";
 import { getPublicProfilePreview } from "@/lib/public-members";
+import { NOINDEX_METADATA } from "@/lib/seo/metadata";
+
+export const metadata = { title: "Member profile", ...NOINDEX_METADATA };
 
 type PreviewPageProps = {
   params: Promise<{ id: string }>;

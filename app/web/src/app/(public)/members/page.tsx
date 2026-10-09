@@ -1,16 +1,14 @@
-import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
+import { BreadcrumbJsonLd } from "@/components/seo/JsonLd";
 import { MembersDirectory } from "@/features/members/components/MembersDirectory";
 import { getAllPublicMembers } from "@/features/members/server/get-members";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { resolveLocale } from "@/lib/locale";
+import { buildPageMetadata } from "@/lib/seo/metadata";
+import { PAGE_SEO } from "@/lib/seo/pages";
 
-export const metadata: Metadata = {
-  title: "Members Directory | IBPA",
-  description:
-    "Browse active members of the International Beauty Professionals Association — beauty specialists, educators, and brands from around the world.",
-};
+export const metadata = buildPageMetadata(PAGE_SEO.members);
 
 function getCopy(locale: "en" | "ru" | "uk") {
   if (locale === "ru") {
@@ -48,7 +46,8 @@ export default async function MembersPage() {
   const headlineClassName = `${homeTemplateDisplay.className} font-black tracking-[-0.05em]`;
 
   return (
-    <main className="min-h-screen bg-[#F4F7FB] px-4 py-16 md:px-6 md:py-24">
+    <div className="min-h-screen bg-[#F4F7FB] px-4 py-16 md:px-6 md:py-24">
+      <BreadcrumbJsonLd page={PAGE_SEO.members} />
       <div className="mx-auto max-w-7xl">
         <header className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.4em] text-[#72A0C1]">
@@ -65,6 +64,6 @@ export default async function MembersPage() {
           <MembersDirectory members={members} locale={locale} />
         </div>
       </div>
-    </main>
+    </div>
   );
 }

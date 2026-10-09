@@ -156,7 +156,7 @@ export const Footer = () => {
           </div>
 
           <div className="space-y-8">
-            <h4 className={`text-sm uppercase text-white ${uiClassName}`}>{copy.siteMap}</h4>
+            <h2 className={`text-sm uppercase text-white ${uiClassName}`}>{copy.siteMap}</h2>
             <ul className="space-y-4">
               {footerLinks.map((link) => (
                 <li key={link.name}>
@@ -169,7 +169,7 @@ export const Footer = () => {
           </div>
 
           <div className="space-y-8">
-            <h4 className={`text-sm uppercase text-white ${uiClassName}`}>{copy.contactInfo}</h4>
+            <h2 className={`text-sm uppercase text-white ${uiClassName}`}>{copy.contactInfo}</h2>
             <ul className="space-y-6">
               <li className="flex gap-4">
                 <MapPin size={18} className="flex-shrink-0 text-[#72A0C1]" />
@@ -188,7 +188,7 @@ export const Footer = () => {
               </li>
             </ul>
             <div className="space-y-4 pt-2">
-              <h4 className={`text-sm uppercase text-white ${uiClassName}`}>{copy.social}</h4>
+              <h2 className={`text-sm uppercase text-white ${uiClassName}`}>{copy.social}</h2>
               <ul className="space-y-3">
                 <li>
                   <a
@@ -204,7 +204,7 @@ export const Footer = () => {
               </ul>
             </div>
             <div className="space-y-4 pt-2">
-              <h4 className={`text-sm uppercase text-white ${uiClassName}`}>{copy.policies}</h4>
+              <h2 className={`text-sm uppercase text-white ${uiClassName}`}>{copy.policies}</h2>
               <ul className="space-y-3">
                 {legalLinks.map((link) => (
                   <li key={link.name}>

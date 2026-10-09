@@ -1,6 +1,6 @@
 export default function MembersLoading() {
   return (
-    <main className="min-h-screen bg-[#F4F7FB] px-4 py-16 md:px-6 md:py-24">
+    <div className="min-h-screen bg-[#F4F7FB] px-4 py-16 md:px-6 md:py-24">
       <div className="mx-auto max-w-7xl">
         <div className="max-w-3xl space-y-4">
           <div className="h-3 w-40 animate-pulse rounded-full bg-[#D4E0F0]" />
@@ -24,6 +24,6 @@ export default function MembersLoading() {
           ))}
         </div>
       </div>
-    </main>
+    </div>
   );
 }
