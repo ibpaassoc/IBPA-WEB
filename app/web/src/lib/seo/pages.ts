@@ -14,8 +14,6 @@ export type PageSeo = {
  *
  * Keyword targeting (see SEO_REPORT.md):
  * - Homepage: the organization and "international beauty association".
- * - /beauty-association: the category terms ("beauty association",
- *   "professional beauty association").
  * - /membership: "beauty association membership" (transactional).
  * Do not repeat those phrases on the other pages.
  */
@@ -27,13 +25,6 @@ export const PAGE_SEO = {
     description:
       "IBPA is an international beauty association for estheticians, cosmetologists, lash and brow artists, educators, salon owners, and brands. Explore membership.",
     breadcrumb: "Home",
-  },
-  beautyAssociation: {
-    path: "/beauty-association",
-    title: "Professional Beauty Association: Why & How to Join",
-    description:
-      "What a beauty association does, how to choose one, and how IBPA membership works for estheticians, cosmetologists, lash artists, salon owners, and educators.",
-    breadcrumb: "Beauty Association",
   },
   about: {
     path: "/about",

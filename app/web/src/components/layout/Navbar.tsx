@@ -24,8 +24,7 @@ export const Navbar = ({ dashboardHref = "/dashboard" }: NavbarProps) => {
     pathname === "/partnership" ||
     pathname === "/news" ||
     pathname === "/events" ||
-    pathname === "/faq" ||
-    pathname === "/beauty-association";
+    pathname === "/faq";
   const isCyrillicLocale = locale === "ru" || locale === "uk";
   const useEnglishTypography = true;
   const navClassName = useEnglishTypography

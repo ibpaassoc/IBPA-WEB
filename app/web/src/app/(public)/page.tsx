@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Hero } from "@/components/landing/Hero";
 import { AboutSection } from "@/components/landing/AboutSection";
-import { AssociationOverviewSection } from "@/components/landing/AssociationOverviewSection";
 import { BrandTickerSection } from "@/components/landing/BrandTickerSection";
 import { AudienceSection } from "@/components/landing/AudienceSection";
 import { BenefitsSection } from "@/components/landing/BenefitsSection";
@@ -32,8 +31,6 @@ export default async function Home() {
       <Hero locale={locale} />
       <AboutSection />
       <BrandTickerSection locale={locale} />
-
-      <AssociationOverviewSection locale={locale} />
       
       <AudienceSection />
       

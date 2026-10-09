@@ -8,14 +8,9 @@ export type IndexableRoute = {
   lastModified?: string;
 };
 
-/** Publication date of the /beauty-association guide; bump `BEAUTY_ASSOCIATION_UPDATED` when its content changes. */
-export const BEAUTY_ASSOCIATION_PUBLISHED = "2026-10-09";
-export const BEAUTY_ASSOCIATION_UPDATED = "2026-10-09";
-
 /** Public pages that belong in the sitemap and may appear in search results. */
 export const INDEXABLE_ROUTES: readonly IndexableRoute[] = [
   { path: "/", lastModified: "2026-10-09" },
-  { path: "/beauty-association", lastModified: BEAUTY_ASSOCIATION_UPDATED },
   { path: "/about" },
   { path: "/membership" },
   { path: "/criteria" },

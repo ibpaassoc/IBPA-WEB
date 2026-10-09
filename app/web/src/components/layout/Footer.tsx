@@ -17,7 +17,6 @@ export const Footer = () => {
       ? {
           about: "Об ассоциации",
           membership: "Сообщество",
-          beautyAssociation: "Beauty-ассоциация",
           criteria: "Критерии",
           standards: "Стандарты",
           contact: "Контакты",
@@ -46,7 +45,6 @@ export const Footer = () => {
         ? {
             about: "Про асоціацію",
             membership: "Спільнота",
-            beautyAssociation: "Beauty-асоціація",
             criteria: "Критерії",
             standards: "Стандарти",
             contact: "Контакти",
@@ -74,7 +72,6 @@ export const Footer = () => {
         : {
             about: "About",
             membership: "Membership",
-            beautyAssociation: "Beauty Association",
             criteria: "Criteria",
             standards: "Standards",
             contact: "Contact",
@@ -103,7 +100,6 @@ export const Footer = () => {
   const footerLinks = [
     { name: copy.about, href: "/about" },
     { name: copy.membership, href: "/membership" },
-    { name: copy.beautyAssociation, href: "/beauty-association" },
     { name: copy.criteria, href: "/criteria" },
     { name: copy.standards, href: "/standards" },
     { name: copy.faq, href: "/faq" },

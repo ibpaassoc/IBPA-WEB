@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
 import {
-  articleJsonLd,
   breadcrumbJsonLd,
   organizationJsonLd,
   serializeJsonLd,
@@ -115,24 +114,4 @@ test("serializeJsonLd cannot break out of its script element", () => {
   assert.ok(!output.includes("<"));
   assert.ok(!output.includes(" "));
   assert.equal(JSON.parse(output).name, "</script><script>alert(1)</script>");
-});
-
-test("article JSON-LD names the organization as author and carries both dates", () => {
-  process.env.NEXT_PUBLIC_SITE_URL = "https://ibpa-web.vercel.app";
-  const article = articleJsonLd({
-    headline: "A guide",
-    description: "About a guide.",
-    path: "/beauty-association",
-    datePublished: "2026-10-09",
-    dateModified: "2026-10-10",
-    imagePath: "/og/ibpa-og.jpg",
-  }) as Record<string, any>;
-
-  assert.equal(article["@type"], "Article");
-  assert.equal(article.mainEntityOfPage["@id"], "https://ibpassociations.org/beauty-association");
-  assert.deepEqual(article.image, ["https://ibpassociations.org/og/ibpa-og.jpg"]);
-  assert.equal(article.datePublished, "2026-10-09");
-  assert.equal(article.dateModified, "2026-10-10");
-  assert.equal(article.author["@id"], "https://ibpassociations.org/#organization");
-  assert.equal(article.publisher.name, "International Beauty Professionals Association");
 });
