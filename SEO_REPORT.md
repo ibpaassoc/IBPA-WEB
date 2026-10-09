@@ -1,7 +1,7 @@
 # IBPA SEO Report
 
 **Site:** https://ibpassociations.org · **Organization:** International Beauty Professionals Association (IBPA)
-**Audit date:** 2026-10-09 · **Branch:** `refactor/seo` (12 commits on top of `9079403`, including this report; nothing pushed)
+**Audit date:** 2026-10-09 · **Branch:** `refactor/seo` (14 commits on top of `9079403`, including this report and the later removal of the guide page; nothing pushed)
 **Scope of changes:** `app/web` only. No database migrations, no changes to `ibpa-forum.com` or any other repository, no secrets touched.
 
 > **No ranking claims.** Nothing here promises a position on Google. Indexing, ranking, and traffic depend on crawling, competition, and time. This report separates what is **done and verified in code** from what **needs external access, publishing, or a manual decision**.
@@ -34,7 +34,9 @@
 7. Account, checkout, and token pages (`/dashboard`, `/sign-in`, `/success`, `/payment-link/*`, …) were indexable.
 8. The brand has **almost no off-site footprint**: an exact-match search for "International Beauty Professionals Association" returned no IBPA page, and "IBPA" collides with the Independent Book Publishers Association.
 
-**What was done.** Eleven commits (ten functional, plus one experiment that was added and reverted) fix items 1–4, 6, 7 in code, add the most valuable new page (`/beauty-association`), add a crawlable homepage statement of what IBPA is, repair heading/landmark semantics, remove a hydration error affecting every first-time visitor, and shrink a 484 KB favicon. 161 unit tests pass (135 before). Lint is unchanged from baseline.
+**What was done.** The commits fix items 1–4, 6, 7 in code, repair heading/landmark semantics, remove a hydration error affecting every first-time visitor, and shrink a 484 KB favicon. 160 unit tests pass (135 before). Lint is unchanged from baseline.
+
+**Built, then removed.** I also built a `/beauty-association` guide page and a homepage "what IBPA is" section. Both were **removed at the owner's request** because they did not fit the site's design direction (commit `97b6948`; recoverable from git history at `ff0049c` and `885be56`). Consequences are called out where they matter below: the category terms are currently not targeted by any dedicated page, and the homepage has no new identity statement beyond the existing About block.
 
 **What only you can do (highest impact first).**
 - **P0:** Fix the `www` certificate in Vercel; set production `NEXT_PUBLIC_SITE_URL=https://ibpassociations.org`; deploy; verify the domain in Search Console and submit the sitemap.
@@ -56,13 +58,13 @@ Evidence was collected from the live site on 2026-10-09 (`curl`, `openssl`, pars
 | 2 | `www.ibpassociations.org` certificate expired | `openssl`: Let's Encrypt cert for `www` `notAfter=Jun 16 2026`; `curl` error 60. Apex cert valid to Dec 17 2026 | **P0** | **External** (Vercel domain config / DNS) |
 | 3 | `ibpa-web.vercel.app` serves a full duplicate with no canonical | `HTTP 200`, same title, no `rel=canonical` | **P0** | **Mitigated** by self-canonicals on `ibpassociations.org`; 301 redirect recommended (external) |
 | 4 | Identical title/description on every page; no canonicals | 15 of 16 crawled pages: title `IBPA - International Beauty Professionals Association`; 0 canonicals | **P0** | **Fixed** |
-| 5 | No structured data | 0 `application/ld+json` blocks on any page | P1 | **Fixed** (Organization, WebSite, BreadcrumbList, Article) |
+| 5 | No structured data | 0 `application/ld+json` blocks on any page | P1 | **Fixed** (Organization, WebSite, BreadcrumbList) |
 | 6 | Broken Open Graph / Twitter images | `og:image` invalid path; `/og-image.png` → 404 | P1 | **Fixed** (new 1200×630 card) |
 | 7 | `/news` and `/events` content not in HTML | `/news` HTML contains "Loading news…"; `/events` shows only the built-in fallback event | P1 | **Fixed** (server-rendered, same cache/tag as admin edits) |
 | 8 | Private/transactional pages indexable | `/dashboard`, `/sign-in`, `/team-invite`, `/success`, `/payment-link/*`, `/application/edit` returned 200 with no robots directive | P1 | **Fixed** (`noindex, nofollow`) |
 | 9 | Sitemap hygiene | `/members` missing; every `lastmod` = request time; `priority`/`changefreq` present (Google ignores them) | P1 | **Fixed** |
-| 10 | Weak homepage statement of what IBPA is | H1 is the name; body copy never says "beauty association"; no link into category content | P1 | **Fixed** (overview section) |
-| 11 | Hydration failure for first-time visitors | Reproduced on `/faq` and `/beauty-association`: cookie banner read `localStorage` during render → server/client mismatch → React discards the server HTML | P1 | **Fixed** |
+| 10 | Weak homepage statement of what IBPA is | H1 is the name; body copy never says "beauty association"; no link into category content | P1 | **Not addressed.** An overview section was built and then removed at the owner's request. See section 12 for a design-neutral option. |
+| 11 | Hydration failure for first-time visitors | Reproduced in dev on `/faq` and the other public pages checked: cookie banner read `localStorage` during render → server/client mismatch → React discards the server HTML | P1 | **Fixed** |
 | 12 | Heading and landmark structure | H2→H4 skip on every page (footer `<h4>`); `/events` H1→H3; `/membership` H2→H4; `/members` had 3 `<main>` | P2 | **Fixed** |
 | 13 | 484 KB favicon | `favicon.ico` was a 1024×1024 PNG | P2 | **Fixed** (6.5 KB ICO + 192 px + 180 px icons) |
 | 14 | Heading typo "OURS PARTNERS" on the homepage | Live HTML | P2 | **Fixed** |
@@ -87,7 +89,7 @@ Observations outside SEO scope: Google Analytics and Meta Pixel are loaded uncon
 | beauty association | The Professional Beauty Association (PBA) and aggregator pages describing it | Mixed: navigational to PBA + informational | Category term; compete with guides, not PBA's brand. |
 | professional beauty association (membership) | PBA's own site (`probeauty.org`), join pages, press posts | Transactional / navigational ("join") | Hardest to displace; target role- and need-specific "join" long tail. |
 | international beauty association | Ambiguous entities: International Beauty and Barber Association, CIDESCO, IFBC, SISA, IBITA | Entity disambiguation | A distinct, well-signalled entity can win its own name; the generic phrase is contested. |
-| beauty professionals association | PBA again; a 2020 Barbados group; aggregators | Navigational / informational | Use the phrase naturally on the guide. |
+| beauty professionals association | PBA again; a 2020 Barbados group; aggregators | Navigational / informational | Not currently targeted by any dedicated page. |
 | beauty association for estheticians / cosmetologists | ASCP, PBA, NCA (via PBA), state and regional bodies | Commercial investigation | Role-specific sections are justified. |
 | beauty association for lash artists | **No lash-specific association surfaced**; results were companies and general associations | Commercial investigation | A visible gap. Board members are lash/brow experts (see brief 3). |
 | beauty association for salon owners | PBA Salon & Spa membership, America's Beauty Show, the UK's NBF | Commercial investigation | Business Owner category with team seats is a real differentiator. |
@@ -99,8 +101,8 @@ Observations outside SEO scope: Google Analytics and Meta Pixel are loaded uncon
 
 | Searcher says | Really wants | Page that should answer |
 |---|---|---|
-| "beauty associations" | A list/comparison of organizations | A neutral comparison guide (not yet written; brief 1). Today `/beauty-association` helps them *evaluate* any association with a six-point checklist. |
-| "professional beauty association" | To join one / see what joining involves | `/beauty-association` (what it is, who it's for) → `/membership` (categories, fees) → `/apply` |
+| "beauty associations" | A list/comparison of organizations | A neutral comparison guide (not yet written; brief 1). Nothing on the site currently serves this intent. |
+| "professional beauty association" | To join one / see what joining involves | `/membership` (categories, fees) → `/apply`. A dedicated category page was built and then removed on design grounds, so this intent is currently served only by `/membership`. |
 | "international beauty association" | A global organization | Homepage + `/about` (international, California-registered nonprofit) |
 
 ### 3.3 Keyword-to-page map (prevents cannibalization)
@@ -108,7 +110,6 @@ Observations outside SEO scope: Google Analytics and Meta Pixel are loaded uncon
 | Page | Primary target | Secondary / long-tail | Intent | Keyword placement now |
 |---|---|---|---|---|
 | `/` | International Beauty Professionals Association; international beauty association | IBPA + full name | Entity / navigational | Title, meta description, H1, H2 "An International Beauty Association for Professionals" |
-| `/beauty-association` | professional beauty association; beauty association; beauty professionals association | what is a beauty association; how to choose a beauty association; join a beauty association; beauty association for estheticians / cosmetologists / lash and brow artists / salon owners | Informational → commercial | Title, H1, H2s, role H3s |
 | `/membership` | beauty association membership | membership categories and benefits | Transactional | Title |
 | `/criteria` | membership criteria / requirements | review process | Informational | n/a |
 | `/standards` | beauty industry code of ethics; professional standards | policies | Trust | n/a |
@@ -116,9 +117,9 @@ Observations outside SEO scope: Google Analytics and Meta Pixel are loaded uncon
 | `/events`, `/news` | beauty industry events | | Freshness | n/a |
 | *Future* `/resources/beauty-associations-in-usa` | beauty associations; beauty associations in the USA | comparison | Informational list | Brief 1 |
 
-The exact phrase "beauty association" appears in the title or description of only three pages (`/`, `/beauty-association`, `/membership`), by design.
+The exact phrase "beauty association" appears in the title or description of only two pages (`/` and `/membership`), by design. The category terms ("beauty association", "professional beauty association", "beauty professionals association") are **currently unclaimed** by any dedicated page since the guide was removed.
 
-Role pages (`/membership/estheticians`, `/membership/lash-artists`, …) were **not** created: they would repeat the same five categories and add no unique value. The role long-tail is covered by sections on `/beauty-association` that deep-link to `/apply?category=…`. Create separate role pages only when each has unique content (see brief 6).
+Role pages (`/membership/estheticians`, `/membership/lash-artists`, …) were **not** created: they would repeat the same five categories and add no unique value. The role long-tail is therefore not covered by dedicated content today. Create role pages only when each has unique content (see brief 6) and a design-approved template.
 
 ---
 
@@ -129,7 +130,7 @@ All figures are **self-reported or third-party** and unverified.
 | Organization | What the SERP/site shows | Lesson for IBPA |
 |---|---|---|
 | **Professional Beauty Association (PBA)**, `probeauty.org` | Describes itself as the largest US beauty trade organization; tiered memberships (Licensed Professional, Student, Business, Salon & Spa, Visionary); advocacy campaigns; flagship events (NAHA, ISSE-related); a "Visionary Elite" brand-logo grid; "Our History" and annual-report pages; a SalonCentric partnership | Wins on age, advocacy, events, and brand partners. IBPA cannot match those today; it can match **clarity of membership tiers**, publish **governance documents**, and show **real events and partners**. |
-| **Associated Skin Care Professionals (ASCP)** | Positions itself as esthetician-specific, with insurance and education bundled (per search results) | Single-role focus ranks for role queries. IBPA's multi-role model needs role-specific explanation (done on the guide). |
+| **Associated Skin Care Professionals (ASCP)** | Positions itself as esthetician-specific, with insurance and education bundled (per search results) | Single-role focus ranks for role queries. IBPA's multi-role model needs role-specific explanation (not currently addressed). |
 | **National Cosmetology Association (NCA)** | Now operates under PBA per search results | Absorbed into PBA; confirms PBA's dominance for generic queries. |
 | **America's Beauty Show / Cosmetologists Chicago** | Salon-owner membership with show tickets and CE, regional | Local/event-linked membership. |
 | **International Beauty and Barber Association, CIDESCO, IFBC, SISA, IBITA** | Surface for "international beauty association" | The "international" space is fragmented and entity-ambiguous. A clean, consistent entity (full name, schema, `sameAs`) is an advantage. |
@@ -141,7 +142,7 @@ All figures are **self-reported or third-party** and unverified.
 
 ## 5. Implemented fixes and changed files
 
-60 files changed (+2,333 / −436 net of the revert). All paths are under `app/web/`.
+56 files changed (+1,711 / −435), net of the reverted header experiment and the removed guide page, excluding this report. All paths are under `app/web/`.
 
 | Commit | Change | Key files |
 |---|---|---|
@@ -149,8 +150,8 @@ All figures are **self-reported or third-party** and unverified.
 | `0ae2dd9` feat(seo) | Unique titles, descriptions, self-canonicals, OG/Twitter cards; `noindex` on private routes; `| IBPA` template scoped to `(public)` | `src/lib/seo/{metadata,pages}.ts` (+test), 16 new `layout.tsx` files, `(public)/layout.tsx`, `(public)/page.tsx`, private-route layouts |
 | `895ba87` feat(seo) | Organization, WebSite, BreadcrumbList JSON-LD | `src/lib/seo/json-ld.ts` (+test), `src/components/seo/JsonLd.tsx` |
 | `6c59be6` fix(perf) | Cookie banner no longer forces a full client re-render | `src/components/layout/CookieConsentBanner.tsx` |
-| `ff0049c` feat(seo) | `/beauty-association` guide; Article schema; footer link; navbar light-hero mode | `src/app/(public)/beauty-association/*`, `Footer.tsx`, `Navbar.tsx`, `json-ld.ts`, `pages.ts`, `routes.ts` |
-| `885be56` feat(seo) | Crawlable "what IBPA is" homepage section (en/ru/uk); typo fix | `AssociationOverviewSection.tsx`, `SponsorsSection.tsx`, `(public)/page.tsx` |
+| `ff0049c`, `885be56` | `/beauty-association` guide and homepage overview section (built; **removed in `97b6948`**). The "OUR PARTNERS" typo fix from `885be56` was kept. | `SponsorsSection.tsx` (kept); everything else removed |
+| `97b6948` refactor(seo) | Removes the guide page, the homepage section, the footer link and navbar entry, their `PAGE_SEO`/sitemap entries, and the unused Article schema builder | `beauty-association/*`, `AssociationOverviewSection.tsx`, `Footer.tsx`, `Navbar.tsx`, `pages.ts`, `routes.ts`, `json-ld.ts` (+test), `(public)/page.tsx` |
 | `b228fc6` feat(seo) | Server-rendered news and events | `public-content-server.ts` (+test), `public-content.ts`, `news/NewsPageClient.tsx`, `events/EventsPageClient.tsx`, new `page.tsx` wrappers |
 | `48b55c1` fix(a11y) | Heading hierarchy and `<main>` nesting | `Footer.tsx`, `EventCard.tsx`, `membership/page.tsx`, `members/{page,loading}.tsx` |
 | `5e86b71` perf(seo) | Correctly sized favicon and touch icons | `src/app/{favicon.ico,icon.png,apple-icon.png}` |
@@ -160,16 +161,17 @@ All figures are **self-reported or third-party** and unverified.
 - `5e86b71` says a 192 px icon is "a multiple of 48 as Google requires". Google's current favicon page recommends **more than 48×48 px** and does **not** require multiples of 48. The assets satisfy either reading.
 - `d821b5d`'s mirror `noindex` was reverted. Google says not to use `noindex` for canonicalization, and while the live sitemap/robots still advertise the Vercel host, Google may have chosen those URLs as canonical, so `noindex` there could drop the cluster. Redirect at Vercel instead (section 12).
 
-**Design and behavior preserved.** No existing layout, animation, form, payment, or auth code was altered. The new pages reuse the existing display fonts, colors, card radii, and button styles. Pre-existing lint findings (6 errors, 8 warnings in admin/dashboard/apply files) are unchanged and not caused by this work.
+**Design and behavior preserved.** No existing layout, animation, form, payment, or auth code was altered. The only visible change to existing UI is the "OUR PARTNERS" typo fix; the heading-level and landmark changes render identically. Pre-existing lint findings (6 errors, 8 warnings in admin/dashboard/apply files) are unchanged and not caused by this work.
 
 ---
 
-## 6. Newly optimized pages
+## 6. Optimized pages
+
+No new pages remain. The `/beauty-association` guide was built and then removed at the owner's request (see section 1).
 
 | Page | Title (suffix `| IBPA` added except homepage) | Notes |
 |---|---|---|
-| `/` | International Beauty Association for Professionals \| IBPA | New overview section; Organization + WebSite schema |
-| `/beauty-association` **(new)** | Professional Beauty Association: Why & How to Join | ~1,090-word answer-first guide: what a beauty association does, six-point selection checklist, IBPA membership by profession with live prices from `lib/membership`, joining steps, six FAQs. English-only by design. Every IBPA statement mirrors published copy; IBPA is described as **not** a licensing body. |
+| `/` | International Beauty Association for Professionals \| IBPA | Organization + WebSite schema |
 | `/about` | About IBPA: Mission, Vision & Nonprofit Status | |
 | `/membership` | Beauty Association Membership: Categories & Benefits | |
 | `/criteria` | Membership Criteria & Review Process | |
@@ -196,15 +198,14 @@ Google may rewrite any title it judges a poor match; the headings and `WebSite` 
 |---|---|---|
 | Organization | `/` | `name`, `alternateName` (IBPA, IBPA Associations), `url`, `logo` (navy logo, 843×341, above Google's 112×112 minimum, legible on white), `description`, `email`, `telephone`, `address`, `contactPoint`, `sameAs` (Instagram, the only profile the site links), `founder` (the President, as stated on `/governance`) |
 | WebSite | `/` | `name` + `alternateName` feed Google's site-name display. Per Google, it must be on the homepage. No `SearchAction` (there is no search). |
-| BreadcrumbList | 16 pages | Home › page |
-| Article | `/beauty-association` | Organization as author (no bylined editor exists yet) |
+| BreadcrumbList | 15 pages | Home › page |
 
 **Deliberately not added:** `FAQPage` (Google discontinued FAQ rich results on 2026-05-07, so it has no search benefit); `Event` and per-item `Article` for news (CMS items have no event dates or standalone URLs; see brief 7); `foundingDate`, awards, accreditations, member counts (the site states "2026 Founded" and "40+ Countries" together, which needs owner verification before it is machine-asserted).
 
 **Indexing controls:**
 - `robots.txt`: allow all; disallow `/api/` and `/admin`; correct canonical `Sitemap:`. The unsupported `Host:` line was removed.
 - `noindex, nofollow` meta on `/sign-in`, `/dashboard`, `/team-invite`, `/success`, `/payment-link/*`, `/application/*`, `/profile-preview/*` (and the `/admin` layout). These are **not** blocked in robots.txt, because a blocked URL cannot have its `noindex` read (Google's block-indexing guidance). `/success` was previously disallowed and now uses `noindex` instead. `/admin` stays disallowed in robots.txt and returns 401 to anonymous visitors, so it has no indexable content either way.
-- `sitemap.xml`: 17 canonical URLs, absolute, `lastmod` only where a real date is recorded (`/` and `/beauty-association`, 2026-10-09).
+- `sitemap.xml`: 16 canonical URLs, absolute, `lastmod` only where a real date is recorded (`/`, 2026-10-09).
 - Trailing-slash URLs 308-redirect to the canonical form; unknown URLs return a real 404.
 - A test fails the build if a new `(public)` route is added without being classified as indexable or `noindex`.
 
@@ -217,11 +218,11 @@ Google may rewrite any title it judges a poor match; the headings and `WebSite` 
 | Check | Before (live) | After (production build) |
 |---|---|---|
 | `robots.txt` sitemap / host | `ibpa-web.vercel.app` | `https://ibpassociations.org/sitemap.xml`; `Host:` removed |
-| Sitemap URLs | 15, all on `ibpa-web.vercel.app`; `/members` missing; `lastmod` = request time | 17, all on `ibpassociations.org`; 17/17 return 200, self-canonical, indexable |
-| Unique titles | 1 distinct title on 15 of 16 pages | 17/17 unique (19–59 characters) |
-| Unique descriptions | 1 shared description | 17/17 unique (109–157 characters) |
-| Canonical tags | 0 | 17/17 absolute, self-referencing |
-| Structured data | 0 blocks | Organization, WebSite (home); BreadcrumbList on 16 pages; Article on the guide; all parse as valid JSON with canonical absolute URLs |
+| Sitemap URLs | 15, all on `ibpa-web.vercel.app`; `/members` missing; `lastmod` = request time | 16, all on `ibpassociations.org`; 16/16 return 200, self-canonical, indexable |
+| Unique titles | 1 distinct title on 15 of 16 pages | 16/16 unique (19–59 characters) |
+| Unique descriptions | 1 shared description | 16/16 unique (109–157 characters) |
+| Canonical tags | 0 | 16/16 absolute, self-referencing |
+| Structured data | 0 blocks | Organization, WebSite (home); BreadcrumbList on 15 pages; all parse as valid JSON with canonical absolute URLs |
 | `og:image` | `https://ibpa-web.vercel.app/@/public/file.svg` (invalid) | `https://ibpassociations.org/og/ibpa-og.jpg` (1200×630, 46 KB, HTTP 200) |
 | `twitter:image` | `/og-image.png` → 404 | same JPG |
 | `/news` initial HTML | "Loading news…" | news items and dates (fixture backend) |
@@ -231,12 +232,12 @@ Google may rewrite any title it judges a poor match; the headings and `WebSite` 
 | Broken internal links | n/a | 0 across 33 distinct targets |
 | Favicon payload | 484,241 B | 6,550 B ICO (+31 KB 192 px, +23 KB 180 px icons) |
 | Hydration error on first visit | present (reproduced in dev) | none observed |
-| Unit tests | 135 pass | **161 pass** |
+| Unit tests | 135 pass | **160 pass** |
 | `tsc --noEmit` (src) | 0 errors | 0 errors |
 | `npm run lint` | 6 errors, 8 warnings | **identical** set of files and counts (all pre-existing) |
 | Production build | n/a | succeeds, 84 static pages generated |
 
-**Existing features re-checked on the build:** `/api/content` proxy returns items; unauthenticated `/admin` and `/api/admin/*` return 401 JSON; `/apply?category=Professional` loads and canonicalizes to `/apply`; the contact form renders with all fields; the cookie banner appears for new visitors, dismisses, and persists; mobile (375 px) shows no horizontal overflow on the new page; unknown URLs return 404.
+**Existing features re-checked on the build:** `/api/content` proxy returns items; unauthenticated `/admin` and `/api/admin/*` return 401 JSON; `/apply?category=Professional` loads and canonicalizes to `/apply`; the contact form renders with all fields; the cookie banner appears for new visitors, dismisses, and persists; unknown URLs return 404. After the guide's removal, a clean rebuild confirmed `/beauty-association` returns 404, the sitemap lists 16 URLs (all 200 and self-canonical), and all 70 internal link targets resolve.
 
 **Not verified here:** Core Web Vitals (no reliable measurement available); behavior behind real Clerk and Stripe credentials; the live deployment.
 
@@ -246,12 +247,12 @@ Reference load measured on the live homepage before changes (embedded browser, n
 
 ## 9. Recommended future articles and landing pages
 
-Create these **only with the inputs listed**; each serves a distinct intent. None should be thin variations of existing pages.
+Create these **only with the inputs listed**; each serves a distinct intent. None should be thin variations of existing pages. Because the first guide page was removed on design grounds, **agree a page template with the design owners before writing any of these**.
 
 | # | Page | Target intent | Why it is worth doing | What is needed before writing |
 |---|---|---|---|---|
 | 1 | `/resources/beauty-associations-in-usa` | "beauty associations", "beauty associations in the USA" (informational list/compare) | This SERP is owned by listicles and aggregators; a rigorous, neutral comparison can earn links and citations | Verified facts for each association from its **official** site (founding, membership types, fees, eligibility, advocacy, date checked). Include IBPA neutrally and say plainly who it is for. Do not copy third-party member counts. |
-| 2 | `/resources/benefits-of-beauty-association-membership` | "benefits of joining a beauty association" | Informational, links to `/beauty-association` and `/membership` | A short, honest benefits framework; quotes from real members (with written consent) |
+| 2 | `/resources/benefits-of-beauty-association-membership` | "benefits of joining a beauty association" | Informational, links to `/membership` | A short, honest benefits framework; quotes from real members (with written consent) |
 | 3 | `/resources/professional-standards-for-lash-and-brow-artists` | lash/brow standards and association (no clear competitor surfaced) | Board members Tetiana Kysliuk and Eleonora Bediukh are described on `/governance` as lash-lamination and brow experts and accredited judges, which is genuine first-hand expertise | Authorship by those board members with bio and `Person` schema; their own words on quality benchmarks; no invented credentials |
 | 4 | `/resources/salon-owner-guide-to-professional-associations` | salon-owner commercial investigation | Business Owner category (team seats, license requirement) is a real differentiator | Facts from `/membership`; owner perspectives |
 | 5 | `/resources/beauty-licensing-and-state-boards` | "do estheticians need an association" / licensing questions | High-demand, but legal-adjacent | Per-state research with links to each **state board**; legal review; keep the "IBPA is not a licensing body" statement prominent |
@@ -286,7 +287,7 @@ Create and keep consistent (same full name, address, phone, logo): LinkedIn comp
 | **Trade publications** | Modern Salon, Salon Today, American Salon, Skin Inc., Beauty Launchpad, Behind the Chair, Nails Magazine, Les Nouvelles Esthétiques | Newsworthy: IBPA Beauty Awards winners, Forum 2026 results, new championships, a lash/brow standards piece by board experts | Editorial contact paths were **not verifiable** from search results; confirm each publication's current submission page. Send relevant, concise news, not generic releases. |
 | **Beauty schools and academies** | Educators in the Trainer/Educator category | Career-services and "professional associations" pages list recommended memberships | Offer a student-relevant explainer and the Specialist category; educators link their own membership |
 | **Event and brand partners** | Forum sponsors, TB Champions partners | Co-marketing and sponsor pages | Reciprocal, factual partner pages |
-| **Podcasts and radio** | NePOP Radio (named partner), beauty-business podcasts | Expert interviews with board members | Show notes linking to the guide or governance page |
+| **Podcasts and radio** | NePOP Radio (named partner), beauty-business podcasts | Expert interviews with board members | Show notes linking to the governance or membership page |
 | **Journalist-request platforms** | Expert-quote services (verify each platform's terms) | Board experts answering reporter queries | Respond only where there is genuine expertise |
 
 **Member-driven links.** Members may legitimately cite IBPA membership in bios. Provide a simple member badge or embed that links to `/members` (not to the `noindex` profile preview) as a product follow-up.
@@ -309,7 +310,7 @@ Create and keep consistent (same full name, address, phone, logo): LinkedIn comp
 1. Add a **Domain property** `ibpassociations.org` and verify via DNS TXT. (Domain properties cover `www`, subdomains, http/https.)
 2. Also add the URL-prefix property `https://ibpassociations.org/` for per-path reports.
 3. **Deploy first**, then Sitemaps → submit `https://ibpassociations.org/sitemap.xml`.
-4. URL Inspection → inspect `/`, `/beauty-association`, `/membership`, `/news`; use *Request indexing* for the new and changed pages. Confirm the user-declared canonical equals the Google-selected canonical.
+4. URL Inspection → inspect `/`, `/membership`, `/news`; use *Request indexing* for the changed pages. Confirm the user-declared canonical equals the Google-selected canonical.
 5. Do **not** add the `ibpa-web.vercel.app` host as a property unless you want its data; consolidation happens through the redirect and canonicals.
 6. Import the property into **Bing Webmaster Tools** (IndexNow is optional).
 
@@ -317,11 +318,11 @@ Create and keep consistent (same full name, address, phone, logo): LinkedIn comp
 
 | Report | What to watch |
 |---|---|
-| Pages (indexing) | The 17 sitemap URLs reach "Indexed"; `/dashboard`, `/sign-in`, etc. appear under "Excluded by noindex" (expected); any "Duplicate, Google chose different canonical" entries naming `ibpa-web.vercel.app` should decline |
-| Sitemaps | Status "Success", discovered URL count 17, no host warnings |
+| Pages (indexing) | The 16 sitemap URLs reach "Indexed"; `/dashboard`, `/sign-in`, etc. appear under "Excluded by noindex" (expected); any "Duplicate, Google chose different canonical" entries naming `ibpa-web.vercel.app` should decline |
+| Sitemaps | Status "Success", discovered URL count 16, no host warnings |
 | Performance | Filter queries containing "IBPA" or "International Beauty Professionals Association" (brand) vs everything else (non-brand). Track impressions and average position for: *beauty association*, *professional beauty association*, *beauty association membership*, role-based phrases. Expect brand impressions first. |
 | Core Web Vitals | Field LCP, INP, CLS by mobile/desktop once enough traffic exists. This is where real CWV evidence will come from. |
-| Enhancements / Rich results | Breadcrumbs valid; run the Rich Results Test on `/` and `/beauty-association` after deploy |
+| Enhancements / Rich results | Breadcrumbs valid; run the Rich Results Test on `/` after deploy |
 | Links | Referring domains growth; confirm the `ibpa-forum.com` link appears |
 | Settings → Crawl stats | Host status; certificate errors for `www` until fixed |
 
@@ -332,7 +333,7 @@ Create and keep consistent (same full name, address, phone, logo): LinkedIn comp
 ## 12. Remaining tasks, prioritized
 
 ### Completed in code (this branch, verified on a production build, not yet deployed)
-Canonical-origin fix; sitemap and robots; per-page metadata and canonicals; Open Graph/Twitter image; Organization, WebSite, BreadcrumbList, and Article schema; `noindex` for private pages; `/beauty-association`; homepage overview; server-rendered news/events; heading and landmark fixes; cookie-banner hydration fix; favicon optimization; 26 new tests.
+Canonical-origin fix; sitemap and robots; per-page metadata and canonicals; Open Graph/Twitter image; Organization, WebSite, and BreadcrumbList schema; `noindex` for private pages; server-rendered news/events; heading and landmark fixes; cookie-banner hydration fix; favicon optimization; 25 new tests.
 
 ### Requires external access, publishing, or a manual decision
 
@@ -349,14 +350,15 @@ Canonical-origin fix; sitemap and robots; per-page metadata and canonicals; Open
 8. Write brief 1 (US associations comparison) and brief 3 (lash/brow standards by board experts).
 9. Decide whether public member profiles should be indexable (unique titles, consent). They are `noindex` for now.
 10. Review GA/Meta Pixel loading versus the cookie banner choice with whoever owns privacy compliance.
+11. **Optional, design-compatible homepage identity statement.** The homepage currently never says in plain words what kind of association IBPA is beyond the existing About block ("a professional nonprofit organization dedicated to supporting excellence in the beauty industry"), and the category terms are not targeted by any page. If you want that, the lowest-impact route is to adjust the wording of the *existing* About and Hero copy in the i18n dictionary (no new section or layout), or to approve a page template first (section 9). Do this only if it fits the design direction.
 
 **P2: later**
-11. **Performance architecture:** the `(public)` layout reads the locale cookie, which makes every public page dynamic and uncacheable (`cache-control: private, no-store`). Moving language to the URL (`/ru`, `/uk`) or to client-side switching would enable CDN caching and also give Russian/Ukrainian content crawlable URLs with `hreflang` (currently only English can be indexed). This is a product decision with a large blast radius.
-12. Set `<html lang>` from the active locale.
-13. Backend support for `/news/[slug]`, `/events/[slug]`, and structured event dates, then add `Article` and `Event` markup (brief 7).
-14. Add `foundingDate` to schema once the founding claim is verified.
-15. Optional: a custom 404 page with links to the guide and membership pages (the current default returns a correct 404).
-16. Security headers (CSP, X-Frame-Options, etc.) are not set by the app; Vercel adds HSTS only. Not an SEO factor but part of general hygiene.
+12. **Performance architecture:** the `(public)` layout reads the locale cookie, which makes every public page dynamic and uncacheable (`cache-control: private, no-store`). Moving language to the URL (`/ru`, `/uk`) or to client-side switching would enable CDN caching and also give Russian/Ukrainian content crawlable URLs with `hreflang` (currently only English can be indexed). This is a product decision with a large blast radius.
+13. Set `<html lang>` from the active locale.
+14. Backend support for `/news/[slug]`, `/events/[slug]`, and structured event dates, then add `Article` and `Event` markup (brief 7).
+15. Add `foundingDate` to schema once the founding claim is verified.
+16. Optional: a custom 404 page with links to the membership and contact pages (the current default returns a correct 404).
+17. Security headers (CSP, X-Frame-Options, etc.) are not set by the app; Vercel adds HSTS only. Not an SEO factor but part of general hygiene.
 
 ---
 
@@ -364,7 +366,7 @@ Canonical-origin fix; sitemap and robots; per-page metadata and canonicals; Open
 
 ```bash
 # From app/web
-npm test                                   # 161 tests
+npm test                                   # 160 tests
 npx tsc --noEmit                           # src/ is clean; stale .next/types duplicates in this checkout are environmental
 npm run lint                               # 6 errors / 8 warnings, all pre-existing
 rm -rf .next && NEXT_PUBLIC_SITE_URL=https://ibpa-web.vercel.app npx next build
