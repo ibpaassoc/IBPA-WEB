@@ -95,6 +95,39 @@ export function breadcrumbJsonLd(trail: readonly BreadcrumbItem[]): JsonLdObject
   };
 }
 
+type ArticleInput = {
+  headline: string;
+  description: string;
+  /** Site-relative path of the article. */
+  path: string;
+  /** ISO dates (YYYY-MM-DD). `dateModified` must change whenever the content does. */
+  datePublished: string;
+  dateModified: string;
+  /** Site-relative image path. */
+  imagePath: string;
+};
+
+/**
+ * Article for editorial guides. The organization is the author because the
+ * guide is published by IBPA rather than a named writer; add a Person author
+ * once a bylined editor exists.
+ */
+export function articleJsonLd(input: ArticleInput): JsonLdObject {
+  return {
+    "@context": SCHEMA_CONTEXT,
+    "@type": "Article",
+    headline: input.headline,
+    description: input.description,
+    mainEntityOfPage: { "@type": "WebPage", "@id": absoluteUrl(input.path) },
+    image: [absoluteUrl(input.imagePath)],
+    datePublished: input.datePublished,
+    dateModified: input.dateModified,
+    author: { "@type": "Organization", "@id": organizationId(), name: ORGANIZATION.name },
+    publisher: { "@type": "Organization", "@id": organizationId(), name: ORGANIZATION.name },
+    inLanguage: "en",
+  };
+}
+
 /**
  * Serializes JSON-LD for inline `<script>` use. Escapes `<` so page content
  * can never close the script element, plus the two line separators that are

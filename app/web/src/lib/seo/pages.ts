@@ -28,6 +28,13 @@ export const PAGE_SEO = {
       "IBPA is an international beauty association for estheticians, cosmetologists, lash and brow artists, educators, salon owners, and brands. Explore membership.",
     breadcrumb: "Home",
   },
+  beautyAssociation: {
+    path: "/beauty-association",
+    title: "Professional Beauty Association: Why & How to Join",
+    description:
+      "What a beauty association does, how to choose one, and how IBPA membership works for estheticians, cosmetologists, lash artists, salon owners, and educators.",
+    breadcrumb: "Beauty Association",
+  },
   about: {
     path: "/about",
     title: "About IBPA: Mission, Vision & Nonprofit Status",
