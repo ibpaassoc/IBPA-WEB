@@ -1,33 +1,15 @@
 import type { MetadataRoute } from "next";
-import { getLandingOrigin } from "@/lib/public-urls";
+import { INDEXABLE_ROUTES } from "@/lib/seo/routes";
+import { absoluteUrl } from "@/lib/seo/site";
 
-const siteUrl = getLandingOrigin();
-
-const routes = [
-  "",
-  "/about",
-  "/membership",
-  "/criteria",
-  "/standards",
-  "/contact",
-  "/apply",
-  "/partnership",
-  "/governance",
-  "/faq",
-  "/news",
-  "/events",
-  "/privacy",
-  "/terms",
-  "/cancellation-policy",
-];
-
+/**
+ * Google ignores `priority` and `changefreq`, and only trusts `lastmod` when
+ * it is accurate, so entries carry a `lastModified` only when a real date is
+ * recorded in `INDEXABLE_ROUTES`.
+ */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
-
-  return routes.map((route) => ({
-    url: `${siteUrl}${route}`,
-    lastModified: now,
-    changeFrequency: route === "" ? "weekly" : "monthly",
-    priority: route === "" ? 1 : route === "/apply" || route === "/membership" ? 0.9 : 0.8,
+  return INDEXABLE_ROUTES.map(({ path, lastModified }) => ({
+    url: absoluteUrl(path),
+    ...(lastModified ? { lastModified } : {}),
   }));
 }
