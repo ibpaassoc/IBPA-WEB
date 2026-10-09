@@ -38,14 +38,14 @@ export const SponsorsSection = async ({ locale }: SponsorsSectionProps) => {
   const content =
     locale === "ru"
       ? {
-          title: "OURS PARTNERS",
+          title: "OUR PARTNERS",
         }
       : locale === "uk"
         ? {
-            title: "OURS PARTNERS",
+            title: "OUR PARTNERS",
           }
         : {
-            title: "OURS PARTNERS",
+            title: "OUR PARTNERS",
           };
 
   return (
