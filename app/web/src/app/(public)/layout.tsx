@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Script from "next/script";
 import { cookies } from "next/headers";
 
@@ -6,6 +7,15 @@ import { Footer } from "@/components/layout/Footer";
 import { CookieConsentBanner } from "@/components/layout/CookieConsentBanner";
 import { I18nProvider } from "@/lib/i18n";
 import { resolveLocale } from "@/lib/locale";
+
+// The "| IBPA" suffix is scoped to public pages; admin and dashboard routes
+// already carry their own "| IBPA Admin" style titles.
+export const metadata: Metadata = {
+  title: {
+    default: "IBPA - International Beauty Professionals Association",
+    template: "%s | IBPA",
+  },
+};
 
 export default async function PublicLayout({
   children,

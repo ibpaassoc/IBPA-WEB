@@ -5,6 +5,9 @@ import { getAdminPageAuth } from "@/lib/admin-api-auth";
 import { AppClerkProvider } from "@/lib/clerk-provider";
 import { I18nProvider } from "@/lib/i18n";
 import { resolveLocale } from "@/lib/locale";
+import { NOINDEX_METADATA } from "@/lib/seo/metadata";
+
+export const metadata = NOINDEX_METADATA;
 
 export default async function AdminLayout({
   children,

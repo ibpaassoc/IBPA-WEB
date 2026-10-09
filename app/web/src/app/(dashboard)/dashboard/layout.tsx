@@ -3,6 +3,9 @@ import { cookies } from "next/headers";
 import { AppClerkProvider } from "@/lib/clerk-provider";
 import { DashboardI18nProvider } from "@/lib/dashboard-i18n-provider";
 import { resolveLocale } from "@/lib/locale";
+import { NOINDEX_METADATA } from "@/lib/seo/metadata";
+
+export const metadata = NOINDEX_METADATA;
 
 export default async function DashboardLayout({
   children,

@@ -1,16 +1,13 @@
-import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
 import { MembersDirectory } from "@/features/members/components/MembersDirectory";
 import { getAllPublicMembers } from "@/features/members/server/get-members";
 import { homeTemplateDisplay } from "@/lib/home-template-fonts";
 import { resolveLocale } from "@/lib/locale";
+import { buildPageMetadata } from "@/lib/seo/metadata";
+import { PAGE_SEO } from "@/lib/seo/pages";
 
-export const metadata: Metadata = {
-  title: "Members Directory | IBPA",
-  description:
-    "Browse active members of the International Beauty Professionals Association — beauty specialists, educators, and brands from around the world.",
-};
+export const metadata = buildPageMetadata(PAGE_SEO.members);
 
 function getCopy(locale: "en" | "ru" | "uk") {
   if (locale === "ru") {

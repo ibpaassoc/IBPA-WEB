@@ -12,6 +12,10 @@ import { GovernancePreviewSection } from "@/components/landing/GovernancePreview
 import { SponsorsSection } from "@/components/landing/SponsorsSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { resolveLocale } from "@/lib/locale";
+import { buildPageMetadata } from "@/lib/seo/metadata";
+import { PAGE_SEO } from "@/lib/seo/pages";
+
+export const metadata = buildPageMetadata({ ...PAGE_SEO.home, absoluteTitle: true });
 
 export default async function Home() {
   const cookieStore = await cookies();
