@@ -8,18 +8,6 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
-  async headers() {
-    return [
-      {
-        // The same deployment is reachable on its *.vercel.app hostname, which
-        // search engines can crawl as a full duplicate of ibpassociations.org.
-        // Keep every such host out of the index; the custom domain is unaffected.
-        source: "/:path*",
-        has: [{ type: "host", value: "(.*)\\.vercel\\.app" }],
-        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
-      },
-    ];
-  },
   images: {
     // Cap the largest generated rendition at 2560px — the default ladder went up
     // to 3840px, which made full-bleed heroes request ~multi-MB images on
